@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Human vs LorFish</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="game">
+  <div class="board-wrap">
+    <div class="captured" id="capturedTop"></div>
+    <div class="board" id="board"></div>
+    <div class="captured" id="capturedBottom"></div>
+    <div class="promo" id="promo">
+      <div class="promo-box">
+        <div>Choose Promotion:</div>
+        <div class="options" id="promoOptions"></div>
+      </div>
+    </div>
+  </div>
+  <div class="info">
+    <h2>Chess Game</h2>
+    <p>Play as:
+      <select id="humanColor">
+        <option value="w" selected>White</option>
+        <option value="b">Black</option>
+      </select>
+    </p>
+    <p id="whiteLabel">White: Human</p>
+    <p id="blackLabel">Black: LorFish</p>
+    <p>Depth:
+      <select id="depth">
+        <option value="2" selected>2 (~1400)</option>
+        <option value="4">4 (~1800)</option>
+      </select>
+    </p>
+    <p id="turn">Turn: White</p>
+    <div class="scanner" id="scanner" aria-hidden="true">
+      <div class="scanner-led"></div>
+      <div class="scanner-led"></div>
+      <div class="scanner-led"></div>
+      <div class="scanner-led"></div>
+      <div class="scanner-led"></div>
+      <div class="scanner-led"></div>
+    </div>
+    <p id="status"></p>
+    <h3>PGN</h3>
+    <div id="history"></div>
+    <p style="margin-top:12px;">
+      <button id="undoBtn">Undo (R)</button>
+      <button id="resetBtn">New Game</button>
+      <button id="loadFenBtn">Load FEN</button>
+    </p>
+    <p style="color:#969696; font-size:12px;">Click a piece, then click a destination.</p>
+  </div>
+</div>
+
+<div id="fenPanel" class="fen-modal" role="dialog" aria-modal="true" aria-labelledby="fenTitle">
+  <div class="fen-modal-box">
+    <h3 id="fenTitle">Load FEN</h3>
+    <textarea id="fenText" rows="3"
+      placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"></textarea>
+    <p>
+      <button id="fenLoadBtn">Load</button>
+      <button id="fenCancelBtn">Cancel</button>
+    </p>
+    <div id="fenError" class="fen-error"></div>
+  </div>
+</div>
+
+<script src="chess.js"></script>
+<script src="lorfish.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
