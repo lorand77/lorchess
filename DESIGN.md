@@ -7,7 +7,7 @@ A chess web application where authenticated users play **against the LorFish AI*
 The repo is greenfield except for a complete **vanilla-JS** chess app in `tmp/`:
 
 - `tmp/chess.js` — framework-agnostic `Chess` class (move gen, legality, FEN, SAN, draw/mate detection). Defines globals `W`/`B`. Runs in browser **and** Node.
-- `tmp/lorfish.js` — custom synchronous engine "LorFish" (`LorFish.getBestMove(chess, depth)`, ~1400–1800). Depends tightly on `chess.js`. **Blocks the main thread** during search — the original code papers over this with a `setTimeout` paint hack + a Web-Audio "scanner" sound.
+- `tmp/lorfish.js` — custom synchronous engine "LorFish" (`LorFish.getBestMove(chess, depth)`, ~1400–1800). Depends tightly on `chess.js`. **Blocks the main thread** during search — the original code papers over this with a `setTimeout` paint hack + a Web-Audio "scanner" sound. The Web Worker approach (below) eliminates the freeze, so the scanner is dropped.
 - `tmp/ui.js` + `styles.css` + `index.html` + `assets/` — DOM board (CSS grid, click-to-move), promotion modal, captured pieces, PGN export, FEN load, sounds. The opponent is **hardwired** to LorFish.
 
 There is no backend, DB, auth, or `package.json`. This design adds them while **reusing the UI and AI nearly verbatim**.
@@ -66,7 +66,7 @@ There is no backend, DB, auth, or `package.json`. This design adds them while **
 ## AI gameplay — client-side Web Worker
 
 - `public/js/engineWorker.js`: `importScripts('/js/chess.js','/js/lorfish.js')`, receives `{fen, moves, depth}`, rebuilds `Chess` (loadFen + **replay moves** so `positionCounts`/threefold is correct, since `loadFen` resets it), calls `LorFish.getBestMove`, posts back `{from,to,promo}`.
-- Main thread's old `makeEngineMove` becomes async: post to worker → await reply → apply move. **This removes the `setTimeout` paint hack and the missing `Scanner.mp3` dependency** (the freeze the hacks worked around no longer exists). Scanner can become a CSS-only animation or be dropped.
+- Main thread's old `makeEngineMove` becomes async: post to worker → await reply → apply move. **This removes the `setTimeout` paint hack and the scanner sound entirely** (the freeze the hacks worked around no longer exists, so no scanner — sound or animation — is needed).
 - AI games are still persisted server-side (games/moves rows); client is authoritative for its own solo game in v1.
 
 ## Real-time multiplayer

@@ -1,0 +1,13 @@
+{
+  "name": "lorchess",
+  "version": "0.1.0",
+  "description": "Chess web app — play LorFish (AI) or other users in real time.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
