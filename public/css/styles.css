@@ -165,3 +165,38 @@ select {
 }
 .fen-modal-box p { margin: 10px 0 0; }
 .fen-error { color: #ff6464; font-size: 12px; min-height: 16px; margin-top: 8px; }
+
+/* --- auth (login.html) --- */
+.auth-card {
+  width: 320px;
+  margin: 60px auto 0;
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 28px 28px 24px;
+}
+.auth-card h1 { margin: 0 0 4px; font-size: 24px; }
+.auth-card .tagline { margin: 0 0 20px; color: #969696; font-size: 13px; }
+.auth-card label { display: block; margin: 12px 0 4px; font-size: 13px; color: #d8d8d8; }
+.auth-card input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1e1e1e;
+  color: #fff;
+  border: 1px solid #666;
+  border-radius: 4px;
+  padding: 9px 10px;
+  font-size: 14px;
+}
+.auth-card input:focus { outline: none; border-color: #8aa6c8; }
+.auth-actions { display: flex; gap: 10px; margin-top: 18px; }
+.auth-actions button { flex: 1; margin: 0; padding: 10px; }
+.auth-actions .primary { background: #3d6098; }
+.auth-actions .primary:hover { background: #4a73b5; }
+.auth-error { color: #ff6464; font-size: 13px; min-height: 18px; margin-top: 12px; }
+.auth-msg { color: #7fc77f; font-size: 13px; min-height: 18px; margin-top: 12px; }
+
+/* user bar on the game page */
+.userbar { display: flex; align-items: center; gap: 10px; color: #d8d8d8; font-size: 13px; }
+.userbar .who { font-weight: bold; color: #fff; }
+.userbar button { margin: 0; padding: 4px 10px; font-size: 12px; }

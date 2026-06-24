@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Sign in</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="auth-card">
+  <h1>LorChess</h1>
+  <p class="tagline">Sign in to play LorFish or other users.</p>
+
+  <form id="authForm" autocomplete="on">
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username"
+           minlength="3" maxlength="20" required>
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password"
+           minlength="6" required>
+
+    <div class="auth-actions">
+      <button type="submit" class="primary" id="loginBtn">Log in</button>
+      <button type="button" id="registerBtn">Register</button>
+    </div>
+  </form>
+
+  <div class="auth-error" id="error"></div>
+  <div class="auth-msg" id="message"></div>
+</div>
+
+<script src="/js/login.js"></script>
+</body>
+</html>

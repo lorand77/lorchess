@@ -5,9 +5,14 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "db:reset": "node src/db/reset.js"
   },
   "dependencies": {
-    "express": "5.1.0"
+    "argon2": "0.44.0",
+    "better-sqlite3": "12.11.1",
+    "better-sqlite3-session-store": "0.1.0",
+    "express": "5.1.0",
+    "express-session": "1.19.0"
   }
 }

@@ -19,6 +19,7 @@
     </div>
   </div>
   <div class="info">
+    <div class="userbar" id="userbar"></div>
     <h2>LorChess</h2>
     <p>Play as:
       <select id="humanColor">
@@ -60,8 +61,10 @@
   </div>
 </div>
 
-<!-- chess.js is served from src/shared (/js); LorFish is NOT loaded here —
-     it runs only inside the Web Worker so its search never blocks the UI. -->
+<!-- authGuard redirects to /login.html if the session is missing, and renders
+     the user bar. chess.js is served from src/shared (/js); LorFish is NOT
+     loaded here — it runs only in the Web Worker so it never blocks the UI. -->
+<script src="/js/authGuard.js"></script>
 <script src="/js/chess.js"></script>
 <script src="/js/moveSource.js"></script>
 <script src="/js/ui.js"></script>
