@@ -27,9 +27,27 @@ function createRoom(gameId, { whiteId, blackId, whiteName, blackName, startFen }
     sans: [],
     status: "active",
     startFen: startFen || null,
+    // Connected socket ids per color, and a pending forfeit timer per color.
+    online: { w: new Set(), b: new Set() },
+    timers: { w: null, b: null },
   };
   rooms.set(gameId, room);
   return room;
+}
+
+function clearTimers(room) {
+  for (const c of ["w", "b"]) {
+    if (room.timers[c]) {
+      clearTimeout(room.timers[c]);
+      room.timers[c] = null;
+    }
+  }
+}
+
+// Boot cleanup: abort any game left 'active' from a previous run (its in-memory
+// room didn't survive the restart). Returns the number of games aborted.
+function cleanupOrphanedGames() {
+  return queries.abortOrphanedGames.run().changes;
 }
 
 function getRoom(gameId) {
@@ -74,4 +92,12 @@ function nameOf(userId) {
   return u ? u.username : "?";
 }
 
-module.exports = { createRoom, getRoom, deleteRoom, loadRoomFromDb, STANDARD_START };
+module.exports = {
+  createRoom,
+  getRoom,
+  deleteRoom,
+  loadRoomFromDb,
+  clearTimers,
+  cleanupOrphanedGames,
+  STANDARD_START,
+};

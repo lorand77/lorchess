@@ -534,6 +534,11 @@ function initAi() {
 }
 
 // ---- PvP mode ----
+function pvpNotice(text) {
+  const el = document.getElementById('pvpNotice');
+  if (el) el.textContent = text || '';
+}
+
 function initPvp(gameId) {
   pvpMode = true;
   pgnEvent = 'LorChess PvP';
@@ -541,29 +546,29 @@ function initPvp(gameId) {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   }
+  const pvpControls = document.getElementById('pvpControls');
+  if (pvpControls) pvpControls.style.display = '';
+  const resignBtn = document.getElementById('resignBtn');
 
   statusEl.textContent = 'Connecting…';
 
   const socket = connectSocket({
-    onError: (err) => {
-      statusEl.textContent = 'Connection error: ' + err.message;
-      statusEl.className = 'check-text';
-    },
-    onDisconnect: () => {
-      if (!gameIsOver()) {
-        statusEl.textContent = 'Disconnected — trying to reconnect…';
-        statusEl.className = 'check-text';
-      }
-    },
+    onError: (err) => pvpNotice('Connection error: ' + err.message),
+    onDisconnect: () => { if (!gameIsOver()) pvpNotice('Disconnected — reconnecting…'); },
   });
 
-  socket.on('game:over', (info) => {
-    pvpResult = info;
-    render();
-  });
+  if (resignBtn) {
+    resignBtn.addEventListener('click', () => {
+      if (gameIsOver()) return;
+      if (!window.confirm('Resign this game?')) return;
+      socket.emit('game:resign', { gameId });
+    });
+  }
 
-  // (Re)join whenever the socket (re)connects.
+  // (Re)join whenever the socket (re)connects; the ack restores board state,
+  // and on the server side cancels any pending forfeit timer.
   socket.on('connect', () => {
+    pvpNotice('');
     socket.emit('game:join', { gameId }, (resp) => {
       if (!resp || !resp.ok) {
         statusEl.textContent = 'Cannot join game: ' + ((resp && resp.error) || 'unknown error');
@@ -572,6 +577,26 @@ function initPvp(gameId) {
       }
       applyPvpState(socket, resp.state);
     });
+  });
+
+  // Game-event listeners registered ONCE; they dispatch to the *current*
+  // moveSource so a reconnect (which rebuilds the source) never stacks them.
+  socket.on('move:made', (m) => {
+    if (moveSource && moveSource.onServerMove) moveSource.onServerMove(m);
+  });
+  socket.on('game:over', (info) => {
+    pvpResult = info;
+    pvpNotice('');
+    if (resignBtn) resignBtn.disabled = true;
+    render();
+  });
+  socket.on('opponent:disconnected', (info) => {
+    const secs = Math.round((info.graceMs || 0) / 1000);
+    pvpNotice(`Opponent disconnected — ${secs}s to reconnect…`);
+  });
+  socket.on('opponent:reconnected', () => {
+    pvpNotice('Opponent reconnected.');
+    setTimeout(() => pvpNotice(''), 3000);
   });
 }
 

@@ -8,6 +8,12 @@ const sessionMiddleware = require("./auth/session");
 const authRoutes = require("./auth/routes");
 const gameRoutes = require("./game/routes");
 const { attachSockets } = require("./game/socket");
+const rooms = require("./game/rooms");
+
+// Boot cleanup: abort games left 'active' by a previous run (their in-memory
+// rooms didn't survive the restart). Run once at startup, before serving.
+const aborted = rooms.cleanupOrphanedGames();
+if (aborted > 0) console.log(`Aborted ${aborted} orphaned game(s) from a previous run.`);
 
 const app = express();
 

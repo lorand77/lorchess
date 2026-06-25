@@ -14,4 +14,7 @@ module.exports = {
 
   // Reserved system account that owns the AI side of games (M3+).
   AI_USERNAME: "LorFish",
+
+  // Grace period a disconnected PvP player has to reconnect before forfeiting.
+  DISCONNECT_GRACE_MS: parseInt(process.env.GRACE_MS, 10) || 45000,
 };

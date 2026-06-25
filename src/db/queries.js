@@ -40,6 +40,20 @@ module.exports = {
         finished_at = datetime('now')
     WHERE id = ?
   `),
+  // Aborted = ended without a result (early disconnect, etc.).
+  abortGame: db.prepare(`
+    UPDATE games
+    SET status = 'aborted', termination = ?, finished_at = datetime('now')
+    WHERE id = ?
+  `),
+  // Boot cleanup: any game still 'active' after a restart is orphaned (its
+  // in-memory room is gone), so abort it. Returns changes via .run().
+  abortOrphanedGames: db.prepare(`
+    UPDATE games
+    SET status = 'aborted', termination = 'server-restart',
+        finished_at = datetime('now')
+    WHERE status = 'active'
+  `),
 
   // --- moves ---
   insertMove: db.prepare(`

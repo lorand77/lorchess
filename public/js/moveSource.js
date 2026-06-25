@@ -74,15 +74,11 @@ function createAiMoveSource(env) {
 }
 
 // ---- PvP: moves relayed through the authoritative server ----
+// The socket's move:made/game-event listeners are registered ONCE in ui.js
+// (initPvp) and dispatched to the current source via onServerMove — so a
+// reconnect (which rebuilds the source) never stacks duplicate listeners.
 function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
   let busy = false; // a move is awaiting server confirmation
-
-  // The server broadcasts every accepted move to the whole room, including the
-  // mover — so BOTH players apply moves only on this event. Single source of truth.
-  socket.on("move:made", (m) => {
-    busy = false;
-    env.applyMove({ from: m.from, to: m.to, promo: m.promo }, false);
-  });
 
   return {
     kind: "remote",
@@ -103,7 +99,15 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
         }
       );
     },
+    // The server broadcasts every accepted move to the whole room, including the
+    // mover — so BOTH players apply moves only here. Single source of truth.
+    onServerMove(m) {
+      busy = false;
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo }, false);
+    },
     kickIfEngineTurn() {}, // no engine in PvP
-    cancel() {},
+    cancel() {
+      busy = false;
+    },
   };
 }
