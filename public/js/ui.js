@@ -14,6 +14,14 @@ let startFullmove = 1;
 let startTurn = W;
 let startFen = null;
 
+// Opponent abstraction + mode. moveSource is assigned in initAi()/initPvp().
+let moveSource = null;
+let pvpMode = false;
+let pvpResult = null;            // {result, termination} once a PvP game ends
+let whiteName = 'Human';
+let blackName = 'LorFish';
+let pgnEvent = 'Human vs LorFish';
+
 const boardEl       = document.getElementById('board');
 const turnEl        = document.getElementById('turn');
 const statusEl      = document.getElementById('status');
@@ -32,8 +40,25 @@ const fenLoadBtn    = document.getElementById('fenLoadBtn');
 const fenCancelBtn  = document.getElementById('fenCancelBtn');
 const fenError      = document.getElementById('fenError');
 
-// The opponent. M1: always the LorFish Web Worker behind AiMoveSource.
-const moveSource = createAiMoveSource({
+function setThinking(v) {
+  thinking = v;
+  render();
+}
+
+function getDepth() {
+  return parseInt(document.getElementById('depth').value, 10);
+}
+
+function gameIsOver() {
+  return chess.isGameOver() || !!pvpResult;
+}
+
+// Server-side persistence of the AI game (best-effort; never blocks play).
+// Unused in PvP, where the server is authoritative and persists moves itself.
+const gameStore = createGameStore();
+
+// Shared environment handed to whichever move source is active.
+const env = {
   getHumanColor: () => humanColor,
   getTurn:       () => chess.turn,
   isGameOver:    () => chess.isGameOver(),
@@ -46,23 +71,39 @@ const moveSource = createAiMoveSource({
       promo: h.move.promo || null,
     })),
   }),
-  applyRemoteMove,
+  applyMove,
   setThinking,
-});
+  onReject: (msg) => {
+    statusEl.textContent = msg || 'Move rejected.';
+    statusEl.className = 'check-text';
+  },
+};
 
-function setThinking(v) {
-  thinking = v;
+// Apply a move to the board: the single path for engine moves, the player's own
+// confirmed moves, and the opponent's moves. `record` persists client-side
+// (AI mode only); in PvP the server already persisted it.
+function applyMove(rmove, record) {
+  const move = chess.legalMoves().find(m =>
+    m.from === rmove.from &&
+    m.to === rmove.to &&
+    (rmove.promo ? m.promo === rmove.promo : !m.promo));
+  if (!move) {
+    console.error('Move is not legal here:', rmove);
+    return;
+  }
+  const san = chess.moveToSan(move);
+  chess.makeMove(move);
+  lastMove = move;
+  moveHistory.push(san);
+  playMoveSound();
+  selected = null;
+  legalFromSelected = [];
   render();
+  if (record) recordApplied(san, move);
 }
 
-function getDepth() {
-  return parseInt(document.getElementById('depth').value, 10);
-}
-
-// Server-side persistence of the AI game (best-effort; never blocks play).
-const gameStore = createGameStore();
-
-// Record the move just applied to `chess`, and finalize the game if it ended.
+// Record the move just applied to `chess`, and finalize the game if it ended
+// (AI mode — client is authoritative and drives persistence).
 function recordApplied(san, move) {
   const ply = chess.history.length;
   const uci = algOf(move.from) + algOf(move.to) + (move.promo || '');
@@ -163,7 +204,6 @@ Object.values(sounds).forEach(a => { a.preload = 'auto'; a.volume = 0.6; });
 function play(a) {
   if (!a) return;
   a.currentTime = 0;
-  // Browsers reject .play() before any user gesture — swallow that quietly.
   a.play().catch(() => {});
 }
 
@@ -201,9 +241,6 @@ function render() {
         div.classList.add('check');
       }
 
-      // Coordinates: rank labels in leftmost displayed column,
-      // file labels in bottom displayed row. Text uses the opposite
-      // shade of the square so it's readable.
       const coordColor = ((r + f) % 2 === 0) ? '#f0d9b5' : '#b58863';
       if (col === 0) {
         const c = document.createElement('div');
@@ -244,18 +281,21 @@ function render() {
     }
   }
 
-  // Info panel
+  // Turn / thinking line
   if (thinking) {
     turnEl.textContent = 'LorFish is thinking…';
     turnEl.className = 'thinking';
-  } else if (chess.isGameOver()) {
+  } else if (gameIsOver()) {
     turnEl.textContent = '';
     turnEl.className = '';
   } else {
-    turnEl.textContent = 'Turn: ' + (chess.turn === W ? 'White' : 'Black');
+    let t = 'Turn: ' + (chess.turn === W ? 'White' : 'Black');
+    if (pvpMode) t += chess.turn === humanColor ? ' — your move' : ' — waiting…';
+    turnEl.textContent = t;
     turnEl.className = '';
   }
 
+  // Status line
   if (chess.isGameOver()) {
     let s = `Game Over: ${chess.result()}`;
     if (chess.isCheckmate()) {
@@ -269,6 +309,11 @@ function render() {
     } else if (chess.halfmove >= 100) {
       s += ' — 50-move rule';
     }
+    statusEl.textContent = s;
+    statusEl.className = 'game-over';
+  } else if (pvpResult) {
+    let s = `Game Over: ${pvpResult.result}`;
+    if (pvpResult.termination) s += ` — ${pvpResult.termination}`;
     statusEl.textContent = s;
     statusEl.className = 'game-over';
   } else if (inCheckNow) {
@@ -290,12 +335,11 @@ function buildPgn() {
   const dateStr = d.getFullYear() + '.'
     + String(d.getMonth() + 1).padStart(2, '0') + '.'
     + String(d.getDate()).padStart(2, '0');
-  const result = chess.isGameOver() ? chess.result() : '*';
-  const whiteName = humanColor === W ? 'Human' : 'LorFish';
-  const blackName = humanColor === W ? 'LorFish' : 'Human';
+  const result = chess.isGameOver() ? chess.result()
+    : (pvpResult ? pvpResult.result : '*');
 
   let pgn = '';
-  pgn += '[Event "Human vs LorFish"]\n';
+  pgn += `[Event "${pgnEvent}"]\n`;
   pgn += `[Date "${dateStr}"]\n`;
   pgn += `[White "${whiteName}"]\n`;
   pgn += `[Black "${blackName}"]\n`;
@@ -306,8 +350,6 @@ function buildPgn() {
   }
   pgn += '\n';
 
-  // Move numbers continue from the position's fullmove counter, not 1.
-  // If black moves first (loaded FEN), the first move uses "N..." notation.
   let body = '';
   let fm = startFullmove;
   let turn = startTurn;
@@ -326,9 +368,8 @@ function buildPgn() {
 }
 
 function onSquareClick(sq) {
-  if (promotionPending || thinking || chess.isGameOver()) return;
-  // The move source decides whether the human may move now (right color / turn).
-  if (!moveSource.canHumanMoveNow(chess.turn)) return;
+  if (promotionPending || thinking || gameIsOver()) return;
+  if (!moveSource || !moveSource.canHumanMoveNow(chess.turn)) return;
 
   if (selected === null) {
     const piece = chess.squares[sq];
@@ -364,42 +405,10 @@ function onSquareClick(sq) {
   render();
 }
 
+// Hand the human's chosen move to the active source. The source owns what
+// happens next (AI: apply + engine reply; PvP: emit and await server echo).
 function doHumanMove(move) {
-  const san = chess.moveToSan(move);
-  chess.makeMove(move);
-  lastMove = move;
-  moveHistory.push(san);
-  playMoveSound();
-  selected = null;
-  legalFromSelected = [];
-  render();
-  recordApplied(san, move);
-
-  // Hand control to the opponent (AI worker in M1; PvP socket later).
-  moveSource.onLocalMove(move);
-}
-
-// Apply a move that came from the opponent (AI worker / remote peer). This is
-// the old makeEngineMove "apply" branch, now shared by every move source.
-// The incoming move is {from,to,promo}; resolve it to a full legal move.
-function applyRemoteMove(rmove) {
-  const move = chess.legalMoves().find(m =>
-    m.from === rmove.from &&
-    m.to === rmove.to &&
-    (rmove.promo ? m.promo === rmove.promo : !m.promo));
-  if (!move) {
-    console.error('Opponent move is not legal here:', rmove);
-    return;
-  }
-  const san = chess.moveToSan(move);
-  chess.makeMove(move);
-  lastMove = move;
-  moveHistory.push(san);
-  playMoveSound();
-  selected = null;
-  legalFromSelected = [];
-  render();
-  recordApplied(san, move);
+  if (moveSource) moveSource.submitMove(move);
 }
 
 function showPromotionDialog() {
@@ -422,12 +431,11 @@ function showPromotionDialog() {
 }
 
 function undo() {
-  if (thinking) return;
+  if (thinking || pvpMode) return;   // no undo in authoritative PvP games
   promotionPending = null;
   promoEl.classList.remove('show');
 
   const before = chess.history.length;
-  // After a normal turn it's the human to move; pop two plies (engine + human).
   if (chess.turn === humanColor && chess.history.length >= 2) {
     chess.undoMove();
     chess.undoMove();
@@ -443,16 +451,21 @@ function undo() {
   selected = null;
   legalFromSelected = [];
   render();
-  // Keep the server record in sync: drop the plies we just undid.
   gameStore.truncate(chess.history.length, chess.fen());
 }
 
-// Initialise the UI for a fresh game. The chess instance must already be in
-// the desired starting position (default reset, or a FEN load).
+function setLabels() {
+  const youW = humanColor === W;
+  whiteLabelEl.textContent = 'White: ' + whiteName + (youW ? ' (you)' : '');
+  blackLabelEl.textContent = 'Black: ' + blackName + (!youW ? ' (you)' : '');
+}
+
+// ---- AI mode ----
 function refreshGameState() {
   humanColor = colorSelectEl.value === 'b' ? B : W;
-  whiteLabelEl.textContent = 'White: ' + (humanColor === W ? 'Human' : 'LorFish');
-  blackLabelEl.textContent = 'Black: ' + (humanColor === W ? 'LorFish' : 'Human');
+  whiteName = humanColor === W ? 'Human' : 'LorFish';
+  blackName = humanColor === W ? 'LorFish' : 'Human';
+  setLabels();
   moveHistory = [];
   lastMove = null;
   selected = null;
@@ -461,29 +474,24 @@ function refreshGameState() {
   promoEl.classList.remove('show');
   thinking = false;
   render();
-  // If it's not the human's turn, the engine plays the opening move.
   moveSource.kickIfEngineTurn();
 }
 
 async function startNewGame() {
-  moveSource.cancel();   // abandon any search from the previous game
+  moveSource.cancel();
   chess.reset();
   startFullmove = 1;
   startTurn = W;
   startFen = null;
   humanColor = colorSelectEl.value === 'b' ? B : W;
-  // Create the server-side game first so the engine's opening move (when the
-  // human plays Black) is recorded against a known game id.
   await gameStore.newGame({ humanColor, depth: getDepth(), startFen: null });
   refreshGameState();
 }
 
+// ---- AI-only control wiring (these controls are hidden in PvP) ----
 document.addEventListener('keydown', e => {
-  // Block keyboard shortcuts while the FEN modal is open.
   if (fenPanel.classList.contains('show')) {
-    if (e.key === 'Escape') {
-      fenPanel.classList.remove('show');
-    }
+    if (e.key === 'Escape') fenPanel.classList.remove('show');
     return;
   }
   if (e.key === 'r' || e.key === 'R') undo();
@@ -520,4 +528,81 @@ fenLoadBtn.addEventListener('click', async () => {
   refreshGameState();
 });
 
-startNewGame();
+function initAi() {
+  moveSource = createAiMoveSource(env);
+  startNewGame();
+}
+
+// ---- PvP mode ----
+function initPvp(gameId) {
+  pvpMode = true;
+  pgnEvent = 'LorChess PvP';
+  for (const id of ['aiControls', 'gameButtons']) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+
+  statusEl.textContent = 'Connecting…';
+
+  const socket = connectSocket({
+    onError: (err) => {
+      statusEl.textContent = 'Connection error: ' + err.message;
+      statusEl.className = 'check-text';
+    },
+    onDisconnect: () => {
+      if (!gameIsOver()) {
+        statusEl.textContent = 'Disconnected — trying to reconnect…';
+        statusEl.className = 'check-text';
+      }
+    },
+  });
+
+  socket.on('game:over', (info) => {
+    pvpResult = info;
+    render();
+  });
+
+  // (Re)join whenever the socket (re)connects.
+  socket.on('connect', () => {
+    socket.emit('game:join', { gameId }, (resp) => {
+      if (!resp || !resp.ok) {
+        statusEl.textContent = 'Cannot join game: ' + ((resp && resp.error) || 'unknown error');
+        statusEl.className = 'check-text';
+        return;
+      }
+      applyPvpState(socket, resp.state);
+    });
+  });
+}
+
+function applyPvpState(socket, state) {
+  humanColor = state.yourColor === 'b' ? B : W;
+  whiteName = state.white;
+  blackName = state.black;
+  // M5: PvP games always start from the standard position.
+  chess.loadFen(state.fen);
+  startFullmove = 1;
+  startTurn = W;
+  startFen = null;
+  moveHistory = state.sans.slice();
+  lastMove = null;
+  selected = null;
+  legalFromSelected = [];
+  promotionPending = null;
+  thinking = false;
+  pvpResult = state.status === 'finished' ? { result: '*', termination: null } : null;
+  setLabels();
+  // Build (or rebuild, on reconnect) the remote source bound to this socket.
+  moveSource = createRemoteMoveSource(env, {
+    socket,
+    gameId: state.gameId,
+    yourColor: state.yourColor,
+  });
+  render();
+}
+
+// ---- entry point: PvP if ?id=<gameId>, else AI ----
+const _params = new URLSearchParams(location.search);
+const _pvpId = _params.get('id');
+if (_pvpId) initPvp(parseInt(_pvpId, 10));
+else initAi();

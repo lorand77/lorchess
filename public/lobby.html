@@ -15,9 +15,12 @@
     Server: <span id="connStatus" class="conn-dot pending">connecting…</span>
   </p>
 
-  <p><a class="play-link" href="/game.html?mode=ai">▶ Play vs LorFish</a></p>
+  <div class="lobby-actions">
+    <button id="quickMatchBtn" class="primary" disabled>Quick Match</button>
+    <span id="matchStatus" class="muted"></span>
+  </div>
 
-  <p class="muted">Real-time matchmaking against other players arrives next.</p>
+  <p><a class="play-link" href="/game.html?mode=ai">▶ Play vs LorFish</a></p>
 </div>
 
 <!-- authGuard gates the page; socket.io.js is served by the server; net.js

@@ -221,6 +221,10 @@ select {
 .conn-dot.pending { color: #ffc864; }
 .conn-dot.ok { color: #7fc77f; }
 .conn-dot.bad { color: #ff6464; }
+.lobby-actions { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
+.lobby-actions .primary { background: #3d6098; }
+.lobby-actions .primary:hover { background: #4a73b5; }
+.lobby-actions button:disabled { background: #444; color: #888; cursor: default; }
 
 /* a small back-link on the game page */
 .toplink { font-size: 13px; }

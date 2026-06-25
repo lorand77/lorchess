@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>LorChess — Human vs LorFish</title>
+<title>LorChess</title>
 <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -22,25 +22,30 @@
     <div class="userbar" id="userbar"></div>
     <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
     <h2>LorChess</h2>
-    <p>Play as:
-      <select id="humanColor">
-        <option value="w" selected>White</option>
-        <option value="b">Black</option>
-      </select>
-    </p>
+
+    <!-- AI-only controls; hidden in PvP (the server fixes color, no depth/undo). -->
+    <div id="aiControls">
+      <p>Play as:
+        <select id="humanColor">
+          <option value="w" selected>White</option>
+          <option value="b">Black</option>
+        </select>
+      </p>
+      <p>Depth:
+        <select id="depth">
+          <option value="2" selected>2 (~1400)</option>
+          <option value="4">4 (~1800)</option>
+        </select>
+      </p>
+    </div>
+
     <p id="whiteLabel">White: Human</p>
     <p id="blackLabel">Black: LorFish</p>
-    <p>Depth:
-      <select id="depth">
-        <option value="2" selected>2 (~1400)</option>
-        <option value="4">4 (~1800)</option>
-      </select>
-    </p>
     <p id="turn">Turn: White</p>
     <p id="status"></p>
     <h3>PGN</h3>
     <div id="history"></div>
-    <p style="margin-top:12px;">
+    <p id="gameButtons" style="margin-top:12px;">
       <button id="undoBtn">Undo (R)</button>
       <button id="resetBtn">New Game</button>
       <button id="loadFenBtn">Load FEN</button>
@@ -62,11 +67,13 @@
   </div>
 </div>
 
-<!-- authGuard redirects to /login.html if the session is missing, and renders
-     the user bar. chess.js is served from src/shared (/js); LorFish is NOT
-     loaded here — it runs only in the Web Worker so it never blocks the UI. -->
+<!-- authGuard gates the page. chess.js is served from src/shared (/js); LorFish
+     is NOT loaded here — it runs only in the Web Worker. socket.io + net.js are
+     used by PvP mode (?id=<gameId>); harmless in AI mode. -->
 <script src="/js/authGuard.js"></script>
 <script src="/js/chess.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/net.js"></script>
 <script src="/js/moveSource.js"></script>
 <script src="/js/gameStore.js"></script>
 <script src="/js/ui.js"></script>

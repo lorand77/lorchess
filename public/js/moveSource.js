@@ -1,19 +1,20 @@
 "use strict";
 
-// A "move source" decouples the board from its opponent. The board applies the
-// human's move locally, then calls onLocalMove(); the source decides when and
-// what the opponent replies, handing the reply back via env.applyRemoteMove().
+// A "move source" decouples the board from its opponent. When the human picks a
+// legal move the board calls moveSource.submitMove(move); the source decides
+// what happens. Moves that should appear on the board are applied through
+// env.applyMove(move, record) — the single apply path for engine moves, the
+// player's own confirmed moves, and the opponent's moves alike.
 //
-// M1 ships only the AI source (LorFish in a Web Worker). RemoteMoveSource (PvP)
-// and LocalMoveSource (hot-seat) arrive in later milestones behind this same
-// interface — { canHumanMoveNow, onLocalMove, kickIfEngineTurn, cancel }.
+// Common interface: { kind, canHumanMoveNow(turn), submitMove(move),
+//                      kickIfEngineTurn(), cancel() }
 //
-// `env` is supplied by ui.js:
-//   getHumanColor() -> 'w'|'b'      getTurn() -> 'w'|'b'
-//   isGameOver() -> bool            getDepth() -> int
-//   getPosition() -> { startFen, moves:[{from,to,promo}] }
-//   applyRemoteMove(move)           setThinking(bool)
+// `env` (supplied by ui.js):
+//   getHumanColor() -> 'w'|'b'   getTurn() -> 'w'|'b'   isGameOver() -> bool
+//   getDepth() -> int            getPosition() -> { startFen, moves }
+//   applyMove(move, record)      setThinking(bool)      onReject(msg?)
 
+// ---- AI: LorFish in a Web Worker ----
 function createAiMoveSource(env) {
   const worker = new Worker("/js/engineWorker.js");
   let busy = false;
@@ -22,15 +23,14 @@ function createAiMoveSource(env) {
 
   worker.onmessage = (e) => {
     const data = e.data || {};
-    // Ignore replies from a search we abandoned (new game / color switch).
-    if (data.id !== activeReq) return;
+    if (data.id !== activeReq) return; // stale reply from an abandoned game
     busy = false;
     env.setThinking(false);
     if (data.error) {
       console.error("Engine worker:", data.error);
       return;
     }
-    if (data.move) env.applyRemoteMove(data.move);
+    if (data.move) env.applyMove(data.move, true);
   };
   worker.onerror = (err) => {
     busy = false;
@@ -53,31 +53,57 @@ function createAiMoveSource(env) {
 
   return {
     kind: "ai",
-
-    // The human may move when it's their color and the engine isn't searching.
     canHumanMoveNow(turn) {
       return !busy && turn === env.getHumanColor();
     },
-
-    // Called right after a human move is applied to the local board.
-    onLocalMove() {
+    submitMove(move) {
+      env.applyMove(move, true); // apply the human move locally + persist
       if (env.isGameOver()) return;
       if (env.getTurn() === env.getHumanColor()) return;
       requestEngineMove();
     },
-
-    // At game start the engine may have the first move (human plays Black).
     kickIfEngineTurn() {
-      if (!env.isGameOver() && env.getTurn() !== env.getHumanColor()) {
-        requestEngineMove();
-      }
+      if (!env.isGameOver() && env.getTurn() !== env.getHumanColor()) requestEngineMove();
     },
-
-    // Abandon any in-flight search; its eventual reply will be ignored.
     cancel() {
       activeReq = ++reqId;
       busy = false;
       env.setThinking(false);
     },
+  };
+}
+
+// ---- PvP: moves relayed through the authoritative server ----
+function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
+  let busy = false; // a move is awaiting server confirmation
+
+  // The server broadcasts every accepted move to the whole room, including the
+  // mover — so BOTH players apply moves only on this event. Single source of truth.
+  socket.on("move:made", (m) => {
+    busy = false;
+    env.applyMove({ from: m.from, to: m.to, promo: m.promo }, false);
+  });
+
+  return {
+    kind: "remote",
+    canHumanMoveNow(turn) {
+      return !busy && turn === yourColor;
+    },
+    submitMove(move) {
+      if (busy) return;
+      busy = true;
+      socket.emit(
+        "move:make",
+        { gameId, from: move.from, to: move.to, promo: move.promo || null },
+        (resp) => {
+          if (!resp || !resp.ok) {
+            busy = false; // rejected — let the player try again
+            if (env.onReject) env.onReject(resp && resp.error);
+          }
+        }
+      );
+    },
+    kickIfEngineTurn() {}, // no engine in PvP
+    cancel() {},
   };
 }
