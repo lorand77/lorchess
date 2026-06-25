@@ -5,13 +5,15 @@ const express = require("express");
 const config = require("./config");
 const sessionMiddleware = require("./auth/session");
 const authRoutes = require("./auth/routes");
+const gameRoutes = require("./game/routes");
 
 const app = express();
 
-// --- API: JSON body parsing, sessions, auth routes ---
+// --- API: JSON body parsing, sessions, auth + game routes ---
 app.use(express.json());
 app.use(sessionMiddleware);
 app.use("/api", authRoutes);
+app.use("/api/games", gameRoutes);
 
 // --- Static assets ---
 // Single source of truth for the engine: chess.js / lorfish.js live only in

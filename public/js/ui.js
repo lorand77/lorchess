@@ -37,7 +37,7 @@ const moveSource = createAiMoveSource({
   getHumanColor: () => humanColor,
   getTurn:       () => chess.turn,
   isGameOver:    () => chess.isGameOver(),
-  getDepth:      () => parseInt(document.getElementById('depth').value, 10),
+  getDepth,
   getPosition:   () => ({
     startFen,
     moves: chess.history.map(h => ({
@@ -53,6 +53,34 @@ const moveSource = createAiMoveSource({
 function setThinking(v) {
   thinking = v;
   render();
+}
+
+function getDepth() {
+  return parseInt(document.getElementById('depth').value, 10);
+}
+
+// Server-side persistence of the AI game (best-effort; never blocks play).
+const gameStore = createGameStore();
+
+// Record the move just applied to `chess`, and finalize the game if it ended.
+function recordApplied(san, move) {
+  const ply = chess.history.length;
+  const uci = algOf(move.from) + algOf(move.to) + (move.promo || '');
+  const fenAfter = chess.fen();
+  const byColor = opp(chess.turn);   // the mover = side that just moved (turn has flipped)
+  gameStore.recordMove({ ply, san, uci, fenAfter, byColor });
+  if (chess.isGameOver()) {
+    gameStore.endGame(chess.result(), terminationReason());
+  }
+}
+
+function terminationReason() {
+  if (chess.isCheckmate())            return 'checkmate';
+  if (chess.isStalemate())            return 'stalemate';
+  if (chess.isInsufficientMaterial()) return 'insufficient';
+  if (chess.isThreefoldRepetition())  return 'threefold';
+  if (chess.halfmove >= 100)          return 'fifty-move';
+  return null;
 }
 
 function pieceImgSrc(piece) {
@@ -345,6 +373,7 @@ function doHumanMove(move) {
   selected = null;
   legalFromSelected = [];
   render();
+  recordApplied(san, move);
 
   // Hand control to the opponent (AI worker in M1; PvP socket later).
   moveSource.onLocalMove(move);
@@ -370,6 +399,7 @@ function applyRemoteMove(rmove) {
   selected = null;
   legalFromSelected = [];
   render();
+  recordApplied(san, move);
 }
 
 function showPromotionDialog() {
@@ -413,6 +443,8 @@ function undo() {
   selected = null;
   legalFromSelected = [];
   render();
+  // Keep the server record in sync: drop the plies we just undid.
+  gameStore.truncate(chess.history.length, chess.fen());
 }
 
 // Initialise the UI for a fresh game. The chess instance must already be in
@@ -433,12 +465,16 @@ function refreshGameState() {
   moveSource.kickIfEngineTurn();
 }
 
-function startNewGame() {
+async function startNewGame() {
   moveSource.cancel();   // abandon any search from the previous game
   chess.reset();
   startFullmove = 1;
   startTurn = W;
   startFen = null;
+  humanColor = colorSelectEl.value === 'b' ? B : W;
+  // Create the server-side game first so the engine's opening move (when the
+  // human plays Black) is recorded against a known game id.
+  await gameStore.newGame({ humanColor, depth: getDepth(), startFen: null });
   refreshGameState();
 }
 
@@ -465,7 +501,7 @@ loadFenBtn.addEventListener('click', () => {
 fenCancelBtn.addEventListener('click', () => {
   fenPanel.classList.remove('show');
 });
-fenLoadBtn.addEventListener('click', () => {
+fenLoadBtn.addEventListener('click', async () => {
   const fen = fenText.value.trim();
   if (!fen) { fenError.textContent = 'Paste a FEN string first.'; return; }
   try {
@@ -479,6 +515,8 @@ fenLoadBtn.addEventListener('click', () => {
   startTurn = chess.turn;
   startFen = fen;
   fenPanel.classList.remove('show');
+  humanColor = colorSelectEl.value === 'b' ? B : W;
+  await gameStore.newGame({ humanColor, depth: getDepth(), startFen: fen });
   refreshGameState();
 });
 

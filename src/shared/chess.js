@@ -110,6 +110,30 @@ class Chess {
     return s;
   }
 
+  // Serialize to a standard FEN string (the inverse of loadFen). Used to persist
+  // positions server-side (games.current_fen, moves.fen_after) and, in PvP, for
+  // the server's authoritative state.
+  fen() {
+    let board = '';
+    for (let r = 7; r >= 0; r--) {
+      let empty = 0;
+      for (let f = 0; f < 8; f++) {
+        const p = this.squares[sqIdx(f, r)];
+        if (!p) { empty++; continue; }
+        if (empty) { board += empty; empty = 0; }
+        board += p.c === W ? p.t.toUpperCase() : p.t;
+      }
+      if (empty) board += empty;
+      if (r > 0) board += '/';
+    }
+    let cr = (this.castling.K ? 'K' : '') + (this.castling.Q ? 'Q' : '')
+           + (this.castling.k ? 'k' : '') + (this.castling.q ? 'q' : '');
+    if (!cr) cr = '-';
+    const ep = this.ep != null ? algOf(this.ep) : '-';
+    const turn = this.turn === W ? 'w' : 'b';
+    return `${board} ${turn} ${cr} ${ep} ${this.halfmove} ${this.fullmove}`;
+  }
+
   pseudoMovesFrom(sq, c) {
     const piece = this.squares[sq];
     if (!piece || piece.c !== c) return [];
