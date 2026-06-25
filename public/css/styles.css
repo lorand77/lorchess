@@ -196,7 +196,33 @@ select {
 .auth-error { color: #ff6464; font-size: 13px; min-height: 18px; margin-top: 12px; }
 .auth-msg { color: #7fc77f; font-size: 13px; min-height: 18px; margin-top: 12px; }
 
-/* user bar on the game page */
+/* user bar on the game/lobby pages */
 .userbar { display: flex; align-items: center; gap: 10px; color: #d8d8d8; font-size: 13px; }
 .userbar .who { font-weight: bold; color: #fff; }
 .userbar button { margin: 0; padding: 4px 10px; font-size: 12px; }
+
+/* --- lobby --- */
+.lobby { width: 420px; margin: 48px auto 0; }
+.lobby h1 { margin: 8px 0 16px; }
+.lobby .conn { font-size: 14px; }
+.lobby .muted { color: #969696; font-size: 13px; margin-top: 24px; }
+.lobby .play-link {
+  display: inline-block;
+  margin: 12px 0;
+  padding: 12px 18px;
+  background: #3d6098;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: bold;
+}
+.lobby .play-link:hover { background: #4a73b5; }
+.conn-dot { font-weight: bold; }
+.conn-dot.pending { color: #ffc864; }
+.conn-dot.ok { color: #7fc77f; }
+.conn-dot.bad { color: #ff6464; }
+
+/* a small back-link on the game page */
+.toplink { font-size: 13px; }
+.toplink a { color: #8aa6c8; text-decoration: none; }
+.toplink a:hover { text-decoration: underline; }

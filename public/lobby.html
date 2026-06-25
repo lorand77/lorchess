@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Lobby</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="lobby">
+  <div class="userbar" id="userbar"></div>
+  <h1>LorChess</h1>
+
+  <p class="conn">
+    Server: <span id="connStatus" class="conn-dot pending">connecting…</span>
+  </p>
+
+  <p><a class="play-link" href="/game.html?mode=ai">▶ Play vs LorFish</a></p>
+
+  <p class="muted">Real-time matchmaking against other players arrives next.</p>
+</div>
+
+<!-- authGuard gates the page; socket.io.js is served by the server; net.js
+     wraps the client; lobby.js wires the connection-status indicator. -->
+<script src="/js/authGuard.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/net.js"></script>
+<script src="/js/lobby.js"></script>
+</body>
+</html>

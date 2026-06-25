@@ -1,11 +1,13 @@
 "use strict";
 
+const http = require("http");
 const path = require("path");
 const express = require("express");
 const config = require("./config");
 const sessionMiddleware = require("./auth/session");
 const authRoutes = require("./auth/routes");
 const gameRoutes = require("./game/routes");
+const { attachSockets } = require("./game/socket");
 
 const app = express();
 
@@ -22,10 +24,14 @@ app.use("/api/games", gameRoutes);
 // through to public/js below.
 app.use("/js", express.static(path.join(__dirname, "shared")));
 
-// Static UI (login.html, game.html, css, assets, public/js/*).
+// Static UI (login.html, lobby.html, game.html, css, assets, public/js/*).
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-app.listen(config.PORT, () => {
+// Wrap Express in an http.Server so Socket.IO can share the same port.
+const server = http.createServer(app);
+attachSockets(server);
+
+server.listen(config.PORT, () => {
   console.log(`LorChess listening on http://localhost:${config.PORT}`);
   console.log(`  → login:  http://localhost:${config.PORT}/login.html`);
 });

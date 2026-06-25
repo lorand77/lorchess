@@ -11,8 +11,8 @@ const registerBtn = document.getElementById("registerBtn");
 const errorEl = document.getElementById("error");
 const messageEl = document.getElementById("message");
 
-// Where to go once authenticated. The lobby arrives in M5; for now, AI play.
-const AFTER_AUTH = "/game.html?mode=ai";
+// Where to go once authenticated — the lobby (the realtime hub).
+const AFTER_AUTH = "/lobby.html";
 
 // If already signed in, skip the form.
 fetch("/api/me", { credentials: "same-origin" }).then((r) => {
