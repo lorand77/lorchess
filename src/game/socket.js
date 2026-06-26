@@ -171,6 +171,8 @@ function handleGameJoin(io, socket, payload, ack) {
       yourColor: color,
       turn: room.chess.turn,
       status: room.status,
+      result: room.result || null,
+      termination: room.termination || null,
       white: room.names.w,
       black: room.names.b,
       clocks: rooms.clockSnapshot(room),

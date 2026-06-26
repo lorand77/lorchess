@@ -668,7 +668,10 @@ function applyPvpState(socket, state) {
   legalFromSelected = [];
   promotionPending = null;
   thinking = false;
-  pvpResult = state.status === 'finished' ? { result: '*', termination: null } : null;
+  // If we're (re)joining a game that's already over, show its real outcome.
+  pvpResult = state.status !== 'active'
+    ? { result: state.result || '*', termination: state.termination || null }
+    : null;
   setLabels();
 
   // Clock labels (top = opponent, bottom = you) + initial snapshot.

@@ -27,6 +27,8 @@ function createRoom(gameId, { whiteId, blackId, whiteName, blackName, startFen }
     names: { w: whiteName, b: blackName },
     sans: [],
     status: "active",
+    result: null,
+    termination: null,
     startFen: startFen || null,
     // Connected socket ids per color, and a pending forfeit timer per color.
     online: { w: new Set(), b: new Set() },
@@ -108,6 +110,8 @@ function loadRoomFromDb(gameId) {
     room.sans.push(m.san);
   }
   room.status = game.status;
+  room.result = game.result;
+  room.termination = game.termination;
   return room;
 }
 

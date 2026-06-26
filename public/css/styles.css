@@ -225,6 +225,17 @@ select {
 .lobby-actions .primary { background: #3d6098; }
 .lobby-actions .primary:hover { background: #4a73b5; }
 .lobby-actions button:disabled { background: #444; color: #888; cursor: default; }
+.rejoin-box {
+  margin: 14px 0;
+  padding: 12px 14px;
+  background: #3a3320;
+  border: 1px solid #6a5a2a;
+  border-radius: 6px;
+  color: #ffd98a;
+  font-size: 14px;
+}
+.rejoin-link { color: #ffc864; font-weight: bold; text-decoration: none; margin-left: 6px; }
+.rejoin-link:hover { text-decoration: underline; }
 
 /* a small back-link on the game page */
 .toplink { font-size: 13px; }
