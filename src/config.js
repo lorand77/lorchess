@@ -18,8 +18,8 @@ module.exports = {
   // Grace period a disconnected PvP player has to reconnect before forfeiting.
   DISCONNECT_GRACE_MS: parseInt(process.env.GRACE_MS, 10) || 45000,
 
-  // PvP time control (server-authoritative clocks). Default 5+0.
-  CLOCK_INITIAL_MS: parseInt(process.env.CLOCK_MS, 10) || 5 * 60 * 1000,
+  // PvP time control (server-authoritative clocks). Default 10+0.
+  CLOCK_INITIAL_MS: parseInt(process.env.CLOCK_MS, 10) || 10 * 60 * 1000,
   CLOCK_INCREMENT_MS: parseInt(process.env.CLOCK_INC_MS, 10) || 0,
 
   // Elo K-factor for rating updates after rated games.

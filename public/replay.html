@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LorChess — Replay</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="game">
+  <div class="board-wrap">
+    <div class="captured" id="capturedTop"></div>
+    <div class="board" id="board"></div>
+    <div class="captured" id="capturedBottom"></div>
+  </div>
+  <div class="info">
+    <div class="userbar" id="userbar"></div>
+    <p class="toplink"><a href="/history.html">← My Games</a></p>
+    <h2 id="replayTitle">Replay</h2>
+    <p id="replayMeta" class="muted"></p>
+    <p id="replayStatus"></p>
+    <h3>Moves</h3>
+    <div id="history"></div>
+    <p id="replayControls">
+      <button id="firstBtn" title="Start">⏮</button>
+      <button id="prevBtn" title="Previous (←)">◀</button>
+      <button id="nextBtn" title="Next (→)">▶</button>
+      <button id="lastBtn" title="End">⏭</button>
+    </p>
+    <p class="muted" style="font-size:12px;">Click a move, or use ← → (Home/End) to step.</p>
+  </div>
+</div>
+
+<!-- chess.js (served from src/shared) provides Chess + globals; authGuard gates
+     the page and renders the user bar. -->
+<script src="/js/authGuard.js"></script>
+<script src="/js/chess.js"></script>
+<script src="/js/replay.js"></script>
+</body>
+</html>

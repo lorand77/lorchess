@@ -68,11 +68,19 @@ router.get("/", (req, res) => {
   res.json(queries.listGamesForUser.all(uid, uid));
 });
 
-// GET /api/games/:id — a single game with its full move list.
+// GET /api/games/:id — a single game with both player names and its full
+// move list (san + uci + fen_after per ply) for the replay viewer.
 router.get("/:id", (req, res) => {
   const game = loadOwnedGame(req, res);
   if (!game) return;
-  res.json({ ...game, moves: queries.getMovesForGame.all(game.id) });
+  const white = queries.getUserById.get(game.white_id);
+  const black = queries.getUserById.get(game.black_id);
+  res.json({
+    ...game,
+    white_username: white ? white.username : "?",
+    black_username: black ? black.username : "?",
+    moves: queries.getMovesForGame.all(game.id),
+  });
 });
 
 // POST /api/games/:id/moves — append one move and advance the position.
