@@ -230,3 +230,21 @@ select {
 .toplink { font-size: 13px; }
 .toplink a { color: #8aa6c8; text-decoration: none; }
 .toplink a:hover { text-decoration: underline; }
+
+/* PvP clocks */
+#clocks { margin: 6px 0 12px; }
+.clock-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 200px;
+  padding: 5px 10px;
+  margin: 4px 0;
+  background: #1e1e1e;
+  border-radius: 4px;
+}
+.clock-who { color: #d8d8d8; font-size: 13px; }
+.clock { font-family: monospace; font-weight: bold; font-size: 19px; color: #ddd; }
+.clock.active { color: #7fc77f; }       /* side to move */
+.clock.low    { color: #ff6464; }       /* under 10s */
+.pvp-info { color: #8aa6c8; }

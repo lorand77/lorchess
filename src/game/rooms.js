@@ -6,6 +6,7 @@
 
 const { Chess } = require("../shared/chess");
 const queries = require("../db/queries");
+const config = require("../config");
 
 const STANDARD_START =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -30,9 +31,28 @@ function createRoom(gameId, { whiteId, blackId, whiteName, blackName, startFen }
     // Connected socket ids per color, and a pending forfeit timer per color.
     online: { w: new Set(), b: new Set() },
     timers: { w: null, b: null },
+    // Server-authoritative clocks (ms remaining per color). The clock starts
+    // once both players have joined; turnStartedAt marks when the side to move
+    // began consuming time. flagTimer fires when the side to move runs out.
+    clock: { w: config.CLOCK_INITIAL_MS, b: config.CLOCK_INITIAL_MS },
+    turnStartedAt: null,
+    started: false,
+    everJoined: { w: false, b: false },
+    flagTimer: null,
   };
   rooms.set(gameId, room);
   return room;
+}
+
+// Current clocks, decrementing the side-to-move by the time elapsed since their
+// turn began — so a snapshot is accurate at any instant, not just on a move.
+function clockSnapshot(room) {
+  const snap = { w: room.clock.w, b: room.clock.b };
+  if (room.started && room.status === "active" && room.turnStartedAt != null) {
+    const t = room.chess.turn;
+    snap[t] = Math.max(0, snap[t] - (Date.now() - room.turnStartedAt));
+  }
+  return snap;
 }
 
 function clearTimers(room) {
@@ -41,6 +61,10 @@ function clearTimers(room) {
       clearTimeout(room.timers[c]);
       room.timers[c] = null;
     }
+  }
+  if (room.flagTimer) {
+    clearTimeout(room.flagTimer);
+    room.flagTimer = null;
   }
 }
 
@@ -98,6 +122,7 @@ module.exports = {
   deleteRoom,
   loadRoomFromDb,
   clearTimers,
+  clockSnapshot,
   cleanupOrphanedGames,
   STANDARD_START,
 };

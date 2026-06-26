@@ -17,6 +17,7 @@ module.exports = {
   getUserById: db.prepare(
     "SELECT id, username, rating, created_at FROM users WHERE id = ?"
   ),
+  updateRating: db.prepare("UPDATE users SET rating = ? WHERE id = ?"),
 
   // --- games ---
   createGame: db.prepare(`

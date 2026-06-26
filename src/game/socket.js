@@ -1,14 +1,11 @@
 "use strict";
 
-// Socket.IO infrastructure + authoritative PvP handlers + robustness (M6).
+// Socket.IO infrastructure + authoritative PvP handlers + robustness (M6) +
+// clocks & Elo (M7).
 //
-// The handshake reuses the SAME Express session (io.engine.use) — one auth
-// mechanism for REST and realtime. The server holds the authoritative Chess
-// state per game (rooms.js) and never trusts the client for legality/turn.
-//
-// Robustness: a disconnecting player has a grace window to reconnect; exceeding
-// it forfeits (or aborts if no moves were played). Resign is explicit. Games
-// orphaned by a server restart are aborted at boot (see server.js).
+// The handshake reuses the SAME Express session (io.engine.use). The server
+// holds the authoritative Chess state AND the authoritative clocks per game
+// (rooms.js); it never trusts the client for legality, turn, or time.
 
 const { Server } = require("socket.io");
 const sessionMiddleware = require("../auth/session");
@@ -16,8 +13,14 @@ const matchmaking = require("./matchmaking");
 const rooms = require("./rooms");
 const queries = require("../db/queries");
 const config = require("../config");
+const db = require("../db/index");
+const { elo } = require("./elo");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
+const CLOCK_INC = config.CLOCK_INCREMENT_MS;
+
+const other = (c) => (c === "w" ? "b" : "w");
+const winResult = (winnerColor) => (winnerColor === "w" ? "1-0" : "0-1");
 
 function attachSockets(httpServer) {
   const io = new Server(httpServer);
@@ -61,19 +64,77 @@ function colorOf(room, userId) {
   return null;
 }
 
-// Finalize a game: persist, notify the room, clear timers, drop the room.
-// result '*' means an abort (no winner).
+// ---- clocks ----
+
+// Start the clock once both players have joined for the first time.
+function startClocksIfReady(io, room) {
+  if (room.started) return;
+  if (!room.everJoined.w || !room.everJoined.b) return;
+  room.started = true;
+  room.turnStartedAt = Date.now();
+  scheduleFlag(io, room);
+}
+
+// Arm a timer to flag the side to move when their remaining time elapses.
+function scheduleFlag(io, room) {
+  if (room.flagTimer) {
+    clearTimeout(room.flagTimer);
+    room.flagTimer = null;
+  }
+  if (!room.started || room.status !== "active") return;
+  const turn = room.chess.turn;
+  room.flagTimer = setTimeout(
+    () => onFlag(io, room.gameId, turn),
+    Math.max(0, room.clock[turn])
+  );
+}
+
+function onFlag(io, gameId, turn) {
+  const room = rooms.getRoom(gameId);
+  if (!room || room.status !== "active") return;
+  if (room.chess.turn !== turn) return; // a move already switched the turn
+  room.clock[turn] = 0;
+  concludeGame(io, room, winResult(other(turn)), "timeout");
+}
+
+// ---- game lifecycle ----
+
+// Finalize a game: persist, rate (Elo), notify the room, clear timers, drop the
+// room. result '*' means an abort (no winner, no rating change).
 function concludeGame(io, room, result, termination) {
   room.status = result === "*" ? "aborted" : "finished";
   rooms.clearTimers(room);
   if (result === "*") queries.abortGame.run(termination, room.gameId);
   else queries.finishGame.run(result, termination, room.gameId);
-  io.to(`game:${room.gameId}`).emit("game:over", { result, termination });
+
+  const ratings = result === "*" ? null : applyElo(room, result);
+
+  io.to(`game:${room.gameId}`).emit("game:over", {
+    result,
+    termination,
+    ratings,
+    clocks: rooms.clockSnapshot(room),
+  });
   rooms.deleteRoom(room.gameId);
   console.log(`[game] #${room.gameId} over: ${result} (${termination})`);
 }
 
-const winResult = (winnerColor) => (winnerColor === "w" ? "1-0" : "0-1");
+// Update both players' Elo ratings from a decisive/drawn result.
+function applyElo(room, result) {
+  const w = queries.getUserById.get(room.players.w);
+  const b = queries.getUserById.get(room.players.b);
+  if (!w || !b) return null;
+  const scoreWhite = result === "1-0" ? 1 : result === "0-1" ? 0 : 0.5;
+  const { newWhite, newBlack } = elo(w.rating, b.rating, scoreWhite, config.ELO_K);
+  db.transaction(() => {
+    queries.updateRating.run(newWhite, w.id);
+    queries.updateRating.run(newBlack, b.id);
+  })();
+  return {
+    w: { id: w.id, before: w.rating, after: newWhite, delta: newWhite - w.rating },
+    b: { id: b.id, before: b.rating, after: newBlack, delta: newBlack - b.rating },
+  };
+}
 
 function handleGameJoin(io, socket, payload, ack) {
   const gameId = Number(payload && payload.gameId);
@@ -89,6 +150,7 @@ function handleGameJoin(io, socket, payload, ack) {
   socket.gameId = gameId;
   socket.gameColor = color;
   room.online[color].add(socket.id);
+  room.everJoined[color] = true;
 
   // Reconnect: cancel a pending forfeit timer and tell the opponent.
   if (room.timers[color]) {
@@ -96,6 +158,9 @@ function handleGameJoin(io, socket, payload, ack) {
     room.timers[color] = null;
     socket.to(`game:${gameId}`).emit("opponent:reconnected", { color });
   }
+
+  // Start the clock once both sides are present.
+  startClocksIfReady(io, room);
 
   reply(ack, {
     ok: true,
@@ -108,6 +173,9 @@ function handleGameJoin(io, socket, payload, ack) {
       status: room.status,
       white: room.names.w,
       black: room.names.b,
+      clocks: rooms.clockSnapshot(room),
+      running: room.started,
+      initialMs: config.CLOCK_INITIAL_MS,
     },
   });
 }
@@ -131,6 +199,19 @@ function handleMove(io, socket, payload, ack) {
     .find((m) => m.from === from && m.to === to && (promo ? m.promo === promo : !m.promo));
   if (!move) return reply(ack, { ok: false, error: "Illegal move." });
 
+  // (3b) Clock: charge the mover for their think time; flag if they're out.
+  if (room.started) {
+    const now = Date.now();
+    const remaining = room.clock[color] - (now - room.turnStartedAt);
+    if (remaining <= 0) {
+      room.clock[color] = 0;
+      reply(ack, { ok: false, error: "Out of time." });
+      return concludeGame(io, room, winResult(other(color)), "timeout");
+    }
+    room.clock[color] = remaining + CLOCK_INC;
+    room.turnStartedAt = now;
+  }
+
   // (4) Apply on the authoritative board.
   const san = room.chess.moveToSan(move);
   room.chess.makeMove(move);
@@ -145,11 +226,22 @@ function handleMove(io, socket, payload, ack) {
   queries.insertMove.run(gameId, ply, san, uci, fen, socket.userId);
   queries.updateGamePosition.run(fen, turn, gameId);
   reply(ack, { ok: true });
-  io.to(`game:${gameId}`).emit("move:made", { from, to, promo: promo || null, san, fen, turn, ply });
+  io.to(`game:${gameId}`).emit("move:made", {
+    from,
+    to,
+    promo: promo || null,
+    san,
+    fen,
+    turn,
+    ply,
+    clocks: rooms.clockSnapshot(room),
+  });
 
-  // (7) Game over?
+  // (7) Game over? Otherwise re-arm the flag timer for the new side to move.
   if (room.chess.isGameOver()) {
     concludeGame(io, room, room.chess.result(), terminationOf(room.chess));
+  } else {
+    scheduleFlag(io, room);
   }
 }
 
@@ -159,8 +251,7 @@ function handleResign(io, socket, payload) {
   if (!room || room.status !== "active") return;
   const color = colorOf(room, socket.userId);
   if (!color) return;
-  // The resigning side loses; the opponent wins.
-  concludeGame(io, room, winResult(color === "w" ? "b" : "w"), "resign");
+  concludeGame(io, room, winResult(other(color)), "resign");
 }
 
 function handleDisconnect(io, socket, reason) {
@@ -177,7 +268,6 @@ function handleDisconnect(io, socket, reason) {
   room.online[color].delete(socket.id);
   if (room.online[color].size > 0) return; // another tab for this player is still open
 
-  // No live connection for this color — start the grace timer.
   io.to(`game:${gameId}`).emit("opponent:disconnected", { color, graceMs: GRACE_MS });
   if (room.timers[color]) clearTimeout(room.timers[color]);
   room.timers[color] = setTimeout(() => onGraceExpired(io, gameId, color), GRACE_MS);
@@ -188,12 +278,8 @@ function onGraceExpired(io, gameId, color) {
   if (!room || room.status !== "active") return;
   if (room.online[color].size > 0) return; // reconnected just in time
 
-  if (room.sans.length === 0) {
-    // Never really started — abort rather than award a win.
-    concludeGame(io, room, "*", "aborted");
-  } else {
-    concludeGame(io, room, winResult(color === "w" ? "b" : "w"), "disconnect");
-  }
+  if (room.sans.length === 0) concludeGame(io, room, "*", "aborted");
+  else concludeGame(io, room, winResult(other(color)), "disconnect");
 }
 
 function uciOf(move) {

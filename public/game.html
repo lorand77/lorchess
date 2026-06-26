@@ -23,6 +23,18 @@
     <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
     <h2>LorChess</h2>
 
+    <!-- PvP clocks; hidden in AI mode. Top = opponent, bottom = you. -->
+    <div id="clocks" style="display:none;">
+      <div class="clock-row">
+        <span class="clock-who" id="clockTopWho">Opponent</span>
+        <span class="clock" id="clockTop">--:--</span>
+      </div>
+      <div class="clock-row">
+        <span class="clock-who" id="clockBottomWho">You</span>
+        <span class="clock" id="clockBottom">--:--</span>
+      </div>
+    </div>
+
     <!-- AI-only controls; hidden in PvP (the server fixes color, no depth/undo). -->
     <div id="aiControls">
       <p>Play as:

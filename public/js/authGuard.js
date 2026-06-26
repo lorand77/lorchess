@@ -35,6 +35,7 @@
     who.className = "who";
     who.textContent = user.username;
     const rating = document.createElement("span");
+    rating.id = "ubRating"; // updated live after rated PvP games
     rating.textContent = "(" + user.rating + ")";
     const logout = document.createElement("button");
     logout.textContent = "Log out";

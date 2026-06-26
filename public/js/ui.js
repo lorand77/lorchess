@@ -22,6 +22,13 @@ let whiteName = 'Human';
 let blackName = 'LorFish';
 let pgnEvent = 'Human vs LorFish';
 
+// PvP clock state (server-authoritative; we render a smooth local countdown
+// between server updates). clocks holds the last snapshot {w,b} in ms.
+let clocks = null;
+let clockBase = 0;          // Date.now() when the snapshot was taken
+let clockRunning = false;
+let clockTimer = null;
+
 const boardEl       = document.getElementById('board');
 const turnEl        = document.getElementById('turn');
 const statusEl      = document.getElementById('status');
@@ -534,9 +541,49 @@ function initAi() {
 }
 
 // ---- PvP mode ----
-function pvpNotice(text) {
+function pvpNotice(text, kind) {
   const el = document.getElementById('pvpNotice');
-  if (el) el.textContent = text || '';
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = kind === 'info' ? 'pvp-info' : 'check-text';
+}
+
+// ---- clocks ----
+function fmtClock(ms) {
+  ms = Math.max(0, ms);
+  if (ms < 10000) return (ms / 1000).toFixed(1);          // tenths under 10s
+  const sec = Math.ceil(ms / 1000);
+  return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+
+function setClocks(snap, running) {
+  if (!snap) return;
+  clocks = { w: snap.w, b: snap.b };
+  clockBase = Date.now();
+  clockRunning = !!running;
+  renderClocks();
+}
+
+function paintClock(id, ms, active) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = fmtClock(ms);
+  el.classList.toggle('active', active);
+  el.classList.toggle('low', ms <= 10000);
+}
+
+function renderClocks() {
+  if (!pvpMode || !clocks) return;
+  const youColor = humanColor;                 // 'w' | 'b'
+  const oppColor = youColor === W ? B : W;
+  const running = clockRunning && !gameIsOver();
+  const valOf = (color) => {
+    let ms = clocks[color];
+    if (running && chess.turn === color) ms -= Date.now() - clockBase; // smooth tick
+    return ms;
+  };
+  paintClock('clockTop', valOf(oppColor), running && chess.turn === oppColor);
+  paintClock('clockBottom', valOf(youColor), running && chess.turn === youColor);
 }
 
 function initPvp(gameId) {
@@ -549,6 +596,9 @@ function initPvp(gameId) {
   const pvpControls = document.getElementById('pvpControls');
   if (pvpControls) pvpControls.style.display = '';
   const resignBtn = document.getElementById('resignBtn');
+  const clocksEl = document.getElementById('clocks');
+  if (clocksEl) clocksEl.style.display = '';
+  if (!clockTimer) clockTimer = setInterval(renderClocks, 200);
 
   statusEl.textContent = 'Connecting…';
 
@@ -583,11 +633,14 @@ function initPvp(gameId) {
   // moveSource so a reconnect (which rebuilds the source) never stacks them.
   socket.on('move:made', (m) => {
     if (moveSource && moveSource.onServerMove) moveSource.onServerMove(m);
+    setClocks(m.clocks, true);
   });
   socket.on('game:over', (info) => {
     pvpResult = info;
-    pvpNotice('');
+    clockRunning = false;
+    if (info.clocks) setClocks(info.clocks, false);
     if (resignBtn) resignBtn.disabled = true;
+    showRatingChange(info.ratings);
     render();
   });
   socket.on('opponent:disconnected', (info) => {
@@ -617,6 +670,15 @@ function applyPvpState(socket, state) {
   thinking = false;
   pvpResult = state.status === 'finished' ? { result: '*', termination: null } : null;
   setLabels();
+
+  // Clock labels (top = opponent, bottom = you) + initial snapshot.
+  const oppName = humanColor === W ? blackName : whiteName;
+  const topWho = document.getElementById('clockTopWho');
+  const botWho = document.getElementById('clockBottomWho');
+  if (topWho) topWho.textContent = oppName;
+  if (botWho) botWho.textContent = 'You';
+  setClocks(state.clocks, state.running);
+
   // Build (or rebuild, on reconnect) the remote source bound to this socket.
   moveSource = createRemoteMoveSource(env, {
     socket,
@@ -624,6 +686,19 @@ function applyPvpState(socket, state) {
     yourColor: state.yourColor,
   });
   render();
+}
+
+// Show the local player's rating change after a rated game, and update the
+// user bar live.
+function showRatingChange(ratings) {
+  if (!ratings) return;
+  const mine = ratings[humanColor]; // humanColor is 'w' | 'b'
+  if (!mine) return;
+  const sign = mine.delta >= 0 ? '+' : '';
+  pvpNotice(`Rating: ${mine.before} → ${mine.after} (${sign}${mine.delta})`, 'info');
+  const rEl = document.getElementById('ubRating');
+  if (rEl) rEl.textContent = '(' + mine.after + ')';
+  if (window.currentUser) window.currentUser.rating = mine.after;
 }
 
 // ---- entry point: PvP if ?id=<gameId>, else AI ----
