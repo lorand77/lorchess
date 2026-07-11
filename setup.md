@@ -22,7 +22,7 @@
 
 ### install node+npm
 ```
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 npm config set ignore-scripts true
@@ -31,18 +31,21 @@ npm config set min-release-age=7
 
 npm config set prefix ~/.npm-global
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
-source ~/.bashrc
-npm install -g npm@latest
-npm install -g @socketsecurity/cli     
+# close terminal and open a new terminal
 
-# adding a new package:
-socket npm install PACKAGE_NAME
+npm install -g @socketsecurity/cli
 
-# if needed:
-socket npm install PACKAGE_NAME --ignore-scripts=false
 
 socket wrapper on
 npm install PACKAGE_NAME     ## routed via socket now
+
+
+# if needed:
+npm install PACKAGE_NAME --ignore-scripts=false
+
+
+# to fix install issue because of socket blocking things
+npm rebuild better-sqlite3 --build-from-source --foreground-scripts
 ```
 
 ### install claude code
