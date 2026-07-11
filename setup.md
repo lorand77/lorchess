@@ -42,17 +42,6 @@ npm install PACKAGE_NAME     ## routed via socket now
 
 # if needed:
 npm install PACKAGE_NAME --ignore-scripts=false
-
-
-# Native modules (better-sqlite3, argon2) need to compile a binary via their
-# install script. Two things block that script on a fresh install:
-#   1. our global `ignore-scripts=true` (set above)
-#   2. Socket's allowScripts allowlist (empty by default)
-# So `npm rebuild ... --foreground-scripts` alone is NOT enough. Do this:
-npm install-scripts ls                      # shows which packages are blocked
-npm install-scripts approve better-sqlite3  # add to Socket allowlist
-npm install-scripts approve argon2
-npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
 ```
 
 ### install claude code
@@ -63,6 +52,15 @@ curl -fsSL https://claude.ai/install.sh | bash
 ### run the app
 ```
 npm install
+
+# Native modules (better-sqlite3, argon2) compile a binary in their install
+# script. npm blocks that script two ways on a fresh install — clear both:
+#   1. our global ignore-scripts=true          -> pass --ignore-scripts=false
+#   2. npm 12's install-script allowlist       -> approve the packages first
+npm install-scripts approve better-sqlite3
+npm install-scripts approve argon2
+npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
+
 npm start
 ```
 
@@ -93,7 +91,7 @@ git clone https://github.com/lorand77/lorchess.git
 
 ## install node+npm
 ```
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 npm config set ignore-scripts true
@@ -102,8 +100,8 @@ npm config set min-release-age=7
 
 npm config set prefix ~/.npm-global
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
-source ~/.bashrc
-npm install -g npm@latest
+# close terminal and open a new terminal
+
 npm install -g @socketsecurity/cli     
 
 # adding a new package:
@@ -120,9 +118,10 @@ npm install PACKAGE_NAME     ## routed via socket now
 ```
 npm install
 
-# Native modules (better-sqlite3, argon2) won't build on a fresh install
-# because ignore-scripts=true AND Socket blocks their install scripts.
-# Approve them once, then build:
+# Native modules (better-sqlite3, argon2) compile a binary in their install
+# script. npm blocks that script two ways on a fresh install — clear both:
+#   1. our global ignore-scripts=true          -> pass --ignore-scripts=false
+#   2. npm 12's install-script allowlist       -> approve the packages first
 npm install-scripts approve better-sqlite3
 npm install-scripts approve argon2
 npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
