@@ -102,16 +102,15 @@ npm config set prefix ~/.npm-global
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 # close terminal and open a new terminal
 
-npm install -g @socketsecurity/cli     
+npm install -g @socketsecurity/cli
 
-# adding a new package:
-socket npm install PACKAGE_NAME
-
-# if needed:
-socket npm install PACKAGE_NAME --ignore-scripts=false
 
 socket wrapper on
 npm install PACKAGE_NAME     ## routed via socket now
+
+
+# if needed:
+npm install PACKAGE_NAME --ignore-scripts=false
 ```
 
 ### run the app
