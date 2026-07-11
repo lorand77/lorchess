@@ -54,11 +54,10 @@ curl -fsSL https://claude.ai/install.sh | bash
 npm install
 
 # Native modules (better-sqlite3, argon2) compile a binary in their install
-# script. npm blocks that script two ways on a fresh install — clear both:
-#   1. our global ignore-scripts=true          -> pass --ignore-scripts=false
-#   2. npm 12's install-script allowlist       -> approve the packages first
-npm install-scripts approve better-sqlite3
-npm install-scripts approve argon2
+# script. Two gates block that script; the rebuild below clears both:
+#   1. our global ignore-scripts=true  -> --ignore-scripts=false lifts it
+#   2. npm 12's install-script allowlist -> already granted by "allowScripts"
+#      in package.json (committed), so no `npm install-scripts approve` needed
 npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
 
 npm start
@@ -118,11 +117,10 @@ npm install PACKAGE_NAME --ignore-scripts=false
 npm install
 
 # Native modules (better-sqlite3, argon2) compile a binary in their install
-# script. npm blocks that script two ways on a fresh install — clear both:
-#   1. our global ignore-scripts=true          -> pass --ignore-scripts=false
-#   2. npm 12's install-script allowlist       -> approve the packages first
-npm install-scripts approve better-sqlite3
-npm install-scripts approve argon2
+# script. Two gates block that script; the rebuild below clears both:
+#   1. our global ignore-scripts=true  -> --ignore-scripts=false lifts it
+#   2. npm 12's install-script allowlist -> already granted by "allowScripts"
+#      in package.json (committed), so no `npm install-scripts approve` needed
 npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
 
 npm start
