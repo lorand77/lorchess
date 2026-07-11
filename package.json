@@ -18,5 +18,9 @@
   },
   "devDependencies": {
     "socket.io-client": "4.8.3"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "argon2@0.44.0": true
   }
 }

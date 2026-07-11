@@ -44,8 +44,15 @@ npm install PACKAGE_NAME     ## routed via socket now
 npm install PACKAGE_NAME --ignore-scripts=false
 
 
-# to fix install issue because of socket blocking things
-npm rebuild better-sqlite3 --build-from-source --foreground-scripts
+# Native modules (better-sqlite3, argon2) need to compile a binary via their
+# install script. Two things block that script on a fresh install:
+#   1. our global `ignore-scripts=true` (set above)
+#   2. Socket's allowScripts allowlist (empty by default)
+# So `npm rebuild ... --foreground-scripts` alone is NOT enough. Do this:
+npm install-scripts ls                      # shows which packages are blocked
+npm install-scripts approve better-sqlite3  # add to Socket allowlist
+npm install-scripts approve argon2
+npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
 ```
 
 ### install claude code
@@ -74,7 +81,7 @@ open http://localhost:3000
 - add ssh key
 
 ```
-ssh root@142.93.50.247
+ssh root@IP_ADDRESS
 adduser --disabled-password --gecos "" lorchess
 su - lorchess
 ```
@@ -112,6 +119,14 @@ npm install PACKAGE_NAME     ## routed via socket now
 ### run the app
 ```
 npm install
+
+# Native modules (better-sqlite3, argon2) won't build on a fresh install
+# because ignore-scripts=true AND Socket blocks their install scripts.
+# Approve them once, then build:
+npm install-scripts approve better-sqlite3
+npm install-scripts approve argon2
+npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
+
 npm start
 ```
 
