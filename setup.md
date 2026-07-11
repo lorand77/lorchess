@@ -128,7 +128,7 @@ npm start
 
 or better use pm2:
 ```
-socket npm install -g pm2
+npm install -g pm2
 
 pm2 start npm --name "lorchess" -- start
 
@@ -150,7 +150,7 @@ pm2 monit                       # live dashboard: CPU, memory, logs
 digital ocean: create firewall, allow port 3000, assign to droplet
 
 ## in browser
-open http://142.93.50.247:3000
+open http://IP_ADDRESS:3000
 
 ## deploying new code
 ```
