@@ -179,7 +179,19 @@ pm2 start lorchess
 
 --------------------------------------------------------
 
-# PROD environment 2 - platform-as-a-service 
+# PROD environment 2 - platform-as-a-service on railway
 
-@@@TODO
+- create railway account
+- create new project, link to github repo
+- networking: generate domain, e.g. https://lorchess-production.up.railway.app
+- open app in browser
 
+## make sqlite data persistent:
+
+- attach volume `/data`
+- Set environment variables (Service → Variables)
+```
+DB_PATH=/data/lorchess.sqlite
+SESSION_SECRET=61aed5dc3364eb1ac591befc7acf6edf4b717e637d9b7ea863b2fb40fe909fe3
+NODE_ENV=production
+```  
