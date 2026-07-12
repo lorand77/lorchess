@@ -49,7 +49,7 @@ npm install PACKAGE_NAME --ignore-scripts=false
 curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-### run the app
+## run the app
 ```
 npm install
 
@@ -63,7 +63,7 @@ npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
 npm start
 ```
 
-### test in browser
+## test in browser
 open http://localhost:3000
 
 
@@ -71,7 +71,7 @@ open http://localhost:3000
 
 # PROD environment 1 - ubuntu server
 
-### setup server
+## setup server
 - digital ocean droplet
 - Ubuntu 24.04 (LTS) x64
 - Basic / 1 vCPU / 1 GB RAM / 25 GB Disk
@@ -83,12 +83,12 @@ adduser --disabled-password --gecos "" lorchess
 su - lorchess
 ```
 
-### project code
+## project code
 ```
 git clone https://github.com/lorand77/lorchess.git
 ```
 
-### install node+npm
+## install node+npm
 ```
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
@@ -112,7 +112,7 @@ npm install PACKAGE_NAME     ## routed via socket now
 npm install PACKAGE_NAME --ignore-scripts=false
 ```
 
-### run the app
+## run the app
 ```
 npm install
 
