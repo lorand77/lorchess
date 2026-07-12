@@ -161,11 +161,21 @@ pm2 restart lorchess
 
 ## backing up sqlite database
 
-@@@TODO
 ```
+apt install sqlite3
+mkdir -p backups
+
+sqlite3 data/lorchess.sqlite "VACUUM INTO 'backups/lorchess-backup-$(date +\%F).sqlite'"
 ```
 
 and move the backup file somewhere safe (e.g. download to local machine, upload to cloud storage etc.)
+
+```
+pm2 stop lorchess
+cp backups/lorchess-backup-DATE.sqlite data/lorchess.sqlite
+rm -f data/lorchess.sqlite-wal data/lorchess.sqlite-shm
+pm2 start lorchess
+```
 
 --------------------------------------------------------
 
