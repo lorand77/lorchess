@@ -201,4 +201,4 @@ NODE_ENV=production
 - buy lorand77.dev on name.com
 - in railway: networking / custom domain -> gives CNAME and TXT to set
 - in name.com: manage DNS records: add CNAME and TXT
-- https will work out of the box (railway issues cert)
+- https will work out of the box (railway issues cert)   https://lorchess.lorand77.dev/
