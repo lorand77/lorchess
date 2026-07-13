@@ -195,3 +195,10 @@ DB_PATH=/data/lorchess.sqlite
 SESSION_SECRET=61aed5dc3364eb1ac591befc7acf6edf4b717e637d9b7ea863b2fb40fe909fe3
 NODE_ENV=production
 ```
+
+## setting up custom domain
+
+- buy lorand77.dev on name.com
+- in railway: networking / custom domain -> gives CNAME and TXT to set
+- in name.com: manage DNS records: add CNAME and TXT
+- https will work out of the box (railway issues cert)
