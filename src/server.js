@@ -17,6 +17,12 @@ if (aborted > 0) console.log(`Aborted ${aborted} orphaned game(s) from a previou
 
 const app = express();
 
+// Behind a TLS-terminating reverse proxy in prod (Caddy on the droplet,
+// Railway's edge). Trust one proxy hop so req.secure reflects the real HTTPS
+// connection via X-Forwarded-Proto — required for the session cookie's
+// secure:"auto" to activate over HTTPS.
+app.set("trust proxy", 1);
+
 // --- API: JSON body parsing, sessions, auth + game routes ---
 app.use(express.json());
 app.use(sessionMiddleware);

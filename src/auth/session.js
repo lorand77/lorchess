@@ -20,7 +20,7 @@ const sessionMiddleware = session({
   cookie: {
     httpOnly: true,           // not readable from JS — mitigates XSS theft
     sameSite: "lax",
-    secure: false,            // dev over HTTP; set true behind HTTPS
+    secure: "auto",           // secure over HTTPS (prod, via trust proxy); off on localhost HTTP
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   },
 });
