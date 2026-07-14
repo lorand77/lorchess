@@ -152,12 +152,9 @@ digital ocean: create firewall, allow port 3000, assign to droplet
 ## in browser
 open http://IP_ADDRESS:3000
 
-## HTTPS with custom domain (Caddy)
+## https with custom domain (Caddy)
 
-.dev is HSTS-preloaded -> browsers force HTTPS; plain HTTP won't work for the domain.
-
-- name.com: manage DNS -> add A record: host `lorchess` -> 137.184.198.243
-  (delete any old CNAME/TXT for that host first — an A record can't coexist with a CNAME)
+- name.com: manage DNS -> add A record: host `lorchess` -> IP_ADDRESS
 - digital ocean firewall: allow ports 80 and 443 (80 = cert challenge, 443 = https)
 
 install Caddy:
@@ -178,15 +175,6 @@ lorchess.lorand77.dev {
 ```
 sudo systemctl reload caddy
 ```
-
-Caddy auto-issues the Let's Encrypt cert and auto-renews it. App keeps running on localhost:3000 (pm2); Caddy terminates TLS on 443 and proxies to it. WebSockets (Socket.IO) proxy with no extra config.
-
-verify the cert (should show subject=CN=lorchess.lorand77.dev, issuer Let's Encrypt):
-```
-echo | openssl s_client -servername lorchess.lorand77.dev -connect lorchess.lorand77.dev:443 2>/dev/null | openssl x509 -noout -subject -issuer
-```
-
-app-side: set `app.set('trust proxy', 1)` so express-session sees HTTPS behind the proxy (needed for a `secure` cookie).
 
 ## deploying new code
 ```
