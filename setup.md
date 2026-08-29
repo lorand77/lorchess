@@ -83,6 +83,18 @@ adduser --disabled-password --gecos "" lorchess
 su - lorchess
 ```
 
+OR
+
+- AWS EC2 instance t4g.small (2 vCPU, 2 GB RAM, 8 GB Disk)
+- Ubuntu 26.04 (LTS) ARM64
+
+```
+ssh ubuntu@IP_ADDRESS
+adduser --disabled-password --gecos "" lorchess
+sudo -u lorchess -i
+```
+
+
 ## project code
 ```
 git clone https://github.com/lorand77/lorchess.git
