@@ -104,6 +104,7 @@ git clone https://github.com/lorand77/lorchess.git
 ```
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
+# maybe also     sudo npm install -g npm@latest
 
 npm config set ignore-scripts true
 npm config set save-exact true
@@ -135,7 +136,11 @@ npm install
 #      in package.json (committed), so no `npm install-scripts approve` needed
 npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
 
-npm start
+# NOTE: `socket wrapper on` aliases npm -> `socket npm`, which runs node with
+# native addons disabled (ERR_DLOPEN_DISABLED from better-sqlite3). Socket is
+# only needed for installs, so bypass the alias when running the app:
+command npm start
+# or equivalently: node src/server.js
 ```
 
 or better use pm2:
