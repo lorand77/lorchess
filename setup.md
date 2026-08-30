@@ -72,18 +72,6 @@ open http://localhost:3000
 # PROD environment 1 - ubuntu server
 
 ## setup server
-- digital ocean droplet
-- Ubuntu 24.04 (LTS) x64
-- Basic / 1 vCPU / 1 GB RAM / 25 GB Disk
-- add ssh key
-
-```
-ssh root@IP_ADDRESS
-adduser --disabled-password --gecos "" lorchess
-su - lorchess
-```
-
-OR
 
 - AWS EC2 instance t4g.small (2 vCPU, 2 GB RAM, 8 GB Disk)
 - Ubuntu 26.04 (LTS) ARM64
@@ -104,48 +92,18 @@ git clone https://github.com/lorand77/lorchess.git
 ```
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
-# maybe also     sudo npm install -g npm@latest
-
-npm config set ignore-scripts true
-npm config set save-exact true
-npm config set min-release-age=7
-
-npm config set prefix ~/.npm-global
-echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
-# close terminal and open a new terminal
-
-npm install -g @socketsecurity/cli
-
-
-socket wrapper on
-npm install PACKAGE_NAME     ## routed via socket now
-
-
-# if needed:
-npm install PACKAGE_NAME --ignore-scripts=false
+sudo npm install -g npm@latest
 ```
 
 ## run the app
 ```
 npm install
-
-# Native modules (better-sqlite3, argon2) compile a binary in their install
-# script. Two gates block that script; the rebuild below clears both:
-#   1. our global ignore-scripts=true  -> --ignore-scripts=false lifts it
-#   2. npm 12's install-script allowlist -> already granted by "allowScripts"
-#      in package.json (committed), so no `npm install-scripts approve` needed
-npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
-
-# NOTE: `socket wrapper on` aliases npm -> `socket npm`, which runs node with
-# native addons disabled (ERR_DLOPEN_DISABLED from better-sqlite3). Socket is
-# only needed for installs, so bypass the alias when running the app:
-command npm start
-# or equivalently: node src/server.js
+npm start
 ```
 
 or better use pm2:
 ```
-npm install -g pm2
+sudo npm install -g pm2
 
 pm2 start npm --name "lorchess" -- start
 
@@ -163,16 +121,10 @@ pm2 delete lorchess          # remove from pm2 entirely
 pm2 monit                       # live dashboard: CPU, memory, logs
 ```
 
-## open firewall
-digital ocean: create firewall, allow port 3000, assign to droplet
-
-## in browser
-open http://IP_ADDRESS:3000
-
 ## https with custom domain (Caddy)
 
 - name.com: manage DNS -> add A record: host `lorchess` -> IP_ADDRESS
-- digital ocean firewall: allow ports 80 and 443 (80 = cert challenge, 443 = https)
+- EC2 firewall: allow ports 80 and 443 (80 = cert challenge, 443 = https)
 
 install Caddy:
 ```
