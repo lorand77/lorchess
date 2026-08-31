@@ -95,6 +95,34 @@ sudo apt-get install -y nodejs
 sudo npm install -g npm@latest
 ```
 
+## configure environment
+
+Create `.env` in the project dir. It is gitignored, and the `npm` scripts load
+it at startup via `node --env-file-if-exists=.env` (nothing else reads it).
+
+```
+cd ~/lorchess
+
+# generate a fresh secret:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+cat > .env <<EOF
+SESSION_SECRET=<generated hex>
+NODE_ENV=production
+EOF
+
+chmod 600 .env
+```
+
+- `SESSION_SECRET` — signs the session cookie. If unset, `src/config.js` falls
+  back to a hardcoded dev default that is public in this repo; anyone who then
+  obtains a session id (from logs or a DB backup) can turn it into a valid
+  cookie. Use a different value per environment and never commit it. Changing it
+  invalidates all existing sessions, i.e. logs everyone out.
+- `NODE_ENV=production` — makes Express's default error handler send a bare
+  "Internal Server Error" instead of a stack trace in the HTTP response body.
+  Also makes `npm install` skip devDependencies.
+
 ## run the app
 ```
 npm install
