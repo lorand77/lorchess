@@ -548,6 +548,38 @@ function pvpNotice(text, kind) {
   el.className = kind === 'info' ? 'pvp-info' : 'check-text';
 }
 
+// ---- offers (draw / rematch) ----
+// A single prompt strip is reused for both kinds of offer; the accept/decline
+// callbacks are swapped each time it is shown.
+let offerAccept = null;
+let offerDecline = null;
+let drawOfferedByMe = false;
+
+function showOffer(text, accept, decline) {
+  const el = document.getElementById('offerPrompt');
+  const txt = document.getElementById('offerText');
+  if (!el || !txt) return;
+  txt.textContent = text;
+  offerAccept = accept;
+  offerDecline = decline;
+  el.style.display = '';
+}
+
+function hideOffer() {
+  const el = document.getElementById('offerPrompt');
+  if (el) el.style.display = 'none';
+  offerAccept = null;
+  offerDecline = null;
+}
+
+// Draw is only offerable while the game runs; rematch only once it's finished.
+function setOfferButtons(over) {
+  const drawBtn = document.getElementById('drawBtn');
+  const rematchBtn = document.getElementById('rematchBtn');
+  if (drawBtn) drawBtn.style.display = over ? 'none' : '';
+  if (rematchBtn) rematchBtn.style.display = over ? '' : 'none';
+}
+
 // ---- clocks ----
 function fmtClock(ms) {
   ms = Math.max(0, ms);
@@ -615,6 +647,91 @@ function initPvp(gameId) {
     });
   }
 
+  const drawBtn = document.getElementById('drawBtn');
+  const rematchBtn = document.getElementById('rematchBtn');
+
+  document.getElementById('offerAcceptBtn').addEventListener('click', () => {
+    const fn = offerAccept;
+    hideOffer();
+    if (fn) fn();
+  });
+  document.getElementById('offerDeclineBtn').addEventListener('click', () => {
+    const fn = offerDecline;
+    hideOffer();
+    if (fn) fn();
+  });
+
+  if (drawBtn) {
+    drawBtn.addEventListener('click', () => {
+      if (gameIsOver()) return;
+      socket.emit('draw:offer', { gameId });
+      drawBtn.disabled = true;
+      drawOfferedByMe = true;
+      pvpNotice('Draw offered — waiting for a reply…', 'info');
+    });
+  }
+
+  if (rematchBtn) {
+    rematchBtn.addEventListener('click', () => {
+      socket.emit('rematch:offer', { gameId });
+      rematchBtn.disabled = true;
+      rematchBtn.textContent = 'Rematch offered…';
+    });
+  }
+
+  // Clear our own "waiting for a reply" notice once the offer is resolved.
+  function drawResolved() {
+    hideOffer();
+    if (drawBtn) drawBtn.disabled = false;
+    if (drawOfferedByMe) {
+      drawOfferedByMe = false;
+      pvpNotice('');
+    }
+  }
+
+  socket.on('draw:offered', () => {
+    showOffer(
+      'Opponent offers a draw.',
+      () => socket.emit('draw:respond', { gameId, accept: true }),
+      () => socket.emit('draw:respond', { gameId, accept: false })
+    );
+  });
+  socket.on('draw:declined', () => {
+    drawResolved();
+    pvpNotice('Draw declined.');
+    setTimeout(() => pvpNotice(''), 3000);
+  });
+  // Broadcast when a move lapses the outstanding offer.
+  socket.on('draw:cleared', drawResolved);
+
+  socket.on('rematch:offered', (info) => {
+    const who = (info && info.username) || 'Opponent';
+    showOffer(
+      who + ' wants a rematch.',
+      // Offering back is what accepts: the server pairs on mutual offers.
+      () => {
+        socket.emit('rematch:offer', { gameId });
+        if (rematchBtn) {
+          rematchBtn.disabled = true;
+          rematchBtn.textContent = 'Rematch offered…';
+        }
+      },
+      () => socket.emit('rematch:decline', { gameId })
+    );
+  });
+  socket.on('rematch:declined', () => {
+    hideOffer();
+    if (rematchBtn) {
+      rematchBtn.disabled = false;
+      rematchBtn.textContent = 'Rematch';
+    }
+    pvpNotice('Rematch declined.');
+  });
+  // Sent to both players once a rematch is agreed — jump into the new game.
+  socket.on('game:start', (info) => {
+    if (info && info.gameId) location.href = '/game.html?id=' + info.gameId;
+  });
+
   // (Re)join whenever the socket (re)connects; the ack restores board state,
   // and on the server side cancels any pending forfeit timer.
   socket.on('connect', () => {
@@ -640,6 +757,9 @@ function initPvp(gameId) {
     clockRunning = false;
     if (info.clocks) setClocks(info.clocks, false);
     if (resignBtn) resignBtn.disabled = true;
+    hideOffer();
+    drawOfferedByMe = false;
+    setOfferButtons(true);
     showRatingChange(info.ratings);
     render();
   });
@@ -673,6 +793,28 @@ function applyPvpState(socket, state) {
     ? { result: state.result || '*', termination: state.termination || null }
     : null;
   setLabels();
+
+  // Restore the offer UI for whatever the server says is going on: a finished
+  // game shows Rematch, and a draw offer made before we joined is re-surfaced.
+  const over = state.status !== 'active';
+  setOfferButtons(over);
+  hideOffer();
+  drawOfferedByMe = false;
+  const drawBtnEl = document.getElementById('drawBtn');
+  if (drawBtnEl) drawBtnEl.disabled = false;
+  if (!over && state.drawOffer) {
+    if (state.drawOffer === state.yourColor) {
+      if (drawBtnEl) drawBtnEl.disabled = true;
+      drawOfferedByMe = true;
+      pvpNotice('Draw offered — waiting for a reply…', 'info');
+    } else {
+      showOffer(
+        'Opponent offers a draw.',
+        () => socket.emit('draw:respond', { gameId: state.gameId, accept: true }),
+        () => socket.emit('draw:respond', { gameId: state.gameId, accept: false })
+      );
+    }
+  }
 
   // Clock labels (top = opponent, bottom = you) + initial snapshot.
   const oppName = humanColor === W ? blackName : whiteName;

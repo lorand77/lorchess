@@ -21,7 +21,9 @@ function join(io, socket) {
     return;
   }
   const opponent = waiting.splice(idx, 1)[0];
-  startMatch(io, opponent, socket);
+  // Randomize who plays White.
+  const oppIsWhite = Math.random() < 0.5;
+  startMatch(io, oppIsWhite ? opponent : socket, oppIsWhite ? socket : opponent);
 }
 
 function leave(socket) {
@@ -29,11 +31,9 @@ function leave(socket) {
   if (i !== -1) waiting.splice(i, 1);
 }
 
-function startMatch(io, a, b) {
-  // Randomize who plays White.
-  const aIsWhite = Math.random() < 0.5;
-  const white = aIsWhite ? a : b;
-  const black = aIsWhite ? b : a;
+// Create a game between two connected sockets with the colours given by the
+// caller. Used by quick-match (random colours) and by rematch (colours swapped).
+function startMatch(io, white, black) {
   const start = rooms.STANDARD_START;
 
   const info = queries.createGame.run(
@@ -54,4 +54,4 @@ function startMatch(io, a, b) {
   console.log(`[match] game #${gameId}: ${white.username}(w) vs ${black.username}(b)`);
 }
 
-module.exports = { join, leave };
+module.exports = { join, leave, startMatch };

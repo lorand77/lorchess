@@ -20,6 +20,12 @@ const GRACE_MS = config.DISCONNECT_GRACE_MS;
 const CLOCK_INC = config.CLOCK_INCREMENT_MS;
 
 const other = (c) => (c === "w" ? "b" : "w");
+
+// Pending rematch offers for FINISHED games, keyed by the old gameId. The room
+// is gone by then (concludeGame drops it), so this holds the offering sockets
+// directly: gameId -> Map<userId, socket>. When both participants appear, a new
+// game is created with the colours swapped.
+const rematches = new Map();
 const winResult = (winnerColor) => (winnerColor === "w" ? "1-0" : "0-1");
 
 function attachSockets(httpServer) {
@@ -47,6 +53,10 @@ function attachSockets(httpServer) {
     socket.on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
     socket.on("move:make", (payload, ack) => handleMove(io, socket, payload, ack));
     socket.on("game:resign", (payload) => handleResign(io, socket, payload));
+    socket.on("draw:offer", (payload) => handleDrawOffer(io, socket, payload));
+    socket.on("draw:respond", (payload) => handleDrawRespond(io, socket, payload));
+    socket.on("rematch:offer", (payload) => handleRematchOffer(io, socket, payload));
+    socket.on("rematch:decline", (payload) => handleRematchDecline(io, socket, payload));
 
     socket.on("disconnect", (reason) => handleDisconnect(io, socket, reason));
   });
@@ -177,6 +187,7 @@ function handleGameJoin(io, socket, payload, ack) {
       black: room.names.b,
       clocks: rooms.clockSnapshot(room),
       running: room.started,
+      drawOffer: room.drawOffer,
       initialMs: config.CLOCK_INITIAL_MS,
     },
   });
@@ -227,6 +238,13 @@ function handleMove(io, socket, payload, ack) {
   // (5) Persist + (6) broadcast (mover included; everyone applies on confirmation).
   queries.insertMove.run(gameId, ply, san, uci, fen, socket.userId);
   queries.updateGamePosition.run(fen, turn, gameId);
+
+  // An outstanding draw offer lapses as soon as a move is played.
+  if (room.drawOffer) {
+    room.drawOffer = null;
+    io.to(`game:${gameId}`).emit("draw:cleared");
+  }
+
   reply(ack, { ok: true });
   io.to(`game:${gameId}`).emit("move:made", {
     from,
@@ -247,6 +265,89 @@ function handleMove(io, socket, payload, ack) {
   }
 }
 
+// ---- draw offers ----
+// An offer is stored on the room as the offering colour. Offering while the
+// opponent already has an offer outstanding counts as accepting it.
+function handleDrawOffer(io, socket, payload) {
+  const gameId = Number(payload && payload.gameId) || socket.gameId;
+  const room = rooms.getRoom(gameId);
+  if (!room || room.status !== "active") return;
+  const color = colorOf(room, socket.userId);
+  if (!color) return;
+
+  if (room.drawOffer === color) return;                 // already pending from us
+  if (room.drawOffer === other(color)) {                // crossed offers = agreement
+    return concludeGame(io, room, "1/2-1/2", "agreement");
+  }
+  room.drawOffer = color;
+  socket.to(`game:${gameId}`).emit("draw:offered", { from: color });
+}
+
+function handleDrawRespond(io, socket, payload) {
+  const gameId = Number(payload && payload.gameId) || socket.gameId;
+  const room = rooms.getRoom(gameId);
+  if (!room || room.status !== "active") return;
+  const color = colorOf(room, socket.userId);
+  if (!color) return;
+  // Only the side that did NOT offer can answer.
+  if (!room.drawOffer || room.drawOffer === color) return;
+
+  if (payload && payload.accept) {
+    return concludeGame(io, room, "1/2-1/2", "agreement");
+  }
+  room.drawOffer = null;
+  io.to(`game:${gameId}`).emit("draw:declined", { by: color });
+}
+
+// ---- rematch ----
+// Mutual-offer model: whoever offers second is accepting. Both players stay in
+// the Socket.IO room `game:<oldId>` after the game ends, so offers still reach
+// the opponent even though the room object is gone.
+function handleRematchOffer(io, socket, payload) {
+  const gameId = Number(payload && payload.gameId) || socket.gameId;
+  if (!gameId) return;
+  const game = queries.getGameById.get(gameId);
+  if (!game || game.mode !== "pvp" || game.status === "active") return;
+  const uid = socket.userId;
+  if (game.white_id !== uid && game.black_id !== uid) return;
+
+  let offers = rematches.get(gameId);
+  if (!offers) {
+    offers = new Map();
+    rematches.set(gameId, offers);
+  }
+  offers.set(uid, socket);
+
+  // Both sides in? Start the new game with the colours swapped.
+  if (offers.has(game.white_id) && offers.has(game.black_id)) {
+    rematches.delete(gameId);
+    const newWhite = offers.get(game.black_id);
+    const newBlack = offers.get(game.white_id);
+    console.log(`[rematch] game #${gameId} -> new game, colours swapped`);
+    return matchmaking.startMatch(io, newWhite, newBlack);
+  }
+  socket.to(`game:${gameId}`).emit("rematch:offered", { username: socket.username });
+}
+
+function handleRematchDecline(io, socket, payload) {
+  const gameId = Number(payload && payload.gameId) || socket.gameId;
+  if (!gameId || !rematches.has(gameId)) return;
+  const game = queries.getGameById.get(gameId);
+  if (!game || (game.white_id !== socket.userId && game.black_id !== socket.userId)) return;
+  rematches.delete(gameId);
+  socket.to(`game:${gameId}`).emit("rematch:declined", { username: socket.username });
+}
+
+// Drop a disconnecting player's pending rematch offers, so the opponent can't
+// accept into a game the offerer will never join.
+function clearRematchOffers(socket) {
+  for (const [gid, offers] of rematches) {
+    if (offers.get(socket.userId) !== socket) continue;
+    offers.delete(socket.userId);
+    if (offers.size === 0) rematches.delete(gid);
+  }
+}
+
 function handleResign(io, socket, payload) {
   const gameId = Number(payload && payload.gameId) || socket.gameId;
   const room = rooms.getRoom(gameId);
@@ -258,6 +359,7 @@ function handleResign(io, socket, payload) {
 
 function handleDisconnect(io, socket, reason) {
   matchmaking.leave(socket);
+  clearRematchOffers(socket);
   console.log(`[socket] disconnected: ${socket.username} (${reason})`);
 
   const gameId = socket.gameId;

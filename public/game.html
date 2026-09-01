@@ -59,6 +59,15 @@
     <p id="pvpNotice" class="check-text"></p>
     <p id="pvpControls" style="display:none;">
       <button id="resignBtn">Resign</button>
+      <button id="drawBtn">Offer Draw</button>
+      <button id="rematchBtn" style="display:none;">Rematch</button>
+    </p>
+    <!-- One strip serves both draw and rematch offers; ui.js rebinds the
+         buttons each time it is shown. -->
+    <p id="offerPrompt" class="offer-prompt" style="display:none;">
+      <span id="offerText"></span>
+      <button id="offerAcceptBtn">Accept</button>
+      <button id="offerDeclineBtn">Decline</button>
     </p>
     <h3>PGN</h3>
     <div id="history"></div>

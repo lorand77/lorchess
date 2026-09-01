@@ -271,6 +271,17 @@ select {
 .clock.low    { color: #ff6464; }       /* under 10s */
 .pvp-info { color: #8aa6c8; }
 
+/* draw / rematch offer strip on the game page */
+.offer-prompt {
+  background: #2a3a4a;
+  border: 1px solid #46617d;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #cfe0f0;
+}
+.offer-prompt button { font-size: 12px; padding: 5px 10px; margin: 8px 6px 0 0; }
+
 /* history page */
 .history-page { width: 760px; max-width: 92vw; margin: 32px auto 0; }
 .history-page h1 { margin: 8px 0 16px; }

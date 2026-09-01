@@ -30,6 +30,9 @@ function createRoom(gameId, { whiteId, blackId, whiteName, blackName, startFen }
     result: null,
     termination: null,
     startFen: startFen || null,
+    // Colour of the player with an outstanding draw offer, or null. Cleared
+    // when the offer is answered or when either side moves.
+    drawOffer: null,
     // Connected socket ids per color, and a pending forfeit timer per color.
     online: { w: new Set(), b: new Set() },
     timers: { w: null, b: null },
