@@ -1,3 +1,10 @@
+:root {
+  /* Board edge: fixed 640px on desktop, shrinks to fit narrow viewports.
+     30px covers body padding plus a little slack for scrollbars. */
+  --board: min(640px, calc(100vw - 30px));
+  --sq: calc(var(--board) / 8);
+}
+
 body {
   margin: 0;
   padding: 24px;
@@ -8,7 +15,7 @@ body {
   justify-content: center;
 }
 .game { display: flex; gap: 24px; }
-.board-wrap { position: relative; }
+.board-wrap { position: relative; width: var(--board); }
 .captured {
   display: flex;
   align-items: center;
@@ -30,13 +37,17 @@ body {
 .cap-adv { margin-left: 4px; color: #ffffff; }
 .board {
   display: grid;
-  grid-template-columns: repeat(8, 80px);
-  grid-template-rows: repeat(8, 80px);
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: var(--board);
+  aspect-ratio: 1;
+  box-sizing: border-box;
   border: 2px solid #1a1a1a;
   user-select: none;
 }
 .square {
-  width: 80px; height: 80px;
+  width: 100%; height: 100%;
+  touch-action: manipulation;
   position: relative;
   display: flex;
   align-items: center;
@@ -52,26 +63,26 @@ body {
   box-shadow: inset 0 0 0 5px #dc3232, inset 0 0 0 7px #ff9696;
 }
 .square img {
-  width: 60px; height: 60px;
+  width: calc(var(--sq) * 0.75); height: calc(var(--sq) * 0.75);
   pointer-events: none;
 }
-.square img.pawn { width: 48px; }
+.square img.pawn { width: calc(var(--sq) * 0.6); }
 .hint {
   position: absolute;
-  width: 24px; height: 24px;
+  width: calc(var(--sq) * 0.3); height: calc(var(--sq) * 0.3);
   border-radius: 50%;
   background: rgba(100,100,100,0.55);
   pointer-events: none;
 }
 .hint.capture {
-  width: 64px; height: 64px;
+  width: calc(var(--sq) * 0.8); height: calc(var(--sq) * 0.8);
   background: transparent;
   border: 5px solid rgba(200,50,50,0.7);
   box-sizing: border-box;
 }
 .coord {
   position: absolute;
-  font-size: 12px;
+  font-size: clamp(8px, calc(var(--sq) * 0.15), 12px);
   pointer-events: none;
   font-weight: bold;
 }
@@ -282,3 +293,28 @@ select {
 .mv.current { background: #3d6098; color: #fff; }
 .mv-num { color: #969696; }
 #replayControls button { font-size: 16px; padding: 6px 12px; }
+
+/* --- narrow screens / phones ------------------------------------------ */
+/* The board itself is already fluid (--board). Below this width the 280px
+   side panel no longer fits beside it, so stack it underneath instead. */
+@media (max-width: 980px) {
+  body { padding: 12px; }
+  .game { flex-direction: column; align-items: center; gap: 12px; }
+  .info { width: var(--board); }
+  .clock-row { width: 100%; box-sizing: border-box; }
+  #history { height: 160px; }
+}
+
+/* Modals are the last fixed-width things that overflow a small phone. */
+@media (max-width: 420px) {
+  .promo-box { padding: 12px; }
+  .promo-box .options { gap: 6px; }
+  .promo-box .opt { width: 48px; height: 48px; }
+  .promo-box .opt img { width: 40px; height: 40px; }
+  .fen-modal-box { min-width: 0; width: 92vw; }
+}
+
+/* Fixed-width containers on the other pages must be allowed to shrink. */
+.auth-card, .lobby { max-width: 100%; box-sizing: border-box; }
+.history-page { width: 760px; max-width: 100%; }
+#historyContent { overflow-x: auto; }
