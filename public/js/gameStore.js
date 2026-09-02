@@ -59,6 +59,16 @@ function createGameStore() {
       return ready;
     },
 
+    // Attach to a game that already exists on the server, for resuming an
+    // in-progress AI game. Unlike newGame() this creates nothing — it just
+    // points subsequent writes at `id`.
+    resume(id) {
+      gameId = id;
+      ready = Promise.resolve();
+      chain = ready;
+      return ready;
+    },
+
     recordMove(move) {
       return enqueue(() => post(`/api/games/${gameId}/moves`, move));
     },

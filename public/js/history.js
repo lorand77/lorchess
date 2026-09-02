@@ -45,7 +45,9 @@
       `<td>${youWhite ? "White" : "Black"}</td>` +
       `<td>${escapeHtml(opp || "?")}</td>` +
       `<td class="${res.cls}">${res.text}</td>` +
-      `<td><a class="replay-link" href="/replay.html?id=${g.id}">Replay →</a></td>`;
+      `<td>${g.status === "active"
+          ? `<a class="replay-link" href="/game.html?id=${g.id}">Resume →</a>`
+          : `<a class="replay-link" href="/replay.html?id=${g.id}">Replay →</a>`}</td>`;
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);

@@ -31,7 +31,8 @@ module.exports = {
   listGamesForUser: db.prepare(`
     SELECT g.*,
            wu.username AS white_username,
-           bu.username AS black_username
+           bu.username AS black_username,
+           (SELECT COUNT(*) FROM moves m WHERE m.game_id = g.id) AS move_count
     FROM games g
     LEFT JOIN users wu ON wu.id = g.white_id
     LEFT JOIN users bu ON bu.id = g.black_id

@@ -540,6 +540,83 @@ function initAi() {
   startNewGame();
 }
 
+const AI_STANDARD_START =
+  'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// Inverse of chess.js's algOf: 'e4' -> square index.
+const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
+
+// Restore an unfinished AI game from its stored move list and hand the board
+// back to the player. The engine picks up from wherever the game left off.
+function resumeAiGame(game) {
+  moveSource = createAiMoveSource(env);
+
+  // The human plays whichever side the AI doesn't.
+  humanColor = game.ai_color === 'w' ? B : W;
+  colorSelectEl.value = humanColor === B ? 'b' : 'w';
+
+  // Restore the search depth, but only if the picker actually offers it.
+  const depthEl = document.getElementById('depth');
+  if (depthEl && [...depthEl.options].some(o => o.value === String(game.ai_depth))) {
+    depthEl.value = String(game.ai_depth);
+  }
+
+  if (game.start_fen && game.start_fen !== AI_STANDARD_START) {
+    chess.loadFen(game.start_fen);
+    startFen = game.start_fen;
+  } else {
+    chess.reset();
+    startFen = null;
+  }
+  startFullmove = chess.fullmove;
+  startTurn = chess.turn;
+
+  // REPLAY the moves rather than jumping to current_fen: replaying rebuilds
+  // positionCounts, so threefold repetition still works in the resumed game
+  // (both loadFen and reset wipe it).
+  moveHistory = [];
+  lastMove = null;
+  let replayed = true;
+  for (const m of game.moves) {
+    const from = sqFromAlg(m.uci.slice(0, 2));
+    const to = sqFromAlg(m.uci.slice(2, 4));
+    const promo = m.uci[4] || null;
+    const mv = chess.legalMoves().find(x =>
+      x.from === from && x.to === to && (promo ? x.promo === promo : !x.promo));
+    if (!mv) { replayed = false; break; }
+    chess.makeMove(mv);
+    moveHistory.push(m.san);
+    lastMove = mv;
+  }
+  if (!replayed) {
+    // Incomplete or inconsistent move list. Fall back to the stored position:
+    // repetition history and the PGN move list are lost, but the game is
+    // still playable from here.
+    console.warn('Move replay failed; falling back to current_fen.');
+    chess.loadFen(game.current_fen);
+    startFen = game.current_fen;
+    startFullmove = chess.fullmove;
+    startTurn = chess.turn;
+    moveHistory = [];
+    lastMove = null;
+  }
+
+  whiteName = humanColor === W ? 'Human' : 'LorFish';
+  blackName = humanColor === W ? 'LorFish' : 'Human';
+  setLabels();
+
+  gameStore.resume(game.id);
+
+  selected = null;
+  legalFromSelected = [];
+  promotionPending = null;
+  promoEl.classList.remove('show');
+  thinking = false;
+  render();
+  // If we quit while the engine was on move, let it move now.
+  moveSource.kickIfEngineTurn();
+}
+
 // ---- PvP mode ----
 function pvpNotice(text, kind) {
   const el = document.getElementById('pvpNotice');
@@ -846,8 +923,34 @@ function showRatingChange(ratings) {
   if (window.currentUser) window.currentUser.rating = mine.after;
 }
 
-// ---- entry point: PvP if ?id=<gameId>, else AI ----
+// ---- entry point ----
+// ?id=<gameId> is either a live PvP game or an unfinished AI game to resume;
+// the server tells us which. No id means start a fresh AI game.
+async function openGame(gameId) {
+  let game;
+  try {
+    const res = await fetch('/api/games/' + gameId, { credentials: 'same-origin' });
+    if (res.status === 401) { location.replace('/login.html'); return; }
+    if (!res.ok) {
+      statusEl.textContent = res.status === 403
+        ? "That isn't your game." : 'Game not found.';
+      statusEl.className = 'check-text';
+      return;
+    }
+    game = await res.json();
+  } catch (e) {
+    statusEl.textContent = 'Could not load that game.';
+    statusEl.className = 'check-text';
+    return;
+  }
+
+  if (game.mode === 'pvp') { initPvp(gameId); return; }
+  // A finished AI game isn't playable — send them to the replay viewer.
+  if (game.status !== 'active') { location.replace('/replay.html?id=' + gameId); return; }
+  resumeAiGame(game);
+}
+
 const _params = new URLSearchParams(location.search);
-const _pvpId = _params.get('id');
-if (_pvpId) initPvp(parseInt(_pvpId, 10));
+const _gameId = parseInt(_params.get('id'), 10);
+if (Number.isInteger(_gameId)) openGame(_gameId);
 else initAi();

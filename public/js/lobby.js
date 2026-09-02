@@ -69,17 +69,34 @@ async function checkActiveGame() {
     if (!meRes.ok || !gamesRes.ok) return;
     const me = await meRes.json();
     const games = await gamesRes.json();
-    const active = games.find(
-      (g) =>
-        g.status === "active" &&
-        g.mode === "pvp" &&
-        (g.white_id === me.id || g.black_id === me.id)
+    const mine = (g) => g.white_id === me.id || g.black_id === me.id;
+    const activePvp = games.find(
+      (g) => g.status === "active" && g.mode === "pvp" && mine(g)
     );
-    if (active) {
-      const opp = active.white_id === me.id ? active.black_username : active.white_username;
-      rejoinEl.innerHTML =
+    // An AI game row is created as soon as game.html opens, so only offer to
+    // resume ones that actually have moves in them.
+    const activeAi = games.find(
+      (g) => g.status === "active" && g.mode === "ai" && mine(g) && g.move_count > 0
+    );
+
+    const lines = [];
+    if (activePvp) {
+      const opp = activePvp.white_id === me.id ? activePvp.black_username : activePvp.white_username;
+      lines.push(
         `You have a game in progress. ` +
-        `<a class="rejoin-link" href="/game.html?id=${active.id}">↩ Rejoin vs ${escapeHtml(opp || "opponent")}</a>`;
+        `<a class="rejoin-link" href="/game.html?id=${activePvp.id}">↩ Rejoin vs ${escapeHtml(opp || "opponent")}</a>`
+      );
+    }
+    if (activeAi) {
+      const n = activeAi.move_count;
+      lines.push(
+        `Unfinished game vs LorFish (${n} ${n === 1 ? "move" : "moves"}). ` +
+        `<a class="rejoin-link" href="/game.html?id=${activeAi.id}">↩ Resume</a>`
+      );
+    }
+
+    if (lines.length) {
+      rejoinEl.innerHTML = lines.join("<br>");
       rejoinEl.style.display = "";
     } else {
       rejoinEl.style.display = "none";
