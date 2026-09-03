@@ -119,6 +119,7 @@ function recordApplied(san, move) {
   gameStore.recordMove({ ply, san, uci, fenAfter, byColor });
   if (chess.isGameOver()) {
     gameStore.endGame(chess.result(), terminationReason());
+    playOutcomeSound(chess.result());
   }
 }
 
@@ -205,6 +206,9 @@ const sounds = {
   checkmate: new Audio('assets/Checkmate.mp3'),
   draw:      new Audio('assets/Draw.mp3'),
   explosion: new Audio('assets/Explosion.mp3'),
+  victory:   new Audio('assets/Victory.mp3'),
+  defeat:    new Audio('assets/Defeat.mp3'),
+  lowTime:   new Audio('assets/LowTime.mp3'),
 };
 Object.values(sounds).forEach(a => { a.preload = 'auto'; a.volume = 0.6; });
 
@@ -214,16 +218,74 @@ function play(a) {
   a.play().catch(() => {});
 }
 
+// Set when playMoveSound already announced the end of the game, so the outcome
+// cue below knows not to repeat a draw it just played.
+let endingAnnouncedByMove = false;
+
 // Pick a sound based on the position AFTER the most recent makeMove.
 function playMoveSound() {
   const last = chess.history[chess.history.length - 1];
   const captured = last ? last.captured : null;
-  if (chess.isCheckmate())            return play(sounds.checkmate);
-  if (chess.isGameOver())             return play(sounds.draw);
+  if (chess.isCheckmate()) {
+    endingAnnouncedByMove = true;
+    return play(sounds.checkmate);
+  }
+  if (chess.isGameOver()) {
+    endingAnnouncedByMove = true;
+    return play(sounds.draw);
+  }
   if (captured && captured.t === 'q') return play(sounds.explosion);
   if (chess.inCheck())                return play(sounds.check);
   if (captured)                       return play(sounds.capture);
   play(sounds.move);
+}
+
+// === Outcome fanfare ===
+// Move sounds answer "what just happened on the board"; this answers "did I
+// win". The two layer: a checkmate plays the Checkmate stab on the mating move
+// and then Victory/Defeat, delayed so the fanfare lands after the stab instead
+// of muddying it. Called from both the AI path (client-authoritative, no
+// game:over event exists there) and the PvP game:over event — so endings that
+// are NOT moves (resign, timeout, disconnect forfeit, abort) are covered too.
+const OUTCOME_DELAY_MS = 400;
+let outcomePlayed = false;
+
+// `result` is '1-0' | '0-1' | '1/2-1/2' | '*'. An abort ('*') has no winner, so
+// it gets the neutral draw cue rather than a fanfare one side would find wrong.
+function playOutcomeSound(result) {
+  if (outcomePlayed) return;
+  outcomePlayed = true;
+  const drawish = result === '1/2-1/2' || result === '*';
+  // A draw reached on the board already sounded via playMoveSound.
+  if (drawish && endingAnnouncedByMove) return;
+  const sound = drawish
+    ? sounds.draw
+    : (result === '1-0') === (humanColor === W) ? sounds.victory : sounds.defeat;
+  setTimeout(() => play(sound), OUTCOME_DELAY_MS);
+}
+
+// Low-time warning on your OWN clock. Latched so the 200ms clock tick fires it
+// once rather than fifty times; unlatches if an increment lifts you back over
+// the line, so a long game can warn again.
+const LOW_TIME_MS = 10000;
+let lowTimeWarned = false;
+
+function checkLowTime(ms, isYourTurn) {
+  if (ms > LOW_TIME_MS) {
+    lowTimeWarned = false;
+    return;
+  }
+  if (!isYourTurn || lowTimeWarned) return;
+  lowTimeWarned = true;
+  play(sounds.lowTime);
+}
+
+// Clear the per-game sound latches: new game, resumed game, or an undo that
+// takes the position back out of a finished state.
+function resetSoundState() {
+  endingAnnouncedByMove = false;
+  outcomePlayed = false;
+  lowTimeWarned = false;
 }
 
 function render() {
@@ -451,7 +513,10 @@ function undo() {
     chess.undoMove();
     moveHistory.splice(-1);
   }
-  if (chess.history.length < before) play(sounds.move);
+  if (chess.history.length < before) {
+    play(sounds.move);
+    resetSoundState(); // undone past the end: let a later mate sound again
+  }
   lastMove = chess.history.length > 0
     ? chess.history[chess.history.length - 1].move
     : null;
@@ -469,6 +534,7 @@ function setLabels() {
 
 // ---- AI mode ----
 function refreshGameState() {
+  resetSoundState();
   humanColor = colorSelectEl.value === 'b' ? B : W;
   whiteName = humanColor === W ? 'Human' : 'LorFish';
   blackName = humanColor === W ? 'LorFish' : 'Human';
@@ -549,6 +615,7 @@ const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 // Restore an unfinished AI game from its stored move list and hand the board
 // back to the player. The engine picks up from wherever the game left off.
 function resumeAiGame(game) {
+  resetSoundState();
   moveSource = createAiMoveSource(env);
 
   // The human plays whichever side the AI doesn't.
@@ -691,8 +758,11 @@ function renderClocks() {
     if (running && chess.turn === color) ms -= Date.now() - clockBase; // smooth tick
     return ms;
   };
+  const youMs = valOf(youColor);
+  const yourTurn = running && chess.turn === youColor;
   paintClock('clockTop', valOf(oppColor), running && chess.turn === oppColor);
-  paintClock('clockBottom', valOf(youColor), running && chess.turn === youColor);
+  paintClock('clockBottom', youMs, yourTurn);
+  checkLowTime(youMs, yourTurn);
 }
 
 function initPvp(gameId) {
@@ -832,6 +902,7 @@ function initPvp(gameId) {
   socket.on('game:over', (info) => {
     pvpResult = info;
     clockRunning = false;
+    playOutcomeSound(info.result);
     if (info.clocks) setClocks(info.clocks, false);
     if (resignBtn) resignBtn.disabled = true;
     hideOffer();
