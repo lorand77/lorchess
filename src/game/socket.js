@@ -96,6 +96,11 @@ function startClocksIfReady(io, room) {
   room.started = true;
   room.turnStartedAt = Date.now();
   scheduleFlag(io, room);
+  // The player who joined first got `running: false` in their join ack; tell
+  // the whole room the clock is now live so their display starts ticking.
+  io.to(`game:${room.gameId}`).emit("clock:started", {
+    clocks: rooms.clockSnapshot(room),
+  });
 }
 
 // Arm a timer to flag the side to move when their remaining time elapses.

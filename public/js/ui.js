@@ -895,6 +895,11 @@ function initPvp(gameId) {
 
   // Game-event listeners registered ONCE; they dispatch to the *current*
   // moveSource so a reconnect (which rebuilds the source) never stacks them.
+  // Fired when the second player joins and the server starts the clock; the
+  // first-joined player's join ack said `running: false`, so start it here.
+  socket.on('clock:started', (info) => {
+    setClocks(info.clocks, true);
+  });
   socket.on('move:made', (m) => {
     if (moveSource && moveSource.onServerMove) moveSource.onServerMove(m);
     setClocks(m.clocks, true);
