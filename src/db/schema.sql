@@ -25,6 +25,12 @@ CREATE TABLE IF NOT EXISTS games (
   start_fen   TEXT,
   current_fen TEXT,
   turn        TEXT    NOT NULL DEFAULT 'w' CHECK (turn IN ('w', 'b')),
+  -- Per-game time control, resolved from shared/timeControls.js at creation.
+  -- NULL on 'ai' games, which are untimed.
+  initial_ms   INTEGER,
+  increment_ms INTEGER,
+  -- Whether the result moves Elo. AI games are always unrated.
+  rated        INTEGER NOT NULL DEFAULT 1,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   finished_at TEXT
 );

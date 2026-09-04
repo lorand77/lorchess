@@ -52,7 +52,8 @@ router.post("/", (req, res) => {
   const aiDepth = parseInt(depth, 10) || 2;
 
   const info = queries.createGame.run(
-    whiteId, blackId, "ai", aiColor, aiDepth, fen, fen, turnOf(fen)
+    whiteId, blackId, "ai", aiColor, aiDepth, fen, fen, turnOf(fen),
+    null, null, 0   // untimed, unrated
   );
   res.status(201).json({
     gameId: Number(info.lastInsertRowid),

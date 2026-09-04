@@ -964,6 +964,12 @@ function applyPvpState(socket, state) {
     }
   }
 
+  // Time control + rating, e.g. "Blitz 5+3 · rated".
+  const tcLine = document.getElementById('tcLine');
+  if (tcLine && state.timeControl) {
+    tcLine.textContent = state.timeControl + ' · ' + (state.rated ? 'rated' : 'casual');
+  }
+
   // Clock labels (top = opponent, bottom = you) + initial snapshot.
   const oppName = humanColor === W ? blackName : whiteName;
   const topWho = document.getElementById('clockTopWho');

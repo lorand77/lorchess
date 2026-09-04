@@ -7,6 +7,7 @@
 const { Chess } = require("../shared/chess");
 const queries = require("../db/queries");
 const config = require("../config");
+const { describeTimeControl } = require("../shared/timeControls");
 
 const STANDARD_START =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -15,7 +16,15 @@ const rooms = new Map(); // gameId -> room
 
 const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 
-function createRoom(gameId, { whiteId, blackId, whiteName, blackName, startFen }) {
+function createRoom(
+  gameId,
+  { whiteId, blackId, whiteName, blackName, startFen, initialMs, incrementMs, rated }
+) {
+  // Games created before per-game time controls existed have NULL clock
+  // columns; fall back to the server-wide default so they still run.
+  const initial = initialMs == null ? config.CLOCK_INITIAL_MS : initialMs;
+  const increment = incrementMs == null ? config.CLOCK_INCREMENT_MS : incrementMs;
+
   const chess = new Chess();
   if (startFen && startFen !== STANDARD_START) chess.loadFen(startFen);
   else chess.reset();
@@ -39,7 +48,12 @@ function createRoom(gameId, { whiteId, blackId, whiteName, blackName, startFen }
     // Server-authoritative clocks (ms remaining per color). The clock starts
     // once both players have joined; turnStartedAt marks when the side to move
     // began consuming time. flagTimer fires when the side to move runs out.
-    clock: { w: config.CLOCK_INITIAL_MS, b: config.CLOCK_INITIAL_MS },
+    clock: { w: initial, b: initial },
+    initialMs: initial,
+    incrementMs: increment,
+    timeControl: describeTimeControl(initial, increment),
+    // Unrated games skip the Elo update when they conclude.
+    rated: rated == null ? true : !!rated,
     turnStartedAt: null,
     started: false,
     everJoined: { w: false, b: false },
@@ -100,6 +114,9 @@ function loadRoomFromDb(gameId) {
     whiteName: nameOf(game.white_id),
     blackName: nameOf(game.black_id),
     startFen: game.start_fen,
+    initialMs: game.initial_ms,
+    incrementMs: game.increment_ms,
+    rated: game.rated,
   });
 
   for (const m of queries.getMovesForGame.all(gameId)) {

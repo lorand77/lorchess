@@ -10,6 +10,7 @@
 const { Server } = require("socket.io");
 const sessionMiddleware = require("../auth/session");
 const matchmaking = require("./matchmaking");
+const lobby = require("./lobby");
 const rooms = require("./rooms");
 const queries = require("../db/queries");
 const config = require("../config");
@@ -17,7 +18,6 @@ const db = require("../db/index");
 const { elo } = require("./elo");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
-const CLOCK_INC = config.CLOCK_INCREMENT_MS;
 
 const other = (c) => (c === "w" ? "b" : "w");
 
@@ -46,9 +46,22 @@ function attachSockets(httpServer) {
   io.on("connection", (socket) => {
     console.log(`[socket] connected: ${socket.username} (#${socket.userId})`);
     socket.emit("welcome", { userId: socket.userId, username: socket.username });
+    lobby.connected(io, socket);
 
-    socket.on("lobby:join", () => matchmaking.join(io, socket));
+    // Quick-match queue.
+    socket.on("lobby:join", (payload) => matchmaking.join(io, socket, payload));
     socket.on("lobby:leave", () => matchmaking.leave(socket));
+
+    // Live lobby: presence, open seeks, direct challenges.
+    socket.on("lobby:enter", () => lobby.enter(io, socket));
+    socket.on("lobby:exit", () => lobby.exit(io, socket));
+    socket.on("seek:create", (p) => lobby.createSeek(io, socket, p));
+    socket.on("seek:cancel", (p) => lobby.cancelSeek(io, socket, p));
+    socket.on("seek:accept", (p) => lobby.acceptSeek(io, socket, p));
+    socket.on("challenge:create", (p) => lobby.createChallenge(io, socket, p));
+    socket.on("challenge:accept", (p) => lobby.acceptChallenge(io, socket, p));
+    socket.on("challenge:decline", (p) => lobby.declineChallenge(io, socket, p));
+    socket.on("challenge:cancel", (p) => lobby.cancelChallenge(io, socket, p));
 
     socket.on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
     socket.on("move:make", (payload, ack) => handleMove(io, socket, payload, ack));
@@ -117,7 +130,8 @@ function concludeGame(io, room, result, termination) {
   if (result === "*") queries.abortGame.run(termination, room.gameId);
   else queries.finishGame.run(result, termination, room.gameId);
 
-  const ratings = result === "*" ? null : applyElo(room, result);
+  // Aborts have no result to rate, and a casual game moves nobody's Elo.
+  const ratings = result === "*" || !room.rated ? null : applyElo(room, result);
 
   io.to(`game:${room.gameId}`).emit("game:over", {
     result,
@@ -126,6 +140,7 @@ function concludeGame(io, room, result, termination) {
     clocks: rooms.clockSnapshot(room),
   });
   rooms.deleteRoom(room.gameId);
+  lobby.refresh(io); // both players are free again
   console.log(`[game] #${room.gameId} over: ${result} (${termination})`);
 }
 
@@ -171,6 +186,7 @@ function handleGameJoin(io, socket, payload, ack) {
 
   // Start the clock once both sides are present.
   startClocksIfReady(io, room);
+  lobby.refresh(io); // this player now shows as "playing" in the lobby
 
   reply(ack, {
     ok: true,
@@ -188,7 +204,10 @@ function handleGameJoin(io, socket, payload, ack) {
       clocks: rooms.clockSnapshot(room),
       running: room.started,
       drawOffer: room.drawOffer,
-      initialMs: config.CLOCK_INITIAL_MS,
+      initialMs: room.initialMs,
+      incrementMs: room.incrementMs,
+      timeControl: room.timeControl,
+      rated: room.rated,
     },
   });
 }
@@ -221,7 +240,7 @@ function handleMove(io, socket, payload, ack) {
       reply(ack, { ok: false, error: "Out of time." });
       return concludeGame(io, room, winResult(other(color)), "timeout");
     }
-    room.clock[color] = remaining + CLOCK_INC;
+    room.clock[color] = remaining + room.incrementMs;
     room.turnStartedAt = now;
   }
 
@@ -324,7 +343,11 @@ function handleRematchOffer(io, socket, payload) {
     const newWhite = offers.get(game.black_id);
     const newBlack = offers.get(game.white_id);
     console.log(`[rematch] game #${gameId} -> new game, colours swapped`);
-    return matchmaking.startMatch(io, newWhite, newBlack);
+    return matchmaking.startMatch(io, newWhite, newBlack, {
+      initialMs: game.initial_ms,
+      incrementMs: game.increment_ms,
+      rated: !!game.rated,
+    });
   }
   socket.to(`game:${gameId}`).emit("rematch:offered", { username: socket.username });
 }
@@ -359,6 +382,7 @@ function handleResign(io, socket, payload) {
 
 function handleDisconnect(io, socket, reason) {
   matchmaking.leave(socket);
+  lobby.onDisconnect(io, socket);
   clearRematchOffers(socket);
   console.log(`[socket] disconnected: ${socket.username} (${reason})`);
 

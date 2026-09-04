@@ -17,20 +17,52 @@
 
   <div id="rejoin" class="rejoin-box" style="display:none;"></div>
 
-  <div class="lobby-actions">
-    <button id="quickMatchBtn" class="primary" disabled>Quick Match</button>
-    <span id="matchStatus" class="muted"></span>
-  </div>
+  <!-- Incoming direct challenges land here, one strip each. -->
+  <div id="incoming"></div>
+
+  <!-- Time control + colour, shared by Quick Match and by both kinds of offer. -->
+  <section class="panel">
+    <h2>New game</h2>
+    <div class="offer-form">
+      <label for="tcSelect">Time</label>
+      <select id="tcSelect"></select>
+      <label for="colorSelect">Play as</label>
+      <select id="colorSelect">
+        <option value="random" selected>Random</option>
+        <option value="w">White</option>
+        <option value="b">Black</option>
+      </select>
+      <label class="check"><input type="checkbox" id="ratedCheck" checked> Rated</label>
+    </div>
+    <div class="lobby-actions">
+      <button id="quickMatchBtn" class="primary" disabled>Quick Match</button>
+      <button id="seekBtn" disabled>Post Challenge</button>
+      <span id="matchStatus" class="muted"></span>
+    </div>
+    <p id="lobbyError" class="lobby-error"></p>
+  </section>
+
+  <!-- Open seeks: anyone may accept. -->
+  <section class="panel">
+    <h2>Open challenges <span class="count" id="seekCount"></span></h2>
+    <div id="seekList" class="list"></div>
+  </section>
+
+  <!-- Presence: challenge a specific player. -->
+  <section class="panel">
+    <h2>Players online <span class="count" id="playerCount"></span></h2>
+    <div id="playerList" class="list"></div>
+  </section>
 
   <p><a class="play-link" href="/game.html?mode=ai">▶ Play vs LorFish</a></p>
-
   <p><a class="nav-link" href="/history.html">📜 My Games</a></p>
 </div>
 
-<!-- authGuard gates the page; socket.io.js is served by the server; net.js
-     wraps the client; lobby.js wires the connection-status indicator. -->
+<!-- authGuard gates the page; timeControls.js is served from src/shared and is
+     the same allowlist the server validates against; net.js wraps the socket. -->
 <script src="/js/authGuard.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/js/timeControls.js"></script>
 <script src="/js/net.js"></script>
 <script src="/js/lobby.js"></script>
 </body>

@@ -329,3 +329,102 @@ select {
 .auth-card, .lobby { max-width: 100%; box-sizing: border-box; }
 .history-page { width: 760px; max-width: 100%; }
 #historyContent { overflow-x: auto; }
+
+/* ---- live lobby: presence, seeks, challenges ---- */
+.lobby { width: 560px; }
+.panel {
+  margin: 18px 0;
+  padding: 12px 14px;
+  background: #333;
+  border: 1px solid #4a4a4a;
+  border-radius: 6px;
+}
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #d8d8d8;
+  font-weight: bold;
+}
+.panel h2 .count { color: #969696; font-weight: normal; }
+
+.offer-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #d8d8d8;
+}
+.offer-form select {
+  background: #2a2a2a;
+  color: #e6e6e6;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 5px 6px;
+}
+.offer-form label.check { display: flex; align-items: center; gap: 5px; }
+
+.list { display: flex; flex-direction: column; gap: 6px; }
+.list .empty { margin: 2px 0; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #2b2b2b;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.row .row-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.row button { margin: 0; padding: 4px 12px; font-size: 12px; }
+.row .primary { background: #3d6098; }
+.row .primary:hover { background: #4a73b5; }
+.name { font-weight: bold; color: #fff; }
+.rating { color: #969696; }
+.small { font-size: 12px; }
+
+.tag {
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: #454545;
+  color: #d0d0d0;
+}
+.tag.rated   { background: #2f4a70; color: #bcd4f5; }
+.tag.casual  { background: #3f4a3f; color: #c4d8c4; }
+.tag.playing { background: #5a4020; color: #ffd08a; }
+.tag.you     { background: #3d6098; color: #fff; }
+
+.challenge-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: #263a52;
+  border: 1px solid #3d6098;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #e0e8f4;
+}
+.challenge-box button { margin: 0; padding: 4px 12px; font-size: 12px; }
+.challenge-box .primary { background: #3d6098; }
+.challenge-box .primary:hover { background: #4a73b5; }
+
+.lobby-error { color: #ff6464; font-size: 13px; min-height: 18px; margin: 8px 0 0; }
+.rejoin-box div + div { margin-top: 6px; }
+
+/* The game page's clock header: "Blitz 5+3 · rated". */
+.tc-line { color: #969696; font-size: 12px; margin: 0 0 6px; }
+
+@media (max-width: 620px) {
+  .lobby { width: 100%; }
+  .row { flex-wrap: wrap; }
+}

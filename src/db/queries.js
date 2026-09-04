@@ -22,8 +22,9 @@ module.exports = {
   // --- games ---
   createGame: db.prepare(`
     INSERT INTO games (white_id, black_id, mode, ai_color, ai_depth,
-                       start_fen, current_fen, turn)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                       start_fen, current_fen, turn,
+                       initial_ms, increment_ms, rated)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
   getGameById: db.prepare("SELECT * FROM games WHERE id = ?"),
   // A user's games, newest first (they may be on either side), with both
@@ -62,6 +63,11 @@ module.exports = {
         finished_at = datetime('now')
     WHERE status = 'active'
   `),
+
+  // Both sides of every live PvP game; the lobby marks these users as busy.
+  playersInLiveGames: db.prepare(
+    "SELECT white_id, black_id FROM games WHERE status = 'active' AND mode = 'pvp'"
+  ),
 
   // --- moves ---
   insertMove: db.prepare(`
