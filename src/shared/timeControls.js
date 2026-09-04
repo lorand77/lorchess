@@ -10,16 +10,10 @@
 // a 24-hour clock or a negative one.
 
 const TIME_CONTROLS = [
-  { key: '1+0',   label: 'Bullet 1+0',     initialMs:   60 * 1000, incrementMs:  0 },
-  { key: '2+1',   label: 'Bullet 2+1',     initialMs:  120 * 1000, incrementMs:  1000 },
-  { key: '3+0',   label: 'Blitz 3+0',      initialMs:  180 * 1000, incrementMs:  0 },
-  { key: '3+2',   label: 'Blitz 3+2',      initialMs:  180 * 1000, incrementMs:  2000 },
-  { key: '5+0',   label: 'Blitz 5+0',      initialMs:  300 * 1000, incrementMs:  0 },
-  { key: '5+3',   label: 'Blitz 5+3',      initialMs:  300 * 1000, incrementMs:  3000 },
-  { key: '10+0',  label: 'Rapid 10+0',     initialMs:  600 * 1000, incrementMs:  0 },
-  { key: '10+5',  label: 'Rapid 10+5',     initialMs:  600 * 1000, incrementMs:  5000 },
-  { key: '15+10', label: 'Rapid 15+10',    initialMs:  900 * 1000, incrementMs: 10000 },
-  { key: '30+0',  label: 'Classical 30+0', initialMs: 1800 * 1000, incrementMs:  0 },
+  { key: '1+0',  label: 'Bullet 1+0',  initialMs:  60 * 1000, incrementMs: 0 },
+  { key: '3+0',  label: 'Blitz 3+0',   initialMs: 180 * 1000, incrementMs: 0 },
+  { key: '5+0',  label: 'Blitz 5+0',   initialMs: 300 * 1000, incrementMs: 0 },
+  { key: '10+0', label: 'Rapid 10+0',  initialMs: 600 * 1000, incrementMs: 0 },
 ];
 
 // Matches the historical server default (10 minutes, no increment), so games
