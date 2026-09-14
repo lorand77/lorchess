@@ -99,6 +99,7 @@ function applyMove(rmove, record) {
     return;
   }
   const san = chess.moveToSan(move);
+  planMoveAnimation(move);
   chess.makeMove(move);
   lastMove = move;
   moveHistory.push(san);
@@ -288,6 +289,104 @@ function resetSoundState() {
   lowTimeWarned = false;
 }
 
+// === Move animation ===
+// A move is applied to `chess` instantly; the board then renders the piece on
+// its destination square and we slide it in from where it came (FLIP-style,
+// via the Web Animations API). The animation is stored as state rather than
+// fired once because render() rebuilds the whole board DOM and is called
+// again almost immediately after a move (e.g. setThinking in AI mode). Each
+// render re-attaches the in-flight animation at its current elapsed time, so
+// the slide continues seamlessly instead of being wiped.
+const MOVE_ANIM_MS = 200;
+const reducedMotion = window.matchMedia
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// { start, pieces: [{from, to}], captured: {sq, piece} | null }
+let moveAnim = null;
+
+// Call BEFORE chess.makeMove(move): it inspects the current squares to find
+// the captured piece (which vanishes once the move is made).
+function planMoveAnimation(move) {
+  if (reducedMotion) return;
+  const pieces = [{ from: move.from, to: move.to }];
+  if (move.castle) {
+    const home = rankOf(move.from);
+    pieces.push(move.castle === 'K'
+      ? { from: sqIdx(7, home), to: sqIdx(5, home) }
+      : { from: sqIdx(0, home), to: sqIdx(3, home) });
+  }
+  const capSq = move.enpassant ? sqIdx(fileOf(move.to), rankOf(move.from)) : move.to;
+  const capPiece = chess.squares[capSq];
+  moveAnim = {
+    start: performance.now(),
+    pieces,
+    captured: capPiece ? { sq: capSq, piece: capPiece } : null,
+  };
+}
+
+// Undo slides the pieces back the way they came. `moves` are the history
+// entries being reverted (one or two).
+function planUndoAnimation(moves) {
+  if (reducedMotion || moves.length === 0) return;
+  const pieces = [];
+  for (const move of moves) {
+    pieces.push({ from: move.to, to: move.from });
+    if (move.castle) {
+      const home = rankOf(move.from);
+      pieces.push(move.castle === 'K'
+        ? { from: sqIdx(5, home), to: sqIdx(7, home) }
+        : { from: sqIdx(3, home), to: sqIdx(0, home) });
+    }
+  }
+  moveAnim = { start: performance.now(), pieces, captured: null };
+}
+
+// Called at the end of render(), once the board DOM reflects the new position.
+function applyMoveAnimation() {
+  if (!moveAnim) return;
+  const elapsed = performance.now() - moveAnim.start;
+  if (elapsed >= MOVE_ANIM_MS) { moveAnim = null; return; }
+  const sqEl = (sq) => boardEl.querySelector(`.square[data-sq="${sq}"]`);
+
+  for (const p of moveAnim.pieces) {
+    const fromEl = sqEl(p.from);
+    const toEl = sqEl(p.to);
+    const img = toEl && toEl.querySelector('img.piece');
+    if (!fromEl || !img) continue;
+    const a = fromEl.getBoundingClientRect();
+    const b = toEl.getBoundingClientRect();
+    const dx = a.left - b.left;
+    const dy = a.top - b.top;
+    toEl.classList.add('animating');   // paint above the squares it crosses
+    const anim = img.animate(
+      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
+      { duration: MOVE_ANIM_MS, easing: 'ease-out' }
+    );
+    anim.currentTime = elapsed;
+    anim.finished.then(() => toEl.classList.remove('animating'), () => {});
+  }
+
+  // The captured piece stays visible under the arriving piece and fades out,
+  // rather than blinking away before the capturer has landed.
+  if (moveAnim.captured) {
+    const capEl = sqEl(moveAnim.captured.sq);
+    if (capEl) {
+      const ghost = document.createElement('img');
+      ghost.src = pieceImgSrc(moveAnim.captured.piece);
+      ghost.className = 'ghost';
+      if (moveAnim.captured.piece.t === 'p') ghost.classList.add('pawn');
+      ghost.draggable = false;
+      ghost.alt = '';
+      capEl.insertBefore(ghost, capEl.firstChild);
+      const anim = ghost.animate(
+        [{ opacity: 1 }, { opacity: 0 }],
+        { duration: MOVE_ANIM_MS, easing: 'ease-in' }
+      );
+      anim.currentTime = elapsed;
+      anim.finished.then(() => ghost.remove(), () => {});
+    }
+  }
+}
+
 function render() {
   boardEl.innerHTML = '';
   const inCheckNow = chess.inCheck();
@@ -329,6 +428,7 @@ function render() {
       if (piece) {
         const img = document.createElement('img');
         img.src = pieceImgSrc(piece);
+        img.classList.add('piece');
         if (piece.t === 'p') img.classList.add('pawn');
         img.draggable = false;
         img.alt = piece.c + piece.t;
@@ -349,6 +449,7 @@ function render() {
       boardEl.appendChild(div);
     }
   }
+  applyMoveAnimation();
 
   // Turn / thinking line
   if (thinking) {
@@ -505,14 +606,18 @@ function undo() {
   promoEl.classList.remove('show');
 
   const before = chess.history.length;
+  const undone = [];
   if (chess.turn === humanColor && chess.history.length >= 2) {
+    undone.push(chess.history[before - 1].move, chess.history[before - 2].move);
     chess.undoMove();
     chess.undoMove();
     moveHistory.splice(-2);
   } else if (chess.turn !== humanColor && chess.history.length >= 1) {
+    undone.push(chess.history[before - 1].move);
     chess.undoMove();
     moveHistory.splice(-1);
   }
+  planUndoAnimation(undone);
   if (chess.history.length < before) {
     play(sounds.move);
     resetSoundState(); // undone past the end: let a later mate sound again

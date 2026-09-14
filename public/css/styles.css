@@ -67,6 +67,10 @@ body {
   pointer-events: none;
 }
 .square img.pawn { width: calc(var(--sq) * 0.6); }
+/* A piece sliding in from another square paints above the squares it crosses. */
+.square.animating { z-index: 1; }
+/* Fading copy of a captured piece, shown under the arriving capturer. */
+.square img.ghost { position: absolute; }
 .hint {
   position: absolute;
   width: calc(var(--sq) * 0.3); height: calc(var(--sq) * 0.3);
