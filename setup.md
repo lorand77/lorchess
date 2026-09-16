@@ -180,6 +180,28 @@ npm install        # in case dependencies changed
 pm2 restart lorchess
 ```
 
+## changing a user's password
+
+There is no self-service reset flow. Run this in the project dir on the server
+(same user the app runs as, so it picks up `.env` / `DB_PATH`). It is safe to run
+while the app is up.
+
+```
+npm run user:password -- <username>
+```
+
+It prompts twice for the new password with echo off. The password is never
+passed as an argument, so it does not land in shell history. Non-interactive
+use (e.g. from a deploy script) reads the first line of stdin instead:
+
+```
+echo "<new password>" | npm run user:password -- <username>
+```
+
+Minimum length is 6, matching registration. The reserved `LorFish` account is
+refused. The user's existing sessions stay logged in; if they must be kicked
+out, restart the app with a new `SESSION_SECRET` (logs everyone out).
+
 ## backing up sqlite database
 
 ```

@@ -18,6 +18,8 @@ module.exports = {
     "SELECT id, username, rating, created_at FROM users WHERE id = ?"
   ),
   updateRating: db.prepare("UPDATE users SET rating = ? WHERE id = ?"),
+  // Ops-only (src/db/setPassword.js); there is no self-service change flow.
+  updatePassword: db.prepare("UPDATE users SET password_hash = ? WHERE id = ?"),
 
   // --- games ---
   createGame: db.prepare(`
