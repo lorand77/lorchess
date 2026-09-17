@@ -435,6 +435,19 @@ select {
 .lb-table tr.me td:last-child { border-radius: 0 4px 4px 0; }
 .lb-table .tag.you { margin-left: 6px; }
 
+/* ---- friends ---- */
+.friend-ctl { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.friend-ctl button { margin: 0; padding: 3px 10px; font-size: 12px; white-space: nowrap; }
+.friend-ctl .primary { background: #3d6098; }
+.friend-ctl .primary:hover { background: #4a73b5; }
+.friend-ctl button:disabled { background: #444; color: #888; cursor: default; }
+.lb-table td.friend-cell { text-align: right; white-space: nowrap; }
+.friend-row { font-size: 13px; }
+.tag.friend  { background: #2f5a3a; color: #bfe8c8; }
+.tag.pending { background: #4a4a30; color: #e8e0a0; }
+.tag.online  { background: #2f5a3a; color: #bfe8c8; }
+.tag.offline { background: #3a3a3a; color: #9a9a9a; }
+
 /* The game page's clock header: "Blitz 5+3 · rated". */
 .tc-line { color: #969696; font-size: 12px; margin: 0 0 6px; }
 

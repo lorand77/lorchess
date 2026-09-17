@@ -55,6 +55,8 @@
 
     <p id="whiteLabel">White: Human</p>
     <p id="blackLabel">Black: LorFish</p>
+    <!-- PvP only: friend control for the opponent (filled by ui.js). -->
+    <p id="friendRow" class="friend-row" style="display:none;"></p>
     <p id="turn">Turn: White</p>
     <p id="status"></p>
     <p id="pvpNotice" class="check-text"></p>
@@ -101,6 +103,7 @@
 <script src="/js/chess.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/net.js"></script>
+<script src="/js/friends.js"></script>
 <script src="/js/moveSource.js"></script>
 <script src="/js/gameStore.js"></script>
 <script src="/js/ui.js"></script>

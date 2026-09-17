@@ -48,3 +48,20 @@ CREATE TABLE IF NOT EXISTS moves (
 );
 
 CREATE INDEX IF NOT EXISTS idx_moves_game_ply ON moves (game_id, ply);
+
+-- Friendships. One row per pair: requester -> addressee, 'pending' until the
+-- addressee accepts. Application code checks both directions before inserting
+-- so a pair never has two rows.
+CREATE TABLE IF NOT EXISTS friendships (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  requester_id INTEGER NOT NULL REFERENCES users(id),
+  addressee_id INTEGER NOT NULL REFERENCES users(id),
+  status       TEXT    NOT NULL DEFAULT 'pending'
+                       CHECK (status IN ('pending', 'accepted')),
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  responded_at TEXT,
+  UNIQUE (requester_id, addressee_id),
+  CHECK (requester_id <> addressee_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships (addressee_id);

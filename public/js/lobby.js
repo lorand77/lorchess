@@ -15,6 +15,9 @@ const ratedCheck    = document.getElementById("ratedCheck");
 const seekListEl    = document.getElementById("seekList");
 const playerListEl  = document.getElementById("playerList");
 const incomingEl    = document.getElementById("incoming");
+const friendReqsEl  = document.getElementById("friendRequests");
+const friendListEl  = document.getElementById("friendList");
+const friendCountEl = document.getElementById("friendCount");
 const rejoinEl      = document.getElementById("rejoin");
 
 let searching = false;   // in the quick-match queue
@@ -155,6 +158,10 @@ socket.on("challenge:declined", (info) => {
 
 socket.on("lobby:error", (info) => showError(info && info.error));
 
+// Friends live in the DB (REST); the socket only nudges us to refetch.
+socket.on("friends:changed", refreshFriends);
+socket.on("lobby:state", renderFriends); // online / playing badges
+
 function renderSeeks() {
   const seeks = lastState.seeks;
   document.getElementById("seekCount").textContent = seeks.length ? "(" + seeks.length + ")" : "";
@@ -242,6 +249,95 @@ function renderIncoming() {
   }
 }
 
+// --- friends ---
+
+async function refreshFriends() {
+  try {
+    await Friends.load();
+  } catch (e) {
+    /* leave the last known list up */
+  }
+  renderFriends();
+}
+
+function renderFriends() {
+  if (!window.Friends) return;
+  const { friends, incoming, outgoing } = Friends.state;
+  const online = new Map(lastState.players.map((p) => [p.userId, p]));
+  const outgoingTo = new Map(myChallenges.outgoing.map((c) => [c.to.userId, c]));
+  friendCountEl.textContent = friends.length ? "(" + friends.length + ")" : "";
+
+  // Requests waiting on me, one strip each — same shape as game challenges.
+  friendReqsEl.innerHTML = "";
+  for (const r of incoming) {
+    const box = el("div", "challenge-box");
+    const text = el("span", "row-main");
+    text.appendChild(el("strong", null, r.username));
+    text.appendChild(el("span", "rating", "(" + r.rating + ")"));
+    text.appendChild(document.createTextNode(" wants to be friends"));
+    box.appendChild(text);
+    box.appendChild(button("Accept", "primary", () => friendAction(Friends.accept(r.id))));
+    box.appendChild(button("Decline", "", () => friendAction(Friends.decline(r.id))));
+    friendReqsEl.appendChild(box);
+  }
+
+  friendListEl.innerHTML = "";
+  for (const f of friends) {
+    const p = online.get(f.userId);
+    const row = el("div", "row");
+    const who = el("span", "row-main");
+    who.appendChild(el("span", "name", f.username));
+    who.appendChild(el("span", "rating", "(" + f.rating + ")"));
+    if (!p) who.appendChild(el("span", "tag offline", "offline"));
+    else if (p.playing) who.appendChild(el("span", "tag playing", "playing"));
+    else who.appendChild(el("span", "tag online", "online"));
+    row.appendChild(who);
+
+    const pending = outgoingTo.get(f.userId);
+    if (pending) {
+      row.appendChild(button("Withdraw", "", () => socket.emit("challenge:cancel", { id: pending.id })));
+    } else {
+      const b = button("Challenge", "primary", () =>
+        socket.emit("challenge:create", { toUserId: f.userId, ...currentOffer() })
+      );
+      if (!p || p.playing) {
+        b.disabled = true;
+        b.title = p ? "Already in a game" : "Offline";
+      }
+      row.appendChild(b);
+    }
+    row.appendChild(button("Remove", "", () => {
+      if (confirm("Remove " + f.username + " from your friends?")) friendAction(Friends.remove(f.id));
+    }));
+    friendListEl.appendChild(row);
+  }
+  for (const r of outgoing) {
+    const row = el("div", "row");
+    const who = el("span", "row-main");
+    who.appendChild(el("span", "name", r.username));
+    who.appendChild(el("span", "rating", "(" + r.rating + ")"));
+    who.appendChild(el("span", "tag pending", "request sent"));
+    row.appendChild(who);
+    row.appendChild(button("Withdraw", "", () => friendAction(Friends.remove(r.id))));
+    friendListEl.appendChild(row);
+  }
+  if (!friends.length && !outgoing.length) {
+    const empty = el("p", "muted empty");
+    empty.appendChild(document.createTextNode("No friends yet. Add some from the "));
+    const a = el("a", "nav-link", "leaderboard");
+    a.href = "/leaderboard.html";
+    empty.appendChild(a);
+    empty.appendChild(document.createTextNode(" or after a game."));
+    friendListEl.appendChild(empty);
+  }
+}
+
+// Run a Friends action; the server's friends:changed nudge does the refetch,
+// but refetch here too so the UI is right even if the socket is down.
+function friendAction(promise) {
+  promise.catch((err) => showError(err.message)).then(refreshFriends);
+}
+
 // --- starting a game ---
 
 socket.on("game:start", (info) => {
@@ -304,6 +400,7 @@ socket.on("lobby:state", checkActiveGame);
 (function whenUserKnown() {
   if (myId() == null) return setTimeout(whenUserKnown, 50);
   checkActiveGame();
+  refreshFriends();
   renderSeeks();
   renderPlayers();
 })();

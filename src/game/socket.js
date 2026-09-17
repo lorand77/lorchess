@@ -206,6 +206,8 @@ function handleGameJoin(io, socket, payload, ack) {
       termination: room.termination || null,
       white: room.names.w,
       black: room.names.b,
+      whiteId: room.players.w,
+      blackId: room.players.b,
       clocks: rooms.clockSnapshot(room),
       running: room.started,
       drawOffer: room.drawOffer,

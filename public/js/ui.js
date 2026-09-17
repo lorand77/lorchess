@@ -1029,12 +1029,43 @@ function initPvp(gameId) {
     pvpNotice('Opponent reconnected.');
     setTimeout(() => pvpNotice(''), 3000);
   });
+  // The opponent accepted / requested / removed us: redraw the friend control.
+  socket.on('friends:changed', () => renderFriendRow());
+}
+
+// The last PvP state we joined with — it carries both players' ids, which the
+// friend control needs to know who the opponent is.
+let lastPvpState = null;
+
+// Show "+ Add friend" (or Requested / Accept / Friends) for the opponent.
+function renderFriendRow() {
+  const row = document.getElementById('friendRow');
+  const state = lastPvpState;
+  if (!row || !window.Friends || !state) return;
+  const oppId = state.yourColor === 'w' ? state.blackId : state.whiteId;
+  const oppName = state.yourColor === 'w' ? state.black : state.white;
+  if (!oppId) { row.style.display = 'none'; return; }
+  Friends.load()
+    .then(() => {
+      row.innerHTML = '';
+      const who = document.createElement('span');
+      who.className = 'muted small';
+      who.textContent = oppName + ': ';
+      row.appendChild(who);
+      row.appendChild(Friends.button(oppId, renderFriendRow, {
+        onError: (msg) => pvpNotice(msg),
+      }));
+      row.style.display = '';
+    })
+    .catch(() => { /* the game works fine without it */ });
 }
 
 function applyPvpState(socket, state) {
   humanColor = state.yourColor === 'b' ? B : W;
   whiteName = state.white;
   blackName = state.black;
+  lastPvpState = state;
+  renderFriendRow();
   // M5: PvP games always start from the standard position.
   chess.loadFen(state.fen);
   startFullmove = 1;

@@ -92,6 +92,35 @@ module.exports = {
     "SELECT white_id, black_id FROM games WHERE status = 'active' AND mode = 'pvp'"
   ),
 
+  // --- friendships ---
+  // The one row (if any) linking two users, in either direction.
+  findFriendship: db.prepare(`
+    SELECT * FROM friendships
+    WHERE (requester_id = @a AND addressee_id = @b)
+       OR (requester_id = @b AND addressee_id = @a)
+  `),
+  getFriendshipById: db.prepare("SELECT * FROM friendships WHERE id = ?"),
+  createFriendRequest: db.prepare(
+    "INSERT INTO friendships (requester_id, addressee_id) VALUES (?, ?)"
+  ),
+  acceptFriendRequest: db.prepare(`
+    UPDATE friendships
+    SET status = 'accepted', responded_at = datetime('now')
+    WHERE id = ? AND status = 'pending'
+  `),
+  deleteFriendship: db.prepare("DELETE FROM friendships WHERE id = ?"),
+  // Everything involving a user, with the OTHER party resolved for display.
+  listFriendshipsForUser: db.prepare(`
+    SELECT f.id, f.status, f.created_at, f.responded_at,
+           f.requester_id, f.addressee_id,
+           u.id AS other_id, u.username AS other_username, u.rating AS other_rating
+    FROM friendships f
+    JOIN users u ON u.id = CASE WHEN f.requester_id = @me THEN f.addressee_id
+                                ELSE f.requester_id END
+    WHERE f.requester_id = @me OR f.addressee_id = @me
+    ORDER BY f.status DESC, u.rating DESC, u.username COLLATE NOCASE
+  `),
+
   // --- moves ---
   insertMove: db.prepare(`
     INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user)

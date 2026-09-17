@@ -54,6 +54,15 @@
     <div id="playerList" class="list"></div>
   </section>
 
+  <!-- Friends: pending requests to answer, then the friend list with
+       presence and a one-click challenge. Add friends from the leaderboard
+       or from inside a game. -->
+  <section class="panel">
+    <h2>Friends <span class="count" id="friendCount"></span></h2>
+    <div id="friendRequests"></div>
+    <div id="friendList" class="list"></div>
+  </section>
+
   <p><a class="play-link" href="/game.html?mode=ai">▶ Play vs LorFish</a></p>
   <p class="nav-links">
     <a class="nav-link" href="/history.html">📜 My Games</a>
@@ -67,6 +76,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/timeControls.js"></script>
 <script src="/js/net.js"></script>
+<script src="/js/friends.js"></script>
 <script src="/js/lobby.js"></script>
 </body>
 </html>

@@ -114,6 +114,15 @@ function socketFor(userId) {
   return null;
 }
 
+// Emit an event to every socket a user currently holds (any page, any tab).
+// Used by REST handlers that change something the open pages display, e.g.
+// a friend request, so they can refetch without polling. No-op if offline.
+function notifyUser(userId, event, payload) {
+  const entry = presence.get(userId);
+  if (!entry) return;
+  for (const s of entry.sockets.values()) s.emit(event, payload);
+}
+
 // ---- state broadcast ----
 
 // The player list and the seek list are identical for everyone, so they go to
@@ -332,4 +341,5 @@ module.exports = {
   declineChallenge,
   cancelChallenge,
   refresh,
+  notifyUser,
 };
