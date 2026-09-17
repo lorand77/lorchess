@@ -7,6 +7,7 @@ const config = require("./config");
 const sessionMiddleware = require("./auth/session");
 const authRoutes = require("./auth/routes");
 const gameRoutes = require("./game/routes");
+const leaderboardRoutes = require("./game/leaderboard");
 const { attachSockets } = require("./game/socket");
 const rooms = require("./game/rooms");
 
@@ -28,6 +29,7 @@ app.use(express.json());
 app.use(sessionMiddleware);
 app.use("/api", authRoutes);
 app.use("/api/games", gameRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
 
 // --- Static assets ---
 // Single source of truth for the engine: chess.js / lorfish.js live only in

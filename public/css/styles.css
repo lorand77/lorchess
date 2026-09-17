@@ -425,6 +425,16 @@ select {
 .lobby-error { color: #ff6464; font-size: 13px; min-height: 18px; margin: 8px 0 0; }
 .rejoin-box div + div { margin-top: 6px; }
 
+/* ---- leaderboard ---- */
+.nav-links { display: flex; gap: 18px; flex-wrap: wrap; }
+.lb-table td.num, .lb-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.lb-table td.rank { color: #969696; width: 2.5em; }
+.lb-table td.rating-cell { font-weight: bold; color: #fff; }
+.lb-table tr.me td { background: #2f4a70; }
+.lb-table tr.me td:first-child { border-radius: 4px 0 0 4px; }
+.lb-table tr.me td:last-child { border-radius: 0 4px 4px 0; }
+.lb-table .tag.you { margin-left: 6px; }
+
 /* The game page's clock header: "Blitz 5+3 · rated". */
 .tc-line { color: #969696; font-size: 12px; margin: 0 0 6px; }
 
