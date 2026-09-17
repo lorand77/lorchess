@@ -75,6 +75,16 @@
     </p>
     <h3>PGN</h3>
     <div id="history"></div>
+    <!-- PvP + spectator chat; hidden in AI games (see ui.js initChat). -->
+    <div id="chat" class="chat" style="display:none;">
+      <h3>Chat</h3>
+      <div id="chatLog" class="chat-log" aria-live="polite"></div>
+      <form id="chatForm" class="chat-form" autocomplete="off">
+        <input id="chatInput" type="text" maxlength="300" placeholder="Say something…">
+        <button type="submit">Send</button>
+      </form>
+      <p id="chatError" class="lobby-error"></p>
+    </div>
     <p id="gameButtons" style="margin-top:12px;">
       <button id="undoBtn">Undo (R)</button>
       <button id="resetBtn">New Game</button>

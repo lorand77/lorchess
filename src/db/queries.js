@@ -121,6 +121,26 @@ module.exports = {
     ORDER BY f.status DESC, u.rating DESC, u.username COLLATE NOCASE
   `),
 
+  // --- chat ---
+  insertChat: db.prepare(
+    "INSERT INTO chat_messages (game_id, user_id, role, body) VALUES (?, ?, ?, ?)"
+  ),
+  getChatById: db.prepare(`
+    SELECT c.id, c.user_id AS userId, u.username, c.role, c.body AS text, c.created_at AS at
+    FROM chat_messages c JOIN users u ON u.id = c.user_id
+    WHERE c.id = ?
+  `),
+  // The most recent N messages of a game, oldest first.
+  listChatForGame: db.prepare(`
+    SELECT * FROM (
+      SELECT c.id, c.user_id AS userId, u.username, c.role, c.body AS text, c.created_at AS at
+      FROM chat_messages c JOIN users u ON u.id = c.user_id
+      WHERE c.game_id = ?
+      ORDER BY c.id DESC
+      LIMIT ?
+    ) ORDER BY id ASC
+  `),
+
   // --- moves ---
   insertMove: db.prepare(`
     INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user)

@@ -670,6 +670,8 @@ async function startNewGame() {
 
 // ---- AI-only control wiring (these controls are hidden in PvP) ----
 document.addEventListener('keydown', e => {
+  const tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return; // typing in chat / FEN box
   if (fenPanel.classList.contains('show')) {
     if (e.key === 'Escape') fenPanel.classList.remove('show');
     return;
@@ -883,6 +885,73 @@ function showSpectators(info) {
 
 const colorName = (c) => (c === 'w' ? 'White' : 'Black');
 
+// ---- chat ----
+// One panel for players and spectators. Listeners are bound once per socket
+// (initChat); history is (re)painted from the join/watch ack on every
+// (re)connect via setChatHistory, so a reconnect never duplicates lines.
+let chatBound = null;
+
+function chatLine(m) {
+  const line = document.createElement('div');
+  line.className = 'chat-msg chat-' + (m.role || 's');
+  const who = document.createElement('span');
+  who.className = 'chat-who';
+  who.textContent = m.username + (m.role === 's' ? ' (spectator)' : '') + ':';
+  const text = document.createElement('span');
+  text.className = 'chat-text';
+  text.textContent = ' ' + m.text;
+  line.append(who, text);
+  return line;
+}
+
+function appendChat(m) {
+  const log = document.getElementById('chatLog');
+  if (!log) return;
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 24;
+  log.appendChild(chatLine(m));
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+function setChatHistory(list) {
+  const log = document.getElementById('chatLog');
+  if (!log) return;
+  log.innerHTML = '';
+  for (const m of list || []) log.appendChild(chatLine(m));
+  log.scrollTop = log.scrollHeight;
+}
+
+function initChat(socket, gameId) {
+  const panel = document.getElementById('chat');
+  const form = document.getElementById('chatForm');
+  const input = document.getElementById('chatInput');
+  const errEl = document.getElementById('chatError');
+  if (!panel || !form || !input) return;
+  panel.style.display = '';
+  if (chatBound === socket) return;
+  chatBound = socket;
+
+  let errTimer = null;
+  const showErr = (msg) => {
+    errEl.textContent = msg || '';
+    clearTimeout(errTimer);
+    if (msg) errTimer = setTimeout(() => { errEl.textContent = ''; }, 3000);
+  };
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    socket.emit('chat:send', { gameId, text }, (resp) => {
+      if (!resp || !resp.ok) {
+        showErr((resp && resp.error) || 'Message not sent.');
+        if (!input.value) input.value = text; // give it back to retry
+      }
+    });
+  });
+  socket.on('chat:message', appendChat);
+}
+
 // ---- spectator mode ----
 // Read-only view of a live PvP game. Shares applyPvpState and the board with
 // the player view; differences are gated on `spectating`.
@@ -916,6 +985,7 @@ function initSpectate(gameId) {
         return;
       }
       applyPvpState(socket, resp.state);
+      initChat(socket, gameId);
       showSpectators({ count: resp.state.spectators });
       pvpNotice('You are watching this game.', 'info');
     });
@@ -1073,6 +1143,7 @@ function initPvp(gameId) {
         return;
       }
       applyPvpState(socket, resp.state);
+      initChat(socket, gameId);
     });
   });
 
@@ -1156,6 +1227,7 @@ function applyPvpState(socket, state) {
   blackName = state.black;
   lastPvpState = state;
   renderFriendRow();
+  setChatHistory(state.chat);
   // M5: PvP games always start from the standard position.
   chess.loadFen(state.fen);
   startFullmove = 1;

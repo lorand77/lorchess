@@ -65,3 +65,16 @@ CREATE TABLE IF NOT EXISTS friendships (
 );
 
 CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships (addressee_id);
+
+-- In-game chat. Persisted so a reload (or a rematch lobby after the room is
+-- gone) still shows the conversation. role is the sender's seat at send time.
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id    INTEGER NOT NULL REFERENCES games(id),
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  role       TEXT    NOT NULL CHECK (role IN ('w', 'b', 's')),  -- white | black | spectator
+  body       TEXT    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_game ON chat_messages (game_id, id);

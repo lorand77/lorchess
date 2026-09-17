@@ -65,6 +65,7 @@ function attachSockets(httpServer) {
 
     socket.on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
     socket.on("game:watch", (payload, ack) => handleWatch(io, socket, payload, ack));
+    socket.on("chat:send", (payload, ack) => handleChat(io, socket, payload, ack));
     socket.on("move:make", (payload, ack) => handleMove(io, socket, payload, ack));
     socket.on("game:resign", (payload) => handleResign(io, socket, payload));
     socket.on("draw:offer", (payload) => handleDrawOffer(io, socket, payload));
@@ -221,7 +222,50 @@ function stateOf(room, color) {
     timeControl: room.timeControl,
     rated: room.rated,
     spectators: room.spectators.size,
+    chat: queries.listChatForGame.all(room.gameId, CHAT_HISTORY),
   };
+}
+
+// ---- chat ----
+// Anyone in the game's Socket.IO room may talk: the two players (also after
+// the game ends, while they hang around for a rematch) and spectators. The
+// room may already be gone by then, so membership is judged from the socket's
+// own join/watch markers and the seat from the games row. Messages persist.
+const CHAT_HISTORY = 100;
+const CHAT_MAX_LEN = 300;
+const CHAT_BURST = 5;        // at most this many messages...
+const CHAT_WINDOW_MS = 5000; // ...per this window, per socket
+
+function handleChat(io, socket, payload, ack) {
+  const gameId = Number(payload && payload.gameId);
+  const text = typeof (payload && payload.text) === "string"
+    ? payload.text.replace(/\s+/g, " ").trim()
+    : "";
+  if (!gameId || socket.gameId !== gameId && socket.watching !== gameId) {
+    return reply(ack, { ok: false, error: "You're not in this game." });
+  }
+  if (!text) return reply(ack, { ok: false, error: "Empty message." });
+  if (text.length > CHAT_MAX_LEN) {
+    return reply(ack, { ok: false, error: `Keep it under ${CHAT_MAX_LEN} characters.` });
+  }
+
+  // Sliding-window rate limit.
+  const now = Date.now();
+  socket.chatTimes = (socket.chatTimes || []).filter((t) => now - t < CHAT_WINDOW_MS);
+  if (socket.chatTimes.length >= CHAT_BURST) {
+    return reply(ack, { ok: false, error: "Slow down a little." });
+  }
+  socket.chatTimes.push(now);
+
+  const game = queries.getGameById.get(gameId);
+  if (!game) return reply(ack, { ok: false, error: "Game not found." });
+  const role =
+    game.white_id === socket.userId ? "w" : game.black_id === socket.userId ? "b" : "s";
+
+  const info = queries.insertChat.run(gameId, socket.userId, role, text);
+  const msg = queries.getChatById.get(Number(info.lastInsertRowid));
+  io.to(`game:${gameId}`).emit("chat:message", msg);
+  reply(ack, { ok: true });
 }
 
 // ---- spectators ----
