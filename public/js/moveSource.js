@@ -111,3 +111,21 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
     },
   };
 }
+
+// ---- Spectator: a read-only board fed by the server's broadcasts ----
+// Same onServerMove entry point as the remote source, but the human can never
+// move; the server would reject a non-player anyway.
+function createSpectatorMoveSource(env) {
+  return {
+    kind: "spectator",
+    canHumanMoveNow() {
+      return false;
+    },
+    submitMove() {},
+    onServerMove(m) {
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo }, false);
+    },
+    kickIfEngineTurn() {},
+    cancel() {},
+  };
+}

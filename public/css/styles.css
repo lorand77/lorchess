@@ -448,6 +448,11 @@ select {
 .tag.online  { background: #2f5a3a; color: #bfe8c8; }
 .tag.offline { background: #3a3a3a; color: #9a9a9a; }
 
+/* ---- spectating ---- */
+.vs { color: #969696; font-size: 12px; margin: 0 2px; }
+.friend-row .friend-line { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; }
+#watchInfo { margin: 4px 0; }
+
 /* The game page's clock header: "Blitz 5+3 · rated". */
 .tc-line { color: #969696; font-size: 12px; margin: 0 0 6px; }
 

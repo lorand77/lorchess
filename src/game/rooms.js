@@ -58,6 +58,9 @@ function createRoom(
     started: false,
     everJoined: { w: false, b: false },
     flagTimer: null,
+    // Socket ids of non-players watching this game (they sit in the same
+    // Socket.IO room and receive every broadcast, but can never act).
+    spectators: new Set(),
   };
   rooms.set(gameId, room);
   return room;
@@ -99,6 +102,11 @@ function getRoom(gameId) {
 
 function deleteRoom(gameId) {
   rooms.delete(gameId);
+}
+
+// Every live room, for the lobby's "Live games" list.
+function listRooms() {
+  return [...rooms.values()];
 }
 
 // Rebuild a room's live state from the DB. Used when a participant connects but
@@ -144,6 +152,7 @@ module.exports = {
   createRoom,
   getRoom,
   deleteRoom,
+  listRooms,
   loadRoomFromDb,
   clearTimers,
   clockSnapshot,

@@ -89,7 +89,7 @@ module.exports = {
 
   // Both sides of every live PvP game; the lobby marks these users as busy.
   playersInLiveGames: db.prepare(
-    "SELECT white_id, black_id FROM games WHERE status = 'active' AND mode = 'pvp'"
+    "SELECT id, white_id, black_id FROM games WHERE status = 'active' AND mode = 'pvp'"
   ),
 
   // --- friendships ---

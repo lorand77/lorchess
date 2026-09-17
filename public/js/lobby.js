@@ -14,6 +14,7 @@ const colorSelect   = document.getElementById("colorSelect");
 const ratedCheck    = document.getElementById("ratedCheck");
 const seekListEl    = document.getElementById("seekList");
 const playerListEl  = document.getElementById("playerList");
+const gameListEl    = document.getElementById("gameList");
 const incomingEl    = document.getElementById("incoming");
 const friendReqsEl  = document.getElementById("friendRequests");
 const friendListEl  = document.getElementById("friendList");
@@ -22,7 +23,7 @@ const rejoinEl      = document.getElementById("rejoin");
 
 let searching = false;   // in the quick-match queue
 let myseek = null;       // our own open seek, if any
-let lastState = { players: [], seeks: [] };
+let lastState = { players: [], seeks: [], games: [] };
 let myChallenges = { incoming: [], outgoing: [] };
 
 // --- helpers ---
@@ -139,10 +140,12 @@ seekBtn.addEventListener("click", () => {
 // --- rendering ---
 
 socket.on("lobby:state", (state) => {
-  lastState = state || { players: [], seeks: [] };
+  lastState = state || { players: [], seeks: [], games: [] };
+  if (!lastState.games) lastState.games = [];
   myseek = lastState.seeks.find((s) => s.userId === myId()) || null;
   seekBtn.textContent = myseek ? "Cancel Challenge" : "Post Challenge";
   renderSeeks();
+  renderGames();
   renderPlayers();
 });
 
@@ -188,6 +191,44 @@ function renderSeeks() {
   }
 }
 
+// A link-styled button into the spectator view of a live game.
+function watchButton(gameId) {
+  return button("Watch", "", () => { location.href = "/game.html?watch=" + gameId; });
+}
+
+function renderGames() {
+  const games = lastState.games;
+  document.getElementById("gameCount").textContent = games.length ? "(" + games.length + ")" : "";
+  gameListEl.innerHTML = "";
+  if (!games.length) {
+    gameListEl.appendChild(el("p", "muted empty", "No games in progress."));
+    return;
+  }
+  const me = myId();
+  for (const g of games) {
+    const row = el("div", "row");
+    const who = el("span", "row-main");
+    const side = (p) => {
+      who.appendChild(el("span", "name", p.username));
+      if (p.rating != null) who.appendChild(el("span", "rating", "(" + p.rating + ")"));
+    };
+    side(g.white);
+    who.appendChild(el("span", "vs", "vs"));
+    side(g.black);
+    who.appendChild(el("span", "tag", g.tc));
+    who.appendChild(el("span", "tag " + (g.rated ? "rated" : "casual"), g.rated ? "rated" : "casual"));
+    if (g.spectators) who.appendChild(el("span", "muted small", "👁 " + g.spectators));
+    row.appendChild(who);
+    const mine = g.white.userId === me || g.black.userId === me;
+    row.appendChild(
+      mine
+        ? button("Rejoin", "primary", () => { location.href = "/game.html?id=" + g.gameId; })
+        : watchButton(g.gameId)
+    );
+    gameListEl.appendChild(row);
+  }
+}
+
 function renderPlayers() {
   const players = lastState.players;
   document.getElementById("playerCount").textContent =
@@ -211,11 +252,15 @@ function renderPlayers() {
           button("Withdraw", "", () => socket.emit("challenge:cancel", { id: pending.id }))
         );
       } else if (p.playing) {
-        // They're mid-game, with no lobby page open to receive the challenge.
-        const b = button("Challenge", "", () => {});
-        b.disabled = true;
-        b.title = "Already in a game";
-        row.appendChild(b);
+        // They're mid-game, with no lobby page open to receive the challenge —
+        // offer to watch instead.
+        if (p.gameId) row.appendChild(watchButton(p.gameId));
+        else {
+          const b = button("Challenge", "", () => {});
+          b.disabled = true;
+          b.title = "Already in a game";
+          row.appendChild(b);
+        }
       } else {
         row.appendChild(
           button("Challenge", "", () =>
@@ -296,6 +341,8 @@ function renderFriends() {
     const pending = outgoingTo.get(f.userId);
     if (pending) {
       row.appendChild(button("Withdraw", "", () => socket.emit("challenge:cancel", { id: pending.id })));
+    } else if (p && p.playing && p.gameId) {
+      row.appendChild(watchButton(p.gameId));
     } else {
       const b = button("Challenge", "primary", () =>
         socket.emit("challenge:create", { toUserId: f.userId, ...currentOffer() })

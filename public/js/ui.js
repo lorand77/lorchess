@@ -17,6 +17,7 @@ let startFen = null;
 // Opponent abstraction + mode. moveSource is assigned in initAi()/initPvp().
 let moveSource = null;
 let pvpMode = false;
+let spectating = false;   // watching someone else's PvP game (?watch=<id>)
 let pvpResult = null;            // {result, termination} once a PvP game ends
 let whiteName = 'Human';
 let blackName = 'LorFish';
@@ -633,8 +634,9 @@ function undo() {
 
 function setLabels() {
   const youW = humanColor === W;
-  whiteLabelEl.textContent = 'White: ' + whiteName + (youW ? ' (you)' : '');
-  blackLabelEl.textContent = 'Black: ' + blackName + (!youW ? ' (you)' : '');
+  const you = (isYou) => (isYou && !spectating ? ' (you)' : '');
+  whiteLabelEl.textContent = 'White: ' + whiteName + you(youW);
+  blackLabelEl.textContent = 'Black: ' + blackName + you(!youW);
 }
 
 // ---- AI mode ----
@@ -867,7 +869,83 @@ function renderClocks() {
   const yourTurn = running && chess.turn === youColor;
   paintClock('clockTop', valOf(oppColor), running && chess.turn === oppColor);
   paintClock('clockBottom', youMs, yourTurn);
-  checkLowTime(youMs, yourTurn);
+  if (!spectating) checkLowTime(youMs, yourTurn);
+}
+
+// "👁 N watching" under the notices; hidden when nobody is.
+function showSpectators(info) {
+  const el = document.getElementById('watchInfo');
+  if (!el) return;
+  const n = (info && info.count) || 0;
+  el.textContent = n ? '👁 ' + n + (n === 1 ? ' spectator' : ' spectators') : '';
+  el.style.display = n ? '' : 'none';
+}
+
+const colorName = (c) => (c === 'w' ? 'White' : 'Black');
+
+// ---- spectator mode ----
+// Read-only view of a live PvP game. Shares applyPvpState and the board with
+// the player view; differences are gated on `spectating`.
+function initSpectate(gameId) {
+  pvpMode = true;
+  spectating = true;
+  pgnEvent = 'LorChess PvP';
+  for (const id of ['aiControls', 'gameButtons', 'pvpControls']) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+  const clocksEl = document.getElementById('clocks');
+  if (clocksEl) clocksEl.style.display = '';
+  if (!clockTimer) clockTimer = setInterval(renderClocks, 200);
+  statusEl.textContent = 'Connecting…';
+
+  const socket = connectSocket({
+    onError: (err) => pvpNotice('Connection error: ' + err.message),
+    onDisconnect: () => { if (!gameIsOver()) pvpNotice('Disconnected — reconnecting…'); },
+  });
+
+  // (Re)subscribe whenever the socket (re)connects; the ack carries the board.
+  socket.on('connect', () => {
+    pvpNotice('');
+    socket.emit('game:watch', { gameId }, (resp) => {
+      if (!resp || !resp.ok) {
+        // A player who opened the watch link gets sent to the real game.
+        if (resp && resp.player) { location.replace('/game.html?id=' + gameId); return; }
+        statusEl.textContent = (resp && resp.error) || 'Cannot watch this game.';
+        statusEl.className = 'check-text';
+        return;
+      }
+      applyPvpState(socket, resp.state);
+      showSpectators({ count: resp.state.spectators });
+      pvpNotice('You are watching this game.', 'info');
+    });
+  });
+
+  socket.on('clock:started', (info) => setClocks(info.clocks, true));
+  socket.on('move:made', (m) => {
+    if (moveSource && moveSource.onServerMove) moveSource.onServerMove(m);
+    setClocks(m.clocks, true);
+  });
+  socket.on('game:over', (info) => {
+    pvpResult = info;
+    clockRunning = false;
+    playOutcomeSound(info.result);
+    if (info.clocks) setClocks(info.clocks, false);
+    showRatingChange(info.ratings);
+    render();
+  });
+  socket.on('opponent:disconnected', (info) => {
+    const secs = Math.round((info.graceMs || 0) / 1000);
+    pvpNotice(`${colorName(info.color)} disconnected — ${secs}s to reconnect…`);
+  });
+  socket.on('opponent:reconnected', (info) => {
+    pvpNotice(`${colorName(info && info.color)} reconnected.`, 'info');
+    setTimeout(() => pvpNotice(''), 3000);
+  });
+  socket.on('spectators', showSpectators);
+  socket.on('friends:changed', () => renderFriendRow());
+  // draw:offered / rematch:offered also reach this room; a spectator has
+  // nothing to answer, so they are simply not listened for here.
 }
 
 function initPvp(gameId) {
@@ -1031,6 +1109,7 @@ function initPvp(gameId) {
   });
   // The opponent accepted / requested / removed us: redraw the friend control.
   socket.on('friends:changed', () => renderFriendRow());
+  socket.on('spectators', showSpectators);
 }
 
 // The last PvP state we joined with — it carries both players' ids, which the
@@ -1042,26 +1121,37 @@ function renderFriendRow() {
   const row = document.getElementById('friendRow');
   const state = lastPvpState;
   if (!row || !window.Friends || !state) return;
-  const oppId = state.yourColor === 'w' ? state.blackId : state.whiteId;
-  const oppName = state.yourColor === 'w' ? state.black : state.white;
-  if (!oppId) { row.style.display = 'none'; return; }
+  // Players see a control for their opponent; spectators see one per player.
+  const targets = spectating
+    ? [{ id: state.whiteId, name: state.white }, { id: state.blackId, name: state.black }]
+    : state.yourColor === 'w'
+      ? [{ id: state.blackId, name: state.black }]
+      : [{ id: state.whiteId, name: state.white }];
+  if (!targets.some((t) => t.id)) { row.style.display = 'none'; return; }
   Friends.load()
     .then(() => {
       row.innerHTML = '';
-      const who = document.createElement('span');
-      who.className = 'muted small';
-      who.textContent = oppName + ': ';
-      row.appendChild(who);
-      row.appendChild(Friends.button(oppId, renderFriendRow, {
-        onError: (msg) => pvpNotice(msg),
-      }));
+      for (const t of targets) {
+        if (!t.id) continue;
+        const line = document.createElement('span');
+        line.className = 'friend-line';
+        const who = document.createElement('span');
+        who.className = 'muted small';
+        who.textContent = t.name + ': ';
+        line.appendChild(who);
+        line.appendChild(Friends.button(t.id, renderFriendRow, {
+          onError: (msg) => pvpNotice(msg),
+        }));
+        row.appendChild(line);
+      }
       row.style.display = '';
     })
     .catch(() => { /* the game works fine without it */ });
 }
 
 function applyPvpState(socket, state) {
-  humanColor = state.yourColor === 'b' ? B : W;
+  // Spectators watch from White's side of the board.
+  humanColor = !spectating && state.yourColor === 'b' ? B : W;
   whiteName = state.white;
   blackName = state.black;
   lastPvpState = state;
@@ -1091,7 +1181,7 @@ function applyPvpState(socket, state) {
   drawOfferedByMe = false;
   const drawBtnEl = document.getElementById('drawBtn');
   if (drawBtnEl) drawBtnEl.disabled = false;
-  if (!over && state.drawOffer) {
+  if (!spectating && !over && state.drawOffer) {
     if (state.drawOffer === state.yourColor) {
       if (drawBtnEl) drawBtnEl.disabled = true;
       drawOfferedByMe = true;
@@ -1111,20 +1201,19 @@ function applyPvpState(socket, state) {
     tcLine.textContent = state.timeControl + ' · ' + (state.rated ? 'rated' : 'casual');
   }
 
-  // Clock labels (top = opponent, bottom = you) + initial snapshot.
+  // Clock labels (top = opponent, bottom = you; for a spectator top = Black,
+  // bottom = White) + initial snapshot.
   const oppName = humanColor === W ? blackName : whiteName;
   const topWho = document.getElementById('clockTopWho');
   const botWho = document.getElementById('clockBottomWho');
   if (topWho) topWho.textContent = oppName;
-  if (botWho) botWho.textContent = 'You';
+  if (botWho) botWho.textContent = spectating ? whiteName : 'You';
   setClocks(state.clocks, state.running);
 
-  // Build (or rebuild, on reconnect) the remote source bound to this socket.
-  moveSource = createRemoteMoveSource(env, {
-    socket,
-    gameId: state.gameId,
-    yourColor: state.yourColor,
-  });
+  // Build (or rebuild, on reconnect) the source bound to this socket.
+  moveSource = spectating
+    ? createSpectatorMoveSource(env)
+    : createRemoteMoveSource(env, { socket, gameId: state.gameId, yourColor: state.yourColor });
   render();
 }
 
@@ -1132,6 +1221,13 @@ function applyPvpState(socket, state) {
 // user bar live.
 function showRatingChange(ratings) {
   if (!ratings) return;
+  if (spectating) {
+    // Both players' changes, e.g. "alice 1230 → 1246 (+16) · bob 1170 → 1154 (−16)".
+    const fmt = (name, r) => r && `${name} ${r.before} → ${r.after} (${r.delta >= 0 ? '+' : ''}${r.delta})`;
+    const parts = [fmt(whiteName, ratings.w), fmt(blackName, ratings.b)].filter(Boolean);
+    if (parts.length) pvpNotice(parts.join(' · '), 'info');
+    return;
+  }
   const mine = ratings[humanColor]; // humanColor is 'w' | 'b'
   if (!mine) return;
   const sign = mine.delta >= 0 ? '+' : '';
@@ -1168,7 +1264,11 @@ async function openGame(gameId) {
   resumeAiGame(game);
 }
 
+// ?watch=<gameId> spectates a live PvP game (no ownership check needed: the
+// socket handler decides). ?id=<gameId> plays; no id starts a fresh AI game.
 const _params = new URLSearchParams(location.search);
 const _gameId = parseInt(_params.get('id'), 10);
-if (Number.isInteger(_gameId)) openGame(_gameId);
+const _watchId = parseInt(_params.get('watch'), 10);
+if (Number.isInteger(_watchId)) initSpectate(_watchId);
+else if (Number.isInteger(_gameId)) openGame(_gameId);
 else initAi();

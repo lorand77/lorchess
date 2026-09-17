@@ -14,6 +14,7 @@
 
 const queries = require("../db/queries");
 const matchmaking = require("./matchmaking");
+const rooms = require("./rooms");
 const { resolveTimeControl } = require("../shared/timeControls");
 
 const LOBBY_ROOM = "lobby";
@@ -132,11 +133,12 @@ function broadcastState(io) {
 }
 
 function snapshot() {
-  // One query, not one per player: both sides of every live PvP game.
-  const busy = new Set();
+  // One query, not one per player: both sides of every live PvP game, with
+  // the game id so a "playing" badge can double as a Watch link.
+  const busy = new Map(); // userId -> gameId
   for (const row of queries.playersInLiveGames.all()) {
-    busy.add(row.white_id);
-    busy.add(row.black_id);
+    busy.set(row.white_id, row.id);
+    busy.set(row.black_id, row.id);
   }
   const players = [...presence.values()]
     .map((p) => ({
@@ -144,8 +146,30 @@ function snapshot() {
       username: p.username,
       rating: p.rating,
       playing: busy.has(p.userId),
+      gameId: busy.get(p.userId) || null,
     }))
     .sort((a, b) => b.rating - a.rating || a.username.localeCompare(b.username));
+
+  // Live games anyone may watch. Ratings come from presence when the player is
+  // connected (the usual case) and from the DB otherwise.
+  const ratingOf = (userId) => {
+    const p = presence.get(userId);
+    if (p) return p.rating;
+    const u = queries.getUserById.get(userId);
+    return u ? u.rating : null;
+  };
+  const games = rooms
+    .listRooms()
+    .filter((r) => r.status === "active")
+    .map((r) => ({
+      gameId: r.gameId,
+      white: { userId: r.players.w, username: r.names.w, rating: ratingOf(r.players.w) },
+      black: { userId: r.players.b, username: r.names.b, rating: ratingOf(r.players.b) },
+      tc: r.timeControl,
+      rated: r.rated,
+      spectators: r.spectators.size,
+    }))
+    .sort((a, b) => b.gameId - a.gameId);
 
   const open = [...seeks.values()].map((s) => ({
     id: s.id,
@@ -156,7 +180,7 @@ function snapshot() {
     rated: s.rated,
     color: s.color,
   }));
-  return { players, seeks: open };
+  return { players, seeks: open, games };
 }
 
 // Send a user their own incoming/outgoing challenges, on every socket they have.

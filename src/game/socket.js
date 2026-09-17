@@ -64,6 +64,7 @@ function attachSockets(httpServer) {
     socket.on("challenge:cancel", (p) => lobby.cancelChallenge(io, socket, p));
 
     socket.on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
+    socket.on("game:watch", (payload, ack) => handleWatch(io, socket, payload, ack));
     socket.on("move:make", (payload, ack) => handleMove(io, socket, payload, ack));
     socket.on("game:resign", (payload) => handleResign(io, socket, payload));
     socket.on("draw:offer", (payload) => handleDrawOffer(io, socket, payload));
@@ -193,30 +194,73 @@ function handleGameJoin(io, socket, payload, ack) {
   startClocksIfReady(io, room);
   lobby.refresh(io); // this player now shows as "playing" in the lobby
 
-  reply(ack, {
-    ok: true,
-    state: {
-      gameId,
-      fen: room.chess.fen(),
-      sans: room.sans.slice(),
-      yourColor: color,
-      turn: room.chess.turn,
-      status: room.status,
-      result: room.result || null,
-      termination: room.termination || null,
-      white: room.names.w,
-      black: room.names.b,
-      whiteId: room.players.w,
-      blackId: room.players.b,
-      clocks: rooms.clockSnapshot(room),
-      running: room.started,
-      drawOffer: room.drawOffer,
-      initialMs: room.initialMs,
-      incrementMs: room.incrementMs,
-      timeControl: room.timeControl,
-      rated: room.rated,
-    },
-  });
+  reply(ack, { ok: true, state: stateOf(room, color) });
+}
+
+// The full board state a client needs to (re)draw a game. `color` is the
+// receiving player's colour, or null for a spectator.
+function stateOf(room, color) {
+  return {
+    gameId: room.gameId,
+    fen: room.chess.fen(),
+    sans: room.sans.slice(),
+    yourColor: color,
+    turn: room.chess.turn,
+    status: room.status,
+    result: room.result || null,
+    termination: room.termination || null,
+    white: room.names.w,
+    black: room.names.b,
+    whiteId: room.players.w,
+    blackId: room.players.b,
+    clocks: rooms.clockSnapshot(room),
+    running: room.started,
+    drawOffer: room.drawOffer,
+    initialMs: room.initialMs,
+    incrementMs: room.incrementMs,
+    timeControl: room.timeControl,
+    rated: room.rated,
+    spectators: room.spectators.size,
+  };
+}
+
+// ---- spectators ----
+// A spectator joins the Socket.IO room like a player, so every broadcast
+// (moves, clocks, game over) reaches them for free. They are NOT recorded in
+// room.online / socket.gameColor, so disconnecting one never starts a forfeit
+// timer, and every action handler rejects them via colorOf() === null.
+function handleWatch(io, socket, payload, ack) {
+  const gameId = Number(payload && payload.gameId);
+  if (!gameId) return reply(ack, { ok: false, error: "Missing gameId." });
+
+  const room = rooms.getRoom(gameId);
+  if (!room) {
+    // Only live games have rooms; a finished one has nothing to watch.
+    const game = queries.getGameById.get(gameId);
+    if (!game || game.mode !== "pvp") return reply(ack, { ok: false, error: "Game not found." });
+    return reply(ack, { ok: false, error: "That game has already finished.", finished: true });
+  }
+  if (colorOf(room, socket.userId)) {
+    return reply(ack, { ok: false, error: "You're a player in this game.", player: true });
+  }
+
+  socket.join(`game:${gameId}`);
+  socket.watching = gameId;
+  room.spectators.add(socket.id);
+  broadcastSpectators(io, room);
+  reply(ack, { ok: true, state: stateOf(room, null) });
+}
+
+function broadcastSpectators(io, room) {
+  io.to(`game:${room.gameId}`).emit("spectators", { count: room.spectators.size });
+}
+
+function leaveWatching(io, socket) {
+  if (socket.watching == null) return;
+  const room = rooms.getRoom(socket.watching);
+  socket.watching = null;
+  if (!room || !room.spectators.delete(socket.id)) return;
+  broadcastSpectators(io, room);
 }
 
 function handleMove(io, socket, payload, ack) {
@@ -391,6 +435,7 @@ function handleDisconnect(io, socket, reason) {
   matchmaking.leave(socket);
   lobby.onDisconnect(io, socket);
   clearRematchOffers(socket);
+  leaveWatching(io, socket);
   console.log(`[socket] disconnected: ${socket.username} (${reason})`);
 
   const gameId = socket.gameId;
