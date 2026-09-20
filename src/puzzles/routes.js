@@ -1,0 +1,109 @@
+"use strict";
+
+// Puzzle API. The server holds the solutions; the client sends the moves it
+// has played so far and learns only whether it's still on track.
+//
+//   GET  /api/puzzles/me              rating, attempt stats, daily streak
+//   GET  /api/puzzles/next            a puzzle near your rating
+//   GET  /api/puzzles/daily           today's shared puzzle (+ your result if done)
+//   POST /api/puzzles/:id/moves       { moves: [uci, ...] } -> ok | solved | wrong
+//   POST /api/puzzles/:id/giveup      counts as a failed attempt, reveals the solution
+
+const express = require("express");
+const queries = require("../db/queries");
+const { requireAuth } = require("../auth/middleware");
+const svc = require("./service");
+
+const router = express.Router();
+router.use(requireAuth);
+
+function noPuzzles(res) {
+  return res.status(503).json({
+    error: "No puzzles imported yet. Run `npm run puzzles:import` on the server.",
+  });
+}
+
+function meView(userId) {
+  const user = queries.getPuzzleUser.get(userId);
+  const stats = queries.attemptStats.get(userId);
+  const today = svc.todayUtc();
+  const daily = queries.getDaily.get(today);
+  const dailyAttempt = daily ? queries.getAttempt.get(userId, daily.puzzle_id) : null;
+  return {
+    rating: user.puzzle_rating,
+    attempts: stats.attempts,
+    solved: stats.solved,
+    streak: svc.streakOf(user, today),
+    dailyDone: !!dailyAttempt,
+  };
+}
+
+router.get("/me", (req, res) => res.json(meView(req.session.userId)));
+
+router.get("/next", (req, res) => {
+  if (!queries.countPuzzles.get().n) return noPuzzles(res);
+  const uid = req.session.userId;
+  const user = queries.getPuzzleUser.get(uid);
+  const pick = svc.pickForUser(uid, user.puzzle_rating);
+  if (!pick) return noPuzzles(res);
+  res.json({ puzzle: svc.publicView(pick.puzzle), repeat: pick.repeat, rating: user.puzzle_rating });
+});
+
+router.get("/daily", (req, res) => {
+  const uid = req.session.userId;
+  const today = svc.todayUtc();
+  const puzzle = svc.dailyFor(today);
+  if (!puzzle) return noPuzzles(res);
+  const user = queries.getPuzzleUser.get(uid);
+  const attempt = queries.getAttempt.get(uid, puzzle.id);
+  const out = {
+    date: today,
+    puzzle: svc.publicView(puzzle),
+    done: !!attempt,
+    solved: attempt ? !!attempt.solved : null,
+    streak: svc.streakOf(user, today),
+    rating: user.puzzle_rating,
+  };
+  if (attempt) Object.assign(out, svc.revealView(puzzle));
+  res.json(out);
+});
+
+// Load the puzzle in :id, or 404.
+function loadPuzzle(req, res) {
+  const p = queries.getPuzzle.get(String(req.params.id));
+  if (!p) res.status(404).json({ error: "No such puzzle." });
+  return p || null;
+}
+
+// Wrap up a finished attempt: rate it (first time only), bump the streak if
+// it's today's daily, and reveal the solution.
+function finish(uid, puzzle, solved) {
+  const rating = svc.recordAttempt(uid, puzzle, solved);
+  const today = svc.todayUtc();
+  const daily = queries.getDaily.get(today);
+  const isDaily = !!daily && daily.puzzle_id === puzzle.id;
+  const out = { rating, ...svc.revealView(puzzle) };
+  if (isDaily) out.streak = svc.bumpStreak(uid, today);
+  return out;
+}
+
+router.post("/:id/moves", (req, res) => {
+  const puzzle = loadPuzzle(req, res);
+  if (!puzzle) return;
+  const moves = req.body && req.body.moves;
+  if (!Array.isArray(moves) || moves.some((m) => typeof m !== "string")) {
+    return res.status(400).json({ error: "moves must be an array of UCI strings." });
+  }
+  const uid = req.session.userId;
+  const result = svc.check(puzzle, moves);
+  if (result.status === "ok") return res.json({ status: "ok", reply: result.reply });
+  res.json({ status: result.status, ...finish(uid, puzzle, result.status === "solved") });
+});
+
+router.post("/:id/giveup", (req, res) => {
+  const puzzle = loadPuzzle(req, res);
+  if (!puzzle) return;
+  res.json({ status: "wrong", ...finish(req.session.userId, puzzle, false) });
+});
+
+module.exports = router;

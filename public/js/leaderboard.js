@@ -50,7 +50,7 @@
     const thead = el("thead");
     const hr = el("tr");
     for (const [label, cls] of [
-      ["#", ""], ["Player", ""], ["Rating", "num"],
+      ["#", ""], ["Player", ""], ["Rating", "num"], ["Puzzles", "num"],
       ["Games", "num"], ["W", "num"], ["L", "num"], ["D", "num"], ["", ""],
     ]) {
       hr.appendChild(el("th", cls, label));
@@ -69,6 +69,7 @@
       tr.appendChild(who);
 
       tr.appendChild(el("td", "num rating-cell", String(r.rating)));
+      tr.appendChild(el("td", "num", String(r.puzzle_rating)));
       tr.appendChild(el("td", "num", String(r.games)));
       tr.appendChild(el("td", "num out-win", String(r.wins)));
       tr.appendChild(el("td", "num out-loss", String(r.losses)));

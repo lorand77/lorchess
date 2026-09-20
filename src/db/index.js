@@ -33,6 +33,10 @@ addColumnIfMissing("games", "increment_ms", "INTEGER");
 addColumnIfMissing("games", "rated", "INTEGER NOT NULL DEFAULT 1");
 // Look & feel preferences (board colours, background colour) as a JSON blob.
 addColumnIfMissing("users", "prefs", "TEXT");
+// Puzzle Elo (separate from the game rating) and the daily-puzzle streak.
+addColumnIfMissing("users", "puzzle_rating", "INTEGER NOT NULL DEFAULT 1500");
+addColumnIfMissing("users", "daily_streak", "INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing("users", "daily_last_date", "TEXT");
 
 // Seed the reserved AI account. password_hash NULL means it can never log in;
 // it exists only to own the AI side of games via a real FK (uniform queries).

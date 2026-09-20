@@ -25,7 +25,7 @@ module.exports = {
   // over finished rated PvP games (the only games that move Elo). Param is
   // the reserved AI username to exclude.
   leaderboard: db.prepare(`
-    SELECT u.id, u.username, u.rating,
+    SELECT u.id, u.username, u.rating, u.puzzle_rating,
            COUNT(g.id) AS games,
            COALESCE(SUM(CASE WHEN (g.result = '1-0' AND g.white_id = u.id)
                                OR (g.result = '0-1' AND g.black_id = u.id) THEN 1 ELSE 0 END), 0) AS wins,
@@ -120,6 +120,53 @@ module.exports = {
     WHERE f.requester_id = @me OR f.addressee_id = @me
     ORDER BY f.status DESC, u.rating DESC, u.username COLLATE NOCASE
   `),
+
+  // --- puzzles (see src/puzzles/service.js) ---
+  getPuzzle: db.prepare("SELECT * FROM puzzles WHERE id = ?"),
+  countPuzzles: db.prepare("SELECT COUNT(*) AS n FROM puzzles"),
+  countPuzzlesInRange: db.prepare(
+    "SELECT COUNT(*) AS n FROM puzzles WHERE rating BETWEEN ? AND ?"
+  ),
+  // Random pick = count the range (index only), then jump to a random offset.
+  puzzleInRangeAt: db.prepare(
+    "SELECT * FROM puzzles WHERE rating BETWEEN ? AND ? ORDER BY rating, id LIMIT 1 OFFSET ?"
+  ),
+  countDailyCandidates: db.prepare(`
+    SELECT COUNT(*) AS n FROM puzzles
+    WHERE rating BETWEEN ? AND ? AND popularity >= ? AND rating_deviation <= ?
+  `),
+  dailyCandidateAt: db.prepare(`
+    SELECT id FROM puzzles
+    WHERE rating BETWEEN ? AND ? AND popularity >= ? AND rating_deviation <= ?
+    ORDER BY rating, id LIMIT 1 OFFSET ?
+  `),
+  insertPuzzle: db.prepare(`
+    INSERT OR REPLACE INTO puzzles
+      (id, fen, moves, rating, rating_deviation, popularity, nb_plays, themes, game_url, opening_tags)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+  wipePuzzles: db.prepare("DELETE FROM puzzles"),
+
+  getPuzzleUser: db.prepare(
+    "SELECT id, username, puzzle_rating, daily_streak, daily_last_date FROM users WHERE id = ?"
+  ),
+  setPuzzleRating: db.prepare("UPDATE users SET puzzle_rating = ? WHERE id = ?"),
+  setDailyStreak: db.prepare(
+    "UPDATE users SET daily_streak = ?, daily_last_date = ? WHERE id = ?"
+  ),
+  getAttempt: db.prepare(
+    "SELECT * FROM puzzle_attempts WHERE user_id = ? AND puzzle_id = ?"
+  ),
+  insertAttempt: db.prepare(`
+    INSERT INTO puzzle_attempts (user_id, puzzle_id, solved, rating_before, rating_after)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+  attemptStats: db.prepare(`
+    SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved
+    FROM puzzle_attempts WHERE user_id = ?
+  `),
+  getDaily: db.prepare("SELECT puzzle_id FROM daily_puzzles WHERE date = ?"),
+  insertDaily: db.prepare("INSERT OR IGNORE INTO daily_puzzles (date, puzzle_id) VALUES (?, ?)"),
 
   // --- customization (see src/settings/routes.js) ---
   getUserPrefs: db.prepare("SELECT prefs FROM users WHERE id = ?"),

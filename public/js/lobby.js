@@ -385,6 +385,28 @@ function friendAction(promise) {
   promise.catch((err) => showError(err.message)).then(refreshFriends);
 }
 
+// --- puzzles: daily streak line ---
+
+async function loadDailyLine() {
+  const line = document.getElementById("dailyLine");
+  if (!line) return;
+  try {
+    const res = await fetch("/api/puzzles/me", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const me = await res.json();
+    line.innerHTML = "";
+    line.appendChild(document.createTextNode("🧩 Puzzle rating " + me.rating + " · "));
+    line.appendChild(document.createTextNode(
+      me.streak > 0 ? "🔥 " + me.streak + "-day daily streak · " : "No daily streak yet · "
+    ));
+    const a = el("a", "nav-link", me.dailyDone ? "today's puzzle done ✓" : "today's puzzle is waiting");
+    a.href = "/puzzles.html?daily";
+    line.appendChild(a);
+  } catch (e) {
+    /* the lobby works without it */
+  }
+}
+
 // --- starting a game ---
 
 socket.on("game:start", (info) => {
@@ -448,6 +470,7 @@ socket.on("lobby:state", checkActiveGame);
   if (myId() == null) return setTimeout(whenUserKnown, 50);
   checkActiveGame();
   refreshFriends();
+  loadDailyLine();
   renderSeeks();
   renderPlayers();
 })();

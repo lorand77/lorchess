@@ -90,3 +90,40 @@ CREATE TABLE IF NOT EXISTS user_assets (
   updated_at TEXT    NOT NULL,
   PRIMARY KEY (user_id, kind)
 );
+
+-- Tactics puzzles imported from the Lichess puzzle database (CC0) by
+-- src/db/importPuzzles.js. `moves` is the Lichess convention: UCI, space
+-- separated, the FIRST move is the opponent's move that sets up the puzzle and
+-- the rest alternate player / opponent.
+CREATE TABLE IF NOT EXISTS puzzles (
+  id               TEXT    PRIMARY KEY,   -- Lichess PuzzleId
+  fen              TEXT    NOT NULL,      -- position BEFORE the setup move
+  moves            TEXT    NOT NULL,
+  rating           INTEGER NOT NULL,
+  rating_deviation INTEGER,
+  popularity       INTEGER,
+  nb_plays         INTEGER,
+  themes           TEXT,                  -- space separated
+  game_url         TEXT,
+  opening_tags     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_puzzles_rating ON puzzles (rating);
+
+-- One row per user per puzzle: the first, rating-affecting attempt. Retries
+-- are allowed but never recorded again.
+CREATE TABLE IF NOT EXISTS puzzle_attempts (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id),
+  puzzle_id     TEXT    NOT NULL REFERENCES puzzles(id),
+  solved        INTEGER NOT NULL,         -- 1 solved, 0 failed / gave up
+  rating_before INTEGER NOT NULL,
+  rating_after  INTEGER NOT NULL,
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (user_id, puzzle_id)
+);
+
+-- The puzzle of the day, one row per UTC date, chosen on first request.
+CREATE TABLE IF NOT EXISTS daily_puzzles (
+  date      TEXT PRIMARY KEY,             -- 'YYYY-MM-DD' (UTC)
+  puzzle_id TEXT NOT NULL REFERENCES puzzles(id)
+);

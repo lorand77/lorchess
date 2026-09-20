@@ -554,6 +554,35 @@ select {
   .piece-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
+/* ---- puzzles ---- */
+.daily-line { margin: 4px 0 0 !important; }
+.puzzle-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
+.puzzle-head .big { font-size: 22px; font-weight: bold; color: #fff; }
+.puzzle-task { font-size: 15px; font-weight: bold; margin: 8px 0; }
+.puzzle-task .dot {
+  display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  border: 1px solid #999; vertical-align: -1px; margin-right: 6px;
+}
+.puzzle-task .dot.w { background: #f0f0f0; }
+.puzzle-task .dot.b { background: #222; }
+.puzzle-status { min-height: 20px; font-size: 14px; }
+.puzzle-status.ok { color: #7fc77f; }
+.puzzle-status.bad { color: #ff6464; }
+.puzzle-status.info { color: #ffc864; }
+.puzzle-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.puzzle-actions .primary { background: #3d6098; }
+.puzzle-actions .primary:hover { background: #4a73b5; }
+.puzzle-actions button:disabled { background: #444; color: #888; cursor: default; }
+.puzzle-result { margin: 10px 0; padding: 10px 12px; background: #333; border: 1px solid #4a4a4a; border-radius: 6px; font-size: 13px; }
+.puzzle-result .delta.up { color: #7fc77f; font-weight: bold; }
+.puzzle-result .delta.down { color: #ff6464; font-weight: bold; }
+.puzzle-result .themes { margin-top: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+.square.wrong { background: #e06a6a !important; }
+.streak { color: #ffc864; font-weight: bold; }
+.puzzle-nav { margin-top: 14px; font-size: 13px; }
+.puzzle-nav a { color: #8aa6c8; text-decoration: none; }
+.puzzle-nav a:hover { text-decoration: underline; }
+
 /* The game page's clock header: "Blitz 5+3 · rated". */
 .tc-line { color: #969696; font-size: 12px; margin: 0 0 6px; }
 

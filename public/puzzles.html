@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Puzzles</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="game">
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+    <div class="promo" id="promo">
+      <div class="promo-box">
+        <div>Choose Promotion:</div>
+        <div class="options" id="promoOptions"></div>
+      </div>
+    </div>
+  </div>
+  <div class="info">
+    <div class="userbar" id="userbar"></div>
+    <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
+    <h2 id="pageTitle">Puzzles</h2>
+    <div class="puzzle-head" id="puzzleHead"></div>
+    <p class="puzzle-task" id="taskLine"></p>
+    <p class="puzzle-status" id="statusLine"></p>
+    <div class="puzzle-actions">
+      <button id="giveUpBtn" style="display:none;">Give up</button>
+      <button id="retryBtn" style="display:none;">Try again</button>
+      <button id="solutionBtn" style="display:none;">Show solution</button>
+      <button id="nextBtn" class="primary" style="display:none;">Next puzzle</button>
+    </div>
+    <div class="puzzle-result" id="result" style="display:none;"></div>
+    <p class="puzzle-nav" id="modeNav"></p>
+    <p style="color:#969696; font-size:12px;">Click a piece, then click a destination.</p>
+  </div>
+</div>
+
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/chess.js"></script>
+<script src="/js/puzzles.js"></script>
+</body>
+</html>
