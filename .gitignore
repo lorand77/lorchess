@@ -4,3 +4,6 @@ data/*.sqlite-journal
 data/*.sqlite-wal
 data/*.sqlite-shm
 .env
+
+# Lichess puzzle dump downloaded by `npm run puzzles:import` (~300 MB)
+data/lichess_db_puzzle.csv.zst*

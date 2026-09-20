@@ -45,7 +45,7 @@ router.post("/register", async (req, res) => {
     }
 
     const hash = await argon2.hash(password);
-    const info = queries.createUser.run(username, hash);
+    const info = queries.createUser.run(username, hash, config.PUZZLE_START_RATING);
     const user = { id: Number(info.lastInsertRowid), username };
     await startSession(req, user);
     return res.status(201).json(user);

@@ -9,7 +9,7 @@ const db = require("./index");
 module.exports = {
   // --- users ---
   createUser: db.prepare(
-    "INSERT INTO users (username, password_hash) VALUES (?, ?)"
+    "INSERT INTO users (username, password_hash, puzzle_rating) VALUES (?, ?, ?)"
   ),
   // Full row incl. password_hash — for login verification only.
   getUserByUsername: db.prepare("SELECT * FROM users WHERE username = ?"),

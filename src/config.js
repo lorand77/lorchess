@@ -24,4 +24,7 @@ module.exports = {
 
   // Elo K-factor for rating updates after rated games.
   ELO_K: parseInt(process.env.ELO_K, 10) || 32,
+
+  // Starting puzzle rating for a new account.
+  PUZZLE_START_RATING: 1200,
 };

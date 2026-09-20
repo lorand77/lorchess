@@ -275,20 +275,22 @@
     }
   }
 
-  // Play the stored solution through on the board.
-  function replaySolution(solution) {
+  // Play the stored solution through on the board. `label` prefixes the status
+  // so the reason (gave up / asked) stays visible while it plays.
+  function replaySolution(solution, label) {
     clearTimers();
     chess.loadFen(puzzle.fen);
     play(puzzle.firstMove);
     wrongSq = null; selected = null; legal = [];
     phase = "replay";
     showButtons(daily ? ["retry"] : ["retry", "next"]);
-    setStatus("Solution…", "info");
+    const prefix = label ? label + " " : "";
+    setStatus(prefix + "Solution…", "info");
     render();
     solution.forEach((uci, i) => later(() => {
       play(uci);
       render();
-      if (i === solution.length - 1) setStatus("That was the solution.", "info");
+      if (i === solution.length - 1) setStatus(prefix + "That was the solution.", "info");
     }, 600 * (i + 1)));
   }
 
@@ -333,9 +335,8 @@
     try {
       const resp = await api("POST", "/" + puzzle.id + "/giveup");
       phase = "failed";
-      setStatus("Gave up.", "bad");
       finish(resp, false);
-      replaySolution(resp.solution);
+      replaySolution(resp.solution, "Gave up.");
     } catch (err) { phase = "playing"; setStatus(err.message, "bad"); }
   });
   btn.retry.addEventListener("click", () => { resultEl.style.display = "none"; begin(); later(() => setStatus("Your move (unrated retry).", ""), 750); });

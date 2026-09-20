@@ -8,6 +8,10 @@
 //
 // Without --file the ~300 MB dump is downloaded once to data/ and reused.
 // Node's built-in zstd handles decompression, so no extra tooling is needed.
+// The dump is written by pzstd: 30-odd independent zstd frames, each preceded
+// by a "skippable" frame whose 4-byte payload is the size of the frame that
+// follows. Node's streaming decompressor rejects skippable frames ("Unknown
+// frame descriptor"), so decompressZst() walks the frames itself.
 // Rows are streamed and filtered; --limit caps how many are inserted (the
 // dump's order is effectively random with respect to rating, so the first N
 // matching rows are a fair sample).
@@ -17,7 +21,7 @@ const path = require("path");
 const zlib = require("zlib");
 const readline = require("readline");
 const { pipeline } = require("stream/promises");
-const { Readable } = require("stream");
+const { Readable, Transform, PassThrough } = require("stream");
 const config = require("../config");
 const db = require("./index");
 const queries = require("./queries");
@@ -44,6 +48,78 @@ function parseArgs(argv) {
   return o;
 }
 
+const ZSTD_MAGIC = 0xfd2fb528;
+const SKIPPABLE_MASK = 0xfffffff0;
+const SKIPPABLE_MAGIC = 0x184d2a50;
+
+// Readable of decompressed bytes for a .zst file, whether it's a plain
+// single-frame file or a pzstd multi-frame file (see header comment).
+function decompressZst(file) {
+  const out = new PassThrough();
+  const fd = fs.openSync(file, "r");
+  const size = fs.statSync(file).size;
+  const read = (pos, n) => {
+    const b = Buffer.alloc(n);
+    const got = fs.readSync(fd, b, 0, n, pos);
+    return got === n ? b : b.subarray(0, got);
+  };
+
+  const head = read(0, 4);
+  if (head.length < 4) {
+    out.destroy(new Error("File is empty or truncated."));
+    return out;
+  }
+  const first = head.readUInt32LE(0);
+  if (first === ZSTD_MAGIC) {
+    // Plain zstd: hand the whole file to the streaming decompressor, and
+    // surface its errors on our output (readline would otherwise swallow them).
+    fs.closeSync(fd);
+    const d = zlib.createZstdDecompress();
+    d.on("error", (e) => out.destroy(e));
+    return fs.createReadStream(file).pipe(d).pipe(out);
+  }
+  if ((first & SKIPPABLE_MASK) !== SKIPPABLE_MAGIC) {
+    out.destroy(new Error("Not a zstd file (bad magic number). Is the download complete?"));
+    return out;
+  }
+
+  // pzstd layout: [skippable(len=4: frameSize)][frame] ... repeated.
+  let pos = 0;
+  (async () => {
+    try {
+      while (pos < size) {
+        const h = read(pos, 8);
+        const magic = h.readUInt32LE(0);
+        if ((magic & SKIPPABLE_MASK) === SKIPPABLE_MAGIC) {
+          const len = h.readUInt32LE(4);
+          const payload = read(pos + 8, len);
+          pos += 8 + len;
+          if (len !== 4) continue; // some other metadata frame: ignore it
+          const frameLen = payload.readUInt32LE(0);
+          const frame = read(pos, frameLen);
+          pos += frameLen;
+          const plain = zlib.zstdDecompressSync(frame);
+          if (!out.write(plain)) await new Promise((r) => out.once("drain", r));
+        } else if (magic === ZSTD_MAGIC) {
+          // A frame without a size hint: stream the rest of the file.
+          const d = zlib.createZstdDecompress();
+          d.on("error", (e) => out.destroy(e));
+          await pipeline(fs.createReadStream(file, { start: pos }), d, out, { end: true });
+          return;
+        } else {
+          throw new Error(`Unexpected data at byte ${pos} (magic 0x${magic.toString(16)}).`);
+        }
+      }
+      out.end();
+    } catch (e) {
+      out.destroy(e);
+    } finally {
+      fs.closeSync(fd);
+    }
+  })();
+  return out;
+}
+
 async function download(dest) {
   console.log(`Downloading ${URL} → ${dest}`);
   const res = await fetch(URL);
@@ -67,9 +143,11 @@ async function main() {
     queries.wipePuzzles.run();
   }
 
-  const input = file.endsWith(".zst")
-    ? fs.createReadStream(file).pipe(zlib.createZstdDecompress())
-    : fs.createReadStream(file);
+  const input = file.endsWith(".zst") ? decompressZst(file) : fs.createReadStream(file);
+  // readline does not forward errors from its input stream; fail loudly instead
+  // of finishing with "0 rows" as if nothing happened.
+  let inputError = null;
+  input.on("error", (e) => { inputError = e; });
   const rl = readline.createInterface({ input, crlfDelay: Infinity });
 
   const insertMany = db.transaction((rows) => {
@@ -115,6 +193,8 @@ async function main() {
   if (batch.length) insertMany(batch);
   rl.close();
   input.destroy();
+  if (inputError) throw inputError;
+  if (seen === 0) throw new Error("No rows read from " + file + " — is it a complete Lichess puzzle dump?");
 
   const total = queries.countPuzzles.get().n;
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
