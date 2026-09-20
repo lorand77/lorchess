@@ -31,6 +31,8 @@ function addColumnIfMissing(table, column, definition) {
 addColumnIfMissing("games", "initial_ms", "INTEGER");
 addColumnIfMissing("games", "increment_ms", "INTEGER");
 addColumnIfMissing("games", "rated", "INTEGER NOT NULL DEFAULT 1");
+// Look & feel preferences (board colours, background colour) as a JSON blob.
+addColumnIfMissing("users", "prefs", "TEXT");
 
 // Seed the reserved AI account. password_hash NULL means it can never log in;
 // it exists only to own the AI side of games via a real FK (uniform queries).

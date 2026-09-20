@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Customize</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="settings-page">
+  <div class="userbar" id="userbar"></div>
+  <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
+  <h1>Customize</h1>
+  <p class="muted small">Changes preview live on this page. Colours are saved when you press Save; images are saved as soon as they upload.</p>
+
+  <div class="settings-cols">
+    <div class="settings-preview">
+      <div class="board" id="previewBoard" aria-label="Board preview"></div>
+    </div>
+
+    <div class="settings-controls">
+      <section class="panel">
+        <h2>Board colours</h2>
+        <div class="color-row">
+          <label for="lightColor">Light squares</label>
+          <input type="color" id="lightColor">
+          <code id="lightHex"></code>
+        </div>
+        <div class="color-row">
+          <label for="darkColor">Dark squares</label>
+          <input type="color" id="darkColor">
+          <code id="darkHex"></code>
+        </div>
+        <div class="presets" id="boardPresets"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Background</h2>
+        <div class="color-row">
+          <label for="bgColor">Colour</label>
+          <input type="color" id="bgColor">
+          <code id="bgHex"></code>
+        </div>
+        <div class="presets" id="bgPresets"></div>
+        <div class="file-row">
+          <label for="bgFile">Image</label>
+          <input type="file" id="bgFile" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+          <img id="bgThumb" class="bg-thumb" alt="" style="display:none;">
+          <button type="button" id="bgRemove" style="display:none;">Remove image</button>
+        </div>
+        <p class="muted small">JPEG, PNG, WebP, GIF, or SVG up to 3 MB. The image covers the page behind the board and panels.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Pieces</h2>
+        <p class="muted small">Click a piece to replace it with your own image (PNG, WebP, or SVG with a transparent background works best, up to 512 KB each). Slots you leave alone keep the default set.</p>
+        <div class="piece-grid" id="pieceGrid"></div>
+        <div class="settings-actions">
+          <button type="button" id="piecesReset">Reset all pieces</button>
+        </div>
+      </section>
+
+      <div class="settings-actions">
+        <button type="button" id="saveBtn" class="primary" disabled>Save colours</button>
+        <button type="button" id="revertBtn" disabled>Discard changes</button>
+        <button type="button" id="resetAllBtn" class="danger">Reset everything</button>
+      </div>
+      <p id="settingsMsg" class="settings-msg"></p>
+    </div>
+  </div>
+</div>
+
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/settings.js"></script>
+</body>
+</html>

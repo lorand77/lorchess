@@ -96,6 +96,7 @@ function findUci(uci) {
 }
 
 function pieceImgSrc(p) {
+  if (window.Theme) return Theme.pieceSrc(p.c, p.t);
   return `assets/${p.c}_${PIECE_NAMES[p.t]}_1x_ns.png`;
 }
 
@@ -113,19 +114,16 @@ function renderBoard() {
       const piece = chess.squares[sq];
       if (inCheck && piece && piece.t === "k" && piece.c === chess.turn) div.classList.add("check");
 
-      const coordColor = (r + f) % 2 === 0 ? "#f0d9b5" : "#b58863";
       if (col === 0) {
         const c = document.createElement("div");
         c.className = "coord rank";
         c.textContent = r + 1;
-        c.style.color = coordColor;
         div.appendChild(c);
       }
       if (row === 7) {
         const c = document.createElement("div");
         c.className = "coord file";
         c.textContent = String.fromCharCode(97 + f);
-        c.style.color = coordColor;
         div.appendChild(c);
       }
       if (piece) {
@@ -244,3 +242,6 @@ function fmtDate(s) {
   const d = new Date(s.replace(" ", "T") + "Z");
   return isNaN(d) ? s : d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
+
+// Redraw once custom pieces / colours arrive from the server.
+window.addEventListener("theme:changed", () => { if (typeof renderBoard === "function" && typeof chess !== "undefined") renderBoard(); });

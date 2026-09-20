@@ -8,7 +8,12 @@
 body {
   margin: 0;
   padding: 24px;
-  background: #323232;
+  /* Page background is user-customizable (public/js/theme.js sets the vars). */
+  background: var(--page-bg, #323232);
+  background-image: var(--page-bg-image, none);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   color: #fff;
   font-family: Arial, sans-serif;
   display: flex;
@@ -54,8 +59,11 @@ body {
   justify-content: center;
   cursor: pointer;
 }
-.square.light { background: #f0d9b5; }
-.square.dark  { background: #b58863; }
+.square.light { background: var(--sq-light, #f0d9b5); }
+.square.dark  { background: var(--sq-dark, #b58863); }
+/* Coordinates take the opposite square colour so they read on either. */
+.square.light .coord { color: var(--sq-dark, #b58863); }
+.square.dark  .coord { color: var(--sq-light, #f0d9b5); }
 .square.last-move { background: #bacaa4 !important; }
 .square.selected  { background: #f6f682 !important; }
 .square.check {
@@ -483,6 +491,68 @@ select {
 }
 .chat-form button { margin: 0; padding: 6px 12px; font-size: 12px; }
 #chatError { margin: 4px 0 0; min-height: 0; }
+
+/* ---- customization page ---- */
+.settings-page { width: 900px; max-width: 100%; margin: 32px auto 0; }
+.settings-page h1 { margin: 8px 0 16px; }
+.settings-cols { display: flex; gap: 24px; align-items: flex-start; }
+.settings-preview { flex: 0 0 auto; position: sticky; top: 16px; }
+/* The preview is a real .board at a smaller size; --sq must follow --board. */
+.settings-preview .board { --board: 320px; --sq: 40px; cursor: default; }
+.settings-preview .square { cursor: default; }
+.settings-controls { flex: 1; min-width: 0; }
+.settings-controls .panel { margin-top: 0; }
+.settings-controls .panel + .panel { margin-top: 18px; }
+.color-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.color-row label { font-size: 13px; color: #d8d8d8; min-width: 110px; }
+.color-row input[type="color"] {
+  width: 44px; height: 28px; padding: 0; border: 1px solid #666; border-radius: 4px;
+  background: #1e1e1e; cursor: pointer;
+}
+.color-row code { color: #969696; font-size: 12px; }
+.presets { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 0; }
+.presets button { margin: 0; padding: 4px 10px; font-size: 12px; }
+.preset-swatch {
+  display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px;
+  border: 1px solid rgba(0,0,0,.4);
+  background: linear-gradient(135deg, var(--a) 50%, var(--b) 50%);
+}
+.piece-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 8px 0; }
+.piece-slot {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px 6px;
+  background: #2b2b2b; border: 1px solid #444; border-radius: 6px;
+  cursor: pointer; font-size: 11px; color: #d8d8d8;
+}
+.piece-slot:hover { border-color: #8aa6c8; }
+.piece-slot img { width: 44px; height: 44px; object-fit: contain; }
+.piece-slot input { display: none; }
+.piece-slot .custom { color: #7fc77f; }
+.piece-slot .clear {
+  position: absolute; top: 2px; right: 2px;
+  margin: 0; padding: 0 5px; font-size: 11px; line-height: 16px;
+  background: #553333; border-radius: 3px;
+}
+.piece-slot .clear:hover { background: #884444; }
+.file-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.file-row input[type="file"] { font-size: 12px; color: #d8d8d8; max-width: 100%; }
+.bg-thumb { width: 96px; height: 54px; object-fit: cover; border-radius: 4px; border: 1px solid #555; }
+.settings-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.settings-actions .primary { background: #3d6098; }
+.settings-actions .primary:hover { background: #4a73b5; }
+.settings-actions button:disabled { background: #444; color: #888; cursor: default; }
+.settings-msg { font-size: 13px; min-height: 18px; margin: 6px 0 0; }
+.settings-msg.ok { color: #7fc77f; }
+.settings-msg.bad { color: #ff6464; }
+.danger { background: #6a2a2a; }
+.danger:hover { background: #8a3a3a; }
+@media (max-width: 760px) {
+  .settings-cols { flex-direction: column; align-items: center; }
+  .settings-preview { position: static; }
+  .settings-controls { width: 100%; }
+  .piece-grid { grid-template-columns: repeat(3, 1fr); }
+}
 
 /* The game page's clock header: "Blitz 5+3 · rated". */
 .tc-line { color: #969696; font-size: 12px; margin: 0 0 6px; }

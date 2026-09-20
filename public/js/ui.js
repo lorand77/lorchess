@@ -134,7 +134,9 @@ function terminationReason() {
   return null;
 }
 
+// Custom piece images (theme.js) win over the bundled set.
 function pieceImgSrc(piece) {
+  if (window.Theme) return Theme.pieceSrc(piece.c, piece.t);
   return `assets/${piece.c}_${PIECE_NAMES[piece.t]}_1x_ns.png`;
 }
 
@@ -410,19 +412,17 @@ function render() {
         div.classList.add('check');
       }
 
-      const coordColor = ((r + f) % 2 === 0) ? '#f0d9b5' : '#b58863';
+      // Coordinate colour comes from CSS (opposite square colour, themeable).
       if (col === 0) {
         const c = document.createElement('div');
         c.className = 'coord rank';
         c.textContent = r + 1;
-        c.style.color = coordColor;
         div.appendChild(c);
       }
       if (row === 7) {
         const c = document.createElement('div');
         c.className = 'coord file';
         c.textContent = String.fromCharCode(97 + f);
-        c.style.color = coordColor;
         div.appendChild(c);
       }
 
@@ -588,7 +588,7 @@ function showPromotionDialog() {
     const opt = document.createElement('div');
     opt.className = 'opt';
     const img = document.createElement('img');
-    img.src = `assets/${humanColor}_${PIECE_NAMES[t]}_1x_ns.png`;
+    img.src = pieceImgSrc({ c: humanColor, t });
     opt.appendChild(img);
     opt.addEventListener('click', () => {
       const move = legalFromSelected.find(m => m.to === promotionPending.to && m.promo === t);
@@ -678,6 +678,9 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'r' || e.key === 'R') undo();
 });
+// Custom pieces may arrive after the first paint (theme fetched from the
+// server); redraw so the board picks them up.
+window.addEventListener('theme:changed', () => { if (!moveAnim) render(); });
 document.getElementById('undoBtn').addEventListener('click', undo);
 document.getElementById('resetBtn').addEventListener('click', startNewGame);
 colorSelectEl.addEventListener('change', startNewGame);

@@ -9,6 +9,7 @@ const authRoutes = require("./auth/routes");
 const gameRoutes = require("./game/routes");
 const leaderboardRoutes = require("./game/leaderboard");
 const friendRoutes = require("./friends/routes");
+const settingsRoutes = require("./settings/routes");
 const { attachSockets } = require("./game/socket");
 const rooms = require("./game/rooms");
 
@@ -32,6 +33,7 @@ app.use("/api", authRoutes);
 app.use("/api/games", gameRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/friends", friendRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // --- Static assets ---
 // Single source of truth for the engine: chess.js / lorfish.js live only in

@@ -121,6 +121,24 @@ module.exports = {
     ORDER BY f.status DESC, u.rating DESC, u.username COLLATE NOCASE
   `),
 
+  // --- customization (see src/settings/routes.js) ---
+  getUserPrefs: db.prepare("SELECT prefs FROM users WHERE id = ?"),
+  setUserPrefs: db.prepare("UPDATE users SET prefs = ? WHERE id = ?"),
+  upsertUserAsset: db.prepare(`
+    INSERT INTO user_assets (user_id, kind, mime, data, updated_at)
+    VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT (user_id, kind) DO UPDATE
+      SET mime = excluded.mime, data = excluded.data, updated_at = excluded.updated_at
+  `),
+  getUserAsset: db.prepare(
+    "SELECT mime, data, updated_at FROM user_assets WHERE user_id = ? AND kind = ?"
+  ),
+  listUserAssets: db.prepare(
+    "SELECT kind, updated_at FROM user_assets WHERE user_id = ?"
+  ),
+  deleteUserAsset: db.prepare("DELETE FROM user_assets WHERE user_id = ? AND kind = ?"),
+  deleteAllUserAssets: db.prepare("DELETE FROM user_assets WHERE user_id = ?"),
+
   // --- chat ---
   insertChat: db.prepare(
     "INSERT INTO chat_messages (game_id, user_id, role, body) VALUES (?, ?, ?, ?)"

@@ -78,3 +78,15 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_game ON chat_messages (game_id, id);
+
+-- Per-user uploaded images for the customization panel: 'bg' (page
+-- background) or a piece slot like 'wK' / 'bP'. One row per slot; re-uploading
+-- replaces it. Colour preferences live in users.prefs (JSON, see db/index.js).
+CREATE TABLE IF NOT EXISTS user_assets (
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  kind       TEXT    NOT NULL,
+  mime       TEXT    NOT NULL,
+  data       BLOB    NOT NULL,
+  updated_at TEXT    NOT NULL,
+  PRIMARY KEY (user_id, kind)
+);
