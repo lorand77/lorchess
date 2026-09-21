@@ -284,6 +284,10 @@ function stateOf(room, color) {
     incrementMs: room.incrementMs,
     timeControl: room.timeControl,
     rated: room.rated,
+    // Only set when the game did NOT begin from the standard position, so the
+    // client knows to put a SetUp/FEN header in the exported PGN.
+    startFen: room.startFen && room.startFen !== rooms.STANDARD_START ? room.startFen : null,
+    handicap: room.handicap,
     spectators: room.spectators.size,
     // Only this recipient's side of the conversation. `color` is null for a
     // spectator, which is exactly the audience distinction we need.

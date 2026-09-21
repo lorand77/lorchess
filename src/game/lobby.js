@@ -16,6 +16,8 @@ const queries = require("../db/queries");
 const matchmaking = require("./matchmaking");
 const rooms = require("./rooms");
 const { resolveTimeControl } = require("../shared/timeControls");
+const { Chess } = require("../shared/chess");
+const handicap = require("../shared/handicap");
 
 const LOBBY_ROOM = "lobby";
 
@@ -179,6 +181,7 @@ function snapshot() {
     tc: s.tc,
     rated: s.rated,
     color: s.color,
+    handicap: s.handicap ? s.handicap.label : null,
   }));
   return { players, seeks: open, games };
 }
@@ -194,6 +197,7 @@ function pushChallenges(io, userId) {
       tc: c.tc,
       rated: c.rated,
       color: c.color,
+      handicap: c.handicap ? c.handicap.label : null,
       from: { userId: c.fromId, username: c.fromName, rating: c.fromRating },
       to: { userId: c.toId, username: c.toName },
     };
@@ -205,13 +209,56 @@ function pushChallenges(io, userId) {
 
 // ---- offer validation ----
 
+// Turn a client's handicap request into a position WE built. The payload is a
+// list of squares to clear, never a FEN, so the only thing anyone can express
+// is "take these pieces off the standard setup".
+function resolveHandicap(request) {
+  const check = handicap.validateRemovals(request && request.removed);
+  if (!check.ok) return { ok: false, error: check.error };
+
+  const fen = handicap.buildFen(check.removed);
+  const chess = new Chess();
+  try {
+    chess.loadFen(fen);
+  } catch (e) {
+    return { ok: false, error: "That position cannot be played." };
+  }
+  // Stripping too much leaves a dead draw (bare kings, king + lone minor).
+  if (chess.isGameOver()) {
+    return { ok: false, error: "That leaves too little material — the game would be drawn at once." };
+  }
+  return {
+    ok: true,
+    handicap: { removed: check.removed, fen, label: handicap.describe(check.removed) },
+  };
+}
+
 // Normalize whatever the client sent into something safe to store: the time
-// control resolves against the allowlist, and colour is one of three literals.
+// control resolves against the allowlist, colour is one of three literals, and a
+// handicap is rebuilt from scratch server-side. Returns { ok: false, error } if
+// the handicap doesn't hold up, so the caller can tell the user why.
 function normalizeOffer(payload) {
   const p = payload || {};
   const tc = resolveTimeControl(p.tc);
   const color = p.color === "w" || p.color === "b" ? p.color : "random";
-  return { tc: tc.key, rated: p.rated !== false, color };
+
+  let odds = null;
+  if (p.handicap) {
+    const resolved = resolveHandicap(p.handicap);
+    if (!resolved.ok) return { ok: false, error: resolved.error };
+    odds = resolved.handicap;
+  }
+
+  return {
+    ok: true,
+    offer: {
+      tc: tc.key,
+      // Material odds are never rated: they would poison both players' Elo.
+      rated: odds ? false : p.rated !== false,
+      color,
+      handicap: odds,
+    },
+  };
 }
 
 // Turn the offering side's colour preference into concrete white/black sockets.
@@ -224,7 +271,12 @@ function assignColors(offerSocket, accepterSocket, color) {
 
 function optsOf(offer) {
   const tc = resolveTimeControl(offer.tc);
-  return { initialMs: tc.initialMs, incrementMs: tc.incrementMs, rated: offer.rated };
+  return {
+    initialMs: tc.initialMs,
+    incrementMs: tc.incrementMs,
+    rated: offer.rated,
+    startFen: offer.handicap ? offer.handicap.fen : null,
+  };
 }
 
 // ---- seeks ----
@@ -234,7 +286,9 @@ function createSeek(io, socket, payload) {
   const existing = seekOf(socket.userId);
   if (existing) seeks.delete(existing.id); // one open seek per user
 
-  const offer = normalizeOffer(payload);
+  const norm = normalizeOffer(payload);
+  if (!norm.ok) return socket.emit("lobby:error", { error: norm.error });
+
   const entry = presence.get(socket.userId);
   const seek = {
     id: genId(),
@@ -242,7 +296,7 @@ function createSeek(io, socket, payload) {
     username: socket.username,
     rating: entry ? entry.rating : 1200,
     socketId: socket.id,
-    ...offer,
+    ...norm.offer,
   };
   seeks.set(seek.id, seek);
   broadcastState(io);
@@ -293,7 +347,9 @@ function createChallenge(io, socket, payload) {
     if (c.fromId === socket.userId && c.toId === toId) challenges.delete(id);
   }
 
-  const offer = normalizeOffer(payload);
+  const norm = normalizeOffer(payload);
+  if (!norm.ok) return socket.emit("lobby:error", { error: norm.error });
+
   const entry = presence.get(socket.userId);
   const challenge = {
     id: genId(),
@@ -302,7 +358,7 @@ function createChallenge(io, socket, payload) {
     fromRating: entry ? entry.rating : 1200,
     toId,
     toName: target.username,
-    ...offer,
+    ...norm.offer,
   };
   challenges.set(challenge.id, challenge);
   pushChallenges(io, challenge.fromId);

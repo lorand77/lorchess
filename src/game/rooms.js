@@ -8,6 +8,7 @@ const { Chess } = require("../shared/chess");
 const queries = require("../db/queries");
 const config = require("../config");
 const { describeTimeControl } = require("../shared/timeControls");
+const handicap = require("../shared/handicap");
 
 const STANDARD_START =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -60,6 +61,9 @@ function createRoom(
     timeControl: describeTimeControl(initial, increment),
     // Unrated games skip the Elo update when they conclude.
     rated: rated == null ? true : !!rated,
+    // "White −Q" style summary when the game started from a handicap position,
+    // recovered from start_fen so it survives a restart. null for a normal game.
+    handicap: handicapLabel(startFen),
     turnStartedAt: null,
     started: false,
     everJoined: { w: false, b: false },
@@ -74,6 +78,13 @@ function createRoom(
   };
   rooms.set(gameId, room);
   return room;
+}
+
+// Describe a start position that is the standard setup minus some pieces.
+function handicapLabel(startFen) {
+  if (!startFen || startFen === STANDARD_START) return null;
+  const removed = handicap.removalsFromFen(startFen);
+  return removed && removed.length ? handicap.describe(removed) : null;
 }
 
 // Current clocks, decrementing the side-to-move by the time elapsed since their

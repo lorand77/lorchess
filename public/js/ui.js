@@ -1297,11 +1297,12 @@ function applyPvpState(socket, state) {
   lastPvpState = state;
   renderFriendRow();
   setChatHistory(state.chat);
-  // M5: PvP games always start from the standard position.
   chess.loadFen(state.fen);
   startFullmove = 1;
   startTurn = W;
-  startFen = null;
+  // Non-null for a handicap game, so the exported PGN carries SetUp/FEN. A
+  // handicap position is always white-to-move on move 1, so the two above hold.
+  startFen = state.startFen || null;
   moveHistory = state.sans.slice();
   lastMove = null;
   selected = null;
@@ -1339,7 +1340,9 @@ function applyPvpState(socket, state) {
   // Time control + rating, e.g. "Blitz 5+3 · rated".
   const tcLine = document.getElementById('tcLine');
   if (tcLine && state.timeControl) {
-    tcLine.textContent = state.timeControl + ' · ' + (state.rated ? 'rated' : 'casual');
+    let line = state.timeControl + ' · ' + (state.rated ? 'rated' : 'casual');
+    if (state.handicap) line += ' · handicap: ' + state.handicap;
+    tcLine.textContent = line;
   }
 
   // Clock labels (top = opponent, bottom = you; for a spectator top = Black,

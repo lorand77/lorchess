@@ -70,7 +70,9 @@ function leave(socket) {
 // caller. Used by quick-match (random colours), by the lobby's seeks and
 // challenges (offerer's preference), and by rematch (colours swapped).
 function startMatch(io, white, black, opts) {
-  const start = rooms.STANDARD_START;
+  // A handicap offer carries its own start position; everything else begins
+  // from the standard setup.
+  const start = (opts && opts.startFen) || rooms.STANDARD_START;
   const tc = resolveTimeControl(DEFAULT_TC);
   const initialMs = opts && opts.initialMs != null ? opts.initialMs : tc.initialMs;
   const incrementMs = opts && opts.incrementMs != null ? opts.incrementMs : tc.incrementMs;

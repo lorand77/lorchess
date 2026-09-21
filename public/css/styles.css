@@ -621,3 +621,65 @@ img.drag-piece {
 
 .board-draggable .square img.piece { cursor: grab; }
 .board-draggable .square img.piece.dragging { cursor: grabbing; }
+
+/* ---- handicap position editor (public/js/positionEditor.js) ---- */
+.editor-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+.editor-modal.show { display: flex; }
+.editor-box {
+  background: #3c3c3c;
+  border: 1px solid #5a5a5a;
+  border-radius: 8px;
+  padding: 18px 20px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.editor-box h3 { margin: 0 0 6px; }
+.editor-hint { margin: 0 0 12px; color: #969696; font-size: 12px; max-width: 360px; }
+/* A compact board: the editor is a dialog, not the playing surface. */
+.editor-board {
+  --board: min(360px, calc(100vw - 80px));
+  --sq: calc(var(--board) / 8);
+  margin: 0 auto;
+}
+.editor-board .square.removable:hover { box-shadow: inset 0 0 0 3px rgba(255, 120, 120, 0.8); }
+.editor-board .square.locked { cursor: default; }
+/* The piece that used to stand here: a ghost, so the square reads as refillable. */
+.editor-board .square img.piece.removed { opacity: 0.16; }
+.editor-summary { margin: 10px 0 0; font-size: 13px; color: #ffd98a; min-height: 18px; }
+.editor-error { margin: 4px 0 0; color: #ff6464; font-size: 12px; min-height: 16px; }
+.editor-actions { display: flex; gap: 8px; margin: 12px 0 0; }
+.editor-actions button { margin: 0; padding: 7px 14px; font-size: 13px; }
+.editor-actions .primary { background: #3d6098; }
+.editor-actions .primary:hover { background: #4a73b5; }
+.editor-actions button:disabled { background: #444; color: #888; cursor: default; }
+
+/* Handicap terms shown on an offer, and on the game page's clock header. */
+.tag.handicap { background: #5a3050; color: #ffc4ee; }
+.handicap-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #d8d8d8;
+}
+.handicap-row button { margin: 0; padding: 5px 12px; font-size: 12px; }
+.handicap-row .clear-link {
+  background: none;
+  border: none;
+  color: #8aa6c8;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  text-decoration: underline;
+}

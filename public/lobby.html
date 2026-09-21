@@ -34,6 +34,13 @@
       </select>
       <label class="check"><input type="checkbox" id="ratedCheck" checked> Rated</label>
     </div>
+    <!-- Optional material odds. Set one and the game is forced casual; the
+         terms travel with the offer so whoever accepts can see them first. -->
+    <div class="handicap-row">
+      <button id="handicapBtn">Handicap…</button>
+      <span id="handicapSummary" class="muted"></span>
+      <button id="handicapClear" class="clear-link" style="display:none;">clear</button>
+    </div>
     <div class="lobby-actions">
       <button id="quickMatchBtn" class="primary" disabled>Quick Match</button>
       <button id="seekBtn" disabled>Post Challenge</button>
@@ -86,6 +93,8 @@
 <script src="/js/theme.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/timeControls.js"></script>
+<script src="/js/handicap.js"></script>
+<script src="/js/positionEditor.js"></script>
 <script src="/js/net.js"></script>
 <script src="/js/friends.js"></script>
 <script src="/js/lobby.js"></script>
