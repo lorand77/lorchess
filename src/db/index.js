@@ -31,6 +31,9 @@ function addColumnIfMissing(table, column, definition) {
 addColumnIfMissing("games", "initial_ms", "INTEGER");
 addColumnIfMissing("games", "increment_ms", "INTEGER");
 addColumnIfMissing("games", "rated", "INTEGER NOT NULL DEFAULT 1");
+// Remaining clock per side, so an in-progress game survives a restart.
+addColumnIfMissing("games", "clock_w_ms", "INTEGER");
+addColumnIfMissing("games", "clock_b_ms", "INTEGER");
 // Look & feel preferences (board colours, background colour) as a JSON blob.
 addColumnIfMissing("users", "prefs", "TEXT");
 // Puzzle Elo (separate from the game rating) and the daily-puzzle streak.

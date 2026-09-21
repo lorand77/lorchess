@@ -78,14 +78,17 @@ module.exports = {
     SET status = 'aborted', termination = ?, finished_at = datetime('now')
     WHERE id = ?
   `),
-  // Boot cleanup: any game still 'active' after a restart is orphaned (its
-  // in-memory room is gone), so abort it. Returns changes via .run().
-  abortOrphanedGames: db.prepare(`
-    UPDATE games
-    SET status = 'aborted', termination = 'server-restart',
-        finished_at = datetime('now')
-    WHERE status = 'active'
-  `),
+  // Clocks are written on every move so a restart can restore them. Kept
+  // separate from updateGamePosition because AI games are untimed.
+  updateGameClocks: db.prepare(
+    "UPDATE games SET clock_w_ms = ?, clock_b_ms = ? WHERE id = ?"
+  ),
+  // PvP games still 'active' — after a restart these are the ones waiting to
+  // be resumed. AI games are deliberately excluded: they hold no server-side
+  // state, so a restart never interrupts them.
+  listActivePvpGames: db.prepare(
+    "SELECT id FROM games WHERE status = 'active' AND mode = 'pvp'"
+  ),
 
   // Both sides of every live PvP game; the lobby marks these users as busy.
   playersInLiveGames: db.prepare(

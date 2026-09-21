@@ -19,6 +19,12 @@ const { elo } = require("./elo");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
 
+// After a restart both clients usually auto-reconnect within a second of each
+// other. Wait this long before telling the first one back that their opponent
+// is missing, so a red "disconnected" banner doesn't flash up and vanish on
+// every deploy. The forfeit clock itself starts immediately either way.
+const REJOIN_SETTLE_MS = 3000;
+
 const other = (c) => (c === "w" ? "b" : "w");
 
 // Pending rematch offers for FINISHED games, keyed by the old gameId. The room
@@ -30,6 +36,16 @@ const winResult = (winnerColor) => (winnerColor === "w" ? "1-0" : "0-1");
 
 function attachSockets(httpServer) {
   const io = new Server(httpServer);
+
+  // Games left 'active' by the previous run are waiting to be resumed. Give
+  // the players a window to reconnect, then abort whatever nobody claimed.
+  // unref'd so it never holds the process open by itself.
+  setTimeout(() => {
+    const aborted = rooms.sweepUnresumed();
+    if (!aborted) return;
+    console.log(`Aborted ${aborted} game(s) nobody resumed after the restart.`);
+    lobby.refresh(io);
+  }, config.RESUME_WINDOW_MS).unref();
 
   io.engine.use(sessionMiddleware);
 
@@ -132,8 +148,13 @@ function onFlag(io, gameId, turn) {
 // Finalize a game: persist, rate (Elo), notify the room, clear timers, drop the
 // room. result '*' means an abort (no winner, no rating change).
 function concludeGame(io, room, result, termination) {
+  // Snapshot before the status flips: clockSnapshot only charges the side to
+  // move while the game is still active, and a resignation should record the
+  // time the resigning player had actually burned.
+  const clocks = rooms.clockSnapshot(room);
   room.status = result === "*" ? "aborted" : "finished";
   rooms.clearTimers(room);
+  queries.updateGameClocks.run(clocks.w, clocks.b, room.gameId);
   if (result === "*") queries.abortGame.run(termination, room.gameId);
   else queries.finishGame.run(result, termination, room.gameId);
 
@@ -144,7 +165,7 @@ function concludeGame(io, room, result, termination) {
     result,
     termination,
     ratings,
-    clocks: rooms.clockSnapshot(room),
+    clocks,
   });
   rooms.deleteRoom(room.gameId);
   lobby.refresh(io); // both players are free again
@@ -168,6 +189,26 @@ function applyElo(room, result) {
   };
 }
 
+// Start the forfeit clock against a player who isn't here. `settleMs` delays
+// only the announcement: a fresh disconnect is reported at once, while a room
+// rebuilt after a restart gives the other client a moment to come back first.
+function armAbsence(io, room, color, settleMs) {
+  if (room.status !== "active") return;
+  if (room.timers[color] || room.online[color].size > 0) return;
+  const gameId = room.gameId;
+
+  room.timers[color] = setTimeout(() => onGraceExpired(io, gameId, color), GRACE_MS);
+
+  const announce = () => {
+    room.notices[color] = null;
+    const live = rooms.getRoom(gameId);
+    if (!live || live.status !== "active" || live.online[color].size > 0) return;
+    io.to(`game:${gameId}`).emit("opponent:disconnected", { color, graceMs: GRACE_MS });
+  };
+  if (settleMs > 0) room.notices[color] = setTimeout(announce, settleMs);
+  else announce();
+}
+
 function handleGameJoin(io, socket, payload, ack) {
   const gameId = Number(payload && payload.gameId);
   if (!gameId) return reply(ack, { ok: false, error: "Missing gameId." });
@@ -188,10 +229,25 @@ function handleGameJoin(io, socket, payload, ack) {
   if (room.timers[color]) {
     clearTimeout(room.timers[color]);
     room.timers[color] = null;
-    socket.to(`game:${gameId}`).emit("opponent:reconnected", { color });
+    // Only announce the return if the absence was ever announced — a notice
+    // still pending means nobody was told about it in the first place.
+    const wasAnnounced = room.notices[color] == null;
+    if (room.notices[color]) {
+      clearTimeout(room.notices[color]);
+      room.notices[color] = null;
+    }
+    if (wasAnnounced) socket.to(`game:${gameId}`).emit("opponent:reconnected", { color });
   }
 
-  // Start the clock once both sides are present.
+  // A room rebuilt from the database has nobody connected yet, so the first
+  // player back starts the forfeit clock against the one who hasn't returned.
+  // Without this a restart would leave the game hanging for ever when the
+  // opponent simply closed their tab.
+  if (room.rehydrated) armAbsence(io, room, other(color), REJOIN_SETTLE_MS);
+
+  // Start the clock once both sides are present. Neither player is charged for
+  // the downtime: the clock resumes from the stored values only once the game
+  // is properly under way again.
   startClocksIfReady(io, room);
   lobby.refresh(io); // this player now shows as "playing" in the lobby
 
@@ -277,11 +333,18 @@ function handleWatch(io, socket, payload, ack) {
   const gameId = Number(payload && payload.gameId);
   if (!gameId) return reply(ack, { ok: false, error: "Missing gameId." });
 
+  // Deliberately NOT loadRoomFromDb: a spectator must never be the one to
+  // rebuild a room. Doing so would keep a game the players abandoned alive past
+  // the resume sweep, with no forfeit clock running against either of them.
   const room = rooms.getRoom(gameId);
   if (!room) {
-    // Only live games have rooms; a finished one has nothing to watch.
     const game = queries.getGameById.get(gameId);
     if (!game || game.mode !== "pvp") return reply(ack, { ok: false, error: "Game not found." });
+    // Still 'active' with no room means a restart left it waiting for its
+    // players; it becomes watchable again as soon as one of them reconnects.
+    if (game.status === "active") {
+      return reply(ack, { ok: false, error: "That game is waiting for its players to reconnect." });
+    }
     return reply(ack, { ok: false, error: "That game has already finished.", finished: true });
   }
   if (colorOf(room, socket.userId)) {
@@ -352,6 +415,8 @@ function handleMove(io, socket, payload, ack) {
   // (5) Persist + (6) broadcast (mover included; everyone applies on confirmation).
   queries.insertMove.run(gameId, ply, san, uci, fen, socket.userId);
   queries.updateGamePosition.run(fen, turn, gameId);
+  // Clocks go to the database too, so this game survives a restart.
+  queries.updateGameClocks.run(room.clock.w, room.clock.b, gameId);
 
   // An outstanding draw offer lapses as soon as a move is played.
   if (room.drawOffer) {
@@ -492,9 +557,7 @@ function handleDisconnect(io, socket, reason) {
   room.online[color].delete(socket.id);
   if (room.online[color].size > 0) return; // another tab for this player is still open
 
-  io.to(`game:${gameId}`).emit("opponent:disconnected", { color, graceMs: GRACE_MS });
-  if (room.timers[color]) clearTimeout(room.timers[color]);
-  room.timers[color] = setTimeout(() => onGraceExpired(io, gameId, color), GRACE_MS);
+  armAbsence(io, room, color, 0); // a real disconnect is announced immediately
 }
 
 function onGraceExpired(io, gameId, color) {

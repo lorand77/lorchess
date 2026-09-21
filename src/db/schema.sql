@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS games (
   increment_ms INTEGER,
   -- Whether the result moves Elo. AI games are always unrated.
   rated        INTEGER NOT NULL DEFAULT 1,
+  -- Remaining time per side, written on every move. This is what lets a game
+  -- survive a server restart: the position comes from `moves`, the clocks from
+  -- here. NULL means "never recorded", i.e. fall back to initial_ms.
+  clock_w_ms   INTEGER,
+  clock_b_ms   INTEGER,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   finished_at TEXT
 );

@@ -22,6 +22,10 @@ module.exports = {
   CLOCK_INITIAL_MS: parseInt(process.env.CLOCK_MS, 10) || 10 * 60 * 1000,
   CLOCK_INCREMENT_MS: parseInt(process.env.CLOCK_INC_MS, 10) || 0,
 
+  // How long a game left 'active' by a restart waits for a player to come
+  // back before it is given up on and aborted.
+  RESUME_WINDOW_MS: parseInt(process.env.RESUME_WINDOW_MS, 10) || 10 * 60 * 1000,
+
   // Elo K-factor for rating updates after rated games.
   ELO_K: parseInt(process.env.ELO_K, 10) || 32,
 

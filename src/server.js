@@ -14,10 +14,20 @@ const puzzleRoutes = require("./puzzles/routes");
 const { attachSockets } = require("./game/socket");
 const rooms = require("./game/rooms");
 
-// Boot cleanup: abort games left 'active' by a previous run (their in-memory
-// rooms didn't survive the restart). Run once at startup, before serving.
-const aborted = rooms.cleanupOrphanedGames();
-if (aborted > 0) console.log(`Aborted ${aborted} orphaned game(s) from a previous run.`);
+// Games left 'active' by a previous run are NOT discarded: the position lives
+// in `moves` and the clocks in the games row, so the first player back rebuilds
+// the room and play continues where it stopped. Anything nobody returns for is
+// aborted by a sweep scheduled in attachSockets().
+const resumable = rooms.resumableGames().length;
+if (resumable > 0) {
+  const window = config.RESUME_WINDOW_MS >= 60000
+    ? `${Math.round(config.RESUME_WINDOW_MS / 60000)} min`
+    : `${Math.round(config.RESUME_WINDOW_MS / 1000)}s`;
+  console.log(
+    `${resumable} game(s) in progress from a previous run; ` +
+    `players have ${window} to reconnect.`
+  );
+}
 
 const app = express();
 
