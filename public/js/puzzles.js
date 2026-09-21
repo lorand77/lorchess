@@ -73,6 +73,8 @@
         const f = flip ? 7 - col : col;
         const sq = sqIdx(f, r);
         const div = el("div", "square " + ((r + f) % 2 === 0 ? "dark" : "light"));
+        div.dataset.sq = sq; // boardDrag.js finds squares by this
+
         if (lastMove && (lastMove.from === sq || lastMove.to === sq)) div.classList.add("last-move");
         if (selected === sq) div.classList.add("selected");
         if (wrongSq === sq) div.classList.add("wrong");
@@ -103,25 +105,48 @@
   }
   window.addEventListener("theme:changed", render);
 
-  function onSquareClick(sq) {
-    if (phase !== "playing" || chess.turn !== puzzle.playerColor) return;
+  // May the user pick this piece up? Shared by tapping and dragging so the two
+  // can't drift apart.
+  function canPickUp(sq) {
+    if (phase !== "playing" || !puzzle || chess.turn !== puzzle.playerColor) return false;
     const piece = chess.squares[sq];
-    if (selected !== null) {
-      const cands = legal.filter((m) => m.to === sq);
-      if (cands.length) {
-        selected = null; legal = [];
-        if (cands.length > 1 && cands[0].promo) return askPromotion(cands);
-        return submit(cands[0]);
-      }
-    }
-    if (piece && piece.c === puzzle.playerColor) {
-      selected = sq;
-      legal = chess.legalMoves().filter((m) => m.from === sq);
-    } else {
-      selected = null; legal = [];
-    }
+    return !!piece && piece.c === puzzle.playerColor;
+  }
+
+  function selectSquare(sq) {
+    selected = sq;
+    legal = chess.legalMoves().filter((m) => m.from === sq);
     render();
   }
+
+  // Play from -> to if that is a legal move, asking which piece to promote to
+  // when there is a choice. False means there was no such move.
+  function attemptMove(from, to) {
+    const cands = chess.legalMoves().filter((m) => m.from === from && m.to === to);
+    if (!cands.length) return false;
+    selected = null; legal = [];
+    if (cands.length > 1 && cands[0].promo) askPromotion(cands);
+    else submit(cands[0]);
+    return true;
+  }
+
+  function onSquareClick(sq) {
+    if (phase !== "playing" || chess.turn !== puzzle.playerColor) return;
+    if (selected !== null && attemptMove(selected, sq)) return;
+    if (canPickUp(sq)) selectSquare(sq);
+    else { selected = null; legal = []; render(); }
+  }
+
+  // Drag-and-drop on mouse, touch and stylus. Taps are left entirely to
+  // onSquareClick above.
+  BoardDrag.attach(boardEl, {
+    canDrag: canPickUp,
+    onPick: selectSquare,
+    onDrop(from, to) {
+      if (to == null || to === from) return; // cancelled or dropped back home
+      attemptMove(from, to);
+    },
+  });
 
   function askPromotion(cands) {
     pendingPromo = cands;

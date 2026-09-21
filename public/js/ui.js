@@ -306,9 +306,21 @@ const reducedMotion = window.matchMedia
 // { start, pieces: [{from, to}], captured: {sq, piece} | null }
 let moveAnim = null;
 
+// A move made by dragging needs no slide: the user carried the piece there
+// themselves, so animating it out of the origin square again reads as lag. Set
+// by the drop handler, consumed by the next planMoveAnimation.
+let noAnimMove = null;
+
 // Call BEFORE chess.makeMove(move): it inspects the current squares to find
 // the captured piece (which vanishes once the move is made).
 function planMoveAnimation(move) {
+  const dragged = noAnimMove
+    && noAnimMove.from === move.from && noAnimMove.to === move.to;
+  noAnimMove = null; // one move only; never let a stale flag outlive it
+  if (dragged) {
+    moveAnim = null;
+    return;
+  }
   if (reducedMotion) return;
   const pieces = [{ from: move.from, to: move.to }];
   if (move.castle) {
@@ -538,31 +550,65 @@ function buildPgn() {
   return pgn + body;
 }
 
+// May the user pick up whatever is standing on this square right now? Shared by
+// click-to-move and drag-and-drop, so the two can never disagree.
+function canPickUp(sq) {
+  if (promotionPending || thinking || gameIsOver()) return false;
+  if (!moveSource || !moveSource.canHumanMoveNow(chess.turn)) return false;
+  const piece = chess.squares[sq];
+  return !!piece && piece.c === humanColor;
+}
+
+function selectSquare(sq) {
+  selected = sq;
+  legalFromSelected = chess.legalMoves().filter(m => m.from === sq);
+  render();
+}
+
+// Commit a human move between two squares, opening the promotion dialog when
+// the move needs one. Returns false when there is no legal move from -> to, so
+// the caller can fall back to its own reselect / deselect behaviour.
+// `viaDrag` only affects the animation (see planMoveAnimation).
+function attemptMove(from, to, viaDrag) {
+  const moves = chess.legalMoves().filter(m => m.from === from);
+  const candidate = moves.find(m => m.to === to);
+  if (!candidate) return false;
+  const piece = chess.squares[from];
+  if (piece && piece.t === 'p' && (rankOf(to) === 0 || rankOf(to) === 7)) {
+    selected = from;
+    legalFromSelected = moves;
+    promotionPending = { from, to, viaDrag: !!viaDrag };
+    showPromotionDialog();
+    return true;
+  }
+  if (viaDrag) noAnimMove = { from, to };
+  doHumanMove(candidate);
+  return true;
+}
+
+// Drag-and-drop (mouse, touch and stylus alike). Taps fall through to
+// onSquareClick untouched; only a real drag is handled here.
+BoardDrag.attach(boardEl, {
+  canDrag: canPickUp,
+  onPick: selectSquare,
+  onDrop(from, to) {
+    // Cancelled, or put back where it came from: leave it selected so the hints
+    // stay up and a tap can finish the move instead.
+    if (to == null || to === from) return;
+    attemptMove(from, to, true);
+  },
+});
+
 function onSquareClick(sq) {
   if (promotionPending || thinking || gameIsOver()) return;
   if (!moveSource || !moveSource.canHumanMoveNow(chess.turn)) return;
 
   if (selected === null) {
-    const piece = chess.squares[sq];
-    if (piece && piece.c === humanColor) {
-      selected = sq;
-      legalFromSelected = chess.legalMoves().filter(m => m.from === sq);
-      render();
-    }
+    if (canPickUp(sq)) selectSquare(sq);
     return;
   }
 
-  const candidate = legalFromSelected.find(m => m.to === sq);
-  if (candidate) {
-    const piece = chess.squares[selected];
-    if (piece.t === 'p' && (rankOf(sq) === 0 || rankOf(sq) === 7)) {
-      promotionPending = { from: selected, to: sq };
-      showPromotionDialog();
-      return;
-    }
-    doHumanMove(candidate);
-    return;
-  }
+  if (attemptMove(selected, sq, false)) return;
 
   // Reselect or deselect
   const piece = chess.squares[sq];
@@ -592,9 +638,12 @@ function showPromotionDialog() {
     opt.appendChild(img);
     opt.addEventListener('click', () => {
       const move = legalFromSelected.find(m => m.to === promotionPending.to && m.promo === t);
+      const viaDrag = promotionPending.viaDrag;
       promoEl.classList.remove('show');
       promotionPending = null;
-      if (move) doHumanMove(move);
+      if (!move) return;
+      if (viaDrag) noAnimMove = { from: move.from, to: move.to };
+      doHumanMove(move);
     });
     promoOpts.appendChild(opt);
   }

@@ -593,3 +593,31 @@ select {
 
 /* Who can hear you in the chat panel: players and spectators are separate. */
 .chat-audience { margin: 0 0 6px; color: #969696; font-size: 11px; }
+
+/* ---- drag and drop (public/js/boardDrag.js) ---- */
+/* A board you can drag on must not pan under a finger, or a swipe that starts
+   on a piece would scroll the page instead of moving it. Only applied to boards
+   that actually wire up dragging, so the replay board still scrolls normally. */
+.board.board-draggable { touch-action: none; }
+
+/* The piece left behind on the origin square while its clone is in flight. */
+.board-draggable .square img.piece.dragging { opacity: 0.25; }
+
+/* The clone that follows the pointer. Parented to <body> so a board re-render
+   mid-drag can't remove it, and centred on its own position. */
+img.drag-piece {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;   /* so elementFromPoint sees the board underneath */
+  z-index: 60;
+  cursor: grabbing;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+}
+
+/* Square the dragged piece is currently over. */
+.square.drag-over { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.75); }
+
+.board-draggable .square img.piece { cursor: grab; }
+.board-draggable .square img.piece.dragging { cursor: grabbing; }
