@@ -198,12 +198,24 @@ module.exports = {
     FROM chat_messages c JOIN users u ON u.id = c.user_id
     WHERE c.id = ?
   `),
-  // The most recent N messages of a game, oldest first.
-  listChatForGame: db.prepare(`
+  // Player chat and spectator chat are two separate conversations: a spectator
+  // must never be able to feed a move to a player (see socket.js handleChat).
+  // Both are "most recent N, oldest first". There is deliberately NO query that
+  // returns both, so no caller can leak one audience into the other by accident.
+  listPlayerChat: db.prepare(`
     SELECT * FROM (
       SELECT c.id, c.user_id AS userId, u.username, c.role, c.body AS text, c.created_at AS at
       FROM chat_messages c JOIN users u ON u.id = c.user_id
-      WHERE c.game_id = ?
+      WHERE c.game_id = ? AND c.role IN ('w', 'b')
+      ORDER BY c.id DESC
+      LIMIT ?
+    ) ORDER BY id ASC
+  `),
+  listSpectatorChat: db.prepare(`
+    SELECT * FROM (
+      SELECT c.id, c.user_id AS userId, u.username, c.role, c.body AS text, c.created_at AS at
+      FROM chat_messages c JOIN users u ON u.id = c.user_id
+      WHERE c.game_id = ? AND c.role = 's'
       ORDER BY c.id DESC
       LIMIT ?
     ) ORDER BY id ASC

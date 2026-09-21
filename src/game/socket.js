@@ -27,6 +27,12 @@ const REJOIN_SETTLE_MS = 3000;
 
 const other = (c) => (c === "w" ? "b" : "w");
 
+// Chat is split by audience. Everyone in a game shares `game:<id>` for moves,
+// clocks and the result, but chat is delivered to one of these two rooms only,
+// so a spectator can never pass a move to a player mid-game.
+const chatRoom = (gameId, audience) => `chat:${gameId}:${audience}`;
+const audienceOf = (role) => (role === "s" ? "spectators" : "players");
+
 // Pending rematch offers for FINISHED games, keyed by the old gameId. The room
 // is gone by then (concludeGame drops it), so this holds the offering sockets
 // directly: gameId -> Map<userId, socket>. When both participants appear, a new
@@ -220,6 +226,7 @@ function handleGameJoin(io, socket, payload, ack) {
   if (!color) return reply(ack, { ok: false, error: "You are not a player in this game." });
 
   socket.join(`game:${gameId}`);
+  socket.join(chatRoom(gameId, "players"));
   socket.gameId = gameId;
   socket.gameColor = color;
   room.online[color].add(socket.id);
@@ -278,15 +285,25 @@ function stateOf(room, color) {
     timeControl: room.timeControl,
     rated: room.rated,
     spectators: room.spectators.size,
-    chat: queries.listChatForGame.all(room.gameId, CHAT_HISTORY),
+    // Only this recipient's side of the conversation. `color` is null for a
+    // spectator, which is exactly the audience distinction we need.
+    chat: color
+      ? queries.listPlayerChat.all(room.gameId, CHAT_HISTORY)
+      : queries.listSpectatorChat.all(room.gameId, CHAT_HISTORY),
   };
 }
 
 // ---- chat ----
-// Anyone in the game's Socket.IO room may talk: the two players (also after
-// the game ends, while they hang around for a rematch) and spectators. The
-// room may already be gone by then, so membership is judged from the socket's
-// own join/watch markers and the seat from the games row. Messages persist.
+// Anyone in the game may talk: the two players (also after the game ends, while
+// they hang around for a rematch) and spectators. The room object may already be
+// gone by then, so membership is judged from the socket's own join/watch markers
+// and the seat from the games row. Messages persist.
+//
+// Crucially there are TWO conversations, not one. A spectator watching a live
+// game can see the position, so if their messages reached the players they could
+// simply type out an engine's best move. Player chat and spectator chat are
+// therefore delivered to separate Socket.IO rooms and read back through separate
+// queries: neither side ever receives the other's messages, at any point.
 const CHAT_HISTORY = 100;
 const CHAT_MAX_LEN = 300;
 const CHAT_BURST = 5;        // at most this many messages...
@@ -320,7 +337,8 @@ function handleChat(io, socket, payload, ack) {
 
   const info = queries.insertChat.run(gameId, socket.userId, role, text);
   const msg = queries.getChatById.get(Number(info.lastInsertRowid));
-  io.to(`game:${gameId}`).emit("chat:message", msg);
+  // Players hear players; spectators hear spectators. Never across.
+  io.to(chatRoom(gameId, audienceOf(role))).emit("chat:message", msg);
   reply(ack, { ok: true });
 }
 
@@ -351,7 +369,12 @@ function handleWatch(io, socket, payload, ack) {
     return reply(ack, { ok: false, error: "You're a player in this game.", player: true });
   }
 
+  // Switching to a different game on the same socket: drop the old rooms so
+  // its broadcasts and chat don't bleed into the new one.
+  if (socket.watching != null && socket.watching !== gameId) leaveWatching(io, socket);
+
   socket.join(`game:${gameId}`);
+  socket.join(chatRoom(gameId, "spectators"));
   socket.watching = gameId;
   room.spectators.add(socket.id);
   broadcastSpectators(io, room);
@@ -364,8 +387,11 @@ function broadcastSpectators(io, room) {
 
 function leaveWatching(io, socket) {
   if (socket.watching == null) return;
-  const room = rooms.getRoom(socket.watching);
+  const gameId = socket.watching;
+  const room = rooms.getRoom(gameId);
   socket.watching = null;
+  socket.leave(`game:${gameId}`);
+  socket.leave(chatRoom(gameId, "spectators"));
   if (!room || !room.spectators.delete(socket.id)) return;
   broadcastSpectators(io, room);
 }

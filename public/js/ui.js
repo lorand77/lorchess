@@ -889,7 +889,10 @@ function showSpectators(info) {
 const colorName = (c) => (c === 'w' ? 'White' : 'Black');
 
 // ---- chat ----
-// One panel for players and spectators. Listeners are bound once per socket
+// One panel, but two separate conversations: what a player sends reaches only
+// the other player, and what a spectator sends reaches only other spectators.
+// The split is enforced server-side (see socket.js handleChat) — this side just
+// labels which room you are talking into. Listeners are bound once per socket
 // (initChat); history is (re)painted from the join/watch ack on every
 // (re)connect via setChatHistory, so a reconnect never duplicates lines.
 let chatBound = null;
@@ -899,7 +902,9 @@ function chatLine(m) {
   line.className = 'chat-msg chat-' + (m.role || 's');
   const who = document.createElement('span');
   who.className = 'chat-who';
-  who.textContent = m.username + (m.role === 's' ? ' (spectator)' : '') + ':';
+  // No "(spectator)" marker needed: you only ever receive your own audience's
+  // messages, so there is nothing to disambiguate.
+  who.textContent = m.username + ':';
   const text = document.createElement('span');
   text.className = 'chat-text';
   text.textContent = ' ' + m.text;
@@ -930,6 +935,18 @@ function initChat(socket, gameId) {
   const errEl = document.getElementById('chatError');
   if (!panel || !form || !input) return;
   panel.style.display = '';
+
+  // Say plainly who can hear this. Spectators can see the live position, so
+  // their channel is kept away from the players on purpose.
+  const title = document.getElementById('chatTitle');
+  const audience = document.getElementById('chatAudience');
+  if (title) title.textContent = spectating ? 'Spectator chat' : 'Chat';
+  if (audience) {
+    audience.textContent = spectating
+      ? 'Other spectators only — the players cannot see this.'
+      : 'Your opponent only — spectators cannot see this.';
+  }
+
   if (chatBound === socket) return;
   chatBound = socket;
 

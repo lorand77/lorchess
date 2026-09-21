@@ -75,9 +75,12 @@
     </p>
     <h3>PGN</h3>
     <div id="history"></div>
-    <!-- PvP + spectator chat; hidden in AI games (see ui.js initChat). -->
+    <!-- PvP + spectator chat; hidden in AI games (see ui.js initChat). Players
+         and spectators have separate conversations, so the heading and hint are
+         filled in per audience. -->
     <div id="chat" class="chat" style="display:none;">
-      <h3>Chat</h3>
+      <h3 id="chatTitle">Chat</h3>
+      <p id="chatAudience" class="chat-audience"></p>
       <div id="chatLog" class="chat-log" aria-live="polite"></div>
       <form id="chatForm" class="chat-form" autocomplete="off">
         <input id="chatInput" type="text" maxlength="300" placeholder="Say something…">

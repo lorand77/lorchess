@@ -590,3 +590,6 @@ select {
   .lobby { width: 100%; }
   .row { flex-wrap: wrap; }
 }
+
+/* Who can hear you in the chat panel: players and spectators are separate. */
+.chat-audience { margin: 0 0 6px; color: #969696; font-size: 11px; }
