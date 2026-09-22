@@ -120,7 +120,13 @@ function recordApplied(san, move) {
   const byColor = opp(chess.turn);   // the mover = side that just moved (turn has flipped)
   gameStore.recordMove({ ply, san, uci, fenAfter, byColor });
   if (chess.isGameOver()) {
-    gameStore.endGame(chess.result(), terminationReason());
+    // The server evaluates achievements when it records the end of the game
+    // and answers with anything newly earned.
+    gameStore.endGame(chess.result(), terminationReason()).then((resp) => {
+      if (resp && resp.achievements && typeof AchievementToast !== 'undefined') {
+        AchievementToast.show(resp.achievements);
+      }
+    });
     playOutcomeSound(chess.result());
   }
 }
@@ -1238,6 +1244,10 @@ function initPvp(gameId) {
     setOfferButtons(true);
     showRatingChange(info.ratings);
     render();
+  });
+  // Sent to each player individually once the result is in the database.
+  socket.on('achievements:earned', (info) => {
+    if (info && typeof AchievementToast !== 'undefined') AchievementToast.show(info.list);
   });
   socket.on('opponent:disconnected', (info) => {
     const secs = Math.round((info.graceMs || 0) / 1000);

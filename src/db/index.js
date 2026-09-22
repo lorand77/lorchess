@@ -40,6 +40,9 @@ addColumnIfMissing("users", "prefs", "TEXT");
 addColumnIfMissing("users", "puzzle_rating", `INTEGER NOT NULL DEFAULT ${config.PUZZLE_START_RATING}`);
 addColumnIfMissing("users", "daily_streak", "INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing("users", "daily_last_date", "TEXT");
+// Time the mover spent on a PvP move, in ms (NULL for AI games and for moves
+// recorded before this column existed). Achievements read it.
+addColumnIfMissing("moves", "think_ms", "INTEGER");
 
 // The puzzle rating used to start at 1500. Move anyone who never attempted a
 // puzzle to the current starting value; the column default on an existing

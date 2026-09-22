@@ -267,6 +267,7 @@
     renderHead();
     showResult(resp, solved);
     puzzle.solution = resp.solution;
+    if (resp.achievements && typeof AchievementToast !== "undefined") AchievementToast.show(resp.achievements);
   }
 
   function showResult(resp, solved) {

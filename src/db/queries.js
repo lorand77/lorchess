@@ -226,11 +226,96 @@ module.exports = {
     INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user)
     VALUES (?, ?, ?, ?, ?, ?)
   `),
+  // PvP variant: also records how long the mover thought (server-measured).
+  insertMoveTimed: db.prepare(`
+    INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user, think_ms)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `),
   getMovesForGame: db.prepare(
-    "SELECT ply, san, uci, fen_after, by_user, created_at FROM moves WHERE game_id = ? ORDER BY ply"
+    "SELECT ply, san, uci, fen_after, by_user, think_ms, created_at FROM moves WHERE game_id = ? ORDER BY ply"
   ),
   // Used by undo: drop everything after the new last ply.
   deleteMovesAfter: db.prepare(
     "DELETE FROM moves WHERE game_id = ? AND ply > ?"
+  ),
+
+  // --- rating history ---
+  insertRatingHistory: db.prepare(`
+    INSERT INTO rating_history (user_id, game_id, rating_before, rating_after)
+    VALUES (?, ?, ?, ?)
+  `),
+  ratingHistoryForGame: db.prepare(
+    "SELECT user_id, rating_before, rating_after FROM rating_history WHERE game_id = ?"
+  ),
+  // Today's rating changes (UTC), oldest first.
+  ratingHistorySince: db.prepare(`
+    SELECT rating_before, rating_after FROM rating_history
+    WHERE user_id = ? AND created_at >= ? ORDER BY id
+  `),
+
+  // --- achievements (see src/achievements/service.js) ---
+  // Insert or raise the tier. The WHERE on the upsert makes a lower or equal
+  // tier a no-op, so `changes` tells the caller whether anything was earned.
+  awardAchievement: db.prepare(`
+    INSERT INTO user_achievements (user_id, key, tier, earned_at, game_id, puzzle_id)
+    VALUES (@userId, @key, @tier, COALESCE(@at, datetime('now')), @gameId, @puzzleId)
+    ON CONFLICT (user_id, key) DO UPDATE SET
+      tier = excluded.tier, earned_at = excluded.earned_at,
+      game_id = excluded.game_id, puzzle_id = excluded.puzzle_id
+    WHERE excluded.tier > user_achievements.tier
+  `),
+  listAchievements: db.prepare(
+    "SELECT key, tier, earned_at, game_id, puzzle_id FROM user_achievements WHERE user_id = ? ORDER BY earned_at DESC, key"
+  ),
+  countAchievements: db.prepare(
+    "SELECT COUNT(*) AS n FROM user_achievements WHERE user_id = ?"
+  ),
+  // Aggregate record over finished games, from one user's point of view.
+  achievementGameStats: db.prepare(`
+    SELECT COUNT(*) AS finished,
+           COALESCE(SUM(win), 0) AS wins,
+           COALESCE(SUM(win AND termination = 'checkmate'), 0) AS checkmates,
+           COALESCE(SUM(win AND white), 0) AS wins_white,
+           COALESCE(SUM(win AND NOT white), 0) AS wins_black
+    FROM (
+      SELECT g.termination,
+             (g.white_id = @me) AS white,
+             ((g.result = '1-0' AND g.white_id = @me) OR (g.result = '0-1' AND g.black_id = @me)) AS win
+      FROM games g
+      WHERE (g.white_id = @me OR g.black_id = @me) AND g.status = 'finished'
+    )
+  `),
+  // PvP wins per time control (initial_ms), for the format badges.
+  achievementWinsByClock: db.prepare(`
+    SELECT initial_ms, COUNT(*) AS n FROM games
+    WHERE mode = 'pvp' AND status = 'finished'
+      AND ((result = '1-0' AND white_id = @me) OR (result = '0-1' AND black_id = @me))
+    GROUP BY initial_ms
+  `),
+  achievementMoveStats: db.prepare(`
+    SELECT COUNT(*) AS moves,
+           COALESCE(SUM(san LIKE 'O-O-O%'), 0) AS long_castles,
+           COALESCE(SUM(san LIKE 'O-O%' AND san NOT LIKE 'O-O-O%'), 0) AS short_castles
+    FROM moves WHERE by_user = ?
+  `),
+  achievementRecentResults: db.prepare(`
+    SELECT result FROM games
+    WHERE (white_id = ? OR black_id = ?) AND status = 'finished'
+    ORDER BY id DESC LIMIT 10
+  `),
+  achievementRecentAttempts: db.prepare(
+    "SELECT solved FROM puzzle_attempts WHERE user_id = ? ORDER BY id DESC LIMIT 60"
+  ),
+  achievementChatCount: db.prepare(
+    "SELECT COUNT(*) AS n FROM chat_messages WHERE user_id = ?"
+  ),
+  achievementUser: db.prepare(
+    "SELECT id, username, rating, puzzle_rating, daily_streak, daily_last_date, created_at FROM users WHERE id = ?"
+  ),
+  listFinishedGameIds: db.prepare(
+    "SELECT id FROM games WHERE status = 'finished' ORDER BY id"
+  ),
+  listHumanUserIds: db.prepare(
+    "SELECT id FROM users WHERE password_hash IS NOT NULL ORDER BY id"
   ),
 };

@@ -13,6 +13,7 @@ const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
 const svc = require("./service");
+const achievements = require("../achievements/service");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -84,6 +85,8 @@ function finish(uid, puzzle, solved) {
   const isDaily = !!daily && daily.puzzle_id === puzzle.id;
   const out = { rating, ...svc.revealView(puzzle) };
   if (isDaily) out.streak = svc.bumpStreak(uid, today);
+  // Retries are unrated and count for nothing; only a first attempt can earn.
+  out.achievements = rating ? achievements.onPuzzleFinished(uid, puzzle) : [];
   return out;
 }
 

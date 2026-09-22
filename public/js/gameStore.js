@@ -25,14 +25,17 @@ function createGameStore() {
   }
 
   // Run an action after the game exists, on the serialized write chain.
+  // Resolves with the action's result (the server's JSON reply), or undefined
+  // when the game isn't persisted or the write failed.
   function enqueue(fn) {
     chain = chain.then(async () => {
       await ready;
-      if (!gameId) return;
+      if (!gameId) return undefined;
       try {
-        await fn();
+        return await fn();
       } catch (err) {
         console.warn("gameStore:", err.message);
+        return undefined;
       }
     });
     return chain;

@@ -116,3 +116,31 @@ The one real refactor. Introduce `public/js/moveSource.js` so the board talks to
 - **M3:** AI game creates `games`/`moves` rows (inspect SQLite); moves recorded with correct SAN/FEN.
 - **M5:** two browser sessions (two users) quick-match, get opposite colors, moves relay in real time; **illegal/out-of-turn `move:make` rejected by server** (test via crafted socket emit); checkmate ends both clients with correct result; rows persisted.
 - **M6:** close one tab mid-game → opponent sees `opponent:disconnected`; reopen within grace → board restored via `game:state`; exceed grace → forfeit recorded.
+
+## Achievements
+
+Chess.com-style badges. The catalogue (name, icon, tiers, description, hidden
+flag) is `src/shared/achievements.js`, served at `/js/achievements.js` for the
+page and `require`d by the server. Everything that decides whether something
+was earned lives in `src/achievements/service.js`:
+
+- **Game feats** replay a finished game's moves (en passant, smothered mate,
+  comeback, mirror match, …) and run for each human participant. Pasted-FEN AI
+  games earn nothing here; only the standard start or a server-built handicap
+  counts, since the AI client is authoritative for its own game.
+- **Stats** are aggregate queries (games, wins per time control, castles,
+  puzzle streaks, rating, chat count, anniversary) re-evaluated after every
+  game, puzzle, chat message, login and visit to the page.
+- Awarding is an upsert that only writes when the tier goes up, so every
+  evaluation is idempotent; `npm run achievements:backfill` replays history.
+
+Storage: `user_achievements` (one row per user per key, highest tier, the game
+or puzzle that earned it) and `rating_history` (written with every Elo update,
+for "rating before this game" and the rollercoaster badge). `moves.think_ms`
+records server-measured think time on PvP moves.
+
+Hooks: `concludeGame` (PvP, pushes `achievements:earned` to each player's
+sockets), `POST /api/games/:id/end` (AI, returned in the reply), the puzzle
+`finish` helper (returned in the reply), `chat:send`, and login. The UI shows
+unlock toasts (`public/js/achievementToast.js`) on the game, puzzle and lobby
+pages; `achievements.html` lists the catalogue with `?user=<id>` for others.

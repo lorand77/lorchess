@@ -16,6 +16,7 @@ const queries = require("../db/queries");
 const config = require("../config");
 const db = require("../db/index");
 const { elo } = require("./elo");
+const achievements = require("../achievements/service");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
 
@@ -173,9 +174,25 @@ function concludeGame(io, room, result, termination) {
     ratings,
     clocks,
   });
+  if (result !== "*") notifyAchievements(room, { resignReactionMs: room.resignReactionMs });
   rooms.deleteRoom(room.gameId);
   lobby.refresh(io); // both players are free again
   console.log(`[game] #${room.gameId} over: ${result} (${termination})`);
+}
+
+// Evaluate achievements for both players now that the game is in the database,
+// and tell each of them (every tab they have open) what they just earned.
+function notifyAchievements(room, extra) {
+  let earned;
+  try {
+    earned = achievements.onGameFinished(room.gameId, extra);
+  } catch (err) {
+    console.error(`[achievements] game #${room.gameId}:`, err);
+    return;
+  }
+  for (const [userId, list] of Object.entries(earned)) {
+    if (list.length) lobby.notifyUser(Number(userId), "achievements:earned", { list });
+  }
 }
 
 // Update both players' Elo ratings from a decisive/drawn result.
@@ -188,6 +205,8 @@ function applyElo(room, result) {
   db.transaction(() => {
     queries.updateRating.run(newWhite, w.id);
     queries.updateRating.run(newBlack, b.id);
+    queries.insertRatingHistory.run(w.id, room.gameId, w.rating, newWhite);
+    queries.insertRatingHistory.run(b.id, room.gameId, b.rating, newBlack);
   })();
   return {
     w: { id: w.id, before: w.rating, after: newWhite, delta: newWhite - w.rating },
@@ -344,6 +363,8 @@ function handleChat(io, socket, payload, ack) {
   // Players hear players; spectators hear spectators. Never across.
   io.to(chatRoom(gameId, audienceOf(role))).emit("chat:message", msg);
   reply(ack, { ok: true });
+  const earned = achievements.onChat(socket.userId);
+  if (earned.length) lobby.notifyUser(socket.userId, "achievements:earned", { list: earned });
 }
 
 // ---- spectators ----
@@ -420,9 +441,11 @@ function handleMove(io, socket, payload, ack) {
   if (!move) return reply(ack, { ok: false, error: "Illegal move." });
 
   // (3b) Clock: charge the mover for their think time; flag if they're out.
+  let thinkMs = null;
   if (room.started) {
     const now = Date.now();
-    const remaining = room.clock[color] - (now - room.turnStartedAt);
+    thinkMs = now - room.turnStartedAt;
+    const remaining = room.clock[color] - thinkMs;
     if (remaining <= 0) {
       room.clock[color] = 0;
       reply(ack, { ok: false, error: "Out of time." });
@@ -443,7 +466,7 @@ function handleMove(io, socket, payload, ack) {
   const uci = uciOf(move);
 
   // (5) Persist + (6) broadcast (mover included; everyone applies on confirmation).
-  queries.insertMove.run(gameId, ply, san, uci, fen, socket.userId);
+  queries.insertMoveTimed.run(gameId, ply, san, uci, fen, socket.userId, thinkMs);
   queries.updateGamePosition.run(fen, turn, gameId);
   // Clocks go to the database too, so this game survives a restart.
   queries.updateGameClocks.run(room.clock.w, room.clock.b, gameId);
@@ -567,6 +590,12 @@ function handleResign(io, socket, payload) {
   if (!room || room.status !== "active") return;
   const color = colorOf(room, socket.userId);
   if (!color) return;
+  // How long after the opponent's last move the resignation came (the "Rage
+  // Quit" achievement wants to know). Only meaningful once the clock runs.
+  room.resignReactionMs =
+    room.started && room.turnStartedAt != null && room.chess.turn === color
+      ? Date.now() - room.turnStartedAt
+      : null;
   concludeGame(io, room, winResult(other(color)), "resign");
 }
 

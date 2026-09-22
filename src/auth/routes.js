@@ -5,6 +5,7 @@ const argon2 = require("argon2");
 const queries = require("../db/queries");
 const { requireAuth } = require("./middleware");
 const config = require("../config");
+const achievements = require("../achievements/service");
 
 const router = express.Router();
 
@@ -72,6 +73,7 @@ router.post("/login", async (req, res) => {
     }
 
     await startSession(req, user);
+    try { achievements.onVisit(user.id); } catch (e) { console.error("achievements:", e); }
     return res.json({ id: user.id, username: user.username });
   } catch (err) {
     console.error("login failed:", err);

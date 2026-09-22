@@ -9,6 +9,7 @@ const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
 const config = require("../config");
+const achievements = require("../achievements/service");
 
 const router = express.Router();
 
@@ -127,7 +128,8 @@ router.post("/:id/end", (req, res) => {
     return res.status(400).json({ error: "Invalid result." });
   }
   queries.finishGame.run(result, termination || null, game.id);
-  res.json({ ok: true });
+  const earned = achievements.onGameFinished(game.id);
+  res.json({ ok: true, achievements: earned[req.session.userId] || [] });
 });
 
 // POST /api/games/:id/truncate — undo support: drop moves after `toPly` and

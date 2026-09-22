@@ -132,3 +132,29 @@ CREATE TABLE IF NOT EXISTS daily_puzzles (
   date      TEXT PRIMARY KEY,             -- 'YYYY-MM-DD' (UTC)
   puzzle_id TEXT NOT NULL REFERENCES puzzles(id)
 );
+
+-- Achievements. One row per user per achievement; tiered achievements keep
+-- only the highest tier reached (earned_at is when that tier was reached).
+-- game_id / puzzle_id point at whatever earned it, so a profile can link to it.
+CREATE TABLE IF NOT EXISTS user_achievements (
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  key        TEXT    NOT NULL,
+  tier       INTEGER NOT NULL DEFAULT 1,
+  earned_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  game_id    INTEGER REFERENCES games(id),
+  puzzle_id  TEXT    REFERENCES puzzles(id),
+  PRIMARY KEY (user_id, key)
+);
+
+-- Every rated-game rating change, so "what was my rating before this game" and
+-- "how did my rating move today" have an answer. Written alongside the Elo
+-- update; achievements read it.
+CREATE TABLE IF NOT EXISTS rating_history (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id),
+  game_id       INTEGER REFERENCES games(id),
+  rating_before INTEGER NOT NULL,
+  rating_after  INTEGER NOT NULL,
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_rating_history_user ON rating_history (user_id, id);

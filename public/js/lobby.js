@@ -525,3 +525,9 @@ socket.on("lobby:state", checkActiveGame);
 
 // Exposed for debugging.
 window.lorSocket = socket;
+
+// Achievements are pushed to every socket a user holds, so one earned in a
+// game that ended while this tab was in the lobby still shows up here.
+socket.on("achievements:earned", (info) => {
+  if (info && typeof AchievementToast !== "undefined") AchievementToast.show(info.list);
+});

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Achievements</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="history-page ach-page">
+  <div class="userbar" id="userbar"></div>
+  <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
+  <h1 id="achTitle">Achievements</h1>
+  <p class="muted small" id="achSummary">Loading…</p>
+  <div id="achContent"></div>
+</div>
+
+<!-- achievements.js (the catalogue) is served from src/shared, same as
+     timeControls.js: the server evaluates against the same list. -->
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/achievements.js"></script>
+<script src="/js/achievementToast.js"></script>
+<script src="/js/achievementsPage.js"></script>
+</body>
+</html>
