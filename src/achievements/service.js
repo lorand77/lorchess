@@ -261,6 +261,17 @@ const GAME_CHECKS = {
     c.won && c.timed && c.plies >= 20 &&
     c.mine.every((p) => p.thinkMs != null && p.thinkMs < 5000),
 
+  // mate by piece: the piece that made the mating move (a promotion counts as
+  // the piece it became; a king move that uncovers mate counts for the king)
+  mate_pawn: (c) => c.mated && c.last.piece === "p",
+  mate_knight: (c) => c.mated && c.last.piece === "n",
+  mate_bishop: (c) => c.mated && c.last.piece === "b",
+  mate_rook: (c) => c.mated && c.last.piece === "r" && !c.last.castle,
+  mate_queen: (c) => c.mated && c.last.piece === "q",
+  mate_king: (c) => c.mated && c.last.piece === "k" && !c.last.castle,
+  mate_en_passant: (c) => c.mated && c.last.enpassant,
+  mate_castle: (c) => c.mated && !!c.last.castle,
+
   // formats
   beat_fish_2: (c) => c.won && c.game.mode === "ai" && c.game.ai_depth === 2,
   fish_slayer: (c) => c.won && c.game.mode === "ai" && c.game.ai_depth >= MAX_AI_DEPTH,
@@ -317,6 +328,8 @@ function evaluateGame(userId, game, analysis, extra) {
     mine: plies.filter((p) => p.color === me),
     won: analysis.winner === me,
     lost: analysis.winner === opp,
+    // I delivered the mating move.
+    mated: analysis.winner === me && analysis.checkmate && plies[plies.length - 1].color === me,
     drew: game.result === "1/2-1/2",
     rated: game.mode === "pvp" && !!game.rated,
     timed: game.initial_ms != null,

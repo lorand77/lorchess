@@ -127,6 +127,19 @@ const ACHIEVEMENTS = [
     desc: "Win a game with all 16 of your pieces still on the board at move 20." },
   { key: "no_time_wasted", name: "No Time Wasted", icon: "🏃", group: "feats",
     desc: "Win a game where every one of your moves took under 5 seconds." },
+  // Mate by piece: the piece that made the mating move.
+  { key: "mate_pawn", name: "Pawn Mate", icon: "♙", group: "feats",
+    desc: "Deliver checkmate with a pawn." },
+  { key: "mate_knight", name: "Knight Mate", icon: "♘", group: "feats",
+    desc: "Deliver checkmate with a knight." },
+  { key: "mate_bishop", name: "Bishop Mate", icon: "♗", group: "feats",
+    desc: "Deliver checkmate with a bishop." },
+  { key: "mate_rook", name: "Rook Mate", icon: "♖", group: "feats",
+    desc: "Deliver checkmate with a rook." },
+  { key: "mate_queen", name: "Queen Mate", icon: "♕", group: "feats",
+    desc: "Deliver checkmate with your queen." },
+  { key: "mate_king", name: "King Mate", icon: "♔", group: "feats",
+    desc: "Deliver checkmate by moving your king (a discovered mate)." },
 
   // ---- hidden ----
   { key: "oops", name: "Oops", icon: "🙈", group: "hidden", hidden: true,
@@ -147,6 +160,10 @@ const ACHIEVEMENTS = [
     desc: "Send 100 chat messages." },
   { key: "rage_quit", name: "Rage Quit", icon: "😤", group: "hidden", hidden: true,
     desc: "Resign within two seconds of losing a piece." },
+  { key: "mate_en_passant", name: "En Passant Mate", icon: "🫢", group: "hidden", hidden: true,
+    desc: "Deliver checkmate by capturing en passant." },
+  { key: "mate_castle", name: "Castle Mate", icon: "🏰", group: "hidden", hidden: true,
+    desc: "Deliver checkmate by castling." },
 ];
 
 const GROUPS = [
