@@ -69,6 +69,26 @@ router.get("/daily", (req, res) => {
   res.json(out);
 });
 
+// GET /api/puzzles/:id — one specific puzzle, so a card that previews a board
+// can hand out the same board when it is clicked instead of a fresh random one.
+// Declared before the :id/* routes below, and after /me, /next and /daily so
+// those literal paths still win.
+router.get("/:id", (req, res) => {
+  const puzzle = queries.getPuzzle.get(String(req.params.id));
+  if (!puzzle) return res.status(404).json({ error: "No such puzzle." });
+  const uid = req.session.userId;
+  const attempt = queries.getAttempt.get(uid, puzzle.id);
+  const user = queries.getPuzzleUser.get(uid);
+  const out = {
+    puzzle: svc.publicView(puzzle),
+    // A puzzle already attempted is replayable but never re-rated.
+    repeat: !!attempt,
+    rating: user.puzzle_rating,
+  };
+  if (attempt) out.solved = !!attempt.solved;
+  res.json(out);
+});
+
 // Load the puzzle in :id, or 404.
 function loadPuzzle(req, res) {
   const p = queries.getPuzzle.get(String(req.params.id));

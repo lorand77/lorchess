@@ -7,7 +7,11 @@
 // us whether we're still on track, replying with the opponent's answer.
 
 (function () {
-  const daily = new URLSearchParams(location.search).has("daily");
+  const params = new URLSearchParams(location.search);
+  const daily = params.has("daily");
+  // ?id=<puzzleId> opens one specific puzzle — used by the lobby card, which
+  // previews a board and must then serve that same board.
+  const pinnedId = params.get("id");
   const $ = (id) => document.getElementById(id);
   const boardEl = $("board"), promoEl = $("promo"), promoOpts = $("promoOptions");
   const headEl = $("puzzleHead"), taskEl = $("taskLine"), statusEl = $("statusLine");
@@ -332,6 +336,20 @@
     if (data.repeat) later(() => setStatus("You've seen every puzzle near your rating — this one is a repeat (unrated).", "info"), 750);
   }
 
+  // One specific puzzle by id. Falls back to the rated stream if it's gone.
+  async function loadPinned(id) {
+    let data;
+    try { data = await api("GET", "/" + encodeURIComponent(id)); }
+    catch (err) { setStatus(err.message, "bad"); return loadRated(); }
+    puzzle = data.puzzle;
+    me.rating = data.rating;
+    renderHead();
+    begin();
+    if (data.repeat) {
+      later(() => setStatus("You've already attempted this one — this attempt is unrated.", "info"), 750);
+    }
+  }
+
   async function loadDaily() {
     let data;
     try { data = await api("GET", "/daily"); }
@@ -372,5 +390,7 @@
   $("pageTitle").textContent = daily ? "Daily puzzle" : "Puzzles";
   document.title = "LorChess — " + (daily ? "Daily puzzle" : "Puzzles");
   render();
-  if (daily) loadDaily(); else loadRated();
+  if (daily) loadDaily();
+  else if (pinnedId) loadPinned(pinnedId);
+  else loadRated();
 })();

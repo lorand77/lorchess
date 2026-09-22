@@ -754,3 +754,260 @@ img.drag-piece {
 .ach-toast-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #f0c85a; }
 .ach-toast-name { font-weight: bold; font-size: 14px; }
 .ach-toast-desc { font-size: 12px; color: #c8c8c8; }
+
+/* ---- membership page (placeholder: no plans, no working codes yet) ---- */
+.membership-page { width: 460px; max-width: 100%; margin: 32px auto 0; }
+.membership-page h1 { margin: 8px 0 4px; }
+.promo-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: #333;
+  border: 1px solid #4a4a4a;
+  border-radius: 6px;
+}
+.promo-form label {
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #d8d8d8;
+}
+.promo-form input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  background: #1e1e1e;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+.promo-form input:focus { outline: none; border-color: #8aa6c8; }
+.promo-form button { margin: 0; padding: 9px 16px; }
+.promo-form .primary { background: #3d6098; }
+.promo-form .primary:hover { background: #4a73b5; }
+#promoError { min-height: 18px; margin: 10px 0 0; }
+
+/* ================= lobby shell: top bar + rail + centre + side ================= */
+/* The lobby is the only page that opts out of the centred single-column body. */
+body.lobby-body {
+  display: block;
+  padding: 0 0 32px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px;
+  background: #2b2b2b;
+  border-bottom: 1px solid #4a4a4a;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar .brand {
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.topbar-right { display: flex; align-items: center; gap: 14px; }
+.topbar .conn-dot { font-size: 12px; font-weight: normal; }
+
+/* Three columns on a wide screen; the widths are fixed on the outside so the
+   centre takes whatever is left. */
+.lobby-shell {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: start;
+  max-width: 1400px;
+  margin: 18px auto 0;
+  padding: 0 20px;
+}
+
+/* ---- left rail ---- */
+.rail { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 74px; }
+.rail-item {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: #d8d8d8;
+  font-size: 14px;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+.rail-item:hover { background: #3a3a3a; color: #fff; }
+.rail-item.current {
+  background: #3d6098;
+  border-left-color: #8aa6c8;
+  color: #fff;
+  font-weight: bold;
+  cursor: default;
+}
+
+/* ---- centre ---- */
+.lobby-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.lobby-main .panel { margin: 0; }
+
+.play-modes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.play-modes button { margin: 0; padding: 9px 16px; font-size: 14px; }
+.play-modes .primary { background: #3d6098; }
+.play-modes .primary:hover { background: #4a73b5; }
+.play-modes button:disabled { background: #444; color: #888; cursor: default; }
+.mode-link {
+  padding: 9px 14px;
+  border-radius: 6px;
+  background: #4a4a4a;
+  color: #fff;
+  font-size: 14px;
+  text-decoration: none;
+}
+.mode-link:hover { background: #575757; }
+
+/* ---- right column: puzzle cards ---- */
+.lobby-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.lobby-side .panel { margin: 0; }
+.puzzle-card h2 { margin-bottom: 8px; }
+.puzzle-meta { margin: 8px 0 0; font-size: 12px; color: #969696; }
+.puzzle-streak { margin: 2px 0 0; font-size: 12px; color: #ffd98a; min-height: 16px; }
+.puzzle-cta {
+  display: block;
+  margin-top: 10px;
+  padding: 9px 0;
+  text-align: center;
+  border-radius: 6px;
+  background: #4a4a4a;
+  color: #fff;
+  font-size: 14px;
+  text-decoration: none;
+}
+.puzzle-cta:hover { background: #575757; }
+.puzzle-cta.primary { background: #3d6098; }
+.puzzle-cta.primary:hover { background: #4a73b5; }
+.puzzle-card.solved .puzzle-cta { background: #3f4a3f; }
+
+/* "More puzzles" is deliberately the smaller sibling: board beside the text. */
+.train-row { display: flex; align-items: center; gap: 12px; }
+.train-meta { flex: 1; min-width: 0; }
+.train-meta .puzzle-cta { margin-top: 6px; }
+
+/* ---- the read-only boards (public/js/miniBoard.js) ---- */
+.mini-board-wrap { width: 100%; }
+.mini-board-wrap.small { width: 88px; flex: 0 0 88px; }
+.mini-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid #1a1a1a;
+  box-sizing: border-box;
+  /* Purely decorative: never intercepts a tap, never offers a cursor. */
+  pointer-events: none;
+  user-select: none;
+}
+.mini-square {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mini-square.light { background: var(--sq-light, #f0d9b5); }
+.mini-square.dark  { background: var(--sq-dark, #b58863); }
+.mini-square.last-move { background: #bacaa4; }
+.mini-square img { width: 82%; height: 82%; display: block; }
+
+/* ---- live games strip, full width under the three columns ---- */
+.live-strip {
+  max-width: 1400px;
+  margin: 18px auto 0;
+  box-sizing: border-box;
+}
+.live-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.live-game {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  background: #2b2b2b;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.live-game .mini-board-wrap { width: 92px; flex: 0 0 92px; }
+.live-game-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.live-game-meta .vs { color: #fff; }
+.live-game-meta button { margin: 4px 0 0; padding: 4px 12px; font-size: 12px; align-self: flex-start; }
+
+/* ---- responsive: 3 columns -> 2 -> 1 ---- */
+@media (max-width: 1100px) {
+  /* Puzzles move under the centre column rather than squeezing it. */
+  .lobby-shell { grid-template-columns: 170px minmax(0, 1fr); }
+  .lobby-side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .lobby-side .panel { flex: 1; }
+}
+@media (max-width: 700px) {
+  .lobby-shell { grid-template-columns: 1fr; padding: 0 12px; }
+  .live-strip { margin-left: 12px; margin-right: 12px; }
+  /* The rail becomes a scrollable row of chips above the content. */
+  .rail {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+  .rail-item {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    padding: 8px 10px;
+  }
+  .rail-item.current { border-left: none; border-bottom-color: #8aa6c8; }
+  .lobby-side { flex-direction: column; }
+  .topbar { padding: 8px 12px; }
+}
+
+/* A starred friend in the lobby's players list. */
+.friend-star { color: #ffd05a; font-size: 12px; }
+/* Friends page presence badges. */
+.tag.online  { background: #2f4a30; color: #b9e3bb; }
+.tag.offline { background: #3f3f3f; color: #9a9a9a; }
+.tag.pending { background: #4a4230; color: #e3d5a8; }
+
+/* ---- lobby polish ---- */
+/* Fixed-width cards: one live game shouldn't leave four empty grid tracks. */
+.live-list { grid-template-columns: repeat(auto-fill, 260px); }
+.userbar button { white-space: nowrap; }
+.topbar .conn-dot { white-space: nowrap; }
+/* A slightly bigger thumbnail reads better while staying the junior card. */
+.mini-board-wrap.small { width: 104px; flex: 0 0 104px; }
+
+@media (max-width: 700px) {
+  /* Full-width the hero board would push everything else off the screen. */
+  .puzzle-card .mini-board-wrap { max-width: 300px; margin: 0 auto; }
+  /* One card per row, stretched, rather than a fixed 260px in a 366px column. */
+  .live-list { grid-template-columns: 1fr; }
+}

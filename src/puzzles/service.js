@@ -51,10 +51,12 @@ function setup(puzzle) {
   return { chess, firstMove: all[0], solution: all.slice(1), playerColor: chess.turn };
 }
 
-// The puzzle as sent to a client: never includes the solution.
+// The puzzle as sent to a client: never includes the solution. `setupFen` is
+// the position AFTER the opponent's setup move — what the solver is looking at —
+// so a preview can be drawn without replaying moves itself.
 function publicView(puzzle) {
-  const { firstMove, playerColor } = setup(puzzle);
-  return { id: puzzle.id, fen: puzzle.fen, firstMove, playerColor };
+  const { chess, firstMove, playerColor } = setup(puzzle);
+  return { id: puzzle.id, fen: puzzle.fen, firstMove, playerColor, setupFen: chess.fen() };
 }
 
 // What a client may see once the puzzle is over.

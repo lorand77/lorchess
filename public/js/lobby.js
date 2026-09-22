@@ -19,14 +19,13 @@ const seekListEl    = document.getElementById("seekList");
 const playerListEl  = document.getElementById("playerList");
 const gameListEl    = document.getElementById("gameList");
 const incomingEl    = document.getElementById("incoming");
-const friendReqsEl  = document.getElementById("friendRequests");
-const friendListEl  = document.getElementById("friendList");
-const friendCountEl = document.getElementById("friendCount");
 const rejoinEl      = document.getElementById("rejoin");
 
 let searching = false;   // in the quick-match queue
 let myseek = null;       // our own open seek, if any
 let handicapRemoved = null; // squares to clear for material odds, or null
+let ratedBeforeHandicap = true; // restored when the handicap is cleared
+let friendIds = new Set();  // to star friends in the players list
 let lastState = { players: [], seeks: [], games: [] };
 let myChallenges = { incoming: [], outgoing: [] };
 
@@ -47,6 +46,14 @@ const myId = () => (window.currentUser ? window.currentUser.id : null);
 function tcLabel(key) {
   const tc = findTimeControl(key);
   return tc ? tc.label : key;
+}
+
+// 'e2' -> 12. Enough to highlight a UCI move on a preview board without
+// pulling the whole chess engine into this page.
+const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
+function lastMoveOf(uci) {
+  if (typeof uci !== "string" || uci.length < 4) return null;
+  return { from: sqFromAlg(uci.slice(0, 2)), to: sqFromAlg(uci.slice(2, 4)) };
 }
 
 // Colour as the OFFERING side described it, read from the taker's point of view.
@@ -94,11 +101,12 @@ const currentOffer = () => ({
 // off, since the server will refuse to rate the game either way.
 function renderHandicap() {
   const on = !!handicapRemoved;
-  handicapBtn.textContent = on ? "Edit handicap…" : "Handicap…";
+  handicapBtn.textContent = on ? "⚖ Edit handicap…" : "⚖ Handicap…";
   handicapSumEl.textContent = on ? describe(handicapRemoved) + " — casual only" : "";
   handicapClear.style.display = on ? "" : "none";
   ratedCheck.disabled = on;
   if (on) ratedCheck.checked = false;
+  else ratedCheck.checked = ratedBeforeHandicap;
 
   // Quick Match pairs you with a stranger sight unseen, so odds would be an
   // unpleasant surprise. Handicaps go out as offers instead, where whoever
@@ -114,6 +122,7 @@ function renderHandicap() {
 }
 
 handicapBtn.addEventListener("click", () => {
+  if (!handicapRemoved) ratedBeforeHandicap = ratedCheck.checked;
   PositionEditor.open({
     removed: handicapRemoved || [],
     onSave: (removed) => {
@@ -137,7 +146,11 @@ const socket = connectSocket({
     renderHandicap(); // also decides whether Quick Match is offered
     socket.emit("lobby:enter");
   },
-  onWelcome: (data) => setStatus("connected as " + data.username, "ok"),
+  // The user chip beside this already names them, so just report the link.
+  onWelcome: (data) => {
+    setStatus("connected", "ok");
+    statusEl.title = "Connected as " + data.username;
+  },
   onDisconnect: () => {
     setStatus("disconnected", "bad");
     quickBtn.disabled = true;
@@ -207,9 +220,9 @@ socket.on("challenge:declined", (info) => {
 
 socket.on("lobby:error", (info) => showError(info && info.error));
 
-// Friends live in the DB (REST); the socket only nudges us to refetch.
+// The friends list lives on /friends.html now. All this page needs is who they
+// are, so it can star them in Players online.
 socket.on("friends:changed", refreshFriends);
-socket.on("lobby:state", renderFriends); // online / playing badges
 
 function renderSeeks() {
   const seeks = lastState.seeks;
@@ -245,34 +258,57 @@ function watchButton(gameId) {
 
 function renderGames() {
   const games = lastState.games;
+  const strip = document.getElementById("liveStrip");
   document.getElementById("gameCount").textContent = games.length ? "(" + games.length + ")" : "";
   gameListEl.innerHTML = "";
+
+  // Nothing in progress: take the whole strip off the page rather than leaving
+  // an empty box sitting there.
   if (!games.length) {
-    gameListEl.appendChild(el("p", "muted empty", "No games in progress."));
+    strip.style.display = "none";
     return;
   }
+  strip.style.display = "";
+
   const me = myId();
   for (const g of games) {
-    const row = el("div", "row");
-    const who = el("span", "row-main");
+    const card = el("div", "live-game");
+
+    const wrap = el("div", "mini-board-wrap");
+    const board = el("div");
+    wrap.appendChild(board);
+    // Always from White's side: a preview has no "your" colour. Decorative
+    // only — .mini-board sets pointer-events: none.
+    if (MiniBoard.render(board, g.fen, { lastMove: g.last })) card.appendChild(wrap);
+
+    const meta = el("div", "live-game-meta");
+    const vs = el("div", "vs");
     const side = (p) => {
-      who.appendChild(el("span", "name", p.username));
-      if (p.rating != null) who.appendChild(el("span", "rating", "(" + p.rating + ")"));
+      vs.appendChild(el("span", "name", p.username));
+      if (p.rating != null) vs.appendChild(el("span", "rating", "(" + p.rating + ")"));
     };
     side(g.white);
-    who.appendChild(el("span", "vs", "vs"));
+    vs.appendChild(document.createTextNode(" vs "));
     side(g.black);
-    who.appendChild(el("span", "tag", g.tc));
-    who.appendChild(el("span", "tag " + (g.rated ? "rated" : "casual"), g.rated ? "rated" : "casual"));
-    if (g.spectators) who.appendChild(el("span", "muted small", "👁 " + g.spectators));
-    row.appendChild(who);
+    meta.appendChild(vs);
+
+    const tags = el("div");
+    tags.appendChild(el("span", "tag", g.tc));
+    tags.appendChild(el("span", "tag " + (g.rated ? "rated" : "casual"), g.rated ? "rated" : "casual"));
+    if (g.handicap) tags.appendChild(el("span", "tag handicap", g.handicap));
+    meta.appendChild(tags);
+
+    meta.appendChild(el("div", "muted small",
+      (g.ply ? "move " + Math.ceil(g.ply / 2) : "just started") +
+      (g.spectators ? " · 👁 " + g.spectators : "")));
+
     const mine = g.white.userId === me || g.black.userId === me;
-    row.appendChild(
-      mine
-        ? button("Rejoin", "primary", () => { location.href = "/game.html?id=" + g.gameId; })
-        : watchButton(g.gameId)
-    );
-    gameListEl.appendChild(row);
+    meta.appendChild(mine
+      ? button("Rejoin", "primary", () => { location.href = "/game.html?id=" + g.gameId; })
+      : watchButton(g.gameId));
+
+    card.appendChild(meta);
+    gameListEl.appendChild(card);
   }
 }
 
@@ -286,6 +322,7 @@ function renderPlayers() {
   for (const p of players) {
     const row = el("div", "row");
     const who = el("span", "row-main");
+    if (friendIds.has(p.userId)) who.appendChild(el("span", "friend-star", "★"));
     who.appendChild(el("span", "name", p.username));
     who.appendChild(el("span", "rating", "(" + p.rating + ")"));
     if (p.userId === myId()) who.appendChild(el("span", "tag you", "you"));
@@ -318,8 +355,16 @@ function renderPlayers() {
     }
     playerListEl.appendChild(row);
   }
-  if (!players.length) {
-    playerListEl.appendChild(el("p", "muted empty", "Nobody else is here right now."));
+  // You are always in this list, so "empty" really means "alone". Say something
+  // useful rather than leaving a list of one with nothing to do.
+  if (players.length <= 1) {
+    const hint = el("p", "muted empty");
+    hint.appendChild(document.createTextNode("Nobody else is here yet — post a challenge and it'll be waiting, or "));
+    const ai = el("a", "nav-link", "play LorFish");
+    ai.href = "/game.html?mode=ai";
+    hint.appendChild(ai);
+    hint.appendChild(document.createTextNode("."));
+    playerListEl.appendChild(hint);
   }
 }
 
@@ -343,115 +388,84 @@ function renderIncoming() {
 }
 
 // --- friends ---
+// The friends panel now lives on /friends.html. Here we only need the set of
+// friend ids, so Players online can mark them with a star.
 
 async function refreshFriends() {
+  if (!window.Friends) return;
   try {
     await Friends.load();
   } catch (e) {
-    /* leave the last known list up */
+    return; // keep whatever we had
   }
-  renderFriends();
+  friendIds = new Set(Friends.state.friends.map((f) => f.userId));
+  renderPlayers();
 }
 
-function renderFriends() {
-  if (!window.Friends) return;
-  const { friends, incoming, outgoing } = Friends.state;
-  const online = new Map(lastState.players.map((p) => [p.userId, p]));
-  const outgoingTo = new Map(myChallenges.outgoing.map((c) => [c.to.userId, c]));
-  friendCountEl.textContent = friends.length ? "(" + friends.length + ")" : "";
+// --- puzzles: the two cards in the right column ---
+// Both draw a real position with MiniBoard, read-only. The daily card shows the
+// board every solver sees today; the "more puzzles" card PINS the puzzle it
+// previews and passes its id through, so clicking Train serves that same board
+// instead of a different random one.
 
-  // Requests waiting on me, one strip each — same shape as game challenges.
-  friendReqsEl.innerHTML = "";
-  for (const r of incoming) {
-    const box = el("div", "challenge-box");
-    const text = el("span", "row-main");
-    text.appendChild(el("strong", null, r.username));
-    text.appendChild(el("span", "rating", "(" + r.rating + ")"));
-    text.appendChild(document.createTextNode(" wants to be friends"));
-    box.appendChild(text);
-    box.appendChild(button("Accept", "primary", () => friendAction(Friends.accept(r.id))));
-    box.appendChild(button("Decline", "", () => friendAction(Friends.decline(r.id))));
-    friendReqsEl.appendChild(box);
-  }
-
-  friendListEl.innerHTML = "";
-  for (const f of friends) {
-    const p = online.get(f.userId);
-    const row = el("div", "row");
-    const who = el("span", "row-main");
-    who.appendChild(el("span", "name", f.username));
-    who.appendChild(el("span", "rating", "(" + f.rating + ")"));
-    if (!p) who.appendChild(el("span", "tag offline", "offline"));
-    else if (p.playing) who.appendChild(el("span", "tag playing", "playing"));
-    else who.appendChild(el("span", "tag online", "online"));
-    row.appendChild(who);
-
-    const pending = outgoingTo.get(f.userId);
-    if (pending) {
-      row.appendChild(button("Withdraw", "", () => socket.emit("challenge:cancel", { id: pending.id })));
-    } else if (p && p.playing && p.gameId) {
-      row.appendChild(watchButton(p.gameId));
-    } else {
-      const b = button("Challenge", "primary", () =>
-        socket.emit("challenge:create", { toUserId: f.userId, ...currentOffer() })
-      );
-      if (!p || p.playing) {
-        b.disabled = true;
-        b.title = p ? "Already in a game" : "Offline";
-      }
-      row.appendChild(b);
-    }
-    row.appendChild(button("Remove", "", () => {
-      if (confirm("Remove " + f.username + " from your friends?")) friendAction(Friends.remove(f.id));
-    }));
-    friendListEl.appendChild(row);
-  }
-  for (const r of outgoing) {
-    const row = el("div", "row");
-    const who = el("span", "row-main");
-    who.appendChild(el("span", "name", r.username));
-    who.appendChild(el("span", "rating", "(" + r.rating + ")"));
-    who.appendChild(el("span", "tag pending", "request sent"));
-    row.appendChild(who);
-    row.appendChild(button("Withdraw", "", () => friendAction(Friends.remove(r.id))));
-    friendListEl.appendChild(row);
-  }
-  if (!friends.length && !outgoing.length) {
-    const empty = el("p", "muted empty");
-    empty.appendChild(document.createTextNode("No friends yet. Add some from the "));
-    const a = el("a", "nav-link", "leaderboard");
-    a.href = "/leaderboard.html";
-    empty.appendChild(a);
-    empty.appendChild(document.createTextNode(" or after a game."));
-    friendListEl.appendChild(empty);
-  }
+async function loadPuzzleCards() {
+  await Promise.all([loadDailyCard(), loadTrainCard()]);
 }
 
-// Run a Friends action; the server's friends:changed nudge does the refetch,
-// but refetch here too so the UI is right even if the socket is down.
-function friendAction(promise) {
-  promise.catch((err) => showError(err.message)).then(refreshFriends);
-}
-
-// --- puzzles: daily streak line ---
-
-async function loadDailyLine() {
-  const line = document.getElementById("dailyLine");
-  if (!line) return;
+async function loadDailyCard() {
+  const card = document.getElementById("dailyCard");
   try {
-    const res = await fetch("/api/puzzles/me", { credentials: "same-origin" });
-    if (!res.ok) return;
-    const me = await res.json();
-    line.innerHTML = "";
-    line.appendChild(document.createTextNode("🧩 Puzzle rating " + me.rating + " · "));
-    line.appendChild(document.createTextNode(
-      me.streak > 0 ? "🔥 " + me.streak + "-day daily streak · " : "No daily streak yet · "
-    ));
-    const a = el("a", "nav-link", me.dailyDone ? "today's puzzle done ✓" : "today's puzzle is waiting");
-    a.href = "/puzzles.html?daily";
-    line.appendChild(a);
+    const res = await fetch("/api/puzzles/daily", { credentials: "same-origin" });
+    if (!res.ok) {
+      card.style.display = "none"; // no puzzles imported yet
+      return;
+    }
+    const d = await res.json();
+    const p = d.puzzle;
+    const drawn = MiniBoard.render(document.getElementById("dailyBoard"), p.setupFen, {
+      flip: p.playerColor === "b",
+      lastMove: lastMoveOf(p.firstMove),
+    });
+    if (!drawn) {
+      card.style.display = "none";
+      return;
+    }
+    document.getElementById("dailyMeta").textContent =
+      (p.playerColor === "w" ? "White" : "Black") + " to move";
+    document.getElementById("dailyStreak").textContent =
+      d.streak > 0 ? "🔥 " + d.streak + "-day streak" : "No streak yet";
+
+    const cta = document.getElementById("dailyCta");
+    cta.textContent = d.done ? (d.solved ? "Solved ✓ — review" : "Review") : "Solve";
+    card.classList.toggle("solved", !!d.done);
   } catch (e) {
-    /* the lobby works without it */
+    card.style.display = "none";
+  }
+}
+
+async function loadTrainCard() {
+  const card = document.getElementById("trainCard");
+  try {
+    const res = await fetch("/api/puzzles/next", { credentials: "same-origin" });
+    if (!res.ok) {
+      card.style.display = "none";
+      return;
+    }
+    const d = await res.json();
+    const p = d.puzzle;
+    const drawn = MiniBoard.render(document.getElementById("trainBoard"), p.setupFen, {
+      flip: p.playerColor === "b",
+      lastMove: lastMoveOf(p.firstMove),
+    });
+    if (!drawn) {
+      card.style.display = "none";
+      return;
+    }
+    document.getElementById("trainMeta").textContent = "Puzzle rating " + d.rating;
+    // Pin it: the board above is the board you get.
+    document.getElementById("trainCta").href = "/puzzles.html?id=" + encodeURIComponent(p.id);
+  } catch (e) {
+    card.style.display = "none";
   }
 }
 
@@ -518,8 +532,9 @@ socket.on("lobby:state", checkActiveGame);
   if (myId() == null) return setTimeout(whenUserKnown, 50);
   checkActiveGame();
   refreshFriends();
-  loadDailyLine();
+  loadPuzzleCards();
   renderSeeks();
+  renderGames();
   renderPlayers();
 })();
 

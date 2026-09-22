@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Membership</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="membership-page">
+  <div class="userbar" id="userbar"></div>
+  <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
+  <h1>Membership</h1>
+  <p class="muted small">
+    Memberships aren't on sale yet. If you have a promo code, redeem it here.
+  </p>
+
+  <form id="promoForm" class="promo-form" autocomplete="off">
+    <label for="promoCode">Promo code</label>
+    <input id="promoCode" name="promoCode" type="text" maxlength="40"
+           placeholder="e.g. LORCHESS2026" autocapitalize="characters" spellcheck="false">
+    <button type="submit" class="primary" id="promoBtn">Redeem</button>
+  </form>
+
+  <p class="auth-error" id="promoError"></p>
+</div>
+
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/membership.js"></script>
+</body>
+</html>

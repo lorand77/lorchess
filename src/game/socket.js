@@ -497,6 +497,8 @@ function handleMove(io, socket, payload, ack) {
     clocks: rooms.clockSnapshot(room),
   });
 
+  lobby.nudge(io); // keep the lobby's board previews roughly current
+
   // (7) Game over? Otherwise re-arm the flag timer for the new side to move.
   if (room.chess.isGameOver()) {
     concludeGame(io, room, room.chess.result(), terminationOf(room.chess));

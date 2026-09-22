@@ -134,6 +134,12 @@ function broadcastState(io) {
   io.to(LOBBY_ROOM).emit("lobby:state", snapshot());
 }
 
+// Squares of the most recent move, for highlighting on the lobby's previews.
+function lastMoveOf(room) {
+  const h = room.chess.history[room.chess.history.length - 1];
+  return h && h.move ? { from: h.move.from, to: h.move.to } : null;
+}
+
 function snapshot() {
   // One query, not one per player: both sides of every live PvP game, with
   // the game id so a "playing" badge can double as a Watch link.
@@ -170,6 +176,12 @@ function snapshot() {
       tc: r.timeControl,
       rated: r.rated,
       spectators: r.spectators.size,
+      // For the lobby's board previews. Kept fresh by nudge() below rather
+      // than by a broadcast on every single move.
+      fen: r.chess.fen(),
+      handicap: r.handicap,
+      ply: r.sans.length,
+      last: lastMoveOf(r),
     }))
     .sort((a, b) => b.gameId - a.gameId);
 
@@ -402,10 +414,30 @@ function cancelChallenge(io, socket, payload) {
   pushChallenges(io, c.toId);
 }
 
-// Called when a game ends so the lobby's "playing" badges refresh without
-// waiting for someone to reconnect.
+// Called when a game starts or ends so the lobby's "playing" badges refresh
+// without waiting for someone to reconnect.
 function refresh(io) {
   broadcastState(io);
+}
+
+// A position changed somewhere. The lobby shows board previews of live games,
+// so it wants to know — but a full re-broadcast on every move of every game is
+// far more than those little boards are worth. Coalesce into at most one update
+// per NUDGE_MS, and skip entirely when nobody is looking at the lobby.
+const NUDGE_MS = 1500;
+let nudgeTimer = null;
+let lastNudge = 0;
+
+function nudge(io) {
+  if (nudgeTimer) return; // one already queued
+  const viewers = io.sockets.adapter.rooms.get(LOBBY_ROOM);
+  if (!viewers || viewers.size === 0) return;
+  const wait = Math.max(0, NUDGE_MS - (Date.now() - lastNudge));
+  nudgeTimer = setTimeout(() => {
+    nudgeTimer = null;
+    lastNudge = Date.now();
+    broadcastState(io);
+  }, wait);
 }
 
 module.exports = {
@@ -421,5 +453,6 @@ module.exports = {
   declineChallenge,
   cancelChallenge,
   refresh,
+  nudge,
   notifyUser,
 };
