@@ -144,3 +144,13 @@ sockets), `POST /api/games/:id/end` (AI, returned in the reply), the puzzle
 `finish` helper (returned in the reply), `chat:send`, and login. The UI shows
 unlock toasts (`public/js/achievementToast.js`) on the game, puzzle and lobby
 pages; `achievements.html` lists the catalogue with `?user=<id>` for others.
+
+## Premoves
+
+One move may be queued while the opponent is on move (`premove` in ui.js).
+Picking up a piece then shows every square it could reach on an empty board;
+dropping or clicking one of them queues the move and tints both squares. The
+premove is consumed in `applyMove` the moment a move makes it our turn: if it
+is legal in the new position it is submitted through the normal move source
+(so PvP still goes through the server's validation), otherwise it is dropped.
+Promotion premoves always take a queen. Any click or a right-click cancels it.

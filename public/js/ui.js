@@ -8,6 +8,12 @@ let lastMove = null;
 let promotionPending = null;
 let thinking = false;
 let moveHistory = [];
+// Premove: one move queued while the opponent is on move, played the instant
+// their move lands if it turns out to be legal, discarded otherwise. While the
+// player is choosing it, `selected`/`legalFromSelected` describe premove
+// targets rather than legal moves (premoveSelecting).
+let premove = null;             // { from, to } or null
+let premoveSelecting = false;
 // Fullmove number and side-to-move at the start of the current PGN body,
 // plus the FEN string if the game was set up from one (null if standard start).
 let startFullmove = 1;
@@ -107,8 +113,24 @@ function applyMove(rmove, record) {
   playMoveSound();
   selected = null;
   legalFromSelected = [];
+  premoveSelecting = false;
+  // Our turn now: the queued premove is consumed here, played or not.
+  const queued = chess.turn === humanColor ? premove : null;
+  if (queued) premove = null;
   render();
   if (record) recordApplied(san, move);
+  if (queued) playPremove(queued);
+}
+
+// Play a queued premove if it is legal in the position that just arrived. A
+// promotion premove always takes a queen: there is no dialog for a move that
+// was decided before the position existed.
+function playPremove(pm) {
+  if (gameIsOver() || !canMoveNow()) return;
+  const move = chess.legalMoves().find(m =>
+    m.from === pm.from && m.to === pm.to && (!m.promo || m.promo === 'q'));
+  if (!move) return;
+  doHumanMove(move);
 }
 
 // Record the move just applied to `chess`, and finalize the game if it ended
@@ -423,6 +445,7 @@ function render() {
       div.dataset.sq = sq;
 
       if (lastMove && (lastMove.from === sq || lastMove.to === sq)) div.classList.add('last-move');
+      if (premove && (premove.from === sq || premove.to === sq)) div.classList.add('premove');
       if (selected === sq) div.classList.add('selected');
 
       const piece = chess.squares[sq];
@@ -459,7 +482,8 @@ function render() {
         if (m) {
           const hint = document.createElement('div');
           hint.className = 'hint';
-          if (chess.squares[sq] || m.enpassant) hint.classList.add('capture');
+          if (premoveSelecting) hint.classList.add('premove');
+          else if (chess.squares[sq] || m.enpassant) hint.classList.add('capture');
           div.appendChild(hint);
         }
       }
@@ -472,7 +496,8 @@ function render() {
 
   // Turn / thinking line
   if (thinking) {
-    turnEl.textContent = 'LorFish is thinking…';
+    turnEl.textContent = 'LorFish is thinking…'
+      + (premove ? ' · premove ' + algOf(premove.from) + algOf(premove.to) : '');
     turnEl.className = 'thinking';
   } else if (gameIsOver()) {
     turnEl.textContent = '';
@@ -480,6 +505,7 @@ function render() {
   } else {
     let t = 'Turn: ' + (chess.turn === W ? 'White' : 'Black');
     if (pvpMode) t += chess.turn === humanColor ? ' — your move' : ' — waiting…';
+    if (premove) t += ' · premove ' + algOf(premove.from) + algOf(premove.to);
     turnEl.textContent = t;
     turnEl.className = '';
   }
@@ -559,16 +585,86 @@ function buildPgn() {
 // May the user pick up whatever is standing on this square right now? Shared by
 // click-to-move and drag-and-drop, so the two can never disagree.
 function canPickUp(sq) {
-  if (promotionPending || thinking || gameIsOver()) return false;
-  if (!moveSource || !moveSource.canHumanMoveNow(chess.turn)) return false;
+  if (promotionPending || gameIsOver()) return false;
+  if (!canMoveNow() && !canPremove()) return false;
   const piece = chess.squares[sq];
   return !!piece && piece.c === humanColor;
 }
 
+// It is our turn and the source will take a move right now.
+function canMoveNow() {
+  return !thinking && !!moveSource && moveSource.canHumanMoveNow(chess.turn);
+}
+
+// The opponent is on move, so anything we pick up becomes a premove.
+function canPremove() {
+  if (spectating || !moveSource || moveSource.kind === 'spectator') return false;
+  if (promotionPending || gameIsOver()) return false;
+  return chess.turn !== humanColor;
+}
+
+// Where a premove from `sq` may be aimed: every square the piece could reach
+// on an empty board (the opponent's move may clear a path or offer a capture,
+// so blockers and legality are only judged when the premove is played).
+function premoveTargets(sq) {
+  const piece = chess.squares[sq];
+  if (!piece || piece.c !== humanColor) return [];
+  const f = fileOf(sq), r = rankOf(sq);
+  const out = [];
+  const add = (nf, nr) => { if (inBoard(nf, nr)) out.push(sqIdx(nf, nr)); };
+  const ray = (df, dr) => {
+    let nf = f + df, nr = r + dr;
+    while (inBoard(nf, nr)) { out.push(sqIdx(nf, nr)); nf += df; nr += dr; }
+  };
+  const diag = [[-1,-1],[-1,1],[1,-1],[1,1]];
+  const ortho = [[-1,0],[1,0],[0,-1],[0,1]];
+  switch (piece.t) {
+    case 'p': {
+      const dir = piece.c === W ? 1 : -1;
+      add(f, r + dir);
+      if (r === (piece.c === W ? 1 : 6)) add(f, r + 2 * dir);
+      add(f - 1, r + dir);
+      add(f + 1, r + dir);
+      break;
+    }
+    case 'n':
+      for (const [df, dr] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) add(f + df, r + dr);
+      break;
+    case 'b': for (const [df, dr] of diag) ray(df, dr); break;
+    case 'r': for (const [df, dr] of ortho) ray(df, dr); break;
+    case 'q': for (const [df, dr] of diag.concat(ortho)) ray(df, dr); break;
+    case 'k': {
+      for (const [df, dr] of diag.concat(ortho)) add(f + df, r + dr);
+      const home = piece.c === W ? 0 : 7;
+      if (f === 4 && r === home) { add(6, home); add(2, home); }
+      break;
+    }
+  }
+  return out;
+}
+
 function selectSquare(sq) {
   selected = sq;
-  legalFromSelected = chess.legalMoves().filter(m => m.from === sq);
+  if (canMoveNow()) {
+    premoveSelecting = false;
+    legalFromSelected = chess.legalMoves().filter(m => m.from === sq);
+  } else {
+    premoveSelecting = true;
+    legalFromSelected = premoveTargets(sq).map(to => ({ from: sq, to }));
+  }
   render();
+}
+
+function clearSelection() {
+  selected = null;
+  legalFromSelected = [];
+  premoveSelecting = false;
+}
+
+function cancelPremove() {
+  if (!premove) return false;
+  premove = null;
+  return true;
 }
 
 // Commit a human move between two squares, opening the promotion dialog when
@@ -576,6 +672,13 @@ function selectSquare(sq) {
 // the caller can fall back to its own reselect / deselect behaviour.
 // `viaDrag` only affects the animation (see planMoveAnimation).
 function attemptMove(from, to, viaDrag) {
+  if (premoveSelecting) {
+    if (!premoveTargets(from).includes(to)) return false;
+    premove = { from, to };
+    clearSelection();
+    render();
+    return true;
+  }
   const moves = chess.legalMoves().filter(m => m.from === from);
   const candidate = moves.find(m => m.to === to);
   if (!candidate) return false;
@@ -606,11 +709,16 @@ BoardDrag.attach(boardEl, {
 });
 
 function onSquareClick(sq) {
-  if (promotionPending || thinking || gameIsOver()) return;
-  if (!moveSource || !moveSource.canHumanMoveNow(chess.turn)) return;
+  if (promotionPending || gameIsOver()) return;
+  if (!canMoveNow() && !canPremove()) return;
+
+  // A click anywhere withdraws a queued premove; picking up a piece may then
+  // start a new one.
+  const cancelled = cancelPremove();
 
   if (selected === null) {
     if (canPickUp(sq)) selectSquare(sq);
+    else if (cancelled) render();
     return;
   }
 
@@ -618,15 +726,18 @@ function onSquareClick(sq) {
 
   // Reselect or deselect
   const piece = chess.squares[sq];
-  if (piece && piece.c === humanColor) {
-    selected = sq;
-    legalFromSelected = chess.legalMoves().filter(m => m.from === sq);
-  } else {
-    selected = null;
-    legalFromSelected = [];
-  }
-  render();
+  if (piece && piece.c === humanColor) selectSquare(sq);
+  else { clearSelection(); render(); }
 }
+
+// Right-click: drop the selection and any queued premove (chess.com habit).
+boardEl.addEventListener('contextmenu', (e) => {
+  if (selected === null && !premove) return;
+  e.preventDefault();
+  cancelPremove();
+  clearSelection();
+  render();
+});
 
 // Hand the human's chosen move to the active source. The source owns what
 // happens next (AI: apply + engine reply; PvP: emit and await server echo).
@@ -681,8 +792,8 @@ function undo() {
   lastMove = chess.history.length > 0
     ? chess.history[chess.history.length - 1].move
     : null;
-  selected = null;
-  legalFromSelected = [];
+  clearSelection();
+  premove = null;
   render();
   gameStore.truncate(chess.history.length, chess.fen());
 }
@@ -703,8 +814,8 @@ function refreshGameState() {
   setLabels();
   moveHistory = [];
   lastMove = null;
-  selected = null;
-  legalFromSelected = [];
+  clearSelection();
+  premove = null;
   promotionPending = null;
   promoEl.classList.remove('show');
   thinking = false;
@@ -841,8 +952,8 @@ function resumeAiGame(game) {
 
   gameStore.resume(game.id);
 
-  selected = null;
-  legalFromSelected = [];
+  clearSelection();
+  premove = null;
   promotionPending = null;
   promoEl.classList.remove('show');
   thinking = false;
@@ -1315,8 +1426,8 @@ function applyPvpState(socket, state) {
   startFen = state.startFen || null;
   moveHistory = state.sans.slice();
   lastMove = null;
-  selected = null;
-  legalFromSelected = [];
+  clearSelection();
+  premove = null;
   promotionPending = null;
   thinking = false;
   // If we're (re)joining a game that's already over, show its real outcome.

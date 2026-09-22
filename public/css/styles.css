@@ -66,6 +66,8 @@ body {
 .square.dark  .coord { color: var(--sq-light, #f0d9b5); }
 .square.last-move { background: #bacaa4 !important; }
 .square.selected  { background: #f6f682 !important; }
+/* A queued premove: origin and destination, until it plays or is cancelled. */
+.square.premove   { background: #d99ab4 !important; }
 .square.check {
   background: #eb6150 !important;
   box-shadow: inset 0 0 0 5px #dc3232, inset 0 0 0 7px #ff9696;
@@ -92,6 +94,8 @@ body {
   border: 5px solid rgba(200,50,50,0.7);
   box-sizing: border-box;
 }
+/* Squares a premove may be aimed at (geometric reach, not legality). */
+.hint.premove { background: rgba(190,90,130,0.5); }
 .coord {
   position: absolute;
   font-size: clamp(8px, calc(var(--sq) * 0.15), 12px);
