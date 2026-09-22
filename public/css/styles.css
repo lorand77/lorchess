@@ -795,12 +795,6 @@ img.drag-piece {
 #promoError { min-height: 18px; margin: 10px 0 0; }
 
 /* ================= lobby shell: top bar + rail + centre + side ================= */
-/* The lobby is the only page that opts out of the centred single-column body. */
-body.lobby-body {
-  display: block;
-  padding: 0 0 32px;
-}
-
 .topbar {
   display: flex;
   align-items: center;
@@ -825,9 +819,9 @@ body.lobby-body {
 
 /* Three columns on a wide screen; the widths are fixed on the outside so the
    centre takes whatever is left. */
+
 .lobby-shell {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr) 300px;
   gap: 18px;
   align-items: start;
   max-width: 1400px;
@@ -835,8 +829,6 @@ body.lobby-body {
   padding: 0 20px;
 }
 
-/* ---- left rail ---- */
-.rail { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 74px; }
 .rail-item {
   display: block;
   padding: 9px 12px;
@@ -959,8 +951,7 @@ body.lobby-body {
 
 /* ---- responsive: 3 columns -> 2 -> 1 ---- */
 @media (max-width: 1100px) {
-  /* Puzzles move under the centre column rather than squeezing it. */
-  .lobby-shell { grid-template-columns: 170px minmax(0, 1fr); }
+  /* Puzzles drop under the centre column rather than squeezing it. */
   .lobby-side {
     grid-column: 1 / -1;
     flex-direction: row;
@@ -969,23 +960,7 @@ body.lobby-body {
   .lobby-side .panel { flex: 1; }
 }
 @media (max-width: 700px) {
-  .lobby-shell { grid-template-columns: 1fr; padding: 0 12px; }
   .live-strip { margin-left: 12px; margin-right: 12px; }
-  /* The rail becomes a scrollable row of chips above the content. */
-  .rail {
-    position: static;
-    flex-direction: row;
-    overflow-x: auto;
-    gap: 6px;
-    padding-bottom: 4px;
-  }
-  .rail-item {
-    white-space: nowrap;
-    border-left: none;
-    border-bottom: 3px solid transparent;
-    padding: 8px 10px;
-  }
-  .rail-item.current { border-left: none; border-bottom-color: #8aa6c8; }
   .lobby-side { flex-direction: column; }
   .topbar { padding: 8px 12px; }
 }
@@ -1006,8 +981,95 @@ body.lobby-body {
 .mini-board-wrap.small { width: 104px; flex: 0 0 104px; }
 
 @media (max-width: 700px) {
-  /* Full-width the hero board would push everything else off the screen. */
-  .puzzle-card .mini-board-wrap { max-width: 300px; margin: 0 auto; }
+  /* Cap the hero board, or it pushes everything else off the screen. The
+     thumbnail on the junior card keeps its small fixed size. */
+  .puzzle-card .mini-board-wrap:not(.small) { max-width: 300px; margin: 0 auto; }
   /* One card per row, stretched, rather than a fixed 260px in a 366px column. */
   .live-list { grid-template-columns: 1fr; }
 }
+
+/* ================= app shell: fixed left rail on every menu page ================= */
+/* Built by public/js/shell.js. The rail is pinned to the viewport's left edge
+   rather than sitting inside the centred content, so it reads as site chrome
+   and stays put as you move between pages. */
+:root { --rail-w: 200px; --topbar-h: 48px; }
+
+body.has-shell {
+  display: block;
+  padding: 0 0 32px;
+  /* Boards must fit beside the rail, not under it. */
+  --board: min(640px, calc(100vw - var(--rail-w) - 60px));
+}
+
+body.has-shell .topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-h);
+  box-sizing: border-box;
+  z-index: 60;
+}
+
+.app-rail {
+  position: fixed;
+  top: var(--topbar-h);
+  left: 0;
+  bottom: 0;
+  width: var(--rail-w);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  overflow-y: auto;
+  background: #2b2b2b;
+  border-right: 1px solid #4a4a4a;
+  z-index: 55;
+}
+.app-rail .rail-item { display: flex; align-items: center; gap: 9px; }
+.rail-icon { width: 18px; text-align: center; flex: 0 0 18px; }
+.rail-label { min-width: 0; }
+
+.app-main {
+  margin-left: var(--rail-w);
+  padding-top: var(--topbar-h);
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+/* The per-page wrappers were written for a centred body; re-centre them inside
+   the main column now that the body is a plain block. */
+body.has-shell .app-main > .history-page,
+body.has-shell .app-main > .settings-page,
+body.has-shell .app-main > .membership-page,
+body.has-shell .app-main > .auth-card { margin-left: auto; margin-right: auto; }
+body.has-shell .app-main > .game { justify-content: center; padding: 20px; }
+
+/* The lobby no longer carries its own rail column — the shell owns it. */
+body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
+
+@media (max-width: 1100px) {
+  body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  :root { --rail-w: 0px; }
+  body.has-shell { --board: min(640px, calc(100vw - 30px)); }
+  /* No room to pin a column: the rail becomes a scrolling strip of chips
+     directly under the top bar. */
+  .app-rail {
+    position: static;
+    flex-direction: row;
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid #4a4a4a;
+    overflow-x: auto;
+    padding: 8px 10px;
+    margin-top: var(--topbar-h);
+  }
+  .app-rail .rail-item { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
+  .app-rail .rail-item.current { border-left: none; border-bottom-color: #8aa6c8; }
+  .app-main { margin-left: 0; padding-top: 0; }
+}
+
+/* Hidden until a page with a socket puts text in it. */
+.conn-dot:empty { display: none; }

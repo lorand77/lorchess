@@ -6,31 +6,8 @@
 <title>LorChess — Lobby</title>
 <link rel="stylesheet" href="/css/styles.css">
 </head>
-<body class="lobby-body">
-
-<!-- Top bar: identity and connection, so neither takes up a content row. -->
-<header class="topbar">
-  <a class="brand" href="/lobby.html">♟ LorChess</a>
-  <div class="topbar-right">
-    <span id="connStatus" class="conn-dot pending" title="Server connection">connecting…</span>
-    <div class="userbar" id="userbar"></div>
-  </div>
-</header>
-
+<body>
 <div class="lobby-shell">
-
-  <!-- Left rail: plain navigation. "Play" is this page, so it is the current
-       item rather than a link. -->
-  <nav class="rail" aria-label="Sections">
-    <span class="rail-item current" aria-current="page">▶ Play</span>
-    <a class="rail-item" href="/puzzles.html">🧩 Puzzles</a>
-    <a class="rail-item" href="/history.html">📜 My Games</a>
-    <a class="rail-item" href="/achievements.html">🏅 Achievements</a>
-    <a class="rail-item" href="/friends.html">👥 Friends</a>
-    <a class="rail-item" href="/settings.html">🎨 Customize</a>
-    <a class="rail-item" href="/leaderboard.html">🏆 Leaderboard</a>
-    <a class="rail-item" href="/membership.html">🎟 Membership</a>
-  </nav>
 
   <!-- Centre: anything demanding an answer first, then play, then who's about. -->
   <main class="lobby-main">
@@ -108,6 +85,7 @@
 
 <!-- authGuard gates the page; timeControls.js and handicap.js come from
      src/shared, so client and server share one definition of each. -->
+<script src="/js/shell.js"></script>
 <script src="/js/authGuard.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/socket.io/socket.io.js"></script>
