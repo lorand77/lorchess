@@ -127,6 +127,8 @@ const ACHIEVEMENTS = [
     desc: "Win a game with all 16 of your pieces still on the board at move 20." },
   { key: "no_time_wasted", name: "No Time Wasted", icon: "🏃", group: "feats",
     desc: "Win a game where every one of your moves took under 5 seconds." },
+  { key: "clairvoyant", name: "Clairvoyant", icon: "🔮", group: "feats",
+    desc: "Win a game in which every move after your first was a premove." },
   // Mate by piece: the piece that made the mating move.
   { key: "mate_pawn", name: "Pawn Mate", icon: "♙", group: "feats",
     desc: "Deliver checkmate with a pawn." },

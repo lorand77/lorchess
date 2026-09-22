@@ -26,6 +26,10 @@ const GRACE_MS = config.DISCONNECT_GRACE_MS;
 // every deploy. The forfeit clock itself starts immediately either way.
 const REJOIN_SETTLE_MS = 3000;
 
+// A move flagged as a premove must land within this long of the opponent's
+// move (one network round trip) to be recorded as one.
+const PREMOVE_MAX_MS = 1500;
+
 const other = (c) => (c === "w" ? "b" : "w");
 
 // Chat is split by audience. Everyone in a game shares `game:<id>` for moves,
@@ -466,7 +470,11 @@ function handleMove(io, socket, payload, ack) {
   const uci = uciOf(move);
 
   // (5) Persist + (6) broadcast (mover included; everyone applies on confirmation).
-  queries.insertMoveTimed.run(gameId, ply, san, uci, fen, socket.userId, thinkMs);
+  // The client says whether this was a premove; believe it only if the move
+  // really did arrive on the heels of the opponent's, so a crafted payload
+  // can't claim a premove it had time to think about.
+  const premove = !!(payload && payload.premove) && (thinkMs == null || thinkMs < PREMOVE_MAX_MS);
+  queries.insertMoveTimed.run(gameId, ply, san, uci, fen, socket.userId, thinkMs, premove ? 1 : 0);
   queries.updateGamePosition.run(fen, turn, gameId);
   // Clocks go to the database too, so this game survives a restart.
   queries.updateGameClocks.run(room.clock.w, room.clock.b, gameId);

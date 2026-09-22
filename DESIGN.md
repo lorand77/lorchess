@@ -154,3 +154,10 @@ premove is consumed in `applyMove` the moment a move makes it our turn: if it
 is legal in the new position it is submitted through the normal move source
 (so PvP still goes through the server's validation), otherwise it is dropped.
 Promotion premoves always take a queen. Any click or a right-click cancels it.
+
+A premoved move is flagged on its way to the server (`premove` in the socket
+payload / AI move POST) and stored in `moves.premove`. PvP believes the flag
+only when the server-measured think time is under `PREMOVE_MAX_MS`, so a
+crafted payload can't claim a premove it had time to consider. The
+"Clairvoyant" achievement reads it: win with every move after your first
+premoved.

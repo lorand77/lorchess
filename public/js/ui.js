@@ -96,7 +96,7 @@ const env = {
 // Apply a move to the board: the single path for engine moves, the player's own
 // confirmed moves, and the opponent's moves. `record` persists client-side
 // (AI mode only); in PvP the server already persisted it.
-function applyMove(rmove, record) {
+function applyMove(rmove, record, opts) {
   const move = chess.legalMoves().find(m =>
     m.from === rmove.from &&
     m.to === rmove.to &&
@@ -118,7 +118,7 @@ function applyMove(rmove, record) {
   const queued = chess.turn === humanColor ? premove : null;
   if (queued) premove = null;
   render();
-  if (record) recordApplied(san, move);
+  if (record) recordApplied(san, move, !!(opts && opts.premove));
   if (queued) playPremove(queued);
 }
 
@@ -130,17 +130,17 @@ function playPremove(pm) {
   const move = chess.legalMoves().find(m =>
     m.from === pm.from && m.to === pm.to && (!m.promo || m.promo === 'q'));
   if (!move) return;
-  doHumanMove(move);
+  doHumanMove(move, { premove: true });
 }
 
 // Record the move just applied to `chess`, and finalize the game if it ended
 // (AI mode — client is authoritative and drives persistence).
-function recordApplied(san, move) {
+function recordApplied(san, move, premove) {
   const ply = chess.history.length;
   const uci = algOf(move.from) + algOf(move.to) + (move.promo || '');
   const fenAfter = chess.fen();
   const byColor = opp(chess.turn);   // the mover = side that just moved (turn has flipped)
-  gameStore.recordMove({ ply, san, uci, fenAfter, byColor });
+  gameStore.recordMove({ ply, san, uci, fenAfter, byColor, premove: !!premove });
   if (chess.isGameOver()) {
     // The server evaluates achievements when it records the end of the game
     // and answers with anything newly earned.
@@ -741,8 +741,8 @@ boardEl.addEventListener('contextmenu', (e) => {
 
 // Hand the human's chosen move to the active source. The source owns what
 // happens next (AI: apply + engine reply; PvP: emit and await server echo).
-function doHumanMove(move) {
-  if (moveSource) moveSource.submitMove(move);
+function doHumanMove(move, opts) {
+  if (moveSource) moveSource.submitMove(move, opts || {});
 }
 
 function showPromotionDialog() {

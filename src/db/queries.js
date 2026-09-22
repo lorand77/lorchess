@@ -223,16 +223,16 @@ module.exports = {
 
   // --- moves ---
   insertMove: db.prepare(`
-    INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user, premove)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
   // PvP variant: also records how long the mover thought (server-measured).
   insertMoveTimed: db.prepare(`
-    INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user, think_ms)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user, think_ms, premove)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `),
   getMovesForGame: db.prepare(
-    "SELECT ply, san, uci, fen_after, by_user, think_ms, created_at FROM moves WHERE game_id = ? ORDER BY ply"
+    "SELECT ply, san, uci, fen_after, by_user, think_ms, premove, created_at FROM moves WHERE game_id = ? ORDER BY ply"
   ),
   // Used by undo: drop everything after the new last ply.
   deleteMovesAfter: db.prepare(

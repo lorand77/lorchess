@@ -92,7 +92,7 @@ router.post("/:id/moves", (req, res) => {
   if (game.status !== "active") {
     return res.status(409).json({ error: "Game is not active." });
   }
-  const { ply, san, uci, fenAfter, byColor } = req.body || {};
+  const { ply, san, uci, fenAfter, byColor, premove } = req.body || {};
   if (
     !Number.isInteger(ply) ||
     typeof san !== "string" ||
@@ -108,7 +108,7 @@ router.post("/:id/moves", (req, res) => {
   const byUser = moverId === AI_ID ? null : moverId;
 
   try {
-    queries.insertMove.run(game.id, ply, san, uci, fenAfter, byUser);
+    queries.insertMove.run(game.id, ply, san, uci, fenAfter, byUser, premove === true ? 1 : 0);
   } catch (err) {
     if (String(err.message).includes("UNIQUE")) {
       return res.status(409).json({ error: "Move already recorded." });

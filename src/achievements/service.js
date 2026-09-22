@@ -119,6 +119,7 @@ function analyze(game, moves) {
       promo,
       check: chess.inCheck(),
       thinkMs: m.think_ms == null ? null : Number(m.think_ms),
+      premove: !!m.premove,
       material: sig.material,      // { w, b } in pawn units
       pieces: sig.pieces,          // { w: 'bbk', b: 'k' } sorted piece types
     });
@@ -260,6 +261,8 @@ const GAME_CHECKS = {
   no_time_wasted: (c) =>
     c.won && c.timed && c.plies >= 20 &&
     c.mine.every((p) => p.thinkMs != null && p.thinkMs < 5000),
+  // Every move after the first was queued before the opponent had replied.
+  clairvoyant: (c) => c.won && c.plies >= 10 && c.mine.slice(1).every((p) => p.premove),
 
   // mate by piece: the piece that made the mating move (a promotion counts as
   // the piece it became; a king move that uncovers mate counts for the king)

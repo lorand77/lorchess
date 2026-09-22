@@ -12,7 +12,8 @@
 // `env` (supplied by ui.js):
 //   getHumanColor() -> 'w'|'b'   getTurn() -> 'w'|'b'   isGameOver() -> bool
 //   getDepth() -> int            getPosition() -> { startFen, moves }
-//   applyMove(move, record)      setThinking(bool)      onReject(msg?)
+//   applyMove(move, record, opts) setThinking(bool)     onReject(msg?)
+//   opts.premove marks a move the human queued before the opponent replied.
 
 // ---- AI: LorFish in a Web Worker ----
 function createAiMoveSource(env) {
@@ -56,8 +57,8 @@ function createAiMoveSource(env) {
     canHumanMoveNow(turn) {
       return !busy && turn === env.getHumanColor();
     },
-    submitMove(move) {
-      env.applyMove(move, true); // apply the human move locally + persist
+    submitMove(move, opts) {
+      env.applyMove(move, true, opts); // apply the human move locally + persist
       if (env.isGameOver()) return;
       if (env.getTurn() === env.getHumanColor()) return;
       requestEngineMove();
@@ -85,12 +86,13 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
     canHumanMoveNow(turn) {
       return !busy && turn === yourColor;
     },
-    submitMove(move) {
+    submitMove(move, opts) {
       if (busy) return;
       busy = true;
       socket.emit(
         "move:make",
-        { gameId, from: move.from, to: move.to, promo: move.promo || null },
+        { gameId, from: move.from, to: move.to, promo: move.promo || null,
+          premove: !!(opts && opts.premove) },
         (resp) => {
           if (!resp || !resp.ok) {
             busy = false; // rejected — let the player try again
