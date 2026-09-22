@@ -8,21 +8,32 @@
 </head>
 <body>
 <div class="membership-page">
-  <div class="userbar" id="userbar"></div>
-  <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
   <h1>Membership</h1>
-  <p class="muted small">
-    Memberships aren't on sale yet. If you have a promo code, redeem it here.
-  </p>
 
-  <form id="promoForm" class="promo-form" autocomplete="off">
-    <label for="promoCode">Promo code</label>
-    <input id="promoCode" name="promoCode" type="text" maxlength="40"
-           placeholder="e.g. LORCHESS2026" autocapitalize="characters" spellcheck="false">
-    <button type="submit" class="primary" id="promoBtn">Redeem</button>
-  </form>
+  <!-- Swapped for the member panel once /api/membership says they're in. -->
+  <div id="joinView" style="display:none;">
+    <p class="muted small">
+      Memberships aren't on sale yet. If you have a promo code, redeem it here —
+      each code works once.
+    </p>
+    <form id="promoForm" class="promo-form" autocomplete="off">
+      <label for="promoCode">Promo code</label>
+      <input id="promoCode" name="promoCode" type="text" inputmode="numeric"
+             maxlength="13" placeholder="123 456 789" spellcheck="false">
+      <button type="submit" class="primary" id="promoBtn">Redeem</button>
+    </form>
+    <p class="auth-error" id="promoError"></p>
+  </div>
 
-  <p class="auth-error" id="promoError"></p>
+  <div id="memberView" class="member-card" style="display:none;">
+    <p class="member-badge">🎟 Member</p>
+    <p class="member-since" id="memberSince"></p>
+    <p class="muted small">
+      Thanks for supporting LorChess. Member perks are still being worked on.
+    </p>
+  </div>
+
+  <p class="muted small" id="membershipLoading">Loading…</p>
 </div>
 
 <script src="/js/shell.js"></script>

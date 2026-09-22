@@ -1073,3 +1073,14 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 
 /* Hidden until a page with a socket puts text in it. */
 .conn-dot:empty { display: none; }
+
+/* Membership: the panel shown once a code has been redeemed. */
+.member-card {
+  margin-top: 18px;
+  padding: 16px 18px;
+  background: #333;
+  border: 1px solid #6a5a2a;
+  border-radius: 6px;
+}
+.member-badge { margin: 0; font-size: 18px; font-weight: bold; color: #ffd98a; }
+.member-since { margin: 4px 0 10px; font-size: 13px; color: #d8d8d8; }

@@ -42,6 +42,27 @@ module.exports = {
     LIMIT 100
   `),
 
+  // --- membership ---
+  getMembership: db.prepare("SELECT member_since FROM users WHERE id = ?"),
+  // Only ever sets it once: re-redeeming must not move the join date.
+  setMemberSince: db.prepare(
+    "UPDATE users SET member_since = datetime('now') WHERE id = ? AND member_since IS NULL"
+  ),
+  getPromoCode: db.prepare("SELECT * FROM promo_codes WHERE code = ?"),
+  // The whole one-time-use rule lives in this WHERE clause. .changes is 1 for
+  // the caller who claimed it and 0 for everyone after.
+  claimPromoCode: db.prepare(`
+    UPDATE promo_codes
+    SET redeemed_by = ?, redeemed_at = datetime('now')
+    WHERE code = ? AND redeemed_by IS NULL
+  `),
+  insertPromoCode: db.prepare("INSERT OR IGNORE INTO promo_codes (code) VALUES (?)"),
+  listPromoCodes: db.prepare(`
+    SELECT p.code, p.redeemed_at, u.username AS redeemed_by
+    FROM promo_codes p LEFT JOIN users u ON u.id = p.redeemed_by
+    ORDER BY p.created_at, p.code
+  `),
+
   // --- games ---
   createGame: db.prepare(`
     INSERT INTO games (white_id, black_id, mode, ai_color, ai_depth,

@@ -9,7 +9,8 @@
     "db:reset": "node --env-file-if-exists=.env src/db/reset.js",
     "user:password": "node --env-file-if-exists=.env src/db/setPassword.js",
     "puzzles:import": "node --env-file-if-exists=.env src/db/importPuzzles.js",
-    "achievements:backfill": "node --env-file-if-exists=.env src/achievements/backfill.js"
+    "achievements:backfill": "node --env-file-if-exists=.env src/achievements/backfill.js",
+    "promo:new": "node --env-file-if-exists=.env src/db/promoCodes.js"
   },
   "dependencies": {
     "argon2": "0.44.0",

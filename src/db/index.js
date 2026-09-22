@@ -34,6 +34,8 @@ addColumnIfMissing("games", "rated", "INTEGER NOT NULL DEFAULT 1");
 // Remaining clock per side, so an in-progress game survives a restart.
 addColumnIfMissing("games", "clock_w_ms", "INTEGER");
 addColumnIfMissing("games", "clock_b_ms", "INTEGER");
+// When the user became a member, or NULL if they never redeemed a code.
+addColumnIfMissing("users", "member_since", "TEXT");
 // Look & feel preferences (board colours, background colour) as a JSON blob.
 addColumnIfMissing("users", "prefs", "TEXT");
 // Puzzle Elo (separate from the game rating) and the daily-puzzle streak.
