@@ -1084,3 +1084,14 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 }
 .member-badge { margin: 0; font-size: 18px; font-weight: bold; color: #ffd98a; }
 .member-since { margin: 4px 0 10px; font-size: 13px; color: #d8d8d8; }
+
+/* The board + 280px side panel need the rail's width on top of their own. The
+   standalone rule stacks them below 980px of viewport; with a 200px rail that
+   is 200px too late, so shell pages stack earlier. Applies to game.html,
+   replay.html and puzzles.html, which share the .game layout. */
+@media (max-width: 1180px) {
+  body.has-shell .game { flex-direction: column; align-items: center; gap: 12px; }
+  body.has-shell .info { width: var(--board); }
+  body.has-shell .clock-row { width: 100%; box-sizing: border-box; }
+  body.has-shell #history { height: 160px; }
+}

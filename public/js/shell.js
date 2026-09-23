@@ -81,8 +81,12 @@
   const main = el("div", "app-main");
   for (const node of existing) main.appendChild(node);
 
-  // "← Lobby" links are what the rail replaces.
-  for (const link of main.querySelectorAll(".toplink")) link.remove();
+  // The rail replaces "← Lobby", but not a contextual back-link like replay's
+  // "← My Games", which says where you came from rather than just naming a page.
+  for (const link of main.querySelectorAll(".toplink")) {
+    const a = link.querySelector("a");
+    if (a && new URL(a.href, location.origin).pathname === "/lobby.html") link.remove();
+  }
 
   body.insertBefore(main, body.firstChild);
   body.insertBefore(rail, main);
