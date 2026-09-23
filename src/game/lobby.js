@@ -19,10 +19,7 @@ const { resolveTimeControl } = require("../shared/timeControls");
 const { Chess } = require("../shared/chess");
 const handicap = require("../shared/handicap");
 const chess960 = require("../shared/chess960");
-
-// Variants share every rule with standard chess; only the starting position
-// differs. An allowlist, so a crafted payload can't name anything else.
-const VARIANTS = new Set(["standard", "chess960", "atomic", "pawnwars"]);
+const { resolveVariant, usesStandardSetup } = require("../shared/variants");
 
 const LOBBY_ROOM = "lobby";
 
@@ -268,13 +265,13 @@ function normalizeOffer(payload) {
   const tc = resolveTimeControl(p.tc);
   const color = p.color === "w" || p.color === "b" ? p.color : "random";
 
-  const variant = VARIANTS.has(p.variant) ? p.variant : "standard";
+  const variant = resolveVariant(p.variant);
 
   let odds = null;
   if (p.handicap) {
     // Handicaps are changes to the standard setup, so they mean nothing on a
     // shuffled back rank. Atomic keeps the standard setup, so it is fine there.
-    if (variant !== "standard" && variant !== "atomic") {
+    if (!usesStandardSetup(variant)) {
       return { ok: false, error: "A handicap only applies to games that start from the standard setup." };
     }
     const resolved = resolveHandicap(p.handicap);

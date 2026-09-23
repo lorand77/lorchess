@@ -281,17 +281,15 @@ function wireReview() {
     panel.style.display = "none";
     return;
   }
-  // LorFish only knows standard chess. Reviewing an Atomic game with it would
-  // produce confident nonsense, so don't offer it at all.
   // LorFish only knows standard chess (Chess960 included — same rules, different
   // start). Reviewing a game whose rules differ would produce confident nonsense.
-  const VARIANT_NAME = { atomic: "an Atomic", pawnwars: "a Pawn Wars" };
-  if (VARIANT_NAME[variant]) {
+  if (!isReviewable(variant)) {
     const start = document.getElementById("reviewStart");
     start.innerHTML = "";
     start.appendChild(Object.assign(document.createElement("span"), {
       className: "muted small",
-      textContent: "LorFish plays standard chess, so it can't review " + VARIANT_NAME[variant] + " game.",
+      textContent: "LorFish plays standard chess, so it can't review a " +
+        variantLabel(variant) + " game.",
     }));
     return;
   }

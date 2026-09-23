@@ -1476,8 +1476,7 @@ function applyPvpState(socket, state) {
   const tcLine = document.getElementById('tcLine');
   if (tcLine && state.timeControl) {
     let line = state.timeControl + ' · ' + (state.rated ? 'rated' : 'casual');
-    const VARIANTS = { chess960: 'Chess960', atomic: 'Atomic', pawnwars: 'Pawn Wars' };
-    if (VARIANTS[state.variant]) line += ' · ' + VARIANTS[state.variant];
+    if (state.variant && state.variant !== 'standard') line += ' · ' + variantLabel(state.variant);
     if (state.handicap) line += ' · handicap: ' + state.handicap;
     tcLine.textContent = line;
   }
@@ -1525,6 +1524,9 @@ function showReviewLink(id) {
   const wrap = document.getElementById('reviewLinkWrap');
   const link = document.getElementById('reviewLink');
   if (!wrap || !link || !id) return;
+  // LorFish can't review a game whose rules it doesn't know, so don't dangle a
+  // link that the replay viewer will only refuse.
+  if (!isReviewable(chess.variant)) return;
   // authGuard resolved window.currentUser long before any game could end, so
   // membership is already known here — no extra request.
   const member = !!(window.currentUser && window.currentUser.member_since);

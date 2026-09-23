@@ -99,13 +99,20 @@ const currentOffer = () => ({
 
 // A handicap is defined as removals from the standard setup, so the two can't
 // be combined. Whichever you pick second disables the other.
-const VARIANT_LABEL = { chess960: "Chess960", atomic: "Atomic", pawnwars: "Pawn Wars" };
-// A handicap edits the standard opening setup, so it only means anything in
-// variants that start from it. Atomic does; Chess960 and Pawn Wars don't.
-const TAKES_HANDICAP = { standard: true, atomic: true };
+// The picker comes from the shared catalogue, so a new variant appears here the
+// moment it is added to src/shared/variants.js.
+for (const v of VARIANTS) {
+  const opt = document.createElement("option");
+  opt.value = v.key;
+  opt.textContent = v.label;
+  if (v.key === "standard") opt.selected = true;
+  variantSelect.appendChild(opt);
+}
 
 function renderVariant() {
-  const allowed = !!TAKES_HANDICAP[variantSelect.value];
+  // A handicap edits the standard opening setup, so it only means anything in
+  // variants that start from it.
+  const allowed = usesStandardSetup(variantSelect.value);
   handicapBtn.disabled = !allowed;
   handicapBtn.title = allowed
     ? ""
@@ -125,9 +132,9 @@ function renderHandicap() {
   const on = !!handicapChanges;
   // With a handicap set, only the variants that start from the standard setup
   // stay selectable.
-  if (on && !TAKES_HANDICAP[variantSelect.value]) variantSelect.value = "standard";
+  if (on && !usesStandardSetup(variantSelect.value)) variantSelect.value = "standard";
   for (const opt of variantSelect.options) {
-    opt.disabled = on && !TAKES_HANDICAP[opt.value];
+    opt.disabled = on && !usesStandardSetup(opt.value);
   }
   handicapBtn.textContent = on ? "⚖ Edit handicap…" : "⚖ Handicap…";
   handicapSumEl.textContent = on ? describe(handicapChanges) + " — casual only" : "";
@@ -268,7 +275,7 @@ function renderSeeks() {
     who.appendChild(el("span", "rating", "(" + s.rating + ")"));
     who.appendChild(el("span", "tag", tcLabel(s.tc)));
     who.appendChild(el("span", "tag " + (s.rated ? "rated" : "casual"), s.rated ? "rated" : "casual"));
-    if (VARIANT_LABEL[s.variant]) who.appendChild(el("span", "tag variant", VARIANT_LABEL[s.variant]));
+    if (s.variant && s.variant !== "standard") who.appendChild(el("span", "tag variant", variantLabel(s.variant)));
     if (s.handicap) who.appendChild(el("span", "tag handicap", s.handicap));
     who.appendChild(el("span", "muted small", colorNote(s.color)));
     row.appendChild(who);
@@ -325,7 +332,7 @@ function renderGames() {
     const tags = el("div");
     tags.appendChild(el("span", "tag", g.tc));
     tags.appendChild(el("span", "tag " + (g.rated ? "rated" : "casual"), g.rated ? "rated" : "casual"));
-    if (VARIANT_LABEL[g.variant]) tags.appendChild(el("span", "tag variant", VARIANT_LABEL[g.variant]));
+    if (g.variant && g.variant !== "standard") tags.appendChild(el("span", "tag variant", variantLabel(g.variant)));
     if (g.handicap) tags.appendChild(el("span", "tag handicap", g.handicap));
     meta.appendChild(tags);
 
@@ -409,7 +416,7 @@ function renderIncoming() {
     text.appendChild(document.createTextNode(" challenges you — "));
     text.appendChild(el("span", "tag", tcLabel(c.tc)));
     text.appendChild(el("span", "tag " + (c.rated ? "rated" : "casual"), c.rated ? "rated" : "casual"));
-    if (VARIANT_LABEL[c.variant]) text.appendChild(el("span", "tag variant", VARIANT_LABEL[c.variant]));
+    if (c.variant && c.variant !== "standard") text.appendChild(el("span", "tag variant", variantLabel(c.variant)));
     if (c.handicap) text.appendChild(el("span", "tag handicap", c.handicap));
     text.appendChild(el("span", "muted small", colorNote(c.color)));
     box.appendChild(text);

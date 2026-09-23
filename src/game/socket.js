@@ -73,6 +73,9 @@ function attachSockets(httpServer) {
   io.on("connection", (socket) => {
     console.log(`[socket] connected: ${socket.username} (#${socket.userId})`);
     socket.emit("welcome", { userId: socket.userId, username: socket.username });
+    // One room per user, so "your game is starting" reaches every tab this
+    // person has open instead of whichever socket we happened to pick.
+    socket.join(matchmaking.userRoom(socket.userId));
     lobby.connected(io, socket);
 
     // Quick-match queue.

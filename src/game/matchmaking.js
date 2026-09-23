@@ -14,6 +14,14 @@ const rooms = require("./rooms");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
 const chess960 = require("../shared/chess960");
 const { PAWN_WARS_START } = require("../shared/chess");
+const { resolveVariant } = require("../shared/variants");
+
+// Every authenticated socket joins its user's room (see socket.js), so a game
+// can be announced to the PERSON rather than to one guessed socket. A user
+// often holds several: a tab they left open, or a socket from a page they have
+// already navigated away from whose transport has not timed out yet. Emitting
+// to a single one of those loses the announcement and strands them.
+const userRoom = (userId) => `user:${userId}`;
 
 // poolKey -> sockets currently seeking a match in that pool
 const pools = new Map();
@@ -35,7 +43,7 @@ function join(io, socket, payload) {
 
   const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
   const rated = !payload || payload.rated !== false;
-  const variant = payload && payload.variant === "chess960" ? "chess960" : "standard";
+  const variant = resolveVariant(payload && payload.variant);
   const key = poolKey(tc.key, rated, variant);
   const pool = poolFor(key);
 
@@ -73,7 +81,7 @@ function leave(socket) {
 // caller. Used by quick-match (random colours), by the lobby's seeks and
 // challenges (offerer's preference), and by rematch (colours swapped).
 function startMatch(io, white, black, opts) {
-  const variant = (opts && opts.variant) || "standard";
+  const variant = resolveVariant(opts && opts.variant);
   // A handicap offer carries its own start position, and Chess960 draws a fresh
   // random back rank per game. Everything downstream just sees a start position.
   const start =
@@ -105,8 +113,12 @@ function startMatch(io, white, black, opts) {
     rated,
   });
 
-  white.emit("game:start", { gameId, color: "w", opponent: { username: black.username } });
-  black.emit("game:start", { gameId, color: "b", opponent: { username: white.username } });
+  io.to(userRoom(white.userId)).emit("game:start", {
+    gameId, color: "w", opponent: { username: black.username },
+  });
+  io.to(userRoom(black.userId)).emit("game:start", {
+    gameId, color: "b", opponent: { username: white.username },
+  });
   console.log(
     `[match] game #${gameId}: ${white.username}(w) vs ${black.username}(b) ` +
     `${initialMs / 60000}+${incrementMs / 1000}${rated ? " rated" : " casual"}`
@@ -114,4 +126,4 @@ function startMatch(io, white, black, opts) {
   return gameId;
 }
 
-module.exports = { join, leave, startMatch };
+module.exports = { join, leave, startMatch, userRoom };

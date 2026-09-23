@@ -33,12 +33,9 @@
         </select>
         <label class="check"><input type="checkbox" id="ratedCheck" checked> Rated</label>
         <label for="variantSelect">Variant</label>
-        <select id="variantSelect">
-          <option value="standard" selected>Standard</option>
-          <option value="chess960">Chess960</option>
-          <option value="atomic">Atomic</option>
-          <option value="pawnwars">Pawn Wars</option>
-        </select>
+        <!-- Filled in from /js/variants.js, the same list the server validates
+             against, so the two can't drift apart. -->
+        <select id="variantSelect"></select>
       </div>
       <!-- Material odds; setting one forces the game casual. -->
       <div class="handicap-row">
@@ -97,6 +94,7 @@
 <script src="/js/theme.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/timeControls.js"></script>
+<script src="/js/variants.js"></script>
 <script src="/js/handicap.js"></script>
 <script src="/js/positionEditor.js"></script>
 <script src="/js/miniBoard.js"></script>
