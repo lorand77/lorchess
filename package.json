@@ -1,6 +1,6 @@
 {
   "name": "lorchess",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Chess web app — play LorFish (AI) or other users in real time.",
   "type": "commonjs",
   "scripts": {
