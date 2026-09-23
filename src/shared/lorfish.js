@@ -311,36 +311,62 @@ const LorFish = {
     return best;
   },
 
-  getBestMove(chess, depth) {
+  // The root search, shared by getBestMove (playing) and analyse (reviewing).
+  // Every root move is searched with a full window, so the scores that come back
+  // are exact values rather than pruning bounds. `noise` adds the tiebreaker
+  // jitter that keeps play varied; review turns it off so the same position
+  // always yields the same verdict.
+  searchRoot(chess, depth, opts) {
+    const noise = !!(opts && opts.noise);
     this.nodes = 0;
     this.maxQ = 0;
-    const t0 = performance.now();
     const effDepth = this.adaptiveDepth(chess, depth);
-    let bestMove = null, bestVal = -Infinity;
     const moves = this.orderMoves(chess, chess.legalMoves());
     const evals = [];
+    let best = null;
     for (const m of moves) {
       // SAN must be built BEFORE makeMove (needs pre-move state).
       const san = chess.moveToSan(m);
       chess.makeMove(m);
-      // Full window at root so logged evals are exact, not pruning bounds.
       const raw = -this.negamax(chess, effDepth - 1, -Infinity, Infinity);
       chess.undoMove();
-      // Tiny tiebreaker noise so equal-ish moves vary game to game.
-      // Skip noise on mate scores so the fastest mate is always chosen.
-      const noise = raw >= 99000 ? 0 : Math.floor(Math.random() * 21) - 10; // -10..+10
-      const v = raw + noise;
-      if (v > bestVal) { bestVal = v; bestMove = m; }
-      evals.push({ san, raw, v });
+      // Skip the jitter on mate scores so the fastest mate is always chosen.
+      const jitter = (noise && raw < 99000) ? Math.floor(Math.random() * 21) - 10 : 0;
+      const v = raw + jitter;
+      if (!best || v > best.v) best = { move: m, san, raw, v };
+      evals.push({ move: m, san, raw, v });
     }
+    return { evals, best, effDepth };
+  },
+
+  getBestMove(chess, depth) {
+    const t0 = performance.now();
+    const { evals, best, effDepth } = this.searchRoot(chess, depth, { noise: true });
     const dt = ((performance.now() - t0) / 1000).toFixed(3);
-    evals.sort((a, b) => b.v - a.v);
+    const sorted = evals.slice().sort((a, b) => b.v - a.v);
     const side = chess.turn === W ? 'White' : 'Black';
     const depthStr = effDepth === depth ? `depth=${depth}` : `depth=${depth} → ${effDepth}`;
     console.log(`LorFish evals (${side} to move, ${depthStr}):`);
-    for (const e of evals) console.log(`  ${e.san.padEnd(8)} ${e.v}  [raw=${e.raw}]`);
+    for (const e of sorted) console.log(`  ${e.san.padEnd(8)} ${e.v}  [raw=${e.raw}]`);
     console.log(`nodes=${this.nodes} time=${dt}s maxQ=${this.maxQ}`);
-    return bestMove;
+    return best ? best.move : null;
+  },
+
+  // Deterministic assessment of one position, for game review. `score` is in
+  // centipawns from the SIDE TO MOVE's point of view (negamax convention);
+  // magnitudes near 99000 are mate. Returns null when there is nothing to
+  // search — the game is already over in this position. Silent: reviewing a
+  // whole game calls this ~80 times and getBestMove's logging would drown the
+  // console.
+  analyse(chess, depth) {
+    const { best, effDepth } = this.searchRoot(chess, depth, { noise: false });
+    if (!best) return null;
+    return {
+      score: best.raw,
+      depth: effDepth,
+      san: best.san,
+      move: { from: best.move.from, to: best.move.to, promo: best.move.promo || null },
+    };
   },
 };
 

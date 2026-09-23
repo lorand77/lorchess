@@ -150,6 +150,7 @@ function recordApplied(san, move, premove) {
       }
     });
     playOutcomeSound(chess.result());
+    showReviewLink(gameStore.currentId());
   }
 }
 
@@ -1348,6 +1349,7 @@ function initPvp(gameId) {
     pvpResult = info;
     clockRunning = false;
     playOutcomeSound(info.result);
+    showReviewLink(gameId);
     if (info.clocks) setClocks(info.clocks, false);
     if (resignBtn) resignBtn.disabled = true;
     hideOffer();
@@ -1500,6 +1502,26 @@ function showRatingChange(ratings) {
   const rEl = document.getElementById('ubRating');
   if (rEl) rEl.textContent = '(' + mine.after + ')';
   if (window.currentUser) window.currentUser.rating = mine.after;
+}
+
+// Offer a LorFish review of the game that just ended. The replay viewer owns
+// the analysis; this is only the way in. Not shown to spectators, who can't
+// fetch the game record.
+function showReviewLink(id) {
+  const wrap = document.getElementById('reviewLinkWrap');
+  const link = document.getElementById('reviewLink');
+  if (!wrap || !link || !id) return;
+  // authGuard resolved window.currentUser long before any game could end, so
+  // membership is already known here — no extra request.
+  const member = !!(window.currentUser && window.currentUser.member_since);
+  if (member) {
+    link.textContent = '🔍 Review this game';
+    link.href = '/replay.html?id=' + id + '&review=1';
+  } else {
+    link.textContent = '🔒 Review this game with LorFish — members only';
+    link.href = '/membership.html';
+  }
+  wrap.style.display = '';
 }
 
 // ---- entry point ----

@@ -27,6 +27,11 @@ let startFen = STANDARD_START;
 let flip = false; // orient from the viewer's side
 let idx = 0; // number of plies shown
 let lastMove = null;
+let whiteName = "White";
+let blackName = "Black";
+let isMember = false; // game review is a membership perk
+let review = null;   // GameReview summary once the analysis finishes
+let reviewJob = null; // the running job, so it can be cancelled
 
 const sqOf = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 
@@ -55,6 +60,9 @@ async function init() {
   sanList = game.moves.map((m) => m.san);
   flip = game.white_id !== me.id; // you play the non-white side -> flip
 
+  isMember = !!me.member_since;
+  whiteName = game.white_username || "White";
+  blackName = game.black_username || "Black";
   titleEl.textContent = game.mode === "ai" ? "vs LorFish" : "PvP game";
   metaEl.textContent =
     `White: ${game.white_username}  ·  Black: ${game.black_username}  ·  ${fmtDate(game.created_at)}`;
@@ -63,6 +71,7 @@ async function init() {
 
   buildMoveList();
   wireControls();
+  wireReview();
   goto(uciList.length); // open at the final position
 }
 
@@ -84,6 +93,7 @@ function goto(i) {
   }
   renderBoard();
   highlightMoveList();
+  renderMoveVerdict();
 }
 
 function findUci(uci) {
@@ -195,10 +205,16 @@ function buildMoveList() {
     movesEl.innerHTML = '<span class="muted">No moves.</span>';
     return;
   }
+  // Review verdicts are keyed by ply (1-based), so the move list can be rebuilt
+  // with annotations once the analysis lands.
+  const byPly = new Map((review ? review.moves : []).map((m) => [m.ply, m]));
   let html = "";
   for (let k = 0; k < sanList.length; k++) {
     if (k % 2 === 0) html += `<span class="mv-num">${k / 2 + 1}.</span> `;
-    html += `<span class="mv" data-ply="${k + 1}">${sanList[k]}</span> `;
+    const verdict = byPly.get(k + 1);
+    const cls = verdict && verdict.symbol ? " mv-" + verdict.kind : "";
+    const mark = verdict && verdict.symbol ? verdict.symbol : "";
+    html += `<span class="mv${cls}" data-ply="${k + 1}">${escapeHtml(sanList[k])}${mark}</span> `;
   }
   movesEl.innerHTML = html;
   movesEl.querySelectorAll(".mv").forEach((el) => {
@@ -245,3 +261,145 @@ function fmtDate(s) {
 
 // Redraw once custom pieces / colours arrive from the server.
 window.addEventListener("theme:changed", () => { if (typeof renderBoard === "function" && typeof chess !== "undefined") renderBoard(); });
+
+// ---- game review ----
+// LorFish evaluates every position of the game in the engine worker. The result
+// annotates the move list, summarises each side's play, and — when you step to a
+// move — says what the engine would have played instead.
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function wireReview() {
+  const panel = document.getElementById("reviewPanel");
+  if (!panel) return;
+  // Nothing to review in an empty game.
+  if (!uciList.length) {
+    panel.style.display = "none";
+    return;
+  }
+  // Members only. This is a UI gate, not a security boundary — the analysis runs
+  // in the browser against publicly served engine code, so it is a paywall in
+  // the "please don't" sense rather than the "cannot" sense. Enforcing it
+  // properly would mean moving the search server-side.
+  if (!isMember) {
+    showReviewUpsell();
+    return;
+  }
+  document.getElementById("reviewBtn").addEventListener("click", startReview);
+  document.getElementById("reviewCancel").addEventListener("click", cancelReview);
+  // Arriving from the "Review this game" link on a finished game: start at once
+  // rather than asking for the same click twice.
+  if (params.get("review")) startReview();
+}
+
+function showReviewUpsell() {
+  const start = document.getElementById("reviewStart");
+  start.innerHTML = "";
+  const note = document.createElement("span");
+  note.className = "muted small";
+  note.textContent = "Have LorFish go through this game move by move — a member feature. ";
+  const link = document.createElement("a");
+  link.className = "review-link";
+  link.href = "/membership.html";
+  link.textContent = "🎟 Get membership";
+  start.append(note, link);
+  start.classList.add("review-locked");
+}
+
+function startReview() {
+  const startEl = document.getElementById("reviewStart");
+  const progEl = document.getElementById("reviewProgress");
+  const textEl = document.getElementById("reviewProgressText");
+  const errEl = document.getElementById("reviewError");
+  const depth = parseInt(document.getElementById("reviewDepth").value, 10) || 2;
+
+  errEl.textContent = "";
+  startEl.style.display = "none";
+  progEl.style.display = "";
+  textEl.textContent = "Analysing… 0%";
+
+  reviewJob = GameReview.run({
+    startFen: startFen === STANDARD_START ? null : startFen,
+    uciMoves: uciList,
+    depth,
+    onProgress: ({ done, total }) => {
+      textEl.textContent = `Analysing… ${Math.round((done / total) * 100)}% (${done}/${total})`;
+    },
+    onDone: (result) => {
+      reviewJob = null;
+      review = result;
+      progEl.style.display = "none";
+      buildMoveList();   // repaint with the verdict symbols
+      renderSummary();
+      renderMoveVerdict();
+      highlightMoveList();
+    },
+    onError: (err) => {
+      reviewJob = null;
+      progEl.style.display = "none";
+      startEl.style.display = "";
+      errEl.textContent = err.message || "Review failed.";
+    },
+  });
+}
+
+function cancelReview() {
+  if (reviewJob) reviewJob.cancel();
+  reviewJob = null;
+  document.getElementById("reviewProgress").style.display = "none";
+  document.getElementById("reviewStart").style.display = "";
+}
+
+function renderSummary() {
+  const el = document.getElementById("reviewSummary");
+  if (!review) return;
+  const row = (name, s) => {
+    if (!s.moves) return "";
+    return `
+      <div class="review-side">
+        <div class="review-side-head">
+          <span class="review-name">${escapeHtml(name)}</span>
+          <span class="review-acc">${s.accuracy.toFixed(1)}%</span>
+        </div>
+        <div class="review-counts">
+          <span class="rc rc-best">${s.best} best</span>
+          <span class="rc rc-inaccuracy">${s.inaccuracy} inaccuracies</span>
+          <span class="rc rc-mistake">${s.mistake} mistakes</span>
+          <span class="rc rc-blunder">${s.blunder} blunders</span>
+        </div>
+        <div class="review-acpl">avg. loss ${Math.round(s.acpl)} centipawns</div>
+      </div>`;
+  };
+  el.innerHTML =
+    row(whiteName, review.white) + row(blackName, review.black) +
+    `<p class="review-note">Accuracy is measured against LorFish (about 1400–1800), so treat it as a guide rather than a verdict.</p>`;
+  el.style.display = "";
+}
+
+// What the review says about the move that produced the position on screen.
+function renderMoveVerdict() {
+  const el = document.getElementById("reviewMove");
+  if (!el) return;
+  if (!review || idx === 0) {
+    el.style.display = "none";
+    return;
+  }
+  const m = review.moves.find((x) => x.ply === idx);
+  if (!m) {
+    el.style.display = "none";
+    return;
+  }
+  const mover = m.mover === "w" ? "White" : "Black";
+  const evalText = GameReview.formatScore(m.evalAfter, "w");
+  let html = `<span class="verdict v-${m.kind}">${escapeHtml(m.label)}</span> ` +
+    `<span class="muted">${mover} · eval ${escapeHtml(evalText)}</span>`;
+  if (m.kind !== "best" && m.best) {
+    html += `<br><span class="muted">LorFish preferred <b>${escapeHtml(m.best.san)}</b>` +
+      (m.loss > 0 ? ` (−${(m.loss / 100).toFixed(2)})` : "") + `</span>`;
+  }
+  el.innerHTML = html;
+  el.style.display = "";
+}

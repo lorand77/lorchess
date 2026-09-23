@@ -19,8 +19,29 @@
     <h2 id="replayTitle">Replay</h2>
     <p id="replayMeta" class="muted"></p>
     <p id="replayStatus"></p>
+    <!-- Game review. LorFish walks the whole game in the engine worker; the
+         summary and per-move verdicts appear here when it finishes. -->
+    <section id="reviewPanel" class="review">
+      <h3>Game review</h3>
+      <p class="review-start" id="reviewStart">
+        <button id="reviewBtn" class="primary">Review with LorFish</button>
+        <select id="reviewDepth" title="Search depth">
+          <option value="2" selected>Normal</option>
+          <option value="3">Deeper (slower)</option>
+        </select>
+      </p>
+      <p class="review-progress" id="reviewProgress" style="display:none;">
+        <span id="reviewProgressText">Analysing…</span>
+        <button id="reviewCancel">Cancel</button>
+      </p>
+      <div id="reviewSummary" style="display:none;"></div>
+      <p id="reviewError" class="check-text"></p>
+    </section>
+
     <h3>Moves</h3>
     <div id="history"></div>
+    <!-- Verdict on whichever move is currently shown. -->
+    <p id="reviewMove" class="review-move" style="display:none;"></p>
     <p id="replayControls">
       <button id="firstBtn" title="Start">⏮</button>
       <button id="prevBtn" title="Previous (←)">◀</button>
@@ -37,6 +58,7 @@
 <script src="/js/authGuard.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/chess.js"></script>
+<script src="/js/gameReview.js"></script>
 <script src="/js/replay.js"></script>
 </body>
 </html>

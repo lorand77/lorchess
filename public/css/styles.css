@@ -1095,3 +1095,61 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
   body.has-shell .clock-row { width: 100%; box-sizing: border-box; }
   body.has-shell #history { height: 160px; }
 }
+
+/* ---- game review (public/js/gameReview.js + replay.js) ---- */
+.review { margin-top: 16px; }
+.review h3 { margin: 0 0 8px; }
+.review-start { display: flex; gap: 8px; align-items: center; margin: 0; }
+.review-start button { margin: 0; }
+.review-start .primary { background: #3d6098; }
+.review-start .primary:hover { background: #4a73b5; }
+.review-start select {
+  background: #2a2a2a; color: #e6e6e6; border: 1px solid #555;
+  border-radius: 4px; padding: 6px;
+}
+.review-progress { display: flex; gap: 8px; align-items: center; margin: 0; font-size: 13px; }
+.review-progress button { margin: 0; padding: 4px 10px; font-size: 12px; }
+
+.review-side {
+  margin-top: 10px; padding: 8px 10px;
+  background: #2b2b2b; border-radius: 6px;
+}
+.review-side-head { display: flex; justify-content: space-between; align-items: baseline; }
+.review-name { font-weight: bold; color: #fff; }
+.review-acc { font-size: 18px; font-weight: bold; color: #8fc98f; }
+.review-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.rc { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #454545; color: #d0d0d0; }
+.rc-best { background: #2f4a30; color: #b9e3bb; }
+.rc-inaccuracy { background: #4a4430; color: #e3d9a8; }
+.rc-mistake { background: #4a3a28; color: #f0c48a; }
+.rc-blunder { background: #4a2a2a; color: #f0a0a0; }
+.review-acpl { margin-top: 5px; font-size: 12px; color: #969696; }
+.review-note { margin: 10px 0 0; font-size: 11px; color: #808080; }
+#reviewError { min-height: 16px; margin: 6px 0 0; font-size: 12px; }
+
+/* The verdict on the move currently shown. */
+.review-move { margin: 6px 0 0; font-size: 13px; }
+.verdict { font-weight: bold; }
+.v-blunder { color: #ff6464; }
+.v-mistake { color: #ffa05a; }
+.v-inaccuracy { color: #ffd98a; }
+.v-best { color: #7fc77f; }
+.v-good { color: #b0b0b0; }
+
+/* Annotated moves in the list. */
+.mv-blunder { color: #ff6464; }
+.mv-mistake { color: #ffa05a; }
+.mv-inaccuracy { color: #ffd98a; }
+
+/* "Review game" link offered when a game ends. */
+.review-link {
+  display: inline-block; margin-top: 8px; padding: 7px 14px;
+  background: #3d6098; color: #fff; border-radius: 6px;
+  text-decoration: none; font-size: 13px;
+}
+.review-link:hover { background: #4a73b5; }
+
+/* Membership perks, and the locked state of a member-only feature. */
+.member-perks { margin: 10px 0 0; padding-left: 20px; font-size: 13px; color: #d8d8d8; }
+.member-perks li { margin: 4px 0; }
+.review-start.review-locked { flex-wrap: wrap; gap: 6px; }
