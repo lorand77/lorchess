@@ -15,6 +15,7 @@ const membershipRoutes = require("./membership/routes");
 const achievementRoutes = require("./achievements/routes");
 const { attachSockets } = require("./game/socket");
 const rooms = require("./game/rooms");
+const { startChatRetention } = require("./db/retention");
 
 // Games left 'active' by a previous run are NOT discarded: the position lives
 // in `moves` and the clocks in the games row, so the first player back rebuilds
@@ -30,6 +31,9 @@ if (resumable > 0) {
     `players have ${window} to reconnect.`
   );
 }
+
+// Drop chat from long-finished games, now and once a day after.
+startChatRetention();
 
 const app = express();
 

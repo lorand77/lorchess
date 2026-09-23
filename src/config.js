@@ -26,6 +26,12 @@ module.exports = {
   // back before it is given up on and aborted.
   RESUME_WINDOW_MS: parseInt(process.env.RESUME_WINDOW_MS, 10) || 10 * 60 * 1000,
 
+  // How long in-game chat is kept after a game ends. The conversation only
+  // matters while the players are still there arranging a rematch; keeping it
+  // for ever means every message anyone has sent lives in the database (and in
+  // every backup) indefinitely. 0 disables the sweep and keeps everything.
+  CHAT_RETENTION_DAYS: parseInt(process.env.CHAT_RETENTION_DAYS, 10) || 30,
+
   // Elo K-factor for rating updates after rated games.
   ELO_K: parseInt(process.env.ELO_K, 10) || 32,
 

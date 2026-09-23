@@ -362,7 +362,13 @@ function handleChat(io, socket, payload, ack) {
   const role =
     game.white_id === socket.userId ? "w" : game.black_id === socket.userId ? "b" : "s";
 
-  const info = queries.insertChat.run(gameId, socket.userId, role, text);
+  // Store the message and bump the sender's lifetime tally together: the
+  // messages get swept eventually, the tally is what "Chatty" counts.
+  const info = db.transaction(() => {
+    const res = queries.insertChat.run(gameId, socket.userId, role, text);
+    queries.bumpChatCount.run(socket.userId);
+    return res;
+  })();
   const msg = queries.getChatById.get(Number(info.lastInsertRowid));
   // Players hear players; spectators hear spectators. Never across.
   io.to(chatRoom(gameId, audienceOf(role))).emit("chat:message", msg);

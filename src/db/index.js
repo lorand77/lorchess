@@ -22,11 +22,14 @@ db.exec(fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8"));
 // schema.sql only ever CREATEs, which is idempotent; adding a column to a table
 // that already exists needs ALTER, which is not. Apply those here instead, so a
 // database created before a column existed picks it up on the next boot.
+// Returns true when it actually added the column, so a caller can run a
+// one-time backfill alongside it.
 function addColumnIfMissing(table, column, definition) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all();
-  if (cols.some((c) => c.name === column)) return;
+  if (cols.some((c) => c.name === column)) return false;
   db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   console.log(`[db] migrated: added ${table}.${column}`);
+  return true;
 }
 addColumnIfMissing("games", "initial_ms", "INTEGER");
 addColumnIfMissing("games", "increment_ms", "INTEGER");
@@ -34,6 +37,15 @@ addColumnIfMissing("games", "rated", "INTEGER NOT NULL DEFAULT 1");
 // Remaining clock per side, so an in-progress game survives a restart.
 addColumnIfMissing("games", "clock_w_ms", "INTEGER");
 addColumnIfMissing("games", "clock_b_ms", "INTEGER");
+// Lifetime count of chat messages sent. Kept on the user because old messages
+// are swept (see src/db/retention.js) and the "Chatty" achievement must not go
+// backwards when they are — only the tally needs to be permanent, not the text.
+if (addColumnIfMissing("users", "chat_count", "INTEGER NOT NULL DEFAULT 0")) {
+  db.exec(
+    "UPDATE users SET chat_count = (SELECT COUNT(*) FROM chat_messages WHERE user_id = users.id)"
+  );
+  console.log("[db] migrated: seeded users.chat_count from existing messages");
+}
 // When the user became a member, or NULL if they never redeemed a code.
 addColumnIfMissing("users", "member_since", "TEXT");
 // Look & feel preferences (board colours, background colour) as a JSON blob.

@@ -214,6 +214,16 @@ module.exports = {
   insertChat: db.prepare(
     "INSERT INTO chat_messages (game_id, user_id, role, body) VALUES (?, ?, ?, ?)"
   ),
+  bumpChatCount: db.prepare("UPDATE users SET chat_count = chat_count + 1 WHERE id = ?"),
+  // Retention: drop the conversation once a game has been over long enough.
+  // Live games have finished_at IS NULL, so they are never touched.
+  deleteChatForOldGames: db.prepare(`
+    DELETE FROM chat_messages
+    WHERE game_id IN (
+      SELECT id FROM games
+      WHERE finished_at IS NOT NULL AND finished_at < datetime('now', ?)
+    )
+  `),
   getChatById: db.prepare(`
     SELECT c.id, c.user_id AS userId, u.username, c.role, c.body AS text, c.created_at AS at
     FROM chat_messages c JOIN users u ON u.id = c.user_id
@@ -327,9 +337,9 @@ module.exports = {
   achievementRecentAttempts: db.prepare(
     "SELECT solved FROM puzzle_attempts WHERE user_id = ? ORDER BY id DESC LIMIT 60"
   ),
-  achievementChatCount: db.prepare(
-    "SELECT COUNT(*) AS n FROM chat_messages WHERE user_id = ?"
-  ),
+  // The stored tally, not COUNT(*): messages are swept after a while, the
+  // count is for ever.
+  achievementChatCount: db.prepare("SELECT chat_count AS n FROM users WHERE id = ?"),
   achievementUser: db.prepare(
     "SELECT id, username, rating, puzzle_rating, daily_streak, daily_last_date, created_at FROM users WHERE id = ?"
   ),
