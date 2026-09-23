@@ -681,10 +681,16 @@ function attemptMove(from, to, viaDrag) {
     return true;
   }
   const moves = chess.legalMoves().filter(m => m.from === from);
-  // findMove also accepts the king dropped on its own rook, which is how
-  // castling is expressed in Chess960 — there the king's castling destination
-  // can be its own square, or a square its rook already occupies.
-  const candidate = chess.findMove(from, to);
+  // Resolve the GESTURE, which hasn't chosen a promotion piece yet — so match
+  // without one. (chess.findMove is for a move that already knows exactly what
+  // it is, and requires the promotion to match; using it here silently swallows
+  // every promotion.) The ordering mirrors findMove: an ordinary move wins the
+  // exact match, then a castle by its rook's square — the Chess960 gesture of
+  // dropping the king on its own rook — then a castle by the king's destination.
+  const candidate =
+    moves.find(m => !m.castle && m.to === to) ||
+    moves.find(m => m.castle && m.rookFrom === to) ||
+    moves.find(m => m.castle && m.to === to);
   if (!candidate) return false;
   const piece = chess.squares[from];
   if (piece && piece.t === 'p' && (rankOf(to) === 0 || rankOf(to) === 7)) {
@@ -1425,7 +1431,7 @@ function applyPvpState(socket, state) {
   setChatHistory(state.chat);
   // Atomic changes the rules, not just the position — tell the board before
   // loading anything, or captures will be applied the standard way.
-  chess.setVariant(state.variant === 'atomic' ? 'atomic' : 'standard');
+  chess.setVariant(state.variant || 'standard');
   chess.loadFen(state.fen);
   startFullmove = 1;
   startTurn = W;
@@ -1470,8 +1476,8 @@ function applyPvpState(socket, state) {
   const tcLine = document.getElementById('tcLine');
   if (tcLine && state.timeControl) {
     let line = state.timeControl + ' · ' + (state.rated ? 'rated' : 'casual');
-    if (state.variant === 'chess960') line += ' · Chess960';
-    else if (state.variant === 'atomic') line += ' · Atomic';
+    const VARIANTS = { chess960: 'Chess960', atomic: 'Atomic', pawnwars: 'Pawn Wars' };
+    if (VARIANTS[state.variant]) line += ' · ' + VARIANTS[state.variant];
     if (state.handicap) line += ' · handicap: ' + state.handicap;
     tcLine.textContent = line;
   }

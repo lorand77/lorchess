@@ -99,15 +99,18 @@ const currentOffer = () => ({
 
 // A handicap is defined as removals from the standard setup, so the two can't
 // be combined. Whichever you pick second disables the other.
-const VARIANT_LABEL = { chess960: "Chess960", atomic: "Atomic" };
+const VARIANT_LABEL = { chess960: "Chess960", atomic: "Atomic", pawnwars: "Pawn Wars" };
+// A handicap edits the standard opening setup, so it only means anything in
+// variants that start from it. Atomic does; Chess960 and Pawn Wars don't.
+const TAKES_HANDICAP = { standard: true, atomic: true };
 
 function renderVariant() {
-  // Only Chess960 clashes with a handicap: it reshuffles the very squares a
-  // handicap edits. Atomic keeps the standard setup.
-  const is960 = variantSelect.value === "chess960";
-  handicapBtn.disabled = is960;
-  handicapBtn.title = is960 ? "Handicaps can't be combined with Chess960" : "";
-  if (is960 && handicapChanges) {
+  const allowed = !!TAKES_HANDICAP[variantSelect.value];
+  handicapBtn.disabled = !allowed;
+  handicapBtn.title = allowed
+    ? ""
+    : "A handicap only applies to games that start from the standard setup";
+  if (!allowed && handicapChanges) {
     handicapChanges = null;
     renderHandicap();
   }
@@ -120,10 +123,11 @@ variantSelect.addEventListener("change", renderVariant);
 // off, since the server will refuse to rate the game either way.
 function renderHandicap() {
   const on = !!handicapChanges;
-  // A handicap rules out Chess960 but not Atomic, so only that option locks.
-  if (on && variantSelect.value === "chess960") variantSelect.value = "standard";
+  // With a handicap set, only the variants that start from the standard setup
+  // stay selectable.
+  if (on && !TAKES_HANDICAP[variantSelect.value]) variantSelect.value = "standard";
   for (const opt of variantSelect.options) {
-    if (opt.value === "chess960") opt.disabled = on;
+    opt.disabled = on && !TAKES_HANDICAP[opt.value];
   }
   handicapBtn.textContent = on ? "⚖ Edit handicap…" : "⚖ Handicap…";
   handicapSumEl.textContent = on ? describe(handicapChanges) + " — casual only" : "";

@@ -57,7 +57,7 @@ async function init() {
   }
 
   variant = game.variant || "standard";
-  chess.setVariant(variant === "atomic" ? "atomic" : "standard");
+  chess.setVariant(variant);
   startFen = game.start_fen || STANDARD_START;
   uciList = game.moves.map((m) => m.uci);
   sanList = game.moves.map((m) => m.san);
@@ -283,14 +283,16 @@ function wireReview() {
   }
   // LorFish only knows standard chess. Reviewing an Atomic game with it would
   // produce confident nonsense, so don't offer it at all.
-  if (variant === "atomic") {
-    document.getElementById("reviewStart").innerHTML = "";
-    document.getElementById("reviewStart").appendChild(
-      Object.assign(document.createElement("span"), {
-        className: "muted small",
-        textContent: "LorFish plays standard chess, so it can't review an Atomic game.",
-      })
-    );
+  // LorFish only knows standard chess (Chess960 included — same rules, different
+  // start). Reviewing a game whose rules differ would produce confident nonsense.
+  const VARIANT_NAME = { atomic: "an Atomic", pawnwars: "a Pawn Wars" };
+  if (VARIANT_NAME[variant]) {
+    const start = document.getElementById("reviewStart");
+    start.innerHTML = "";
+    start.appendChild(Object.assign(document.createElement("span"), {
+      className: "muted small",
+      textContent: "LorFish plays standard chess, so it can't review " + VARIANT_NAME[variant] + " game.",
+    }));
     return;
   }
   // Members only. This is a UI gate, not a security boundary — the analysis runs

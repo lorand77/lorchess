@@ -23,11 +23,22 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = name === 'atomic' ? 'atomic' : 'standard';
+    this.variant = name === 'atomic' || name === 'pawnwars' ? name : 'standard';
     return this;
   }
 
   get isAtomic() { return this.variant === 'atomic'; }
+
+  // Pawn Wars: nothing but pawns, starting on the first and last ranks. There
+  // are no kings, so there is no check and no mate — you win by taking every
+  // pawn your opponent has.
+  get isPawnWars() { return this.variant === 'pawnwars'; }
+
+  pawnCount(c) {
+    let n = 0;
+    for (const p of this.squares) if (p && p.c === c && p.t === 'p') n++;
+    return n;
+  }
 
   // The squares an explosion centred on `sq` destroys: the square itself and
   // its eight neighbours. Pawns on the neighbouring squares survive — only the
@@ -50,6 +61,14 @@ class Chess {
 
   reset() {
     this.squares = new Array(64).fill(null);
+    if (this.isPawnWars) {
+      // Pawns only, on the outermost ranks: they start where they would
+      // normally promote, and promote at the far end.
+      for (let f = 0; f < 8; f++) {
+        this.squares[sqIdx(f, 0)] = { t: 'p', c: W };
+        this.squares[sqIdx(f, 7)] = { t: 'p', c: B };
+      }
+    } else {
     const back = ['r','n','b','q','k','b','n','r'];
     for (let f = 0; f < 8; f++) {
       this.squares[sqIdx(f,0)] = { t: back[f], c: W };
@@ -57,8 +76,13 @@ class Chess {
       this.squares[sqIdx(f,6)] = { t: 'p',     c: B };
       this.squares[sqIdx(f,7)] = { t: back[f], c: B };
     }
+    }
     this.turn = W;
-    this.castling = { K: true, Q: true, k: true, q: true };
+    // Nothing to castle with in Pawn Wars, and claiming rights would put a
+    // meaningless "KQkq" in every FEN it produces.
+    this.castling = this.isPawnWars
+      ? { K: false, Q: false, k: false, q: false }
+      : { K: true, Q: true, k: true, q: true };
     // Standard chess fixes the king on e1/e8 and the castling rooks in the
     // corners. Chess960 does not, so both are state rather than constants.
     this.castleRook = { K: 7, Q: 0, k: 7, q: 0 };
@@ -103,8 +127,12 @@ class Chess {
       if (!p || p.t !== 'k') continue;
       if (p.c === W) wKings++; else bKings++;
     }
-    if (wKings !== 1 || bKings !== 1) {
-      throw new Error('FEN must have exactly one king per side');
+    // Pawn Wars has no kings at all; every other variant must have exactly one
+    // per side, which is the check that catches most malformed FENs.
+    if (this.isPawnWars ? (wKings || bKings) : (wKings !== 1 || bKings !== 1)) {
+      throw new Error(this.isPawnWars
+        ? 'Pawn Wars positions have no kings'
+        : 'FEN must have exactly one king per side');
     }
 
     this.squares = newSquares;
@@ -283,7 +311,9 @@ class Chess {
 
     if (piece.t === 'p') {
       const dir = c === W ? 1 : -1;
-      const startRank = c === W ? 1 : 6;
+      // Pawn Wars starts its pawns on the outer ranks, so that is where their
+      // two-square opening move comes from.
+      const startRank = this.isPawnWars ? (c === W ? 0 : 7) : (c === W ? 1 : 6);
       const promoRank = c === W ? 7 : 0;
       // forward 1
       if (inBoard(f, r + dir) && !this.squares[sqIdx(f, r + dir)]) {
@@ -451,11 +481,15 @@ class Chess {
     // With a king already gone the game is over; offering moves would let a
     // search play on past the end.
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return [];
+    // Same in Pawn Wars once a side has been wiped out.
+    if (this.isPawnWars && (this.pawnCount(W) === 0 || this.pawnCount(B) === 0)) return [];
     const moves = [];
     for (let sq = 0; sq < 64; sq++) {
       const p = this.squares[sq];
       if (!p || p.c !== c) continue;
       for (const m of this.pseudoMovesFrom(sq, c)) {
+        // Pawn Wars has no king to expose, so every pseudo-legal move is legal.
+        if (this.isPawnWars) { moves.push(m); continue; }
         if (this.isAtomic) {
           // A king that captured would blow itself up, so it never may.
           if (p.t === 'k' && (m.capture || m.enpassant)) continue;
@@ -645,6 +679,7 @@ class Chess {
   }
 
   isInsufficientMaterial() {
+    if (this.isPawnWars) return false;
     const ps = [];
     for (let i = 0; i < 64; i++) {
       const p = this.squares[i];
@@ -668,6 +703,7 @@ class Chess {
 
   // Atomic ends the moment a king is destroyed, however that happened.
   isCheckmate() {
+    if (this.isPawnWars) return false;
     if (this.isAtomic) {
       if (this.kingMissing(this.turn)) return true;          // ours went up: we lost
       if (this.kingMissing(opp(this.turn))) return false;    // theirs did: a win, not mate
@@ -676,6 +712,10 @@ class Chess {
     return this.inCheck() && this.legalMoves().length === 0;
   }
   isStalemate() {
+    if (this.isPawnWars) {
+      if (this.pawnCount(W) === 0 || this.pawnCount(B) === 0) return false;
+      return this.legalMoves().length === 0;
+    }
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return false;
     return !this.inCheck() && this.legalMoves().length === 0;
   }
@@ -686,6 +726,12 @@ class Chess {
     return (this.positionCounts.get(this.positionKey()) || 0) >= 5;
   }
   isGameOver() {
+    if (this.isPawnWars) {
+      return this.pawnCount(W) === 0 || this.pawnCount(B) === 0
+          || this.legalMoves().length === 0
+          || this.halfmove >= 100
+          || this.isThreefoldRepetition();
+    }
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return true;
     return this.legalMoves().length === 0
         || this.isInsufficientMaterial()
@@ -693,6 +739,16 @@ class Chess {
         || this.isThreefoldRepetition();
   }
   result() {
+    if (this.isPawnWars) {
+      const w = this.pawnCount(W), b = this.pawnCount(B);
+      // Promoting your last pawn loses too — the rule is about pawns, not
+      // material — and a move that clears both sides at once is a draw.
+      if (w === 0 && b === 0) return '1/2-1/2';
+      if (w === 0) return '0-1';
+      if (b === 0) return '1-0';
+      if (this.isGameOver()) return '1/2-1/2';  // nothing to move, or a rule draw
+      return '*';
+    }
     if (this.isAtomic) {
       // Whoever still has a king has won.
       if (this.kingMissing(W)) return '0-1';
@@ -743,6 +799,12 @@ class Chess {
 // --- UMD export: Node `require` gets the named bindings; browser <script> and
 // Web Worker importScripts keep the top-level lexical globals (W/B/Chess/...)
 // that ui.js, lorfish.js, and engineWorker.js rely on. ---
+// Pawn Wars opens with eight pawns a side on the outer ranks.
+const PAWN_WARS_START = 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1';
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Chess, W, B, PIECE_NAMES, sqIdx, fileOf, rankOf, algOf, opp, inBoard };
+  module.exports = {
+    Chess, W, B, PIECE_NAMES, PAWN_WARS_START,
+    sqIdx, fileOf, rankOf, algOf, opp, inBoard,
+  };
 }

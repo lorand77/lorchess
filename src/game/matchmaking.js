@@ -13,6 +13,7 @@ const queries = require("../db/queries");
 const rooms = require("./rooms");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
 const chess960 = require("../shared/chess960");
+const { PAWN_WARS_START } = require("../shared/chess");
 
 // poolKey -> sockets currently seeking a match in that pool
 const pools = new Map();
@@ -78,7 +79,9 @@ function startMatch(io, white, black, opts) {
   const start =
     variant === "chess960"
       ? chess960.randomFen()
-      : (opts && opts.startFen) || rooms.STANDARD_START;
+      : variant === "pawnwars"
+        ? PAWN_WARS_START
+        : (opts && opts.startFen) || rooms.STANDARD_START;
   const tc = resolveTimeControl(DEFAULT_TC);
   const initialMs = opts && opts.initialMs != null ? opts.initialMs : tc.initialMs;
   const incrementMs = opts && opts.incrementMs != null ? opts.incrementMs : tc.incrementMs;

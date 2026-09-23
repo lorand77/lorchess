@@ -657,6 +657,11 @@ function terminationOf(chess) {
   // In Atomic a game usually ends with a king blown off the board rather than
   // mated, and "checkmate" would be a misleading thing to record.
   if (chess.isAtomic && (chess.kingMissing("w") || chess.kingMissing("b"))) return "explosion";
+  // Pawn Wars is decided by pawns, not by mate.
+  if (chess.isPawnWars) {
+    if (chess.pawnCount("w") === 0 || chess.pawnCount("b") === 0) return "pawns captured";
+    if (chess.isStalemate()) return "stalemate";
+  }
   if (chess.isCheckmate()) return "checkmate";
   if (chess.isStalemate()) return "stalemate";
   if (chess.isInsufficientMaterial()) return "insufficient";
