@@ -13,7 +13,40 @@ const inBoard = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
 const PIECE_NAMES = { p:'pawn', n:'knight', b:'bishop', r:'rook', q:'queen', k:'king' };
 
 class Chess {
-  constructor() { this.reset(); }
+  constructor() {
+    // Which rule set is in force. 'standard' covers Chess960 too — that only
+    // changes the starting position. 'atomic' changes what a capture does.
+    // Set it with setVariant(); reset() and loadFen() deliberately leave it
+    // alone, so loading a position never silently changes the rules.
+    this.variant = 'standard';
+    this.reset();
+  }
+
+  setVariant(name) {
+    this.variant = name === 'atomic' ? 'atomic' : 'standard';
+    return this;
+  }
+
+  get isAtomic() { return this.variant === 'atomic'; }
+
+  // The squares an explosion centred on `sq` destroys: the square itself and
+  // its eight neighbours. Pawns on the neighbouring squares survive — only the
+  // captured pawn and the capturing piece go up with it.
+  explosionSquares(sq) {
+    const out = [sq];
+    const f = fileOf(sq), r = rankOf(sq);
+    for (let df = -1; df <= 1; df++) {
+      for (let dr = -1; dr <= 1; dr++) {
+        if (!df && !dr) continue;
+        const nf = f + df, nr = r + dr;
+        if (inBoard(nf, nr)) out.push(sqIdx(nf, nr));
+      }
+    }
+    return out;
+  }
+
+  // True once a side has no king — in atomic that ends the game immediately.
+  kingMissing(c) { return this.findKing(c) === -1; }
 
   reset() {
     this.squares = new Array(64).fill(null);
@@ -337,7 +370,10 @@ class Chess {
     return moves;
   }
 
-  isAttacked(sq, byColor) {
+  // `ignoreKing` skips attacks by the opposing king: in atomic a king can never
+  // capture, so it cannot deliver check, and the two kings may stand adjacent.
+  isAttacked(sq, byColor, ignoreKing) {
+    if (sq < 0) return false;
     const f = fileOf(sq), r = rankOf(sq);
     // pawn (attacker of byColor moves toward us; their pawn at r-dir attacks us)
     const dir = byColor === W ? -1 : 1;
@@ -380,13 +416,17 @@ class Chess {
         nf += df; nr += dr;
       }
     }
-    // king
-    for (let df = -1; df <= 1; df++) for (let dr = -1; dr <= 1; dr++) {
-      if (!df && !dr) continue;
-      const nf = f + df, nr = r + dr;
-      if (!inBoard(nf, nr)) continue;
-      const p = this.squares[sqIdx(nf, nr)];
-      if (p && p.c === byColor && p.t === 'k') return true;
+    // king — skipped entirely under `ignoreKing`, which is how atomic lets the
+    // two kings stand next to each other: neither can capture, so neither can
+    // give check.
+    if (!ignoreKing) {
+      for (let df = -1; df <= 1; df++) for (let dr = -1; dr <= 1; dr++) {
+        if (!df && !dr) continue;
+        const nf = f + df, nr = r + dr;
+        if (!inBoard(nf, nr)) continue;
+        const p = this.squares[sqIdx(nf, nr)];
+        if (p && p.c === byColor && p.t === 'k') return true;
+      }
     }
     return false;
   }
@@ -401,16 +441,35 @@ class Chess {
 
   inCheck(c) {
     if (c === undefined) c = this.turn;
-    return this.isAttacked(this.findKing(c), opp(c));
+    const king = this.findKing(c);
+    if (king === -1) return false;
+    return this.isAttacked(king, opp(c), this.isAtomic);
   }
 
   legalMoves(forColor) {
     const c = forColor || this.turn;
+    // With a king already gone the game is over; offering moves would let a
+    // search play on past the end.
+    if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return [];
     const moves = [];
     for (let sq = 0; sq < 64; sq++) {
       const p = this.squares[sq];
       if (!p || p.c !== c) continue;
       for (const m of this.pseudoMovesFrom(sq, c)) {
+        if (this.isAtomic) {
+          // A king that captured would blow itself up, so it never may.
+          if (p.t === 'k' && (m.capture || m.enpassant)) continue;
+          this.makeMove(m, false);
+          const mine = this.findKing(c);
+          const theirs = this.findKing(opp(c));
+          // Blowing up your own king is never legal, even to take theirs.
+          // Taking theirs and keeping yours wins on the spot — check is moot.
+          const legal =
+            mine !== -1 && (theirs === -1 || !this.isAttacked(mine, opp(c), true));
+          this.undoMove();
+          if (legal) moves.push(m);
+          continue;
+        }
         if (m.castle) {
           // Can't castle out of check, through check, or into check. The king's
           // walk can be any length (or zero) in Chess960, so check every square
@@ -488,6 +547,42 @@ class Chess {
       if (m.from === rookHome || m.to === rookHome) this.castling[right] = false;
     }
 
+    // Atomic: a capture destroys the capturing piece, whatever it took, and
+    // every non-pawn on the eight adjacent squares. Recorded on the history
+    // entry so undoMove can put them all back.
+    if (this.isAtomic && (captured || m.enpassant)) {
+      const blast = [];
+      for (const sq of this.explosionSquares(m.to)) {
+        const p = this.squares[sq];
+        if (!p) continue;
+        // Only the square itself is cleared unconditionally; neighbouring
+        // pawns are the one thing an explosion leaves standing.
+        if (sq !== m.to && p.t === 'p') continue;
+        blast.push({ sq, piece: p });
+        this.squares[sq] = null;
+      }
+      // En passant takes a pawn that is beside the blast, not in it.
+      if (m.enpassant) {
+        const epSq = sqIdx(fileOf(m.to), rankOf(m.from));
+        if (this.squares[epSq]) {
+          blast.push({ sq: epSq, piece: this.squares[epSq] });
+          this.squares[epSq] = null;
+        }
+      }
+      histEntry.blast = blast;
+      // A rook that goes up in the blast takes its castling right with it.
+      for (const right of ['K', 'Q', 'k', 'q']) {
+        if (!this.castling[right]) continue;
+        const rookHome = sqIdx(this.castleRook[right], right === right.toUpperCase() ? 0 : 7);
+        if (blast.some((b) => b.sq === rookHome)) this.castling[right] = false;
+      }
+      for (const b of blast) {
+        if (b.piece.t !== 'k') continue;
+        if (b.piece.c === W) { this.castling.K = false; this.castling.Q = false; }
+        else { this.castling.k = false; this.castling.q = false; }
+      }
+    }
+
     this.ep = (m.ep_set != null) ? m.ep_set : null;
 
     if (piece.t === 'p' || captured) this.halfmove = 0;
@@ -519,6 +614,12 @@ class Chess {
     this.halfmove = h.halfmove;
     this.fullmove = h.fullmove;
     this.turn = h.turn;
+
+    // Atomic: restore everything the explosion removed before unwinding the
+    // move itself, so the piece that moved is back on its destination square.
+    if (h.blast) {
+      for (const b of h.blast) this.squares[b.sq] = b.piece;
+    }
 
     if (m.castle) {
       const r = rankOf(m.from);
@@ -565,8 +666,19 @@ class Chess {
     return false;
   }
 
-  isCheckmate() { return this.inCheck() && this.legalMoves().length === 0; }
-  isStalemate() { return !this.inCheck() && this.legalMoves().length === 0; }
+  // Atomic ends the moment a king is destroyed, however that happened.
+  isCheckmate() {
+    if (this.isAtomic) {
+      if (this.kingMissing(this.turn)) return true;          // ours went up: we lost
+      if (this.kingMissing(opp(this.turn))) return false;    // theirs did: a win, not mate
+      return this.inCheck() && this.legalMoves().length === 0;
+    }
+    return this.inCheck() && this.legalMoves().length === 0;
+  }
+  isStalemate() {
+    if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return false;
+    return !this.inCheck() && this.legalMoves().length === 0;
+  }
   isThreefoldRepetition() {
     return (this.positionCounts.get(this.positionKey()) || 0) >= 3;
   }
@@ -574,12 +686,18 @@ class Chess {
     return (this.positionCounts.get(this.positionKey()) || 0) >= 5;
   }
   isGameOver() {
+    if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return true;
     return this.legalMoves().length === 0
         || this.isInsufficientMaterial()
         || this.halfmove >= 100
         || this.isThreefoldRepetition();
   }
   result() {
+    if (this.isAtomic) {
+      // Whoever still has a king has won.
+      if (this.kingMissing(W)) return '0-1';
+      if (this.kingMissing(B)) return '1-0';
+    }
     if (this.isCheckmate()) return this.turn === W ? '0-1' : '1-0';
     if (this.isGameOver()) return '1/2-1/2';
     return '*';

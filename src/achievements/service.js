@@ -77,6 +77,7 @@ function tierFor(key, value) {
 // or null if the move list can't be replayed (AI games are client-reported).
 function analyze(game, moves) {
   const chess = new Chess();
+  chess.setVariant(game.variant === "atomic" ? "atomic" : "standard");
   const startFen = game.start_fen || STANDARD_START;
   try {
     if (startFen === STANDARD_START) chess.reset();

@@ -1423,6 +1423,9 @@ function applyPvpState(socket, state) {
   lastPvpState = state;
   renderFriendRow();
   setChatHistory(state.chat);
+  // Atomic changes the rules, not just the position — tell the board before
+  // loading anything, or captures will be applied the standard way.
+  chess.setVariant(state.variant === 'atomic' ? 'atomic' : 'standard');
   chess.loadFen(state.fen);
   startFullmove = 1;
   startTurn = W;
@@ -1468,6 +1471,7 @@ function applyPvpState(socket, state) {
   if (tcLine && state.timeControl) {
     let line = state.timeControl + ' · ' + (state.rated ? 'rated' : 'casual');
     if (state.variant === 'chess960') line += ' · Chess960';
+    else if (state.variant === 'atomic') line += ' · Atomic';
     if (state.handicap) line += ' · handicap: ' + state.handicap;
     tcLine.textContent = line;
   }

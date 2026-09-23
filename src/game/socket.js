@@ -654,6 +654,9 @@ function uciOf(move) {
 }
 
 function terminationOf(chess) {
+  // In Atomic a game usually ends with a king blown off the board rather than
+  // mated, and "checkmate" would be a misleading thing to record.
+  if (chess.isAtomic && (chess.kingMissing("w") || chess.kingMissing("b"))) return "explosion";
   if (chess.isCheckmate()) return "checkmate";
   if (chess.isStalemate()) return "stalemate";
   if (chess.isInsufficientMaterial()) return "insufficient";

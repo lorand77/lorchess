@@ -99,10 +99,14 @@ const currentOffer = () => ({
 
 // A handicap is defined as removals from the standard setup, so the two can't
 // be combined. Whichever you pick second disables the other.
+const VARIANT_LABEL = { chess960: "Chess960", atomic: "Atomic" };
+
 function renderVariant() {
+  // Only Chess960 clashes with a handicap: it reshuffles the very squares a
+  // handicap edits. Atomic keeps the standard setup.
   const is960 = variantSelect.value === "chess960";
   handicapBtn.disabled = is960;
-  handicapBtn.title = is960 ? "Handicaps only apply to a standard game" : "";
+  handicapBtn.title = is960 ? "Handicaps can't be combined with Chess960" : "";
   if (is960 && handicapChanges) {
     handicapChanges = null;
     renderHandicap();
@@ -116,8 +120,11 @@ variantSelect.addEventListener("change", renderVariant);
 // off, since the server will refuse to rate the game either way.
 function renderHandicap() {
   const on = !!handicapChanges;
-  if (on) variantSelect.value = "standard";
-  variantSelect.disabled = on;
+  // A handicap rules out Chess960 but not Atomic, so only that option locks.
+  if (on && variantSelect.value === "chess960") variantSelect.value = "standard";
+  for (const opt of variantSelect.options) {
+    if (opt.value === "chess960") opt.disabled = on;
+  }
   handicapBtn.textContent = on ? "⚖ Edit handicap…" : "⚖ Handicap…";
   handicapSumEl.textContent = on ? describe(handicapChanges) + " — casual only" : "";
   handicapClear.style.display = on ? "" : "none";
@@ -257,7 +264,7 @@ function renderSeeks() {
     who.appendChild(el("span", "rating", "(" + s.rating + ")"));
     who.appendChild(el("span", "tag", tcLabel(s.tc)));
     who.appendChild(el("span", "tag " + (s.rated ? "rated" : "casual"), s.rated ? "rated" : "casual"));
-    if (s.variant === "chess960") who.appendChild(el("span", "tag variant", "Chess960"));
+    if (VARIANT_LABEL[s.variant]) who.appendChild(el("span", "tag variant", VARIANT_LABEL[s.variant]));
     if (s.handicap) who.appendChild(el("span", "tag handicap", s.handicap));
     who.appendChild(el("span", "muted small", colorNote(s.color)));
     row.appendChild(who);
@@ -314,7 +321,7 @@ function renderGames() {
     const tags = el("div");
     tags.appendChild(el("span", "tag", g.tc));
     tags.appendChild(el("span", "tag " + (g.rated ? "rated" : "casual"), g.rated ? "rated" : "casual"));
-    if (g.variant === "chess960") tags.appendChild(el("span", "tag variant", "Chess960"));
+    if (VARIANT_LABEL[g.variant]) tags.appendChild(el("span", "tag variant", VARIANT_LABEL[g.variant]));
     if (g.handicap) tags.appendChild(el("span", "tag handicap", g.handicap));
     meta.appendChild(tags);
 
@@ -398,7 +405,7 @@ function renderIncoming() {
     text.appendChild(document.createTextNode(" challenges you — "));
     text.appendChild(el("span", "tag", tcLabel(c.tc)));
     text.appendChild(el("span", "tag " + (c.rated ? "rated" : "casual"), c.rated ? "rated" : "casual"));
-    if (c.variant === "chess960") text.appendChild(el("span", "tag variant", "Chess960"));
+    if (VARIANT_LABEL[c.variant]) text.appendChild(el("span", "tag variant", VARIANT_LABEL[c.variant]));
     if (c.handicap) text.appendChild(el("span", "tag handicap", c.handicap));
     text.appendChild(el("span", "muted small", colorNote(c.color)));
     box.appendChild(text);

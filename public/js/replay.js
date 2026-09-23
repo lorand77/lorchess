@@ -29,6 +29,7 @@ let idx = 0; // number of plies shown
 let lastMove = null;
 let whiteName = "White";
 let blackName = "Black";
+let variant = "standard";
 let isMember = false; // game review is a membership perk
 let review = null;   // GameReview summary once the analysis finishes
 let reviewJob = null; // the running job, so it can be cancelled
@@ -55,6 +56,8 @@ async function init() {
     return;
   }
 
+  variant = game.variant || "standard";
+  chess.setVariant(variant === "atomic" ? "atomic" : "standard");
   startFen = game.start_fen || STANDARD_START;
   uciList = game.moves.map((m) => m.uci);
   sanList = game.moves.map((m) => m.san);
@@ -276,6 +279,18 @@ function wireReview() {
   // Nothing to review in an empty game.
   if (!uciList.length) {
     panel.style.display = "none";
+    return;
+  }
+  // LorFish only knows standard chess. Reviewing an Atomic game with it would
+  // produce confident nonsense, so don't offer it at all.
+  if (variant === "atomic") {
+    document.getElementById("reviewStart").innerHTML = "";
+    document.getElementById("reviewStart").appendChild(
+      Object.assign(document.createElement("span"), {
+        className: "muted small",
+        textContent: "LorFish plays standard chess, so it can't review an Atomic game.",
+      })
+    );
     return;
   }
   // Members only. This is a UI gate, not a security boundary — the analysis runs

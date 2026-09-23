@@ -28,6 +28,9 @@ function createRoom(
   const increment = incrementMs == null ? config.CLOCK_INCREMENT_MS : incrementMs;
 
   const chess = new Chess();
+  // Atomic changes what a capture does, so the board must know before any move
+  // is validated against it.
+  chess.setVariant(variant === "atomic" ? "atomic" : "standard");
   if (startFen && startFen !== STANDARD_START) chess.loadFen(startFen);
   else chess.reset();
 
