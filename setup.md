@@ -230,6 +230,13 @@ rclone copy test1.txt b2:lorchess-backups/
 rclone copy b2:lorchess-backups/test1.txt .
 ```
 
+and create a cron job to run the backup script daily 
+`script/backup.sh`and `crontab -e` to add a line like:
+```
+0 3 * * * /home/lorchess/lorchess/script/backup.sh
+```
+
+
 --------------------------------------------------------
 
 # PROD environment 2 - platform-as-a-service on railway
