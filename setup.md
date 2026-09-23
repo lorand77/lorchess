@@ -220,6 +220,16 @@ rm -f data/lorchess.sqlite-wal data/lorchess.sqlite-shm
 pm2 start lorchess
 ```
 
+### backup to B2
+
+```
+apt install rclone
+rclone config
+rclone copy test1.txt b2:lorchess-backups/
+# restore:
+rclone copy b2:lorchess-backups/test1.txt .
+```
+
 --------------------------------------------------------
 
 # PROD environment 2 - platform-as-a-service on railway
