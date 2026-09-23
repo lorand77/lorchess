@@ -54,7 +54,7 @@ router.post("/", (req, res) => {
 
   const info = queries.createGame.run(
     whiteId, blackId, "ai", aiColor, aiDepth, fen, fen, turnOf(fen),
-    null, null, 0   // untimed, unrated
+    null, null, 0, "standard"   // untimed, unrated
   );
   res.status(201).json({
     gameId: Number(info.lastInsertRowid),

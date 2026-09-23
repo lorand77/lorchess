@@ -96,8 +96,7 @@ function analyze(game, moves) {
     const to = sqFromAlg(m.uci.slice(2, 4));
     const promo = m.uci[4] || null;
     const mv = chess
-      .legalMoves()
-      .find((x) => x.from === from && x.to === to && (promo ? x.promo === promo : !x.promo));
+      .findMove(from, to, promo);
     if (!mv) return null;
     const color = chess.turn;
     const origPiece = chess.squares[from].t;

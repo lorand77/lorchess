@@ -26,6 +26,10 @@ class Chess {
     }
     this.turn = W;
     this.castling = { K: true, Q: true, k: true, q: true };
+    // Standard chess fixes the king on e1/e8 and the castling rooks in the
+    // corners. Chess960 does not, so both are state rather than constants.
+    this.castleRook = { K: 7, Q: 0, k: 7, q: 0 };
+    this.kingHomeFile = { [W]: 4, [B]: 4 };
     this.ep = null;
     this.halfmove = 0;
     this.fullmove = 1;
@@ -79,6 +83,7 @@ class Chess {
       k: cr.includes('k'),
       q: cr.includes('q'),
     };
+    this.deriveCastlingLayout(cr);
     if (parts[3] && parts[3] !== '-') {
       const file = parts[3].charCodeAt(0) - 97;
       const rank = parseInt(parts[3][1], 10) - 1;
@@ -94,6 +99,107 @@ class Chess {
     this.history = [];
     this.positionCounts = new Map();
     this.positionCounts.set(this.positionKey(), 1);
+  }
+
+  // Work out which rook each castling right refers to and where each king
+  // stands. Plain KQkq doesn't say — in standard chess it needn't, but Chess960
+  // puts the pieces anywhere. Resolved with the X-FEN rule: a right refers to
+  // the OUTERMOST rook on that side of the king. Shredder-style file letters
+  // (e.g. "HAha") are honoured literally when present.
+  //
+  // The one position this can't resolve is a back rank holding three or more
+  // same-colour rooks (only reachable by promotion) while the rights are still
+  // live; there the outermost rook may not be the one the right meant.
+  deriveCastlingLayout(cr) {
+    this.castleRook = { K: 7, Q: 0, k: 7, q: 0 };
+    this.kingHomeFile = { [W]: 4, [B]: 4 };
+
+    for (const c of [W, B]) {
+      const home = c === W ? 0 : 7;
+      const ours = c === W;
+      const kRight = ours ? 'K' : 'k';
+      const qRight = ours ? 'Q' : 'q';
+
+      let kingFile = -1;
+      const rookFiles = [];
+      for (let f = 0; f < 8; f++) {
+        const p = this.squares[sqIdx(f, home)];
+        if (!p || p.c !== c) continue;
+        if (p.t === 'k' && kingFile < 0) kingFile = f;
+        else if (p.t === 'r') rookFiles.push(f);
+      }
+      // A king off its home rank cannot castle, whatever the FEN claims.
+      if (kingFile < 0) {
+        this.castling[kRight] = false;
+        this.castling[qRight] = false;
+        continue;
+      }
+      this.kingHomeFile[c] = kingFile;
+
+      const explicit = [];
+      for (const ch of cr) {
+        const mine = ours ? ch >= 'A' && ch <= 'H' : ch >= 'a' && ch <= 'h';
+        if (mine) explicit.push(ch.toLowerCase().charCodeAt(0) - 97);
+      }
+
+      if (explicit.length) {
+        this.castling[kRight] = false;
+        this.castling[qRight] = false;
+        for (const f of explicit) {
+          if (f > kingFile) { this.castling[kRight] = true; this.castleRook[kRight] = f; }
+          else if (f < kingFile) { this.castling[qRight] = true; this.castleRook[qRight] = f; }
+        }
+        continue;
+      }
+
+      const right = rookFiles.filter((f) => f > kingFile);
+      const left = rookFiles.filter((f) => f < kingFile);
+      if (this.castling[kRight]) {
+        if (!right.length) this.castling[kRight] = false;
+        else this.castleRook[kRight] = right[right.length - 1];
+      }
+      if (this.castling[qRight]) {
+        if (!left.length) this.castling[qRight] = false;
+        else this.castleRook[qRight] = left[0];
+      }
+    }
+  }
+
+  // Resolve a (from, to) pair to a legal move.
+  //
+  // Castling is encoded king-to-ROOK, the Chess960 convention, because in
+  // Chess960 the king's castling destination can be a single square away and
+  // therefore identical to an ordinary king move — "f1g1" on its own would be
+  // ambiguous. Order matters: an ordinary move wins the exact match, then a
+  // castle is matched by its rook's square, and only then by the king's
+  // destination, which is how games recorded before Chess960 existed are written.
+  findMove(from, to, promo) {
+    const moves = this.legalMoves();
+    const promoOk = (m) => (promo ? m.promo === promo : !m.promo);
+    return (
+      moves.find((m) => !m.castle && m.from === from && m.to === to && promoOk(m)) ||
+      moves.find((m) => m.castle && m.from === from && m.rookFrom === to) ||
+      moves.find((m) => m.castle && m.from === from && m.to === to) ||
+      null
+    );
+  }
+
+  // Every square the king and rook travel over (and land on) must be empty,
+  // ignoring those two pieces themselves — in Chess960 either may already be
+  // standing on a square the other needs.
+  castlePathClear(kingFrom, rookFrom, kingTo, rookTo) {
+    const home = rankOf(kingFrom);
+    const walk = (a, b) => {
+      const lo = Math.min(fileOf(a), fileOf(b));
+      const hi = Math.max(fileOf(a), fileOf(b));
+      for (let f = lo; f <= hi; f++) {
+        const sq = sqIdx(f, home);
+        if (sq === kingFrom || sq === rookFrom) continue;
+        if (this.squares[sq]) return false;
+      }
+      return true;
+    };
+    return walk(kingFrom, kingTo) && walk(rookFrom, rookTo);
   }
 
   // FEN-like key for repetition detection: pieces + turn + castling + ep target.
@@ -208,25 +314,23 @@ class Chess {
         if (!tgt) add(to);
         else if (tgt.c === them) add(to, { capture: true });
       }
-      // castling (path-empty + rook check; check/attack tested in legalMoves)
+      // Castling (path-empty + rook check; attacked squares tested in
+      // legalMoves). Wherever the pieces start, the king finishes on the g-file
+      // and the rook on f (kingside), or c and d (queenside).
       const home = c === W ? 0 : 7;
-      const KK = c === W ? 'K' : 'k';
-      const QQ = c === W ? 'Q' : 'q';
-      if (r === home && f === 4) {
-        const rookK = this.squares[sqIdx(7, home)];
-        if (this.castling[KK]
-            && !this.squares[sqIdx(5, home)]
-            && !this.squares[sqIdx(6, home)]
-            && rookK && rookK.t === 'r' && rookK.c === c) {
-          add(sqIdx(6, home), { castle: 'K' });
-        }
-        const rookQ = this.squares[sqIdx(0, home)];
-        if (this.castling[QQ]
-            && !this.squares[sqIdx(1, home)]
-            && !this.squares[sqIdx(2, home)]
-            && !this.squares[sqIdx(3, home)]
-            && rookQ && rookQ.t === 'r' && rookQ.c === c) {
-          add(sqIdx(2, home), { castle: 'Q' });
+      if (r === home && f === this.kingHomeFile[c]) {
+        const sides = c === W
+          ? [['K', 'K', 6, 5], ['Q', 'Q', 2, 3]]
+          : [['k', 'K', 6, 5], ['q', 'Q', 2, 3]];
+        for (const [right, side, kingToFile, rookToFile] of sides) {
+          if (!this.castling[right]) continue;
+          const rookFrom = sqIdx(this.castleRook[right], home);
+          const rook = this.squares[rookFrom];
+          if (!rook || rook.t !== 'r' || rook.c !== c) continue;
+          const kingTo = sqIdx(kingToFile, home);
+          const rookTo = sqIdx(rookToFile, home);
+          if (!this.castlePathClear(sq, rookFrom, kingTo, rookTo)) continue;
+          add(kingTo, { castle: side, rookFrom });
         }
       }
     }
@@ -308,11 +412,18 @@ class Chess {
       if (!p || p.c !== c) continue;
       for (const m of this.pseudoMovesFrom(sq, c)) {
         if (m.castle) {
-          // Can't castle out of check, through check, or into check.
+          // Can't castle out of check, through check, or into check. The king's
+          // walk can be any length (or zero) in Chess960, so check every square
+          // from where it stands to where it lands.
           if (this.inCheck(c)) continue;
-          const home = c === W ? 0 : 7;
-          const passSq = m.castle === 'K' ? sqIdx(5, home) : sqIdx(3, home);
-          if (this.isAttacked(passSq, opp(c))) continue;
+          const home = rankOf(m.from);
+          const lo = Math.min(fileOf(m.from), fileOf(m.to));
+          const hi = Math.max(fileOf(m.from), fileOf(m.to));
+          let crossesCheck = false;
+          for (let ff = lo; ff <= hi; ff++) {
+            if (this.isAttacked(sqIdx(ff, home), opp(c))) { crossesCheck = true; break; }
+          }
+          if (crossesCheck) continue;
         }
         // Validation make/undo — skip repetition tracking for performance.
         this.makeMove(m, false);
@@ -325,9 +436,13 @@ class Chess {
 
   makeMove(m, trackPosition = true) {
     const piece = this.squares[m.from];
-    const captured = m.enpassant
-      ? this.squares[sqIdx(fileOf(m.to), rankOf(m.from))]
-      : this.squares[m.to];
+    // Castling captures nothing — and in Chess960 the king's destination may be
+    // occupied by its own castling rook, which must not be read as a capture.
+    const captured = m.castle
+      ? null
+      : m.enpassant
+        ? this.squares[sqIdx(fileOf(m.to), rankOf(m.from))]
+        : this.squares[m.to];
 
     const histEntry = {
       move: m,
@@ -342,21 +457,22 @@ class Chess {
     };
     this.history.push(histEntry);
 
-    this.squares[m.from] = null;
-    this.squares[m.to] = m.promo ? { t: m.promo, c: piece.c } : piece;
-
-    if (m.enpassant) {
-      this.squares[sqIdx(fileOf(m.to), rankOf(m.from))] = null;
-    }
-
-    if (m.castle === 'K') {
+    if (m.castle) {
+      // Both pieces move at once and their squares can overlap, so lift both
+      // before setting either down.
       const r = rankOf(m.from);
-      this.squares[sqIdx(5, r)] = this.squares[sqIdx(7, r)];
-      this.squares[sqIdx(7, r)] = null;
-    } else if (m.castle === 'Q') {
-      const r = rankOf(m.from);
-      this.squares[sqIdx(3, r)] = this.squares[sqIdx(0, r)];
-      this.squares[sqIdx(0, r)] = null;
+      const rookFrom = m.rookFrom != null ? m.rookFrom : sqIdx(m.castle === 'K' ? 7 : 0, r);
+      const rook = this.squares[rookFrom];
+      this.squares[m.from] = null;
+      this.squares[rookFrom] = null;
+      this.squares[sqIdx(m.castle === 'K' ? 6 : 2, r)] = piece;
+      this.squares[sqIdx(m.castle === 'K' ? 5 : 3, r)] = rook;
+    } else {
+      this.squares[m.from] = null;
+      this.squares[m.to] = m.promo ? { t: m.promo, c: piece.c } : piece;
+      if (m.enpassant) {
+        this.squares[sqIdx(fileOf(m.to), rankOf(m.from))] = null;
+      }
     }
 
     // Castling rights updates
@@ -364,10 +480,13 @@ class Chess {
       if (piece.c === W) { this.castling.K = false; this.castling.Q = false; }
       else { this.castling.k = false; this.castling.q = false; }
     }
-    if (m.from === sqIdx(0,0) || m.to === sqIdx(0,0)) this.castling.Q = false;
-    if (m.from === sqIdx(7,0) || m.to === sqIdx(7,0)) this.castling.K = false;
-    if (m.from === sqIdx(0,7) || m.to === sqIdx(0,7)) this.castling.q = false;
-    if (m.from === sqIdx(7,7) || m.to === sqIdx(7,7)) this.castling.k = false;
+    // A move from or to a castling rook's home square ends that right —
+    // whichever square that happens to be.
+    for (const right of ['K', 'Q', 'k', 'q']) {
+      if (!this.castling[right]) continue;
+      const rookHome = sqIdx(this.castleRook[right], right === right.toUpperCase() ? 0 : 7);
+      if (m.from === rookHome || m.to === rookHome) this.castling[right] = false;
+    }
 
     this.ep = (m.ep_set != null) ? m.ep_set : null;
 
@@ -401,24 +520,26 @@ class Chess {
     this.fullmove = h.fullmove;
     this.turn = h.turn;
 
-    const movedPiece = this.squares[m.to];
-    this.squares[m.from] = m.promo ? { t: 'p', c: movedPiece.c } : movedPiece;
-
-    if (m.enpassant) {
-      this.squares[m.to] = null;
-      this.squares[sqIdx(fileOf(m.to), rankOf(m.from))] = h.captured;
+    if (m.castle) {
+      const r = rankOf(m.from);
+      const kingTo = sqIdx(m.castle === 'K' ? 6 : 2, r);
+      const rookTo = sqIdx(m.castle === 'K' ? 5 : 3, r);
+      const rookFrom = m.rookFrom != null ? m.rookFrom : sqIdx(m.castle === 'K' ? 7 : 0, r);
+      const king = this.squares[kingTo];
+      const rook = this.squares[rookTo];
+      this.squares[kingTo] = null;
+      this.squares[rookTo] = null;
+      this.squares[m.from] = king;
+      this.squares[rookFrom] = rook;
     } else {
-      this.squares[m.to] = h.captured;
-    }
-
-    if (m.castle === 'K') {
-      const r = rankOf(m.from);
-      this.squares[sqIdx(7, r)] = this.squares[sqIdx(5, r)];
-      this.squares[sqIdx(5, r)] = null;
-    } else if (m.castle === 'Q') {
-      const r = rankOf(m.from);
-      this.squares[sqIdx(0, r)] = this.squares[sqIdx(3, r)];
-      this.squares[sqIdx(3, r)] = null;
+      const movedPiece = this.squares[m.to];
+      this.squares[m.from] = m.promo ? { t: 'p', c: movedPiece.c } : movedPiece;
+      if (m.enpassant) {
+        this.squares[m.to] = null;
+        this.squares[sqIdx(fileOf(m.to), rankOf(m.from))] = h.captured;
+      } else {
+        this.squares[m.to] = h.captured;
+      }
     }
   }
 

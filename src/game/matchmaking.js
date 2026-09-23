@@ -12,11 +12,12 @@
 const queries = require("../db/queries");
 const rooms = require("./rooms");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
+const chess960 = require("../shared/chess960");
 
 // poolKey -> sockets currently seeking a match in that pool
 const pools = new Map();
 
-const poolKey = (tcKey, rated) => `${tcKey}|${rated ? 1 : 0}`;
+const poolKey = (tcKey, rated, variant) => `${tcKey}|${rated ? 1 : 0}|${variant}`;
 
 function poolFor(key) {
   let pool = pools.get(key);
@@ -33,7 +34,8 @@ function join(io, socket, payload) {
 
   const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
   const rated = !payload || payload.rated !== false;
-  const key = poolKey(tc.key, rated);
+  const variant = payload && payload.variant === "chess960" ? "chess960" : "standard";
+  const key = poolKey(tc.key, rated, variant);
   const pool = poolFor(key);
 
   // Pair with the first waiter who is a different user and still connected.
@@ -41,7 +43,7 @@ function join(io, socket, payload) {
   if (idx === -1) {
     socket.matchPool = key;
     pool.push(socket);
-    socket.emit("lobby:waiting", { tc: tc.key, rated });
+    socket.emit("lobby:waiting", { tc: tc.key, rated, variant });
     return;
   }
   const opponent = pool.splice(idx, 1)[0];
@@ -52,7 +54,7 @@ function join(io, socket, payload) {
     io,
     oppIsWhite ? opponent : socket,
     oppIsWhite ? socket : opponent,
-    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, rated }
+    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, rated, variant }
   );
 }
 
@@ -70,9 +72,13 @@ function leave(socket) {
 // caller. Used by quick-match (random colours), by the lobby's seeks and
 // challenges (offerer's preference), and by rematch (colours swapped).
 function startMatch(io, white, black, opts) {
-  // A handicap offer carries its own start position; everything else begins
-  // from the standard setup.
-  const start = (opts && opts.startFen) || rooms.STANDARD_START;
+  const variant = (opts && opts.variant) || "standard";
+  // A handicap offer carries its own start position, and Chess960 draws a fresh
+  // random back rank per game. Everything downstream just sees a start position.
+  const start =
+    variant === "chess960"
+      ? chess960.randomFen()
+      : (opts && opts.startFen) || rooms.STANDARD_START;
   const tc = resolveTimeControl(DEFAULT_TC);
   const initialMs = opts && opts.initialMs != null ? opts.initialMs : tc.initialMs;
   const incrementMs = opts && opts.incrementMs != null ? opts.incrementMs : tc.incrementMs;
@@ -80,7 +86,7 @@ function startMatch(io, white, black, opts) {
 
   const info = queries.createGame.run(
     white.userId, black.userId, "pvp", null, null, start, start, "w",
-    initialMs, incrementMs, rated ? 1 : 0
+    initialMs, incrementMs, rated ? 1 : 0, variant
   );
   const gameId = Number(info.lastInsertRowid);
 
@@ -90,6 +96,7 @@ function startMatch(io, white, black, opts) {
     whiteName: white.username,
     blackName: black.username,
     startFen: start,
+    variant,
     initialMs,
     incrementMs,
     rated,

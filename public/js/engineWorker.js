@@ -27,16 +27,15 @@
 importScripts("/js/chess.js", "/js/lorfish.js");
 
 const alg = (sq) => String.fromCharCode(97 + (sq & 7)) + ((sq >> 3) + 1);
-const uciOf = (m) => alg(m.from) + alg(m.to) + (m.promo || "");
+const uciOf = (m) =>
+  alg(m.from) + alg(m.castle && m.rookFrom != null ? m.rookFrom : m.to) + (m.promo || "");
 
 function findUci(chess, uci) {
   if (typeof uci !== "string" || uci.length < 4) return null;
   const from = (uci.charCodeAt(0) - 97) + (Number(uci[1]) - 1) * 8;
   const to = (uci.charCodeAt(2) - 97) + (Number(uci[3]) - 1) * 8;
   const promo = uci[4] || null;
-  return chess.legalMoves().find(
-    (m) => m.from === from && m.to === to && (promo ? m.promo === promo : !m.promo)
-  ) || null;
+  return chess.findMove(from, to, promo);
 }
 
 // Walk the game from the start, assessing the position BEFORE each move and
@@ -88,12 +87,7 @@ self.onmessage = (e) => {
     else chess.reset();
 
     for (const mv of moves || []) {
-      const match = chess.legalMoves().find(
-        (m) =>
-          m.from === mv.from &&
-          m.to === mv.to &&
-          (mv.promo ? m.promo === mv.promo : !m.promo)
-      );
+      const match = chess.findMove(mv.from, mv.to, mv.promo);
       if (!match) {
         self.postMessage({ id, move: null, error: "illegal move during replay" });
         return;

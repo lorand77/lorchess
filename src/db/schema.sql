@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS games (
   increment_ms INTEGER,
   -- Whether the result moves Elo. AI games are always unrated.
   rated        INTEGER NOT NULL DEFAULT 1,
+  -- 'standard' or a variant key ('chess960'). The rules are identical either
+  -- way; what differs is the starting position, which is in start_fen.
+  variant      TEXT NOT NULL DEFAULT 'standard',
   -- Remaining time per side, written on every move. This is what lets a game
   -- survive a server restart: the position comes from `moves`, the clocks from
   -- here. NULL means "never recorded", i.e. fall back to initial_ms.

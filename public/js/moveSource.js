@@ -91,8 +91,15 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
       busy = true;
       socket.emit(
         "move:make",
-        { gameId, from: move.from, to: move.to, promo: move.promo || null,
-          premove: !!(opts && opts.premove) },
+        {
+          gameId,
+          from: move.from,
+          // Castling points at the rook (see Chess.findMove): in Chess960 the
+          // king's destination on its own can be ambiguous with a quiet move.
+          to: move.castle && move.rookFrom != null ? move.rookFrom : move.to,
+          promo: move.promo || null,
+          premove: !!(opts && opts.premove),
+        },
         (resp) => {
           if (!resp || !resp.ok) {
             busy = false; // rejected — let the player try again

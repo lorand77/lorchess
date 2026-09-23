@@ -1209,3 +1209,6 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
   white-space: nowrap;
   z-index: 2;
 }
+
+/* Variant badge on an offer, challenge or live game. */
+.tag.variant { background: #2f4a70; color: #bcd4f5; }

@@ -18,6 +18,11 @@ const rooms = require("./rooms");
 const { resolveTimeControl } = require("../shared/timeControls");
 const { Chess } = require("../shared/chess");
 const handicap = require("../shared/handicap");
+const chess960 = require("../shared/chess960");
+
+// Variants share every rule with standard chess; only the starting position
+// differs. An allowlist, so a crafted payload can't name anything else.
+const VARIANTS = new Set(["standard", "chess960"]);
 
 const LOBBY_ROOM = "lobby";
 
@@ -175,6 +180,7 @@ function snapshot() {
       black: { userId: r.players.b, username: r.names.b, rating: ratingOf(r.players.b) },
       tc: r.timeControl,
       rated: r.rated,
+      variant: r.variant,
       spectators: r.spectators.size,
       // For the lobby's board previews. Kept fresh by nudge() below rather
       // than by a broadcast on every single move.
@@ -193,6 +199,7 @@ function snapshot() {
     tc: s.tc,
     rated: s.rated,
     color: s.color,
+    variant: s.variant || "standard",
     handicap: s.handicap ? s.handicap.label : null,
   }));
   return { players, seeks: open, games };
@@ -209,6 +216,7 @@ function pushChallenges(io, userId) {
       tc: c.tc,
       rated: c.rated,
       color: c.color,
+      variant: c.variant || "standard",
       handicap: c.handicap ? c.handicap.label : null,
       from: { userId: c.fromId, username: c.fromName, rating: c.fromRating },
       to: { userId: c.toId, username: c.toName },
@@ -254,8 +262,15 @@ function normalizeOffer(payload) {
   const tc = resolveTimeControl(p.tc);
   const color = p.color === "w" || p.color === "b" ? p.color : "random";
 
+  const variant = VARIANTS.has(p.variant) ? p.variant : "standard";
+
   let odds = null;
   if (p.handicap) {
+    // Handicaps are defined as removals from the standard setup, so they have
+    // no meaning on a shuffled back rank.
+    if (variant !== "standard") {
+      return { ok: false, error: "A handicap can only be set on a standard game." };
+    }
     const resolved = resolveHandicap(p.handicap);
     if (!resolved.ok) return { ok: false, error: resolved.error };
     odds = resolved.handicap;
@@ -268,6 +283,7 @@ function normalizeOffer(payload) {
       // Material odds are never rated: they would poison both players' Elo.
       rated: odds ? false : p.rated !== false,
       color,
+      variant,
       handicap: odds,
     },
   };
@@ -287,6 +303,7 @@ function optsOf(offer) {
     initialMs: tc.initialMs,
     incrementMs: tc.incrementMs,
     rated: offer.rated,
+    variant: offer.variant || "standard",
     startFen: offer.handicap ? offer.handicap.fen : null,
   };
 }

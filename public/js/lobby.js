@@ -12,6 +12,7 @@ const errorEl       = document.getElementById("lobbyError");
 const tcSelect      = document.getElementById("tcSelect");
 const colorSelect   = document.getElementById("colorSelect");
 const ratedCheck    = document.getElementById("ratedCheck");
+const variantSelect = document.getElementById("variantSelect");
 const handicapBtn   = document.getElementById("handicapBtn");
 const handicapSumEl = document.getElementById("handicapSummary");
 const handicapClear = document.getElementById("handicapClear");
@@ -92,8 +93,22 @@ const currentOffer = () => ({
   color: colorSelect.value,
   // Material odds are never rated. The server enforces this independently.
   rated: handicapRemoved ? false : ratedCheck.checked,
+  variant: variantSelect.value,
   handicap: handicapRemoved ? { removed: handicapRemoved } : null,
 });
+
+// A handicap is defined as removals from the standard setup, so the two can't
+// be combined. Whichever you pick second disables the other.
+function renderVariant() {
+  const is960 = variantSelect.value === "chess960";
+  handicapBtn.disabled = is960;
+  handicapBtn.title = is960 ? "Handicaps only apply to a standard game" : "";
+  if (is960 && handicapRemoved) {
+    handicapRemoved = null;
+    renderHandicap();
+  }
+}
+variantSelect.addEventListener("change", renderVariant);
 
 // --- handicap ---
 
@@ -101,6 +116,8 @@ const currentOffer = () => ({
 // off, since the server will refuse to rate the game either way.
 function renderHandicap() {
   const on = !!handicapRemoved;
+  if (on) variantSelect.value = "standard";
+  variantSelect.disabled = on;
   handicapBtn.textContent = on ? "⚖ Edit handicap…" : "⚖ Handicap…";
   handicapSumEl.textContent = on ? describe(handicapRemoved) + " — casual only" : "";
   handicapClear.style.display = on ? "" : "none";
@@ -144,6 +161,7 @@ const socket = connectSocket({
     setStatus("connected", "ok");
     seekBtn.disabled = false;
     renderHandicap(); // also decides whether Quick Match is offered
+    renderVariant();
     socket.emit("lobby:enter");
   },
   // The user chip beside this already names them, so just report the link.
@@ -175,7 +193,7 @@ quickBtn.addEventListener("click", () => {
     return;
   }
   const offer = currentOffer();
-  socket.emit("lobby:join", { tc: offer.tc, rated: offer.rated });
+  socket.emit("lobby:join", { tc: offer.tc, rated: offer.rated, variant: offer.variant });
   searching = true;
   quickBtn.textContent = "Cancel";
   matchStatusEl.textContent = "searching for an opponent…";
@@ -239,6 +257,7 @@ function renderSeeks() {
     who.appendChild(el("span", "rating", "(" + s.rating + ")"));
     who.appendChild(el("span", "tag", tcLabel(s.tc)));
     who.appendChild(el("span", "tag " + (s.rated ? "rated" : "casual"), s.rated ? "rated" : "casual"));
+    if (s.variant === "chess960") who.appendChild(el("span", "tag variant", "Chess960"));
     if (s.handicap) who.appendChild(el("span", "tag handicap", s.handicap));
     who.appendChild(el("span", "muted small", colorNote(s.color)));
     row.appendChild(who);
@@ -295,6 +314,7 @@ function renderGames() {
     const tags = el("div");
     tags.appendChild(el("span", "tag", g.tc));
     tags.appendChild(el("span", "tag " + (g.rated ? "rated" : "casual"), g.rated ? "rated" : "casual"));
+    if (g.variant === "chess960") tags.appendChild(el("span", "tag variant", "Chess960"));
     if (g.handicap) tags.appendChild(el("span", "tag handicap", g.handicap));
     meta.appendChild(tags);
 
@@ -378,6 +398,7 @@ function renderIncoming() {
     text.appendChild(document.createTextNode(" challenges you — "));
     text.appendChild(el("span", "tag", tcLabel(c.tc)));
     text.appendChild(el("span", "tag " + (c.rated ? "rated" : "casual"), c.rated ? "rated" : "casual"));
+    if (c.variant === "chess960") text.appendChild(el("span", "tag variant", "Chess960"));
     if (c.handicap) text.appendChild(el("span", "tag handicap", c.handicap));
     text.appendChild(el("span", "muted small", colorNote(c.color)));
     box.appendChild(text);

@@ -100,9 +100,7 @@ function findUci(uci) {
   const from = sqOf(uci.slice(0, 2));
   const to = sqOf(uci.slice(2, 4));
   const promo = uci[4] || null;
-  return chess
-    .legalMoves()
-    .find((m) => m.from === from && m.to === to && (promo ? m.promo === promo : !m.promo));
+  return chess.findMove(from, to, promo);
 }
 
 function pieceImgSrc(p) {

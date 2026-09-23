@@ -20,7 +20,7 @@ const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 function createRoom(
   gameId,
   { whiteId, blackId, whiteName, blackName, startFen, initialMs, incrementMs, rated,
-    clockW, clockB, rehydrated }
+    clockW, clockB, rehydrated, variant }
 ) {
   // Games created before per-game time controls existed have NULL clock
   // columns; fall back to the server-wide default so they still run.
@@ -63,6 +63,7 @@ function createRoom(
     rated: rated == null ? true : !!rated,
     // "White −Q" style summary when the game started from a handicap position,
     // recovered from start_fen so it survives a restart. null for a normal game.
+    variant: variant || "standard",
     handicap: handicapLabel(startFen),
     turnStartedAt: null,
     started: false,
@@ -165,6 +166,7 @@ function loadRoomFromDb(gameId) {
     initialMs: game.initial_ms,
     incrementMs: game.increment_ms,
     rated: game.rated,
+    variant: game.variant,
     clockW: game.clock_w_ms,
     clockB: game.clock_b_ms,
     rehydrated: true,
@@ -174,9 +176,7 @@ function loadRoomFromDb(gameId) {
     const from = sqFromAlg(m.uci.slice(0, 2));
     const to = sqFromAlg(m.uci.slice(2, 4));
     const promo = m.uci[4] || null;
-    const mv = room.chess
-      .legalMoves()
-      .find((x) => x.from === from && x.to === to && (promo ? x.promo === promo : !x.promo));
+    const mv = room.chess.findMove(from, to, promo);
     if (mv) room.chess.makeMove(mv);
     room.sans.push(m.san);
   }

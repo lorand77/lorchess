@@ -48,6 +48,9 @@ if (addColumnIfMissing("users", "chat_count", "INTEGER NOT NULL DEFAULT 0")) {
 }
 // When the user became a member, or NULL if they never redeemed a code.
 addColumnIfMissing("users", "member_since", "TEXT");
+// Chess variants. Only the starting position differs, so existing games are
+// correctly labelled 'standard' by the default.
+addColumnIfMissing("games", "variant", "TEXT NOT NULL DEFAULT 'standard'");
 // Look & feel preferences (board colours, background colour) as a JSON blob.
 addColumnIfMissing("users", "prefs", "TEXT");
 // Puzzle Elo (separate from the game rating) and the daily-puzzle streak.

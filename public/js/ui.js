@@ -97,10 +97,7 @@ const env = {
 // confirmed moves, and the opponent's moves. `record` persists client-side
 // (AI mode only); in PvP the server already persisted it.
 function applyMove(rmove, record, opts) {
-  const move = chess.legalMoves().find(m =>
-    m.from === rmove.from &&
-    m.to === rmove.to &&
-    (rmove.promo ? m.promo === rmove.promo : !m.promo));
+  const move = chess.findMove(rmove.from, rmove.to, rmove.promo);
   if (!move) {
     console.error('Move is not legal here:', rmove);
     return;
@@ -479,7 +476,10 @@ function render() {
       }
 
       if (selected !== null) {
-        const m = legalFromSelected.find(x => x.to === sq);
+        // Castling is offered on the rook's square too: in Chess960 that is
+        // sometimes the only square that can express it.
+        const m = legalFromSelected.find(x => x.to === sq)
+          || legalFromSelected.find(x => x.castle && x.rookFrom === sq);
         if (m) {
           const hint = document.createElement('div');
           hint.className = 'hint';
@@ -681,7 +681,10 @@ function attemptMove(from, to, viaDrag) {
     return true;
   }
   const moves = chess.legalMoves().filter(m => m.from === from);
-  const candidate = moves.find(m => m.to === to);
+  // findMove also accepts the king dropped on its own rook, which is how
+  // castling is expressed in Chess960 — there the king's castling destination
+  // can be its own square, or a square its rook already occupies.
+  const candidate = chess.findMove(from, to);
   if (!candidate) return false;
   const piece = chess.squares[from];
   if (piece && piece.t === 'p' && (rankOf(to) === 0 || rankOf(to) === 7)) {
@@ -1464,6 +1467,7 @@ function applyPvpState(socket, state) {
   const tcLine = document.getElementById('tcLine');
   if (tcLine && state.timeControl) {
     let line = state.timeControl + ' · ' + (state.rated ? 'rated' : 'casual');
+    if (state.variant === 'chess960') line += ' · Chess960';
     if (state.handicap) line += ' · handicap: ' + state.handicap;
     tcLine.textContent = line;
   }

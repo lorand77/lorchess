@@ -311,6 +311,7 @@ function stateOf(room, color) {
     // client knows to put a SetUp/FEN header in the exported PGN.
     startFen: room.startFen && room.startFen !== rooms.STANDARD_START ? room.startFen : null,
     handicap: room.handicap,
+    variant: room.variant,
     spectators: room.spectators.size,
     // Only this recipient's side of the conversation. `color` is null for a
     // spectator, which is exactly the audience distinction we need.
@@ -445,9 +446,7 @@ function handleMove(io, socket, payload, ack) {
 
   // (3) Legality — match against the server's own legal moves. Never trust client.
   const { from, to, promo } = payload || {};
-  const move = room.chess
-    .legalMoves()
-    .find((m) => m.from === from && m.to === to && (promo ? m.promo === promo : !m.promo));
+  const move = room.chess.findMove(from, to, promo);
   if (!move) return reply(ack, { ok: false, error: "Illegal move." });
 
   // (3b) Clock: charge the mover for their think time; flag if they're out.
@@ -576,6 +575,8 @@ function handleRematchOffer(io, socket, payload) {
       initialMs: game.initial_ms,
       incrementMs: game.increment_ms,
       rated: !!game.rated,
+      // A Chess960 rematch draws a new position rather than repeating the old.
+      variant: game.variant || "standard",
     });
   }
   socket.to(`game:${gameId}`).emit("rematch:offered", { username: socket.username });
@@ -646,7 +647,10 @@ function onGraceExpired(io, gameId, color) {
 
 function uciOf(move) {
   const alg = (sq) => String.fromCharCode(97 + (sq & 7)) + ((sq >> 3) + 1);
-  return alg(move.from) + alg(move.to) + (move.promo || "");
+  // Castling points at the rook, not the king's destination — see
+  // Chess.findMove for why.
+  const to = move.castle && move.rookFrom != null ? move.rookFrom : move.to;
+  return alg(move.from) + alg(to) + (move.promo || "");
 }
 
 function terminationOf(chess) {
