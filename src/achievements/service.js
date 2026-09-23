@@ -84,10 +84,14 @@ function analyze(game, moves) {
   } catch (e) {
     return null;
   }
-  const removed = startFen === STANDARD_START ? [] : handicap.removalsFromFen(startFen);
+  // The handicap changes behind this start position, if it is one. Now that a
+  // handicap can swap pieces as well as remove them, this is a map rather than
+  // a list of squares.
+  const changes = startFen === STANDARD_START ? {} : handicap.diffFromFen(startFen);
   const standardStart = startFen === STANDARD_START;
   // A handicap is a known, server-built position; anything else is a pasted FEN.
-  const trustedStart = standardStart || (Array.isArray(removed) && removed.length > 0);
+  const trustedStart =
+    standardStart || (changes !== null && typeof changes === "object" && Object.keys(changes).length > 0);
 
   const plies = [];
   for (const m of moves) {
@@ -130,7 +134,7 @@ function analyze(game, moves) {
     plies,
     standardStart,
     trustedStart,
-    removed: Array.isArray(removed) ? removed : [],
+    changes: changes && typeof changes === "object" ? changes : {},
     winner,
     checkmate: game.termination === "checkmate" && chess.isCheckmate(),
     stalemate: game.termination === "stalemate" && chess.isStalemate(),
@@ -175,12 +179,14 @@ function mirrorUci(uci) {
   return flip(uci.slice(0, 2)) + flip(uci.slice(2, 4)) + (uci[4] || "");
 }
 
-// Highest-value piece among `removed` squares belonging to `color`:
-// 1 pawn, 2 minor, 3 rook, 4 queen; 0 if nothing of theirs was removed.
-function oddsTier(removed, color) {
+// Highest-value piece `color` gave away outright: 1 pawn, 2 minor, 3 rook,
+// 4 queen; 0 if they surrendered nothing. Only removals count — swapping a
+// queen for a knight is a different kind of odds and isn't what this measures.
+function oddsTier(changes, color) {
   let best = 0;
-  for (const sq of removed) {
-    const p = handicap.START_PIECES[sq];
+  for (const key of Object.keys(changes || {})) {
+    if (changes[key] !== null) continue; // replaced, not given up
+    const p = handicap.START_PIECES[Number(key)];
     if (!p || (handicap.isWhitePiece(p) ? "w" : "b") !== color) continue;
     const t = { P: 1, N: 2, B: 2, R: 3, Q: 4 }[p.toUpperCase()] || 0;
     if (t > best) best = t;
@@ -277,8 +283,8 @@ const GAME_CHECKS = {
   // formats
   beat_fish_2: (c) => c.won && c.game.mode === "ai" && c.game.ai_depth === 2,
   fish_slayer: (c) => c.won && c.game.mode === "ai" && c.game.ai_depth >= MAX_AI_DEPTH,
-  giving_odds: (c) => (c.won ? oddsTier(c.a.removed, c.me) : 0),
-  handicap_hustler: (c) => c.won && c.game.mode === "pvp" && oddsTier(c.a.removed, c.me) === 4,
+  giving_odds: (c) => (c.won ? oddsTier(c.a.changes, c.me) : 0),
+  handicap_hustler: (c) => c.won && c.game.mode === "pvp" && oddsTier(c.a.changes, c.me) === 4,
   iron_man: (c) => c.plies >= 199,
   // A resignation counts, but not one so early there was no game to speak of.
   blitzkrieg: (c) =>

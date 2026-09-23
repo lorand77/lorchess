@@ -24,7 +24,7 @@ const rejoinEl      = document.getElementById("rejoin");
 
 let searching = false;   // in the quick-match queue
 let myseek = null;       // our own open seek, if any
-let handicapRemoved = null; // squares to clear for material odds, or null
+let handicapChanges = null; // start-square changes for material odds, or null
 let ratedBeforeHandicap = true; // restored when the handicap is cleared
 let friendIds = new Set();  // to star friends in the players list
 let lastState = { players: [], seeks: [], games: [] };
@@ -92,9 +92,9 @@ const currentOffer = () => ({
   tc: tcSelect.value,
   color: colorSelect.value,
   // Material odds are never rated. The server enforces this independently.
-  rated: handicapRemoved ? false : ratedCheck.checked,
+  rated: handicapChanges ? false : ratedCheck.checked,
   variant: variantSelect.value,
-  handicap: handicapRemoved ? { removed: handicapRemoved } : null,
+  handicap: handicapChanges ? { squares: handicapChanges } : null,
 });
 
 // A handicap is defined as removals from the standard setup, so the two can't
@@ -103,8 +103,8 @@ function renderVariant() {
   const is960 = variantSelect.value === "chess960";
   handicapBtn.disabled = is960;
   handicapBtn.title = is960 ? "Handicaps only apply to a standard game" : "";
-  if (is960 && handicapRemoved) {
-    handicapRemoved = null;
+  if (is960 && handicapChanges) {
+    handicapChanges = null;
     renderHandicap();
   }
 }
@@ -115,11 +115,11 @@ variantSelect.addEventListener("change", renderVariant);
 // Reflect the current handicap in the form: show the terms, and hold "Rated"
 // off, since the server will refuse to rate the game either way.
 function renderHandicap() {
-  const on = !!handicapRemoved;
+  const on = !!handicapChanges;
   if (on) variantSelect.value = "standard";
   variantSelect.disabled = on;
   handicapBtn.textContent = on ? "⚖ Edit handicap…" : "⚖ Handicap…";
-  handicapSumEl.textContent = on ? describe(handicapRemoved) + " — casual only" : "";
+  handicapSumEl.textContent = on ? describe(handicapChanges) + " — casual only" : "";
   handicapClear.style.display = on ? "" : "none";
   ratedCheck.disabled = on;
   if (on) ratedCheck.checked = false;
@@ -139,18 +139,18 @@ function renderHandicap() {
 }
 
 handicapBtn.addEventListener("click", () => {
-  if (!handicapRemoved) ratedBeforeHandicap = ratedCheck.checked;
+  if (!handicapChanges) ratedBeforeHandicap = ratedCheck.checked;
   PositionEditor.open({
-    removed: handicapRemoved || [],
-    onSave: (removed) => {
-      handicapRemoved = removed.length ? removed : null;
+    squares: handicapChanges || {},
+    onSave: (squares) => {
+      handicapChanges = Object.keys(squares).length ? squares : null;
       renderHandicap();
     },
   });
 });
 
 handicapClear.addEventListener("click", () => {
-  handicapRemoved = null;
+  handicapChanges = null;
   renderHandicap();
 });
 

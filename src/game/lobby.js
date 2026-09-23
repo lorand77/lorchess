@@ -230,13 +230,14 @@ function pushChallenges(io, userId) {
 // ---- offer validation ----
 
 // Turn a client's handicap request into a position WE built. The payload is a
-// list of squares to clear, never a FEN, so the only thing anyone can express
-// is "take these pieces off the standard setup".
+// map of changes to the 32 starting squares, never a FEN, so the only thing
+// anyone can express is a rearrangement of that setup — pieces removed or
+// swapped for other pieces. Colour comes from the square, never the payload.
 function resolveHandicap(request) {
-  const check = handicap.validateRemovals(request && request.removed);
+  const check = handicap.validateSquares(request && request.squares);
   if (!check.ok) return { ok: false, error: check.error };
 
-  const fen = handicap.buildFen(check.removed);
+  const fen = handicap.buildFen(check.squares);
   const chess = new Chess();
   try {
     chess.loadFen(fen);
@@ -247,9 +248,14 @@ function resolveHandicap(request) {
   if (chess.isGameOver()) {
     return { ok: false, error: "That leaves too little material — the game would be drawn at once." };
   }
+  // Now that pieces can be added, a start position can put someone in check
+  // before a move is played. Legal chess, but not a sane way to begin a game.
+  if (chess.inCheck("w") || chess.inCheck("b")) {
+    return { ok: false, error: "That position starts with a king in check." };
+  }
   return {
     ok: true,
-    handicap: { removed: check.removed, fen, label: handicap.describe(check.removed) },
+    handicap: { squares: check.squares, fen, label: handicap.describe(check.squares) },
   };
 }
 

@@ -84,8 +84,8 @@ function createRoom(
 // Describe a start position that is the standard setup minus some pieces.
 function handicapLabel(startFen) {
   if (!startFen || startFen === STANDARD_START) return null;
-  const removed = handicap.removalsFromFen(startFen);
-  return removed && removed.length ? handicap.describe(removed) : null;
+  const changes = handicap.diffFromFen(startFen);
+  return changes && Object.keys(changes).length ? handicap.describe(changes) : null;
 }
 
 // Current clocks, decrementing the side-to-move by the time elapsed since their

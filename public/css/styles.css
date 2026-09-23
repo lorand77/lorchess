@@ -1212,3 +1212,26 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 
 /* Variant badge on an offer, challenge or live game. */
 .tag.variant { background: #2f4a70; color: #bcd4f5; }
+
+/* Handicap editor: the tool palette, and squares holding a swapped piece. */
+.editor-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.editor-tool {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 5px 9px;
+  font-size: 12px;
+  background: #4a4a4a;
+}
+.editor-tool:hover { background: #575757; }
+.editor-tool.active { background: #3d6098; color: #fff; font-weight: bold; }
+.editor-tool img { width: 18px; height: 18px; display: block; }
+.editor-tool .tool-icon { width: 18px; text-align: center; }
+/* A square now holding something other than its original piece. */
+.editor-board .square.swapped { box-shadow: inset 0 0 0 3px rgba(255, 196, 238, 0.85); }
