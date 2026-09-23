@@ -78,6 +78,17 @@
       rows.appendChild(tr);
     }
 
+    Chart.line(document.getElementById("ratingChart"), {
+      points: (d.games.ratingHistory || []).map((h) => ({
+        at: h.at,
+        value: h.value,
+        note: h.delta == null ? "" : "(" + (h.delta >= 0 ? "+" : "") + h.delta + ")",
+      })),
+      color: Chart.COLORS.green,
+      ariaLabel: "Rating over time",
+      empty: "Your rating history starts with your next rated game against another player.",
+    });
+
     Chart.line(document.getElementById("gameChart"), {
       points: d.games.history.map((h) => ({ at: h.at, value: h.value })),
       color: Chart.COLORS.blue,

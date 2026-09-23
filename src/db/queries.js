@@ -262,6 +262,13 @@ module.exports = {
     WHERE status = 'finished' AND (white_id = ? OR black_id = ?)
     ORDER BY COALESCE(finished_at, created_at), id
   `),
+  // Game rating after each rated game, for the profile's rating chart.
+  // rating_history is written by applyElo (src/game/socket.js), so it covers
+  // every rated PvP game since that was added — and nothing before it.
+  profileRatingHistory: db.prepare(`
+    SELECT game_id, rating_before, rating_after, created_at
+    FROM rating_history WHERE user_id = ? ORDER BY id
+  `),
   // Puzzle rating after each attempt, for the puzzle chart.
   profilePuzzleHistory: db.prepare(`
     SELECT rating_after, solved, created_at

@@ -141,7 +141,8 @@ window.Chart = (function () {
       dot.setAttribute("cx", x(best));
       dot.setAttribute("cy", y(p.value));
       dot.setAttribute("opacity", 1);
-      tip.textContent = fmt(p.value) + (p.at ? " · " + shortDate(p.at) : "");
+      tip.textContent = fmt(p.value) + (p.note ? " " + p.note : "") +
+        (p.at ? " · " + shortDate(p.at) : "");
       tip.style.display = "";
       const left = (x(best) / W) * box.width;
       tip.style.left = Math.max(0, Math.min(box.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + "px";

@@ -72,6 +72,23 @@ function buildStats(userId) {
   };
 }
 
+// Rating after each rated game, from the rating_history rows applyElo writes.
+// Prepending the starting point makes a first game render as a line rather than
+// a lone dot with nothing to compare it to.
+function buildRatingHistory(userId) {
+  const rows = queries.profileRatingHistory.all(userId);
+  if (!rows.length) return [];
+  const points = [{ at: rows[0].created_at, value: rows[0].rating_before, delta: null }];
+  for (const r of rows) {
+    points.push({
+      at: r.created_at,
+      value: r.rating_after,
+      delta: r.rating_after - r.rating_before,
+    });
+  }
+  return points;
+}
+
 function buildPuzzles(userId) {
   const rows = queries.profilePuzzleHistory.all(userId);
   const solved = rows.filter((r) => r.solved).length;
@@ -97,7 +114,7 @@ function profileFor(userId) {
       createdAt: user.created_at,
       member: !!user.member_since,
     },
-    games: buildStats(userId),
+    games: { ...buildStats(userId), ratingHistory: buildRatingHistory(userId) },
     puzzles: buildPuzzles(userId),
   };
 }
