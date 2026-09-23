@@ -1153,3 +1153,59 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 .member-perks { margin: 10px 0 0; padding-left: 20px; font-size: 13px; color: #d8d8d8; }
 .member-perks li { margin: 4px 0; }
 .review-start.review-locked { flex-wrap: wrap; gap: 6px; }
+
+/* ---- player profile (public/js/profile.js) ---- */
+.profile-page { width: 700px; max-width: 100%; margin: 24px auto 0; }
+.profile-page h1 { margin: 0 0 4px; }
+.profile-page .panel { margin: 16px 0; }
+.profile-page h3 { margin: 18px 0 2px; font-size: 14px; }
+
+/* KPI row: headline numbers, not a chart. */
+.stat-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.stat-tile {
+  flex: 1 1 88px;
+  padding: 10px 12px;
+  background: #2b2b2b;
+  border-radius: 6px;
+}
+.stat-value { font-size: 22px; font-weight: bold; color: #fff; line-height: 1.1; }
+.stat-tile.good .stat-value { color: #8fc98f; }
+.stat-tile.bad  .stat-value { color: #e08a8a; }
+.stat-label { margin-top: 2px; font-size: 11px; color: #969696; }
+
+.colour-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+.colour-table th, .colour-table td { padding: 6px 8px; text-align: right; }
+.colour-table th:first-child, .colour-table td:first-child { text-align: left; }
+.colour-table thead th { color: #969696; font-weight: normal; border-bottom: 1px solid #4a4a4a; }
+
+/* One thin part-to-whole bar. The 2px gaps are a real encoding channel here,
+   not decoration: they separate fills whose hues sit in the CVD floor band. */
+.record-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  margin-top: 12px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.record-seg { min-width: 3px; }
+.record-key { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; font-size: 12px; color: #d8d8d8; }
+.record-key-item { display: inline-flex; align-items: center; gap: 5px; }
+.record-key-item i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* Charts */
+.chart { position: relative; margin-top: 6px; }
+.chart-svg { display: block; width: 100%; height: auto; }
+.chart-empty { margin: 10px 0; color: #969696; font-size: 13px; }
+.chart-tip {
+  position: absolute;
+  padding: 3px 7px;
+  background: #1e1e1e;
+  border: 1px solid #5a5a5a;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #e6e6e6;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}

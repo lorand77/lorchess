@@ -252,6 +252,22 @@ module.exports = {
     ) ORDER BY id ASC
   `),
 
+  // --- profile ---
+  // Every finished game a user played, oldest first. The profile computes its
+  // own totals from these rather than running a query per statistic, and needs
+  // the ordered list for the performance chart anyway.
+  profileGames: db.prepare(`
+    SELECT id, white_id, black_id, mode, result, rated, finished_at
+    FROM games
+    WHERE status = 'finished' AND (white_id = ? OR black_id = ?)
+    ORDER BY COALESCE(finished_at, created_at), id
+  `),
+  // Puzzle rating after each attempt, for the puzzle chart.
+  profilePuzzleHistory: db.prepare(`
+    SELECT rating_after, solved, created_at
+    FROM puzzle_attempts WHERE user_id = ? ORDER BY id
+  `),
+
   // --- moves ---
   insertMove: db.prepare(`
     INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user, premove)

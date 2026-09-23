@@ -16,6 +16,7 @@
   const ITEMS = [
     { href: "/lobby.html",        icon: "▶",  label: "Play" },
     { href: "/puzzles.html",      icon: "🧩", label: "Puzzles" },
+    { href: "/profile.html",      icon: "👤", label: "Profile" },
     { href: "/history.html",      icon: "📜", label: "My Games" },
     { href: "/achievements.html", icon: "🏅", label: "Achievements" },
     { href: "/friends.html",      icon: "👥", label: "Friends" },

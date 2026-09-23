@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Profile</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="profile-page">
+  <h1 id="profileName">Profile</h1>
+  <p class="muted small" id="profileMeta"></p>
+  <p id="profileError" class="check-text"></p>
+
+  <div id="profileBody" style="display:none;">
+    <!-- Headline numbers: a KPI row, not a chart. -->
+    <div class="stat-row" id="ratingRow"></div>
+
+    <section class="panel">
+      <h2>Games against players</h2>
+      <div class="stat-row" id="gameStats"></div>
+      <div id="recordBar"></div>
+      <table class="colour-table">
+        <thead><tr><th>As</th><th>Played</th><th>Won</th><th>Lost</th><th>Drawn</th><th>Win rate</th></tr></thead>
+        <tbody id="colourRows"></tbody>
+      </table>
+      <h3>Form over time</h3>
+      <p class="muted small">Running wins minus losses. Rising means you're winning more than you lose.</p>
+      <div class="chart" id="gameChart"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Puzzles</h2>
+      <div class="stat-row" id="puzzleStats"></div>
+      <h3>Puzzle rating</h3>
+      <p class="muted small">After every rated attempt.</p>
+      <div class="chart" id="puzzleChart"></div>
+    </section>
+
+    <section class="panel" id="aiPanel">
+      <h2>Games against LorFish</h2>
+      <div class="stat-row" id="aiStats"></div>
+      <p class="muted small">
+        These are played and reported by your own browser, so treat them as a
+        personal record rather than a ranked one.
+      </p>
+    </section>
+  </div>
+</div>
+
+<script src="/js/shell.js"></script>
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/chart.js"></script>
+<script src="/js/profile.js"></script>
+</body>
+</html>
