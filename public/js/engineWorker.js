@@ -17,7 +17,9 @@
 // 2. Review a game — { id, type:"review", startFen, uciMoves, depth }
 //    Evaluates every position in turn and streams one message per ply, so the
 //    page can show progress instead of freezing for ten seconds:
-//      { id, type:"review:eval", ply, total, turn, score|null, best|null }
+//      { id, type:"review:eval", ply, total, turn, score|null, best|null, depth }
+//    `depth` is the EFFECTIVE depth — LorFish searches deeper once material
+//    comes off (adaptiveDepth), in review exactly as it does when playing.
 //      { id, type:"review:done", total }
 //      { id, type:"review:error", error }
 //    `score` is centipawns from the side to move's point of view.
@@ -60,6 +62,7 @@ function runReview(data) {
         turn: chess.turn,
         score: a ? a.score : null,
         best: a ? { uci: uciOf(a.move), san: a.san } : null,
+        depth: a ? a.depth : null,
       });
       if (ply === total) break;
       const mv = findUci(chess, moves[ply]);

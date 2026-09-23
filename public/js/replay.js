@@ -331,6 +331,7 @@ function startReview() {
     onDone: (result) => {
       reviewJob = null;
       review = result;
+      window.review = result; // exposed for debugging / tests
       progEl.style.display = "none";
       buildMoveList();   // repaint with the verdict symbols
       renderSummary();
@@ -373,9 +374,15 @@ function renderSummary() {
         <div class="review-acpl">avg. loss ${Math.round(s.acpl)} centipawns</div>
       </div>`;
   };
+  const d = review.depths;
+  const depthNote = !d ? ""
+    : d.min === d.max
+      ? `Searched at depth ${d.max}.`
+      : `Searched at depth ${d.min}–${d.max}, going deeper as pieces came off.`;
   el.innerHTML =
     row(whiteName, review.white) + row(blackName, review.black) +
-    `<p class="review-note">Accuracy is measured against LorFish (about 1400–1800), so treat it as a guide rather than a verdict.</p>`;
+    `<p class="review-note">${depthNote} Accuracy is measured against LorFish ` +
+    `(about 1400–1800), so treat it as a guide rather than a verdict.</p>`;
   el.style.display = "";
 }
 
@@ -395,7 +402,8 @@ function renderMoveVerdict() {
   const mover = m.mover === "w" ? "White" : "Black";
   const evalText = GameReview.formatScore(m.evalAfter, "w");
   let html = `<span class="verdict v-${m.kind}">${escapeHtml(m.label)}</span> ` +
-    `<span class="muted">${mover} · eval ${escapeHtml(evalText)}</span>`;
+    `<span class="muted">${mover} · eval ${escapeHtml(evalText)}` +
+    (m.depth ? ` · depth ${m.depth}` : "") + `</span>`;
   if (m.kind !== "best" && m.best) {
     html += `<br><span class="muted">LorFish preferred <b>${escapeHtml(m.best.san)}</b>` +
       (m.loss > 0 ? ` (−${(m.loss / 100).toFixed(2)})` : "") + `</span>`;

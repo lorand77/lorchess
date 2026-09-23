@@ -83,6 +83,9 @@ window.GameReview = (function () {
         evalBefore: before.score,
         evalAfter: after && after.score != null ? -after.score : null,
         best: before.best || null,
+        // The effective depth this position was searched at. LorFish raises it
+        // as pieces come off, so this climbs through the game.
+        depth: before.depth || null,
         accuracy: moveAccuracy(scoreBefore, scoreAfter),
       });
     }
@@ -104,7 +107,14 @@ window.GameReview = (function () {
       };
     };
 
-    return { moves, white: side("w"), black: side("b") };
+    // The span of effective depths used, so the report can say plainly that the
+    // endgame was searched harder than the opening.
+    const depths = evals.map((e) => e && e.depth).filter((d) => d);
+    const range = depths.length
+      ? { min: Math.min(...depths), max: Math.max(...depths) }
+      : null;
+
+    return { moves, white: side("w"), black: side("b"), depths: range };
   }
 
   function run(opts) {
@@ -117,7 +127,7 @@ window.GameReview = (function () {
       if (cancelled) return;
       const d = e.data || {};
       if (d.type === "review:eval") {
-        evals[d.ply] = { score: d.score, best: d.best, turn: d.turn };
+        evals[d.ply] = { score: d.score, best: d.best, turn: d.turn, depth: d.depth };
         if (onProgress) onProgress({ done: d.ply + 1, total: d.total + 1 });
         return;
       }
