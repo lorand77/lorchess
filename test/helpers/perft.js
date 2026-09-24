@@ -12,14 +12,7 @@
 // branch until you find the one that differs, then repeat one ply deeper on
 // that branch.
 
-const { Chess, algOf, sqIdx, rankOf } = require("../../src/shared/chess");
-
-// A fresh standard-rules board loaded from a FEN string.
-function fromFen(fen) {
-  const chess = new Chess();
-  chess.loadFen(fen);
-  return chess;
-}
+const { fromFen, uci } = require("./board");
 
 // Leaf count at `depth`. At depth 1 the move list is simply counted ("bulk
 // counting"); the result is identical and much faster. Moves are made with
@@ -35,12 +28,6 @@ function perft(chess, depth) {
     chess.undoMove();
   }
   return nodes;
-}
-
-// UCI-style move text: e2e4, e7e8q, e1g1 for castling.
-function uci(m) {
-  const to = m.castle ? sqIdx(m.castle === "K" ? 6 : 2, rankOf(m.from)) : m.to;
-  return algOf(m.from) + algOf(to) + (m.promo || "");
 }
 
 // Per-root-move counts, sorted by move text, plus the total.
