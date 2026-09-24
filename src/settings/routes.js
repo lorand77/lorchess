@@ -4,8 +4,9 @@
 // uploaded images (page background, individual piece slots) are BLOBs in
 // user_assets and served back only to their owner.
 //
-//   GET    /api/settings                 -> { light, dark, bgColor, assets: { kind: version } }
-//   PUT    /api/settings                 { light?, dark?, bgColor? }   (hex colours)
+//   GET    /api/settings                 -> { scheme, light, dark, bgColor, assets: { kind: version } }
+//   PUT    /api/settings                 { scheme?, light?, dark?, bgColor? }
+//                                        (scheme is "dark" or "light"; the rest are hex colours)
 //   POST   /api/settings/reset           back to defaults, drop all uploads
 //   PUT    /api/settings/assets/:kind    raw image body (png/jpeg/gif/webp/svg)
 //   DELETE /api/settings/assets/:kind
@@ -18,8 +19,9 @@ const { requireAuth } = require("../auth/middleware");
 const router = express.Router();
 router.use(requireAuth);
 
-const DEFAULTS = { light: "#f0d9b5", dark: "#b58863", bgColor: "#323232" };
-const COLOR_KEYS = Object.keys(DEFAULTS);
+const DEFAULTS = { scheme: "dark", light: "#f0d9b5", dark: "#b58863", bgColor: "#323232" };
+const COLOR_KEYS = ["light", "dark", "bgColor"];
+const SCHEMES = new Set(["dark", "light"]);
 const HEX = /^#[0-9a-f]{6}$/i;
 
 const PIECE_KINDS = ["w", "b"].flatMap((c) => ["K", "Q", "R", "B", "N", "P"].map((t) => c + t));
@@ -36,6 +38,7 @@ function readPrefs(userId) {
     stored = {};
   }
   const prefs = { ...DEFAULTS };
+  if (SCHEMES.has(stored.scheme)) prefs.scheme = stored.scheme;
   for (const k of COLOR_KEYS) if (HEX.test(stored[k] || "")) prefs[k] = stored[k].toLowerCase();
   return prefs;
 }
@@ -52,6 +55,12 @@ router.put("/", (req, res) => {
   const uid = req.session.userId;
   const body = req.body || {};
   const prefs = readPrefs(uid);
+  if (body.scheme !== undefined) {
+    if (!SCHEMES.has(body.scheme)) {
+      return res.status(400).json({ error: 'scheme must be "dark" or "light".' });
+    }
+    prefs.scheme = body.scheme;
+  }
   for (const k of COLOR_KEYS) {
     if (body[k] === undefined) continue;
     if (typeof body[k] !== "string" || !HEX.test(body[k])) {

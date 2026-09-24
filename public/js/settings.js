@@ -22,6 +22,7 @@
   const BG_PRESETS = [
     ["Charcoal", "#323232"], ["Midnight", "#1c2331"], ["Forest", "#1f2d24"],
     ["Slate", "#3b4252"], ["Wine", "#3a2228"], ["Black", "#111111"],
+    ["Light grey", "#ececec"], ["Paper", "#f4f1ea"], ["Mist", "#e6ecf2"], ["White", "#ffffff"],
   ];
   // Standard start position, rank 8 down to rank 1.
   const START = ["rnbqkbnr", "pppppppp", "", "", "", "", "PPPPPPPP", "RNBQKBNR"];
@@ -66,7 +67,7 @@
     return data;
   }
 
-  const pick = (s) => ({ light: s.light, dark: s.dark, bgColor: s.bgColor });
+  const pick = (s) => ({ scheme: s.scheme, light: s.light, dark: s.dark, bgColor: s.bgColor });
   const dirty = () => !!saved && Object.keys(draft).some((k) => draft[k] !== saved[k]);
 
   // ---- preview board ----
@@ -94,11 +95,14 @@
   }
 
   // ---- colours ----
+  const schemeInputs = document.querySelectorAll('input[name="scheme"]');
+
   function setInputs(colors) {
     for (const k of Object.keys(inputs)) {
       inputs[k].value = colors[k];
       hexes[k].textContent = colors[k];
     }
+    for (const r of schemeInputs) r.checked = r.value === colors.scheme;
   }
 
   function previewDraft() {
@@ -110,6 +114,18 @@
   for (const k of Object.keys(inputs)) {
     inputs[k].addEventListener("input", () => {
       draft[k] = inputs[k].value.toLowerCase();
+      previewDraft();
+    });
+  }
+
+  // Switching scheme also brings the page colour along, but only if it is still
+  // the other scheme's default — a colour the user chose themselves stays put.
+  for (const r of schemeInputs) {
+    r.addEventListener("change", () => {
+      if (!r.checked) return;
+      const other = r.value === "light" ? "dark" : "light";
+      if (draft.bgColor === Theme.SCHEME_BG[other]) draft.bgColor = Theme.SCHEME_BG[r.value];
+      draft.scheme = r.value;
       previewDraft();
     });
   }

@@ -1,6 +1,6 @@
 "use strict";
 
-// Two small SVG chart forms, built for this site's dark panels. No library.
+// Two small SVG chart forms, built for this site's panels. No library.
 //
 //   Chart.line(container, { points, color, yLabel, format, baseline })
 //   Chart.recordBar(container, { wins, draws, losses })
@@ -15,10 +15,19 @@
 window.Chart = (function () {
   const NS = "http://www.w3.org/2000/svg";
   const COLORS = { blue: "#3987e5", green: "#199e70", red: "#e66767", violet: "#9085e9" };
-  // Ink, never the series colour — text carries no identity here.
-  const INK = "#d8d8d8";
-  const MUTED = "#8c8c8c";
-  const GRID = "#4a4a4a";
+  // Ink, never the series colour — text carries no identity here. Read from
+  // the stylesheet's scheme variables when a chart is drawn, so it follows the
+  // light/dark setting; the fallbacks are the dark values.
+  function ink() {
+    const css = getComputedStyle(document.documentElement);
+    const v = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+    return {
+      INK: v("--chart-ink", "#d8d8d8"),
+      MUTED: v("--chart-muted", "#8c8c8c"),
+      GRID: v("--chart-grid", "#4a4a4a"),
+      RING: v("--chart-dot-ring", "#222"),
+    };
+  }
 
   function el(name, attrs) {
     const n = document.createElementNS(NS, name);
@@ -47,6 +56,7 @@ window.Chart = (function () {
   // A line chart of one series. One series means no legend: the panel heading
   // names it.
   function line(container, opts) {
+    const { INK, MUTED, GRID, RING } = ink();
     const raw = (opts.points || []).filter((p) => p && isFinite(p.value));
     container.innerHTML = "";
     if (raw.length < 2) {
@@ -114,7 +124,7 @@ window.Chart = (function () {
     const cross = el("line", {
       x1: 0, x2: 0, y1: PAD.t, y2: PAD.t + plotH, stroke: INK, "stroke-width": 1, opacity: 0,
     });
-    const dot = el("circle", { r: 4, fill: color, stroke: "#222", "stroke-width": 2, opacity: 0 });
+    const dot = el("circle", { r: 4, fill: color, stroke: RING, "stroke-width": 2, opacity: 0 });
     svg.append(cross, dot);
     container.appendChild(svg);
 

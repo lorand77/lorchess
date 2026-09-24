@@ -1,7 +1,7 @@
 "use strict";
 
-// Applies the user's look & feel on every page: board colours, page
-// background (colour or uploaded image), and custom piece images. Settings
+// Applies the user's look & feel on every page: light or dark scheme, board
+// colours, page background (colour or uploaded image), and custom piece images. Settings
 // come from GET /api/settings; a copy is cached in localStorage so the page
 // paints with the right colours before the fetch returns.
 //
@@ -10,7 +10,10 @@
 
 window.Theme = (function () {
   const CACHE_KEY = "lorchess.theme";
-  const DEFAULTS = { light: "#f0d9b5", dark: "#b58863", bgColor: "#323232", assets: {} };
+  const DEFAULTS = { scheme: "dark", light: "#f0d9b5", dark: "#b58863", bgColor: "#323232", assets: {} };
+  // Each scheme's own default page colour. The Customize page swaps between
+  // them when the scheme changes, unless the user picked a colour of their own.
+  const SCHEME_BG = { dark: "#323232", light: "#ececec" };
   const PIECE_FILES = { k: "king", q: "queen", r: "rook", b: "bishop", n: "knight", p: "pawn" };
   let current = { ...DEFAULTS };
 
@@ -31,6 +34,8 @@ window.Theme = (function () {
 
   function apply(settings) {
     current = { ...DEFAULTS, ...(settings || {}), assets: (settings && settings.assets) || {} };
+    // styles.css keys the light palette off this attribute.
+    document.documentElement.dataset.scheme = current.scheme === "light" ? "light" : "dark";
     const st = document.documentElement.style;
     st.setProperty("--sq-light", current.light);
     st.setProperty("--sq-dark", current.dark);
@@ -59,5 +64,5 @@ window.Theme = (function () {
   } catch (e) { /* no cache */ }
   load().catch(() => { /* not logged in or offline: defaults stay */ });
 
-  return { apply, load, pieceSrc, assetUrl, DEFAULTS, get current() { return current; } };
+  return { apply, load, pieceSrc, assetUrl, DEFAULTS, SCHEME_BG, get current() { return current; } };
 })();
