@@ -135,6 +135,18 @@ class Chess {
         : 'FEN must have exactly one king per side');
     }
 
+    // Validate the en-passant field before touching any state, so a bad FEN
+    // never leaves a half-loaded position behind.
+    let ep = null;
+    if (parts[3] && parts[3] !== '-') {
+      const file = parts[3].charCodeAt(0) - 97;
+      const rank = parseInt(parts[3][1], 10) - 1;
+      if (file < 0 || file > 7 || isNaN(rank) || rank < 0 || rank > 7) {
+        throw new Error(`FEN: bad en-passant square "${parts[3]}"`);
+      }
+      ep = sqIdx(file, rank);
+    }
+
     this.squares = newSquares;
     this.turn = parts[1] === 'b' ? B : W;
     const cr = parts[2] || '-';
@@ -145,16 +157,7 @@ class Chess {
       q: cr.includes('q'),
     };
     this.deriveCastlingLayout(cr);
-    if (parts[3] && parts[3] !== '-') {
-      const file = parts[3].charCodeAt(0) - 97;
-      const rank = parseInt(parts[3][1], 10) - 1;
-      if (file < 0 || file > 7 || isNaN(rank) || rank < 0 || rank > 7) {
-        throw new Error(`FEN: bad en-passant square "${parts[3]}"`);
-      }
-      this.ep = sqIdx(file, rank);
-    } else {
-      this.ep = null;
-    }
+    this.ep = ep;
     this.halfmove = parts[4] ? parseInt(parts[4], 10) || 0 : 0;
     this.fullmove = parts[5] ? parseInt(parts[5], 10) || 1 : 1;
     this.history = [];

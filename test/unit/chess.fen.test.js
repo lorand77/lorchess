@@ -90,17 +90,11 @@ describe("FEN", () => {
     assert.equal(chess.fen(), before);
   });
 
-  // Known gap: the en passant field is validated after the board has already
-  // been replaced, so a bad one leaves a half-loaded position behind.
-  test(
-    "a rejected en passant field also leaves the position untouched",
-    { todo: "loadFen replaces the board before it validates the en passant field" },
-    () => {
-      const chess = new Chess();
-      play(chess, "e2e4");
-      const before = chess.fen();
-      assert.throws(() => chess.loadFen("k7/8/8/8/8/8/8/K7 w - z9 0 1"));
-      assert.equal(chess.fen(), before);
-    }
-  );
+  test("a rejected en passant field also leaves the position untouched", () => {
+    const chess = new Chess();
+    play(chess, "e2e4");
+    const before = chess.fen();
+    assert.throws(() => chess.loadFen("k7/8/8/8/8/8/8/K7 w - z9 0 1"));
+    assert.equal(chess.fen(), before);
+  });
 });
