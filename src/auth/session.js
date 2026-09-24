@@ -8,8 +8,18 @@ const SqliteStore = require("better-sqlite3-session-store")(session);
 const db = require("../db/index");
 const config = require("../config");
 
+// The upstream store never unref's its expiry-sweep timer, so that timer alone
+// would hold the process open once the server has closed (a graceful shutdown,
+// or a test run). Same sweep, but it no longer keeps the process alive.
+class Store extends SqliteStore {
+  startInterval() {
+    this.expiredTimer = setInterval(this.clearExpiredSessions.bind(this), this.expired.intervalMs);
+    this.expiredTimer.unref();
+  }
+}
+
 const sessionMiddleware = session({
-  store: new SqliteStore({
+  store: new Store({
     client: db,
     // Periodically purge expired rows from the sessions table.
     expired: { clear: true, intervalMs: 15 * 60 * 1000 },
