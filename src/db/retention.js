@@ -6,7 +6,8 @@
 // at all. None of that needs them a month later, and keeping every message ever
 // sent means they also live in every backup, for ever.
 //
-// So: sweep the conversation once a game has been over for CHAT_RETENTION_DAYS.
+// So: sweep the conversation once a game has been over for CHAT_RETENTION_DAYS;
+// set it to -1 to keep chat forever.
 // Live games have finished_at IS NULL and are never touched. The "Chatty"
 // achievement counts users.chat_count, which this never decrements, so progress
 // survives the sweep.
@@ -16,10 +17,11 @@ const config = require("../config");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Returns the number of messages removed (0 when retention is disabled).
+// Returns the number of messages removed (0 when chat is kept forever).
 function sweepOldChat(days) {
   const keepDays = days == null ? config.CHAT_RETENTION_DAYS : days;
-  if (!keepDays || keepDays <= 0) return 0; // 0 means "keep everything"
+  // -1 (any negative) means "keep everything"; 0 sweeps as soon as a game ends.
+  if (!Number.isFinite(keepDays) || keepDays < 0) return 0;
   return queries.deleteChatForOldGames.run(`-${keepDays} days`).changes;
 }
 
