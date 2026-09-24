@@ -271,7 +271,7 @@ function renderSeeks() {
   for (const s of seeks) {
     const row = el("div", "row");
     const who = el("span", "row-main");
-    who.appendChild(el("span", "name", s.username));
+    who.appendChild(playerLink(s.userId, s.username, { newTab: true }));
     if (s.member) who.appendChild(memberBadge());
     who.appendChild(el("span", "rating", "(" + s.rating + ")"));
     who.appendChild(el("span", "tag", tcLabel(s.tc)));
@@ -322,7 +322,7 @@ function renderGames() {
     const meta = el("div", "live-game-meta");
     const vs = el("div", "vs");
     const side = (p) => {
-      vs.appendChild(el("span", "name", p.username));
+      vs.appendChild(playerLink(p.userId, p.username, { newTab: true }));
       if (p.member) vs.appendChild(memberBadge());
       if (p.rating != null) vs.appendChild(el("span", "rating", "(" + p.rating + ")"));
     };
@@ -363,7 +363,7 @@ function renderPlayers() {
     const row = el("div", "row");
     const who = el("span", "row-main");
     if (friendIds.has(p.userId)) who.appendChild(el("span", "friend-star", "★"));
-    who.appendChild(el("span", "name", p.username));
+    who.appendChild(playerLink(p.userId, p.username, { newTab: true }));
     if (p.member) who.appendChild(memberBadge());
     who.appendChild(el("span", "rating", "(" + p.rating + ")"));
     if (p.userId === myId()) who.appendChild(el("span", "tag you", "you"));
@@ -414,7 +414,9 @@ function renderIncoming() {
   for (const c of myChallenges.incoming) {
     const box = el("div", "challenge-box");
     const text = el("span", "row-main");
-    text.appendChild(el("strong", null, c.from.username));
+    const from = el("strong");
+    from.appendChild(playerLink(c.from.userId, c.from.username, { newTab: true, cls: "player-link" }));
+    text.appendChild(from);
     if (c.from.member) text.appendChild(memberBadge());
     text.appendChild(el("span", "rating", "(" + c.from.rating + ")"));
     text.appendChild(document.createTextNode(" challenges you — "));

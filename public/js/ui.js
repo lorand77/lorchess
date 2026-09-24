@@ -27,8 +27,10 @@ let spectating = false;   // watching someone else's PvP game (?watch=<id>)
 let pvpResult = null;            // {result, termination} once a PvP game ends
 let whiteName = 'Human';
 let blackName = 'LorFish';
-let whiteMember = false; // PvP only: both come from the server's game state
+let whiteMember = false; // PvP only: these come from the server's game state
 let blackMember = false;
+let whiteId = null;       // null in AI games: LorFish has no profile to link to
+let blackId = null;
 let pgnEvent = 'Human vs LorFish';
 
 // PvP clock state (server-authoritative; we render a smooth local countdown
@@ -813,12 +815,15 @@ function undo() {
 function setLabels() {
   const youW = humanColor === W;
   const you = (isYou) => (isYou && !spectating ? ' (you)' : '');
-  fillLabel(whiteLabelEl, 'White: ' + whiteName, whiteMember, you(youW));
-  fillLabel(blackLabelEl, 'Black: ' + blackName, blackMember, you(!youW));
+  fillLabel(whiteLabelEl, 'White: ', whiteName, whiteId, whiteMember, you(youW));
+  fillLabel(blackLabelEl, 'Black: ', blackName, blackId, blackMember, you(!youW));
 }
 
-function fillLabel(node, name, member, suffix) {
-  node.textContent = name;
+function fillLabel(node, prefix, name, userId, member, suffix) {
+  node.textContent = prefix;
+  node.appendChild(userId
+    ? playerLink(userId, name, { newTab: true, cls: 'player-link' })
+    : document.createTextNode(name));
   if (member) node.appendChild(memberBadge());
   node.appendChild(document.createTextNode(suffix));
 }
@@ -1448,6 +1453,8 @@ function applyPvpState(socket, state) {
   blackName = state.black;
   whiteMember = !!state.whiteMember;
   blackMember = !!state.blackMember;
+  whiteId = state.whiteId || null;
+  blackId = state.blackId || null;
   lastPvpState = state;
   renderFriendRow();
   setChatHistory(state.chat);

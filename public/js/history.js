@@ -37,13 +37,17 @@
   for (const g of games) {
     const youWhite = g.white_id === user.id;
     const opp = youWhite ? g.black_username : g.white_username;
+    const oppId = Number(youWhite ? g.black_id : g.white_id);
+    const oppCell = g.mode === "pvp" && oppId
+      ? `<a class="name" href="/profile.html?id=${oppId}">${escapeHtml(opp || "?")}</a>`
+      : escapeHtml(opp || "?");
     const res = outcome(g, youWhite);
     const tr = document.createElement("tr");
     tr.innerHTML =
       `<td>${fmtDate(g.created_at)}</td>` +
       `<td>${g.mode === "ai" ? "vs AI" : "PvP"}</td>` +
       `<td>${youWhite ? "White" : "Black"}</td>` +
-      `<td>${escapeHtml(opp || "?")}</td>` +
+      `<td>${oppCell}</td>` +
       `<td class="${res.cls}">${res.text}</td>` +
       `<td>${g.status === "active"
           ? `<a class="replay-link" href="/game.html?id=${g.id}">Resume →</a>`

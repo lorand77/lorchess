@@ -27,7 +27,10 @@
   }
 
   const mine = !otherId || (window.currentUser && window.currentUser.id === data.user.id);
-  if (!mine) title.textContent = data.user.username + "'s achievements";
+  if (!mine) {
+    title.textContent = "";
+    title.append(playerLink(data.user.id, data.user.username, { cls: "player-link" }), "'s achievements");
+  }
   // Something time-based (the anniversary) may have just been awarded.
   if (mine && data.fresh && data.fresh.length) AchievementToast.show(data.fresh);
 

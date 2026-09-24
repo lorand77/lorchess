@@ -110,10 +110,7 @@ const COLUMNS = [
       tr.appendChild(el("td", "rank", String(i + 1)));
 
       const who = el("td");
-      const nameLink = el("a", "name", r.username);
-      nameLink.href = "/achievements.html?user=" + r.id;
-      nameLink.title = "Achievements";
-      who.appendChild(nameLink);
+      who.appendChild(playerLink(r.id, r.username));
       if (r.member) who.appendChild(memberBadge());
       if (r.id === user.id) who.appendChild(el("span", "tag you", "you"));
       tr.appendChild(who);

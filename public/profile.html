@@ -10,6 +10,8 @@
 <div class="profile-page">
   <h1 id="profileName">Profile</h1>
   <p class="muted small" id="profileMeta"></p>
+  <!-- Someone else's profile only: their achievements, and a friend control. -->
+  <p class="profile-actions" id="profileActions" style="display:none;"></p>
   <p id="profileError" class="check-text"></p>
 
   <div id="profileBody" style="display:none;">
@@ -29,7 +31,7 @@
       <div class="chart" id="ratingChart"></div>
 
       <h3>Form over time</h3>
-      <p class="muted small">Running wins minus losses. Rising means you're winning more than you lose.</p>
+      <p class="muted small">Running wins minus losses. Rising means <span data-you="you're" data-them="they're">you're</span> winning more than <span data-you="you" data-them="they">you</span> lose.</p>
       <div class="chart" id="gameChart"></div>
     </section>
 
@@ -45,7 +47,7 @@
       <h2>Games against LorFish</h2>
       <div class="stat-row" id="aiStats"></div>
       <p class="muted small">
-        These are played and reported by your own browser, so treat them as a
+        These are played and reported by <span data-you="your own" data-them="the player's own">your own</span> browser, so treat them as a
         personal record rather than a ranked one.
       </p>
     </section>
@@ -56,6 +58,7 @@
 <script src="/js/authGuard.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/chart.js"></script>
+<script src="/js/friends.js"></script>
 <script src="/js/profile.js"></script>
 </body>
 </html>

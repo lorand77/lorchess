@@ -5,7 +5,9 @@
 // and records, so there is nothing here that wasn't already on display.
 //
 //   GET /api/profile        your own
-//   GET /api/profile/:id    someone else's
+//   GET /api/profile/:id    anyone's (LorFish is not a player, so it has none)
+//
+// Both carry `you: true|false`, so the page can word things for the viewer.
 
 const express = require("express");
 const queries = require("../db/queries");
@@ -119,14 +121,14 @@ function profileFor(userId) {
   };
 }
 
-router.get("/", (req, res) => res.json(profileFor(req.session.userId)));
+router.get("/", (req, res) => res.json({ ...profileFor(req.session.userId), you: true }));
 
 router.get("/:id", (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Bad user id." });
-  const out = profileFor(id);
+  const out = id === AI_ID ? null : profileFor(id);
   if (!out) return res.status(404).json({ error: "No such player." });
-  res.json(out);
+  res.json({ ...out, you: id === req.session.userId });
 });
 
 module.exports = router;

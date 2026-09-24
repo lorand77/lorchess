@@ -47,8 +47,36 @@
     render(data);
   }
 
+  // Someone else's profile: word it for a visitor, and offer their
+  // achievements and a friend control.
+  function renderVisitor(u) {
+    for (const s of document.querySelectorAll("[data-them]")) s.textContent = s.dataset.them;
+    const actions = document.getElementById("profileActions");
+    actions.innerHTML = "";
+    const ach = el("a", "nav-link", "🏅 Achievements");
+    ach.href = "/achievements.html?user=" + encodeURIComponent(u.id);
+    actions.appendChild(ach);
+    actions.style.display = "";
+    if (!window.Friends) return;
+    Friends.load()
+      .then(() => {
+        const slot = el("span", "friend-slot");
+        const draw = () => {
+          slot.innerHTML = "";
+          slot.appendChild(Friends.button(u.id, draw, {
+            onError: (msg) => { errEl.textContent = msg || ""; },
+          }));
+        };
+        draw();
+        actions.appendChild(slot);
+      })
+      .catch(() => { /* the profile works fine without it */ });
+  }
+
   function render(d) {
     const u = d.user;
+    const you = d.you !== false;
+    if (!you) renderVisitor(u);
     nameEl.textContent = u.username;
     if (u.member) nameEl.appendChild(memberBadge());
     document.title = "LorChess — " + u.username;
@@ -87,7 +115,9 @@
       })),
       color: Chart.COLORS.green,
       ariaLabel: "Rating over time",
-      empty: "Your rating history starts with your next rated game against another player.",
+      empty: you
+        ? "Your rating history starts with your next rated game against another player."
+        : "No rated games against other players yet.",
     });
 
     Chart.line(document.getElementById("gameChart"), {
@@ -96,7 +126,9 @@
       baseline: 0,
       format: (v) => (v > 0 ? "+" : "") + Math.round(v),
       ariaLabel: "Running wins minus losses over time",
-      empty: "Play a couple of games against other players and your form appears here.",
+      empty: you
+        ? "Play a couple of games against other players and your form appears here."
+        : "Not enough games against other players yet.",
     });
 
     // --- puzzles ---
@@ -111,7 +143,9 @@
       points: p.history.map((h) => ({ at: h.at, value: h.value })),
       color: Chart.COLORS.violet,
       ariaLabel: "Puzzle rating over time",
-      empty: "Solve a few puzzles and your rating history appears here.",
+      empty: you
+        ? "Solve a few puzzles and your rating history appears here."
+        : "No rated puzzle attempts yet.",
     });
 
     // --- vs LorFish ---

@@ -93,7 +93,9 @@
     for (const r of incoming) {
       const box = el("div", "challenge-box");
       const text = el("span", "row-main");
-      text.appendChild(el("strong", null, r.username));
+      const from = el("strong");
+      from.appendChild(playerLink(r.userId, r.username, { newTab: true, cls: "player-link" }));
+      text.appendChild(from);
       if (r.member) text.appendChild(memberBadge());
       text.appendChild(el("span", "rating", "(" + r.rating + ")"));
       text.appendChild(document.createTextNode(" wants to be friends"));
@@ -108,7 +110,7 @@
       const p = players.get(f.userId);
       const row = el("div", "row");
       const who = el("span", "row-main");
-      who.appendChild(el("span", "name", f.username));
+      who.appendChild(playerLink(f.userId, f.username, { newTab: true }));
       if (f.member) who.appendChild(memberBadge());
       who.appendChild(el("span", "rating", "(" + f.rating + ")"));
       if (!p) who.appendChild(el("span", "tag offline", "offline"));
@@ -139,7 +141,7 @@
     for (const r of outgoing) {
       const row = el("div", "row");
       const who = el("span", "row-main");
-      who.appendChild(el("span", "name", r.username));
+      who.appendChild(playerLink(r.userId, r.username, { newTab: true }));
       if (r.member) who.appendChild(memberBadge());
       who.appendChild(el("span", "rating", "(" + r.rating + ")"));
       who.appendChild(el("span", "tag pending", "request sent"));

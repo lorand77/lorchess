@@ -8,8 +8,24 @@
 // are enforced server-side (requireAuth on the API, and authoritative socket
 // checks in PvP). The page may flash briefly before the redirect — acceptable.
 
-// Also home to memberBadge(), the 💎 shown after a member's name wherever
-// players are listed: this is the one script every signed-in page loads.
+// Also home to the shared player-name helpers, because this is the one script
+// every signed-in page loads.
+
+// A player's name as a link to their profile. `newTab` is for live pages (the
+// lobby, friends, a game), where navigating away would drop the socket — and
+// with it any open seek, challenge or game.
+window.playerLink = function (userId, username, opts) {
+  const o = opts || {};
+  const a = document.createElement("a");
+  a.className = o.cls == null ? "name" : o.cls;
+  a.textContent = username;
+  a.href = "/profile.html?id=" + encodeURIComponent(userId);
+  a.title = "View profile";
+  if (o.newTab) { a.target = "_blank"; a.rel = "noopener"; }
+  return a;
+};
+
+// The 💎 shown after a member's name wherever players are listed.
 window.memberBadge = function () {
   const b = document.createElement("span");
   b.className = "member-icon";
