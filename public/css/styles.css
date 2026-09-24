@@ -872,12 +872,11 @@ img.drag-piece {
 }
 .mode-link:hover { background: #575757; }
 
-/* The small "Play the computer" panel under Play: text left, button right. */
+/* The small "Play the computer" panel under Play: button left, text beside it. */
 .ai-panel {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 .ai-panel h2 { margin-bottom: 2px; }
