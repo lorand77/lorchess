@@ -1,7 +1,8 @@
 "use strict";
 
 // Puzzle logic, kept free of HTTP so it's easy to test:
-//   - picking a puzzle near a user's rating (never one they've attempted)
+//   - picking a puzzle near a user's rating (never one they've attempted),
+//     and holding it until they finish it
 //   - the shared puzzle of the day (same for everyone, chosen once per UTC day)
 //   - verifying a player's moves against the stored solution
 //   - the puzzle Elo update and the daily streak
@@ -147,6 +148,25 @@ function pickForUser(userId, rating) {
   return fallback ? { puzzle: fallback, repeat: true } : null;
 }
 
+// The rated stream. A puzzle handed out stays the user's puzzle until it has
+// an attempt (solved, or failed by a wrong move or giving up): asking again — a
+// reload, closing the tab and coming back, the lobby's preview card — returns
+// the same one, so walking away is no longer a free skip. `resumed` says the
+// puzzle was already handed out before. Repeats are unrated, so none is held.
+// The hold is checked against puzzle_attempts rather than cleared on finish,
+// so an attempt made any way at all (e.g. via the pinned /:id route) ends it.
+function nextForUser(userId, rating) {
+  const row = queries.getCurrentPuzzle.get(userId);
+  const held = row && row.puzzle_current ? queries.getPuzzle.get(row.puzzle_current) : null;
+  if (held && !queries.getAttempt.get(userId, held.id)) {
+    return { puzzle: held, repeat: false, resumed: true };
+  }
+  const pick = pickForUser(userId, rating);
+  if (!pick) return null;
+  queries.setCurrentPuzzle.run(pick.repeat ? null : pick.puzzle.id, userId);
+  return { ...pick, resumed: false };
+}
+
 // ---- daily ----
 
 const todayUtc = () => new Date().toISOString().slice(0, 10);
@@ -199,5 +219,5 @@ function bumpStreak(userId, today) {
 module.exports = {
   DAILY_MIN, DAILY_MAX,
   setup, check, publicView, revealView, eloAfter, recordAttempt,
-  pickForUser, dailyFor, todayUtc, addDays, streakOf, bumpStreak,
+  pickForUser, nextForUser, dailyFor, todayUtc, addDays, streakOf, bumpStreak,
 };

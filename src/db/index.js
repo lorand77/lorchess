@@ -57,6 +57,9 @@ addColumnIfMissing("users", "prefs", "TEXT");
 addColumnIfMissing("users", "puzzle_rating", `INTEGER NOT NULL DEFAULT ${config.PUZZLE_START_RATING}`);
 addColumnIfMissing("users", "daily_streak", "INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing("users", "daily_last_date", "TEXT");
+// The rated puzzle /api/puzzles/next last handed out. It stays the user's
+// puzzle until it has an attempt, so leaving the page is not a free skip.
+addColumnIfMissing("users", "puzzle_current", "TEXT");
 // Time the mover spent on a PvP move, in ms (NULL for AI games and for moves
 // recorded before this column existed). Achievements read it.
 addColumnIfMissing("moves", "think_ms", "INTEGER");

@@ -4,7 +4,8 @@
 // has played so far and learns only whether it's still on track.
 //
 //   GET  /api/puzzles/me              rating, attempt stats, daily streak
-//   GET  /api/puzzles/next            a puzzle near your rating
+//   GET  /api/puzzles/next            a puzzle near your rating — the same one
+//                                     until you solve it or give up (resumed: true)
 //   GET  /api/puzzles/daily           today's shared puzzle (+ your result if done)
 //   POST /api/puzzles/:id/moves       { moves: [uci, ...] } -> ok | solved | wrong
 //   POST /api/puzzles/:id/giveup      counts as a failed attempt, reveals the solution
@@ -45,9 +46,14 @@ router.get("/next", (req, res) => {
   if (!queries.countPuzzles.get().n) return noPuzzles(res);
   const uid = req.session.userId;
   const user = queries.getPuzzleUser.get(uid);
-  const pick = svc.pickForUser(uid, user.puzzle_rating);
+  const pick = svc.nextForUser(uid, user.puzzle_rating);
   if (!pick) return noPuzzles(res);
-  res.json({ puzzle: svc.publicView(pick.puzzle), repeat: pick.repeat, rating: user.puzzle_rating });
+  res.json({
+    puzzle: svc.publicView(pick.puzzle),
+    repeat: pick.repeat,
+    resumed: pick.resumed,
+    rating: user.puzzle_rating,
+  });
 });
 
 router.get("/daily", (req, res) => {

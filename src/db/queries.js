@@ -203,6 +203,8 @@ module.exports = {
     "SELECT id, username, puzzle_rating, daily_streak, daily_last_date FROM users WHERE id = ?"
   ),
   setPuzzleRating: db.prepare("UPDATE users SET puzzle_rating = ? WHERE id = ?"),
+  getCurrentPuzzle: db.prepare("SELECT puzzle_current FROM users WHERE id = ?"),
+  setCurrentPuzzle: db.prepare("UPDATE users SET puzzle_current = ? WHERE id = ?"),
   setDailyStreak: db.prepare(
     "UPDATE users SET daily_streak = ?, daily_last_date = ? WHERE id = ?"
   ),

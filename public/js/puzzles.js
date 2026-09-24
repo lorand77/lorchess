@@ -334,6 +334,8 @@
     renderHead();
     begin();
     if (data.repeat) later(() => setStatus("You've seen every puzzle near your rating — this one is a repeat (unrated).", "info"), 750);
+    // The server holds a rated puzzle until it is finished (see /next).
+    else if (data.resumed) later(() => setStatus("Still your puzzle — solve it or give up to get a new one.", "info"), 750);
   }
 
   // One specific puzzle by id. Falls back to the rated stream if it's gone.
