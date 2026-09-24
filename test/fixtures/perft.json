@@ -1,0 +1,217 @@
+[
+  {
+    "name": "start position",
+    "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    "depths": { "1": 20, "2": 400, "3": 8902, "4": 197281, "5": 4865609 }
+  },
+  {
+    "name": "kiwipete (castling, en passant, promotion, pins)",
+    "fen": "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+    "depths": { "1": 48, "2": 2039, "3": 97862, "4": 4085603 }
+  },
+  {
+    "name": "cpw position 3 (rook endgame, en passant pin)",
+    "fen": "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+    "depths": { "1": 14, "2": 191, "3": 2812, "4": 43238, "5": 674624 }
+  },
+  {
+    "name": "cpw position 4 (promotions, checks)",
+    "fen": "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+    "depths": { "1": 6, "2": 264, "3": 9467, "4": 422333 }
+  },
+  {
+    "name": "cpw position 4 mirrored (black to move)",
+    "fen": "r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1",
+    "depths": { "1": 6, "2": 264, "3": 9467, "4": 422333 }
+  },
+  {
+    "name": "cpw position 5 (talkchess bug catcher)",
+    "fen": "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+    "depths": { "1": 44, "2": 1486, "3": 62379, "4": 2103487 }
+  },
+  {
+    "name": "cpw position 6 (symmetrical middlegame)",
+    "fen": "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
+    "depths": { "1": 46, "2": 2079, "3": 89890, "4": 3894594 }
+  },
+
+  {
+    "name": "castling: white O-O only",
+    "fen": "4k3/8/8/8/8/8/8/4K2R w K - 0 1",
+    "depths": { "1": 15, "2": 66, "3": 1197, "4": 7059, "5": 133987, "6": 764643 }
+  },
+  {
+    "name": "castling: white O-O-O only",
+    "fen": "4k3/8/8/8/8/8/8/R3K3 w Q - 0 1",
+    "depths": { "1": 16, "2": 71, "3": 1287, "4": 7626, "5": 145232, "6": 846648 }
+  },
+  {
+    "name": "castling: black O-O only",
+    "fen": "4k2r/8/8/8/8/8/8/4K3 w k - 0 1",
+    "depths": { "1": 5, "2": 75, "3": 459, "4": 8290, "5": 47635, "6": 899442 }
+  },
+  {
+    "name": "castling: black O-O-O only",
+    "fen": "r3k3/8/8/8/8/8/8/4K3 w q - 0 1",
+    "depths": { "1": 5, "2": 80, "3": 493, "4": 8897, "5": 52710, "6": 1001523 }
+  },
+  {
+    "name": "castling: white both sides",
+    "fen": "4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1",
+    "depths": { "1": 26, "2": 112, "3": 3189, "4": 17945, "5": 532933, "6": 2788982 }
+  },
+  {
+    "name": "castling: black both sides",
+    "fen": "r3k2r/8/8/8/8/8/8/4K3 w kq - 0 1",
+    "depths": { "1": 5, "2": 130, "3": 782, "4": 22180, "5": 118882, "6": 3517770 }
+  },
+  {
+    "name": "castling: O-O through attacked squares is illegal",
+    "fen": "8/8/8/8/8/8/6k1/4K2R w K - 0 1",
+    "depths": { "1": 12, "2": 38, "3": 564, "4": 2219, "5": 37735, "6": 185867 }
+  },
+  {
+    "name": "castling: O-O-O into an attacked square is illegal",
+    "fen": "8/8/8/8/8/8/1k6/R3K3 w Q - 0 1",
+    "depths": { "1": 15, "2": 65, "3": 1018, "4": 4573, "5": 80619, "6": 413018 }
+  },
+  {
+    "name": "castling: black O-O with white king adjacent",
+    "fen": "4k2r/6K1/8/8/8/8/8/8 w k - 0 1",
+    "depths": { "1": 3, "2": 32, "3": 134, "4": 2073, "5": 10485, "6": 179869 }
+  },
+  {
+    "name": "castling: black O-O-O with white king adjacent",
+    "fen": "r3k3/1K6/8/8/8/8/8/8 w q - 0 1",
+    "depths": { "1": 4, "2": 49, "3": 243, "4": 3991, "5": 20780, "6": 367724 }
+  },
+  {
+    "name": "castling: all four rights",
+    "fen": "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
+    "depths": { "1": 26, "2": 568, "3": 13744, "4": 314346, "5": 7594526 }
+  },
+  {
+    "name": "castling: white queen rook displaced to b1",
+    "fen": "r3k2r/8/8/8/8/8/8/1R2K2R w Kkq - 0 1",
+    "depths": { "1": 25, "2": 567, "3": 14095, "4": 328965, "5": 8153719 }
+  },
+  {
+    "name": "castling: white queen rook displaced to c1",
+    "fen": "r3k2r/8/8/8/8/8/8/2R1K2R w Kkq - 0 1",
+    "depths": { "1": 25, "2": 548, "3": 13502, "4": 312835, "5": 7736373 }
+  },
+  {
+    "name": "castling: white king rook displaced to g1",
+    "fen": "r3k2r/8/8/8/8/8/8/R3K1R1 w Qkq - 0 1",
+    "depths": { "1": 25, "2": 547, "3": 13579, "4": 316214, "5": 7878456 }
+  },
+  {
+    "name": "castling: black queen rook displaced to b8",
+    "fen": "1r2k2r/8/8/8/8/8/8/R3K2R w KQk - 0 1",
+    "depths": { "1": 26, "2": 583, "3": 14252, "4": 334705, "5": 8198901 }
+  },
+  {
+    "name": "castling: black queen rook displaced to c8",
+    "fen": "2r1k2r/8/8/8/8/8/8/R3K2R w KQk - 0 1",
+    "depths": { "1": 25, "2": 560, "3": 13592, "4": 317324, "5": 7710115 }
+  },
+  {
+    "name": "castling: black king rook displaced to g8",
+    "fen": "r3k1r1/8/8/8/8/8/8/R3K2R w KQq - 0 1",
+    "depths": { "1": 25, "2": 560, "3": 13607, "4": 320792, "5": 7848606 }
+  },
+  {
+    "name": "castling: O-O gives check",
+    "fen": "5k2/8/8/8/8/8/8/4K2R w K - 0 1",
+    "depths": { "1": 15, "2": 66, "3": 1198, "4": 6399, "5": 120330, "6": 661072 }
+  },
+  {
+    "name": "castling: O-O-O gives check",
+    "fen": "3k4/8/8/8/8/8/8/R3K3 w Q - 0 1",
+    "depths": { "1": 16, "2": 71, "3": 1286, "4": 7418, "5": 141077, "6": 803711 }
+  },
+
+  {
+    "name": "en passant: capture would expose the king along the rank",
+    "fen": "3k4/3p4/8/K1P4r/8/8/8/8 b - - 0 1",
+    "depths": { "1": 18, "2": 92, "3": 1670, "4": 10138, "5": 185429, "6": 1134888 }
+  },
+  {
+    "name": "en passant: capture would expose the king along a diagonal",
+    "fen": "8/8/4k3/8/2p5/8/B2P2K1/8 w - - 0 1",
+    "depths": { "1": 13, "2": 102, "3": 1266, "4": 10276, "5": 135655, "6": 1015133 }
+  },
+
+  {
+    "name": "promotion: pawn on the seventh, kings apart",
+    "fen": "8/Pk6/8/8/8/8/6Kp/8 w - - 0 1",
+    "depths": { "1": 11, "2": 97, "3": 887, "4": 8048, "5": 90606, "6": 1030499 }
+  },
+  {
+    "name": "promotion: promote to give check",
+    "fen": "4k3/1P6/8/8/8/8/K7/8 w - - 0 1",
+    "depths": { "1": 9, "2": 40, "3": 472, "4": 2661, "5": 38983, "6": 217342 }
+  },
+  {
+    "name": "promotion: promote next to the enemy king",
+    "fen": "8/P1k5/K7/8/8/8/8/8 w - - 0 1",
+    "depths": { "1": 6, "2": 27, "3": 273, "4": 1329, "5": 18135, "6": 92683 }
+  },
+  {
+    "name": "promotion: underpromotion to give check",
+    "fen": "K1k5/8/P7/8/8/8/8/8 w - - 0 1",
+    "depths": { "1": 2, "2": 6, "3": 13, "4": 63, "5": 382, "6": 2217 }
+  },
+  {
+    "name": "promotion: queening can stalemate",
+    "fen": "8/k1P5/8/1K6/8/8/8/8 w - - 0 1",
+    "depths": { "1": 10, "2": 25, "3": 268, "4": 926, "5": 10857, "6": 43261 }
+  },
+
+  {
+    "name": "knights: mutual forks",
+    "fen": "8/1n4N1/2k5/8/8/5K2/1N4n1/8 w - - 0 1",
+    "depths": { "1": 14, "2": 195, "3": 2760, "4": 38675, "5": 570726 }
+  },
+  {
+    "name": "knights: one each",
+    "fen": "8/1k6/8/5N2/8/4n3/8/2K5 w - - 0 1",
+    "depths": { "1": 11, "2": 156, "3": 1636, "4": 20534, "5": 223507 }
+  },
+  {
+    "name": "knights: four in the centre",
+    "fen": "8/8/4k3/3Nn3/3nN3/4K3/8/8 w - - 0 1",
+    "depths": { "1": 19, "2": 289, "3": 4442, "4": 73584, "5": 1198299 }
+  },
+  {
+    "name": "knights: white king in the corner",
+    "fen": "K7/8/2n5/1n6/8/8/8/k6N w - - 0 1",
+    "depths": { "1": 3, "2": 51, "3": 345, "4": 5301, "5": 38348 }
+  },
+  {
+    "name": "knights: black king in the corner",
+    "fen": "k7/8/2N5/1N6/8/8/8/K6n w - - 0 1",
+    "depths": { "1": 17, "2": 54, "3": 835, "4": 5910, "5": 92250 },
+    "note": "counts cross-checked against chess.js 1.4.0 (npm)"
+  },
+  {
+    "name": "bishops: long diagonals",
+    "fen": "B6b/8/8/8/2K5/4k3/8/b6B w - - 0 1",
+    "depths": { "1": 17, "2": 278, "3": 4607, "4": 76778, "5": 1320507 }
+  },
+  {
+    "name": "rooks: doubled on the seventh",
+    "fen": "7k/RR6/8/8/8/8/rr6/7K w - - 0 1",
+    "depths": { "1": 19, "2": 275, "3": 5300, "4": 104342, "5": 2161211 }
+  },
+  {
+    "name": "queen: lone king vs king and queen",
+    "fen": "6kq/8/8/8/8/8/8/7K w - - 0 1",
+    "depths": { "1": 2, "2": 36, "3": 143, "4": 3637, "5": 14893 }
+  },
+  {
+    "name": "queen and knight vs king",
+    "fen": "8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1",
+    "depths": { "1": 37, "2": 183, "3": 6559, "4": 23527, "5": 811573 }
+  }
+]
