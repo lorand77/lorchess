@@ -1,0 +1,1390 @@
+{
+ "source": "Lichess puzzle database (CC0), via `npm run puzzles:import`; regenerate with scripts/extractPuzzleFixture.js",
+ "criteria": "rating <= 1300 AND popularity >= 90 AND nb_plays >= 500 AND rating_deviation <= 80",
+ "generated": "2026-09-24",
+ "twoMoveBaseline": 84,
+ "oneMove": [
+  {
+   "id": "002HE",
+   "fen": "1qr2rk1/1p1p1ppp/pB2p1n1/7n/2P1P3/1Q2NP1P/PP2B1Pb/3R1RK1 w - - 1 20",
+   "moves": "g1f2 b8g3",
+   "rating": 1116,
+   "themes": "master mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "003AX",
+   "fen": "2r2rk1/5ppp/bq2p3/p1ppP1N1/Pb1P2P1/1P2P2P/2QN4/2R1K2R b K - 1 18",
+   "moves": "c5d4 c2h7",
+   "rating": 983,
+   "themes": "kingsideAttack mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "0082f",
+   "fen": "r4rk1/2q2ppp/3pp3/4Pb1N/pp6/1B4Q1/PPP3PP/1K1RR3 b - - 0 21",
+   "moves": "a4b3 g3g7",
+   "rating": 878,
+   "themes": "kingsideAttack mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "009J1",
+   "fen": "rn2k2r/pp2bp1p/2p1pNp1/6B1/5P2/7P/PPP4P/2K1RR2 b - - 3 17",
+   "moves": "e8f8 g5h6",
+   "rating": 1203,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00AfZ",
+   "fen": "2r3kR/Q7/5q2/1brpN3/5Pp1/4P1P1/6K1/1B6 b - - 2 43",
+   "moves": "f6h8 a7f7",
+   "rating": 926,
+   "themes": "master mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00EDa",
+   "fen": "r1bk3r/ppp1np1p/3p2pP/1N2P1q1/2BP1n2/8/PPP3P1/R1BQ2KR w - - 1 14",
+   "moves": "e5d6 g5g2",
+   "rating": 838,
+   "themes": "kingsideAttack mate mateIn1 oneMove opening",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00FH6",
+   "fen": "r6r/1q2bpk1/7p/p1p1pPpn/Pp2P1nP/1P1B1N2/2P3P1/2BRR1QK w - - 7 30",
+   "moves": "c1b2 h5g3",
+   "rating": 969,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00GY4",
+   "fen": "3k2r1/pR5R/3r4/4p1q1/7Q/3Pn1PP/PP5K/8 b - - 0 27",
+   "moves": "g5h4 b7b8",
+   "rating": 1156,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00HnR",
+   "fen": "q5kr/p4p2/3Bb1p1/4p2p/5n2/2P5/P1Q2PPP/3R1RK1 w - - 4 21",
+   "moves": "d6e5 a8g2",
+   "rating": 794,
+   "themes": "master mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00Hut",
+   "fen": "r4rk1/4p1bp/3p2p1/q1pP1P2/4QP2/4B3/1p5P/1BKR3R w - - 0 22",
+   "moves": "c1c2 a5c3",
+   "rating": 1177,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00KgR",
+   "fen": "5r1k/1pq3p1/2p2P1p/3pPQ2/1p1P4/7P/1rB4K/5R2 b - - 1 35",
+   "moves": "f8f6 f5h7",
+   "rating": 782,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00LPw",
+   "fen": "1rb4r/pp1nb1pp/5nk1/3Np3/2q1P3/2N2Q2/PPP2PPP/R1B1K2R b KQ - 4 12",
+   "moves": "f6d5 f3f5",
+   "rating": 1162,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00LWX",
+   "fen": "2r4k/5p2/4pNp1/6Pp/q6P/7r/2PQ4/1RKN4 w - - 2 37",
+   "moves": "d2b4 c8c2",
+   "rating": 797,
+   "themes": "epauletteMate mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00Pw1",
+   "fen": "5r1k/2p3Rp/3p4/p2Pn3/1p2B3/1P6/PKP2r1P/6R1 b - - 1 28",
+   "moves": "f2e2 g7h7",
+   "rating": 1119,
+   "themes": "endgame master mate mateIn1 oneMove operaMate",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00QkV",
+   "fen": "5k1r/p3Rpbp/3N2p1/4nbB1/2P5/3rP3/q4PPP/3Q1RK1 b - - 2 16",
+   "moves": "f7f6 e7e8",
+   "rating": 1022,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00WAp",
+   "fen": "r5k1/4p2p/p5p1/1p1b2Q1/2p5/P4qN1/1P3P2/R2R2Kr w - - 2 28",
+   "moves": "g3h1 f3h1",
+   "rating": 1023,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00cl7",
+   "fen": "r5k1/ppp1p1b1/4N1Q1/3pq1Bp/7P/8/PPPN1rP1/2KR4 w - - 1 17",
+   "moves": "d2f3 e5b2",
+   "rating": 930,
+   "themes": "mate mateIn1 middlegame oneMove queensideAttack",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00fDM",
+   "fen": "3rrbk1/2p3R1/1p2q2Q/3p4/1P6/2B4P/6P1/3R2K1 b - - 0 33",
+   "moves": "f8g7 h6g7",
+   "rating": 937,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00jPw",
+   "fen": "r3r1k1/ppp2p2/1b5Q/3PP2n/2B3bq/2N5/PP4PP/R4R1K w - - 1 18",
+   "moves": "f1f7 h5g3",
+   "rating": 1091,
+   "themes": "mate mateIn1 middlegame oneMove pin",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00lio",
+   "fen": "r3k3/1p4R1/3pQ3/pP2p3/4q3/4Pr2/8/7K b - - 4 38",
+   "moves": "e8f8 e6g8",
+   "rating": 1089,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00pHb",
+   "fen": "r5rk/4qp1p/p4N1Q/1p2p3/3pP3/1P1P3P/1PP3P1/5RK1 b - - 2 23",
+   "moves": "g8g6 h6h7",
+   "rating": 827,
+   "themes": "endgame kingsideAttack master mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00qoE",
+   "fen": "1n1q2rk/p3b1p1/1pr1p1RB/2p1P3/4N3/2PP1N1P/P3B2K/6R1 b - - 0 28",
+   "moves": "g7h6 g6h6",
+   "rating": 1251,
+   "themes": "kingsideAttack mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00sMF",
+   "fen": "r1bqr1k1/p4pPp/2p1p3/2bpn2Q/8/2NB4/PPP3PP/R1B2R1K b - - 2 15",
+   "moves": "e5d3 h5f7",
+   "rating": 942,
+   "themes": "kingsideAttack mate mateIn1 oneMove opening",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00swU",
+   "fen": "3rkb1r/pppqp1pp/2n5/1Q3p2/4N3/1P2P3/PBP2PPP/R3KB1R w KQk - 0 12",
+   "moves": "e4c5 d7d2",
+   "rating": 1116,
+   "themes": "mate mateIn1 oneMove opening",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "00u3h",
+   "fen": "8/2p2rkp/1p4p1/p2PQ3/2P3P1/1P1q1B1P/P1n3K1/8 b - - 7 41",
+   "moves": "g7h6 g4g5",
+   "rating": 1237,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "0104L",
+   "fen": "6k1/pQ3pp1/7p/8/3P4/6Pb/PPr2r1P/2R3K1 w - - 0 25",
+   "moves": "c1c2 f2f1",
+   "rating": 1046,
+   "themes": "endgame mate mateIn1 oneMove operaMate",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "013fd",
+   "fen": "8/8/1P4p1/3B3p/R3P3/5PkP/1q4P1/R6K w - - 1 46",
+   "moves": "b6b7 b2g2",
+   "rating": 974,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01485",
+   "fen": "r2qr3/p2n1kp1/b1pb1n1p/8/1p1P1N2/1Q3N1P/PP3PP1/R1B1R1K1 b - - 1 16",
+   "moves": "f7f8 f4g6",
+   "rating": 1160,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "014gw",
+   "fen": "r2qkb1r/1p2pppp/p2p1n2/2p1N2b/P1B1P3/3P3P/1PPN1PP1/R1BQ1RK1 b kq - 0 9",
+   "moves": "h5d1 c4f7",
+   "rating": 1111,
+   "themes": "attackingF2F7 mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "016I9",
+   "fen": "8/1b2R1kp/p7/3p2P1/PP1n2KP/2r5/3N4/8 b - - 5 46",
+   "moves": "g7g6 h4h5",
+   "rating": 1140,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "0184P",
+   "fen": "1r6/3R2p1/p5kp/1p2p2N/2Pn2K1/1P6/P5PP/8 b - - 2 30",
+   "moves": "b5c4 d7g7",
+   "rating": 1163,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01H4V",
+   "fen": "r5k1/6p1/2N3pp/3p4/P2P4/1P5n/6PP/5RqK w - - 7 34",
+   "moves": "f1g1 h3f2",
+   "rating": 858,
+   "themes": "endgame mate mateIn1 oneMove smotheredMate",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01QId",
+   "fen": "8/Q4pk1/1Pq3p1/8/4RKP1/4RP1P/P7/6r1 w - - 9 43",
+   "moves": "a7c7 c6f6",
+   "rating": 1163,
+   "themes": "endgame epauletteMate mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01Qv4",
+   "fen": "r4bnr/ppq1kQp1/2p1Pn1p/3p4/3P3P/8/PPP5/RNB1K1NR b KQ - 4 14",
+   "moves": "e7d6 c1f4",
+   "rating": 1095,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01Xg6",
+   "fen": "B2Qnk1r/p1p2pp1/6q1/2b5/5B2/2P2Np1/PP2P2P/R4R1K w - - 0 19",
+   "moves": "b2b4 g3g2",
+   "rating": 1172,
+   "themes": "advancedPawn mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01bwq",
+   "fen": "r1b2k1r/pppq1ppp/1n6/1B1PQ1B1/8/2P5/P4PPP/R3K2R b KQ - 2 15",
+   "moves": "d7d6 e5e8",
+   "rating": 1207,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01eLb",
+   "fen": "8/5k1R/5p2/2K2Npp/4P3/5P2/8/3r2n1 b - - 3 57",
+   "moves": "f7e6 h7e7",
+   "rating": 1161,
+   "themes": "endgame hookMate master mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01liD",
+   "fen": "8/1pp2p2/p4qp1/1kR4p/1P6/7P/5PP1/1R4K1 b - - 4 36",
+   "moves": "b5a4 c5a5",
+   "rating": 1116,
+   "themes": "endgame mate mateIn1 oneMove queenRookEndgame",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01naC",
+   "fen": "r1bq1b1r/1ppk1Qp1/p1n1p2p/3n1p2/3PN3/2PB2B1/PP3PPP/R3K1NR b KQ - 3 11",
+   "moves": "f8e7 e4c5",
+   "rating": 1247,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01p5M",
+   "fen": "1r6/p1p2n2/1pk2Pp1/6r1/8/2N5/PPP4K/3R1R2 w - - 2 24",
+   "moves": "f1g1 b8h8",
+   "rating": 1151,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01z4c",
+   "fen": "3QN1k1/1p3pb1/2r1p1p1/3pP3/3P3p/1B5P/PP3KP1/2r2n2 b - - 5 31",
+   "moves": "c6c8 e8f6",
+   "rating": 937,
+   "themes": "doubleCheck master mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "01zLs",
+   "fen": "7r/1p6/2p3R1/2PpR3/5b1k/6P1/p4P1K/8 b - - 0 39",
+   "moves": "f4g3 f2g3",
+   "rating": 1084,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "020iD",
+   "fen": "r2qkb1r/2p1pppp/p1n2nb1/1N2N3/B2P2P1/7P/PPP5/R1BQK2R b KQkq - 0 11",
+   "moves": "c6e5 b5c7",
+   "rating": 717,
+   "themes": "doubleCheck mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "022Dh",
+   "fen": "5r2/p3p1kp/1p4p1/4rp2/2P5/3P1Q1P/R3K1P1/2q2BNR w - - 7 32",
+   "moves": "e2f2 c1e1",
+   "rating": 1172,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "0252h",
+   "fen": "r2qkb1r/p5pp/2p1p3/3p1n2/3P4/2P2Q1P/PP4P1/RNB2RK1 b kq - 3 16",
+   "moves": "f5h4 f3f7",
+   "rating": 1236,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "028b4",
+   "fen": "r1b2rk1/p4pp1/1bp1p2p/4N3/1PPq4/P2B3P/5PP1/R2QK2R w KQ - 1 18",
+   "moves": "e5c6 d4f2",
+   "rating": 1151,
+   "themes": "attackingF2F7 mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "029AH",
+   "fen": "5r1k/6rn/2Qp3p/5b2/4p1B1/P7/5qPP/R3R1NK w - - 2 38",
+   "moves": "g4f5 f2g2",
+   "rating": 910,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02Cy0",
+   "fen": "r2q3r/1p3Qpk/2p2n1p/p2n1N1P/3P1P2/2P5/PP1B2P1/2K1R3 b - - 4 25",
+   "moves": "d8g8 f7g6",
+   "rating": 1043,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02DhH",
+   "fen": "r4rk1/pbp1bp1p/1p2pnp1/3q2N1/3P3Q/3BB3/PPP3PP/R4RK1 w - - 2 14",
+   "moves": "f1f6 d5g2",
+   "rating": 1248,
+   "themes": "kingsideAttack mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02EUf",
+   "fen": "6r1/1P6/2B5/8/3k3p/3pp2P/1R6/4K3 w - - 2 53",
+   "moves": "b7b8q g8g1",
+   "rating": 1193,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02FVj",
+   "fen": "2kr2r1/p4p2/1p5p/2p1Pp1P/2Pp1P1Q/3P1q2/PP6/1K1R2R1 w - - 1 28",
+   "moves": "g1g8 f3d1",
+   "rating": 966,
+   "themes": "endgame hangingPiece master mate mateIn1 oneMove queensideAttack",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02P4S",
+   "fen": "r1bq1rk1/ppp3p1/7p/4pp1Q/2PPp3/P3P1P1/1PnNKPP1/3R1B1R w - - 0 15",
+   "moves": "d4e5 d8d3",
+   "rating": 1158,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02Pxu",
+   "fen": "6k1/R7/6K1/7P/8/6p1/8/7r b - - 3 58",
+   "moves": "g3g2 a7a8",
+   "rating": 929,
+   "themes": "endgame mate mateIn1 oneMove rookEndgame",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02U15",
+   "fen": "3rkbnr/pp1b1ppp/2n5/2pBP3/4NP2/5N2/PP4PP/R1B1K2R b KQk - 6 12",
+   "moves": "g8e7 e4d6",
+   "rating": 1039,
+   "themes": "mate mateIn1 oneMove opening smotheredMate",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02Ylx",
+   "fen": "1br2rk1/ppq1nppp/8/5b2/2PP3N/PB1n4/1BQN1PPP/R4RK1 w - - 5 18",
+   "moves": "h4f5 c7h2",
+   "rating": 900,
+   "themes": "kingsideAttack mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02Zr8",
+   "fen": "2k5/p1p2ppp/2R5/8/8/6Pb/PPQ1qb1P/R5K1 w - - 0 22",
+   "moves": "g1h1 e2f3",
+   "rating": 1180,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02hO3",
+   "fen": "8/1b6/pk2p3/1p1pb3/1P2P3/P1PBK1P1/3R1Prr/1N1R4 w - - 0 35",
+   "moves": "f2f4 g2g3",
+   "rating": 1253,
+   "themes": "master masterVsMaster mate mateIn1 middlegame oneMove pillsburysMate",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02jGG",
+   "fen": "Q1bqk2r/5ppp/4p3/1p2n3/1b1Pp3/8/PP2KPPP/R1B4R w k - 0 14",
+   "moves": "d4e5 d8d3",
+   "rating": 1035,
+   "themes": "mate mateIn1 middlegame oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02k1g",
+   "fen": "6k1/2R4p/6p1/5p2/4nP2/4NK2/r5PP/8 w - - 3 40",
+   "moves": "g2g4 a2f2",
+   "rating": 1057,
+   "themes": "endgame hookMate mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  },
+  {
+   "id": "02m0s",
+   "fen": "8/p3kpp1/8/3R1r2/8/4P1Q1/PPr4n/5K1R w - - 8 32",
+   "moves": "f1g1 f5f1",
+   "rating": 1158,
+   "themes": "endgame mate mateIn1 oneMove",
+   "solvedAtDepth1": true
+  }
+ ],
+ "twoMove": [
+  {
+   "id": "001wr",
+   "fen": "r4rk1/p3ppbp/Pp1q1np1/3PpbB1/2B5/2N5/1PPQ1PPP/3RR1K1 w - - 4 18",
+   "moves": "f2f3 d6c5 g1h1 c5c4",
+   "rating": 974,
+   "themes": "advantage fork master masterVsMaster middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 661
+  },
+  {
+   "id": "003jb",
+   "fen": "r3kb1r/p4ppp/b1p1p3/3q4/3Q4/4BN2/PPP2PPP/R3K2R b KQkq - 0 11",
+   "moves": "c6c5 d4a4 a6b5 a4b5",
+   "rating": 960,
+   "themes": "crushing fork master middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 334
+  },
+  {
+   "id": "004mT",
+   "fen": "5Q2/8/1b1kp1p1/5p2/3p4/5qPK/7P/8 b - - 1 51",
+   "moves": "d6c6 f8a8 c6d6 a8f3",
+   "rating": 1255,
+   "themes": "advantage endgame short skewer",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 295
+  },
+  {
+   "id": "005Bm",
+   "fen": "4rk2/p1q5/1p3Q1b/8/1p5N/2P1p3/P3P3/2K5 b - - 0 43",
+   "moves": "c7f7 h4g6 f8g8 f6h8",
+   "rating": 1291,
+   "themes": "endgame mate mateIn2 pin short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 400
+  },
+  {
+   "id": "005nD",
+   "fen": "3rk2r/2qn1pp1/p1Q1R3/3n3p/8/8/PP4PP/5R1K b k - 0 23",
+   "moves": "f7e6 c6e6 d5e7 e6f7",
+   "rating": 1105,
+   "themes": "fork mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 183
+  },
+  {
+   "id": "007eS",
+   "fen": "6k1/p4p2/1p5p/4r3/P3B3/1P3P2/2PK2PP/8 w - - 0 29",
+   "moves": "d2e3 f7f5 g2g4 f5e4",
+   "rating": 1156,
+   "themes": "advantage endgame short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 742
+  },
+  {
+   "id": "008tL",
+   "fen": "8/7k/pR5p/3p4/5r2/2P1p2P/P5P1/6K1 w - - 0 40",
+   "moves": "b6a6 e3e2 a6e6 f4f1",
+   "rating": 1167,
+   "themes": "advancedPawn crushing endgame master rookEndgame short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 471
+  },
+  {
+   "id": "009Wc",
+   "fen": "1r3rk1/1pq2pbp/p1p1pnp1/2N1N3/3P4/1QP5/PP3PPP/3RR1K1 w - - 2 19",
+   "moves": "e5d7 f6d7 c5d7 c7d7",
+   "rating": 964,
+   "themes": "crushing middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 313
+  },
+  {
+   "id": "009wR",
+   "fen": "1R2R3/p7/1p1k3p/1Pb5/P5p1/6P1/5rKP/8 w - - 6 41",
+   "moves": "g2h1 f2f1 h1g2 f1g1",
+   "rating": 1234,
+   "themes": "endgame mate mateIn2 operaMate short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 285
+  },
+  {
+   "id": "00AB1",
+   "fen": "8/7Q/3p1kp1/1p6/2b5/2P4P/5PPK/4q3 b - - 8 36",
+   "moves": "e1c3 h7h8 f6e6 h8c3",
+   "rating": 1121,
+   "themes": "crushing endgame short skewer",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 407
+  },
+  {
+   "id": "00Af3",
+   "fen": "8/8/2B2p1p/P4Pp1/3p1kP1/1b1Pb2P/8/4K3 b - - 0 50",
+   "moves": "f4g3 a5a6 b3c4 a6a7",
+   "rating": 1171,
+   "themes": "advancedPawn bishopEndgame crushing endgame short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 370
+  },
+  {
+   "id": "00BJm",
+   "fen": "r2q1rk1/1Q2bppp/p1N1p3/1p6/2pP1n2/2P5/PP3PPP/R4RK1 b - - 1 18",
+   "moves": "d8d5 c6e7 g8h8 e7d5",
+   "rating": 1039,
+   "themes": "advantage fork hangingPiece middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 184
+  },
+  {
+   "id": "00BNd",
+   "fen": "1rr3k1/3bppbp/3p1np1/1B1N4/P2BP3/5P2/P2R2PP/R5K1 b - - 0 21",
+   "moves": "d7b5 d5e7 g8f8 e7c8",
+   "rating": 912,
+   "themes": "advantage fork middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 291
+  },
+  {
+   "id": "00BSo",
+   "fen": "2r3k1/4R1pp/p1p2p2/2p5/2P5/1PbN3P/P4PP1/6K1 w - - 0 25",
+   "moves": "d3c5 c3b4 e7a7 b4c5",
+   "rating": 1266,
+   "themes": "advantage endgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 2188
+  },
+  {
+   "id": "00Bp0",
+   "fen": "1r2kr2/pp3p1p/2b1pn2/4N3/2P5/1N1B4/P3KP1P/6R1 b - - 4 21",
+   "moves": "f6e4 e5c6 b7c6 d3e4",
+   "rating": 1229,
+   "themes": "advantage capturingDefender middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 571
+  },
+  {
+   "id": "00Bul",
+   "fen": "rnbqk2r/pp3ppp/5n2/3pN3/2B5/2P5/P1PPQPPP/R1B1K2R b KQkq - 1 8",
+   "moves": "d5c4 e5c6 c8e6 c6d8",
+   "rating": 1210,
+   "themes": "advantage discoveredAttack discoveredCheck opening short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 320
+  },
+  {
+   "id": "00CtS",
+   "fen": "Q5k1/5q2/p2p4/b1p1pr2/P7/6P1/4KP1R/8 b - - 3 38",
+   "moves": "g8g7 a8h8 g7g6 h8h6",
+   "rating": 967,
+   "themes": "endgame mate mateIn2 short swallowstailMate",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 92
+  },
+  {
+   "id": "00IF1",
+   "fen": "1k6/p1p5/P2p4/3P4/1PK2N1p/4P3/5r2/4B3 b - - 12 57",
+   "moves": "f2f4 e3f4 h4h3 e1g3",
+   "rating": 1266,
+   "themes": "crushing defensiveMove endgame hangingPiece short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 63
+  },
+  {
+   "id": "00KYU",
+   "fen": "3r4/p2n2kp/1p2Bpp1/2r2N2/4q3/6QP/P5P1/5R1K b - - 1 40",
+   "moves": "g7f8 g3d6 f8e8 d6e7",
+   "rating": 1245,
+   "themes": "mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 294
+  },
+  {
+   "id": "00MFe",
+   "fen": "3r3k/p5pp/2r2q2/2p4Q/8/8/P5PP/3R1R1K b - - 5 29",
+   "moves": "d8d1 h5e8 f6f8 e8f8",
+   "rating": 1294,
+   "themes": "endgame mate mateIn2 short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 86
+  },
+  {
+   "id": "00NUS",
+   "fen": "4rk2/pbp2pp1/1p1b4/3P1q2/QPBPN3/1KP2P2/P5r1/R3R3 w - - 0 25",
+   "moves": "e4d6 f5c2 b3a3 c2b2",
+   "rating": 1281,
+   "themes": "mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 399
+  },
+  {
+   "id": "00OCQ",
+   "fen": "1rr3k1/5p1p/p5pQ/4p3/4q3/B3P3/PPPR1PPP/2KR4 w - - 6 27",
+   "moves": "c2c3 c8c3 b2c3 b8b1",
+   "rating": 1160,
+   "themes": "mate mateIn2 middlegame queensideAttack sacrifice short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 252
+  },
+  {
+   "id": "00Oim",
+   "fen": "1r3rk1/q5pp/2R5/3P4/8/1p2NpPb/1P3P1P/2QR2K1 w - - 0 32",
+   "moves": "c1c4 a7e3 f2e3 f3f2",
+   "rating": 1247,
+   "themes": "advancedPawn advantage middlegame sacrifice short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 176
+  },
+  {
+   "id": "00Q4m",
+   "fen": "5r2/1b3k2/1q4p1/p3Pp1p/2pn1P1P/4Q1P1/P6K/R1R2B2 w - - 2 34",
+   "moves": "f1g2 d4f3 e3f3 b7f3",
+   "rating": 1113,
+   "themes": "advantage middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 282
+  },
+  {
+   "id": "00QZ3",
+   "fen": "r1bq3r/ppppnkpp/2n5/b5N1/4P3/B1P5/P4PPP/RN1QK2R b KQ - 1 9",
+   "moves": "f7f8 d1f3 f8e8 f3f7",
+   "rating": 1173,
+   "themes": "mate mateIn2 opening short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 128
+  },
+  {
+   "id": "00R2A",
+   "fen": "2kr1b1R/p5p1/8/3P1p2/8/4B3/PPPK1P2/8 w - - 1 25",
+   "moves": "c2c4 f8b4 d2d3 d8h8",
+   "rating": 896,
+   "themes": "crushing discoveredAttack endgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 2621
+  },
+  {
+   "id": "00SsI",
+   "fen": "6R1/p4p1p/2p1pp1k/8/2N5/4b1R1/4K1PP/2q5 b - - 1 29",
+   "moves": "e3g5 g3h3 g5h4 h3h4",
+   "rating": 1154,
+   "themes": "endgame mate mateIn2 short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 260
+  },
+  {
+   "id": "00SyL",
+   "fen": "1rb2rk1/4bppp/p1n1p3/1p1qP3/7N/P5P1/1PQ2PBP/R1B2RK1 b - - 1 15",
+   "moves": "d5c5 c2c5 e7c5 g2c6",
+   "rating": 1255,
+   "themes": "capturingDefender crushing opening short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 160
+  },
+  {
+   "id": "00TQf",
+   "fen": "4r1k1/p1R1n2p/4N3/5rK1/8/6PP/P3R3/8 w - - 3 46",
+   "moves": "g5g4 h7h5 g4h4 e7g6",
+   "rating": 1196,
+   "themes": "endgame mate mateIn2 short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 805
+  },
+  {
+   "id": "00Ta0",
+   "fen": "4k3/1R6/6p1/4Np1p/7P/2r3PK/5b2/8 w - - 11 47",
+   "moves": "e5g6 c3g3 h3h2 g3g6",
+   "rating": 1183,
+   "themes": "crushing endgame fork short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 1155
+  },
+  {
+   "id": "00Tya",
+   "fen": "r4rk1/6pp/1p1Bp3/p7/P1PP4/4nqP1/2QR3P/4R1K1 w - - 1 25",
+   "moves": "c2a2 f3f1 e1f1 f8f1",
+   "rating": 1185,
+   "themes": "kingsideAttack mate mateIn2 middlegame sacrifice short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 207
+  },
+  {
+   "id": "00Us6",
+   "fen": "3r1rk1/p3R2p/2p2p2/1pPq4/1n1P1P2/6P1/1B2Q2P/2K1R3 b - - 3 32",
+   "moves": "d5b3 e2g4 g8h8 g4g7",
+   "rating": 1216,
+   "themes": "kingsideAttack mate mateIn2 middlegame short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 220
+  },
+  {
+   "id": "00UwP",
+   "fen": "5rk1/p4pp1/3qb2p/1B1p4/1r1P4/Q3PN2/P4PPP/2R3K1 b - - 5 19",
+   "moves": "b4b1 a3d6 b1c1 b5f1",
+   "rating": 1188,
+   "themes": "advantage master middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 106
+  },
+  {
+   "id": "00VSe",
+   "fen": "6nr/1pN2ppp/p2Qbk2/2B1p3/3nq3/8/PP2BPPP/5K1R w - - 8 19",
+   "moves": "c5d4 e4b1 e2d1 b1d1",
+   "rating": 955,
+   "themes": "mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 402
+  },
+  {
+   "id": "00WDP",
+   "fen": "1r2kb1r/p4ppp/Q1n5/2qpP1Bb/8/5N1P/P2N1PP1/R4RK1 b k - 2 16",
+   "moves": "b8b6 a6c8 c6d8 c8d8",
+   "rating": 1181,
+   "themes": "mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 267
+  },
+  {
+   "id": "00WZO",
+   "fen": "8/1R2B3/5p2/1k2bP1p/p6r/5K2/8/8 b - - 7 45",
+   "moves": "b5c4 b7b4 c4d5 b4h4",
+   "rating": 1106,
+   "themes": "crushing endgame short skewer",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 1555
+  },
+  {
+   "id": "00X5w",
+   "fen": "r2q1r1k/1ppbb1pn/p1n4p/3Qpp2/B3P3/2P2N1P/PP3PP1/R1B1RNK1 w - - 2 14",
+   "moves": "f3e5 c6e5 a4d7 e5d7",
+   "rating": 1271,
+   "themes": "advantage middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 532
+  },
+  {
+   "id": "00XL2",
+   "fen": "2kr3r/ppp3pp/6q1/3Pnp2/1PP1p3/7P/P2QNPP1/R4RK1 w - - 1 17",
+   "moves": "d2d4 e5f3 g1h1 f3d4",
+   "rating": 954,
+   "themes": "crushing middlegame pin short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 231
+  },
+  {
+   "id": "00Ybq",
+   "fen": "2rr4/4kp2/p3p2q/1p3nNP/3PQP2/P1N5/1P3K2/6R1 b - - 0 34",
+   "moves": "d8d4 e4b7 d4d7 b7c8",
+   "rating": 1192,
+   "themes": "crushing fork master middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 383
+  },
+  {
+   "id": "00ZeT",
+   "fen": "1Q1k4/4r3/2q4p/2p1pp1P/2Bb4/1P6/P6K/4R3 b - - 4 43",
+   "moves": "d8d7 c4b5 c6b5 b8b5",
+   "rating": 1296,
+   "themes": "crushing endgame pin short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 118
+  },
+  {
+   "id": "00Zit",
+   "fen": "r3kb1r/ppp2pp1/3p4/1P2p3/2P3pn/2N1P2q/PB1P1P1N/R2Q1RK1 w kq - 0 15",
+   "moves": "d1g4 h4f3 h2f3 h3g4",
+   "rating": 1191,
+   "themes": "deflection kingsideAttack mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 237
+  },
+  {
+   "id": "00aCb",
+   "fen": "r2q1rk1/pp2bpp1/2p1b2p/3nP3/3PN3/1P1Q3P/P4BP1/1BR2RK1 b - - 4 25",
+   "moves": "d5f4 e4f6 g7f6 d3h7",
+   "rating": 1175,
+   "themes": "clearance kingsideAttack mate mateIn2 middlegame sacrifice short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 189
+  },
+  {
+   "id": "00cud",
+   "fen": "8/5p2/6p1/1p1N1k2/1PbK4/2P3P1/8/8 b - - 0 48",
+   "moves": "c4f1 d5e3 f5e6 e3f1",
+   "rating": 979,
+   "themes": "crushing endgame fork master short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 179
+  },
+  {
+   "id": "00cy1",
+   "fen": "2rknb2/3q1pp1/p1pP3r/1pQ1P2p/5P2/1P4P1/PB4K1/3R4 b - - 0 27",
+   "moves": "h5h4 c5b6 e8c7 d6c7",
+   "rating": 1211,
+   "themes": "advancedPawn advantage master middlegame pin short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 730
+  },
+  {
+   "id": "00dnp",
+   "fen": "8/Q7/7r/8/6K1/1r2k1p1/6P1/8 b - - 2 64",
+   "moves": "e3e2 a7a2 e2e3 a2b3",
+   "rating": 1291,
+   "themes": "crushing endgame fork master queenRookEndgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 334
+  },
+  {
+   "id": "00dzT",
+   "fen": "6k1/1Q4p1/p1p4p/3pP3/P3bq2/2N4P/1P4PK/5B2 w - - 1 26",
+   "moves": "h2h1 f4f1 h1h2 f1g2",
+   "rating": 862,
+   "themes": "endgame hangingPiece mate mateIn2 short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 923
+  },
+  {
+   "id": "00eGd",
+   "fen": "7R/8/p2kp3/2r4p/p4K2/6PP/P7/8 b - - 3 39",
+   "moves": "d6d5 h8h5 e6e5 h5e5",
+   "rating": 1263,
+   "themes": "crushing endgame rookEndgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 491
+  },
+  {
+   "id": "00eQx",
+   "fen": "5r1k/R5bp/6p1/p2Bq3/p3P3/6PK/7P/4Q3 w - - 7 39",
+   "moves": "a7a5 e5h5 h3g2 h5f3",
+   "rating": 1148,
+   "themes": "crushing endgame short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 67
+  },
+  {
+   "id": "00fwM",
+   "fen": "Qn1qk2r/p4ppp/2p5/2bn4/4pPb1/2N5/PPPP2PP/R1B1KBNR w KQk - 1 9",
+   "moves": "h2h3 d8h4 g2g3 h4g3",
+   "rating": 1152,
+   "themes": "mate mateIn2 opening short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 561
+  },
+  {
+   "id": "00ghH",
+   "fen": "5r1k/6p1/1Q2pq1p/P4r2/3P4/2P1R3/6PP/4R1K1 w - - 1 39",
+   "moves": "d4d5 f5f1 e1f1 f6f1",
+   "rating": 698,
+   "themes": "endgame mate mateIn2 short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 136
+  },
+  {
+   "id": "00hYk",
+   "fen": "8/8/1n4p1/4kp1p/7P/1B2KPP1/8/8 b - - 0 54",
+   "moves": "b6d5 b3d5 e5d5 e3f4",
+   "rating": 1277,
+   "themes": "crushing endgame short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 62
+  },
+  {
+   "id": "00hbV",
+   "fen": "8/pk1r1bR1/1p6/8/2P2N2/1P6/1K6/8 b - - 21 60",
+   "moves": "f7e6 f4e6 d7g7 e6g7",
+   "rating": 928,
+   "themes": "crushing endgame hangingPiece master short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 1009
+  },
+  {
+   "id": "00iyx",
+   "fen": "2kr1b1r/pp3ppp/2p1pq2/6B1/2P3Q1/7P/P4PP1/1R3RK1 b - - 3 19",
+   "moves": "f6g6 g5d8 g6g4 h3g4",
+   "rating": 1145,
+   "themes": "advantage middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 787
+  },
+  {
+   "id": "00jCD",
+   "fen": "r4r1k/ppp1b1pp/3qQn2/6B1/8/2N5/PPP2PPP/R4RK1 w - - 3 14",
+   "moves": "e6b3 f6g4 g2g3 e7g5",
+   "rating": 1283,
+   "themes": "advantage discoveredAttack middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 403
+  },
+  {
+   "id": "00n3G",
+   "fen": "1k4r1/7p/1p4r1/pPp1qp2/P1Pp1R2/3Q2NP/2P4K/5R2 w - - 4 32",
+   "moves": "f1f3 g6g3 f3g3 e5f4",
+   "rating": 1135,
+   "themes": "advantage deflection middlegame pin short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 138
+  },
+  {
+   "id": "00nFD",
+   "fen": "r4rk1/p1q2pb1/2p1b1pp/3np3/2B1N2P/4BP2/PPP3P1/2KRQ2R w - - 0 16",
+   "moves": "g2g4 d5e3 c4e6 e3d1",
+   "rating": 1280,
+   "themes": "advantage master middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 616
+  },
+  {
+   "id": "00nji",
+   "fen": "3R2k1/5pp1/2b4p/2b5/p1P5/P4P1P/6P1/5K2 b - - 4 36",
+   "moves": "g8h7 d8c8 c5a3 c8c6",
+   "rating": 1142,
+   "themes": "advantage endgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 1068
+  },
+  {
+   "id": "00oYS",
+   "fen": "4K3/4P1k1/8/8/8/8/2p1R3/2r5 w - - 10 59",
+   "moves": "e8d7 c1d1 d7e6 c2c1q",
+   "rating": 995,
+   "themes": "advancedPawn clearance crushing endgame master promotion rookEndgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 857
+  },
+  {
+   "id": "00pVS",
+   "fen": "r1b1kbnN/ppp3pp/3p4/8/8/2NP4/PPP4P/R2QKBq1 b Qq - 3 15",
+   "moves": "c8h3 d1h5 g7g6 h5h3",
+   "rating": 1258,
+   "themes": "advantage fork middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 177
+  },
+  {
+   "id": "00rva",
+   "fen": "r2qkb1r/pQpbpppp/2n2n2/1N6/2pP4/8/PP2PPPP/R1B1KBNR b KQkq - 2 7",
+   "moves": "a8b8 b5c7 d8c7 b7c7",
+   "rating": 1160,
+   "themes": "crushing opening short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 163
+  },
+  {
+   "id": "00tZP",
+   "fen": "r2qk2r/1p3ppp/8/2pPPn2/1pPn2b1/3Q1NP1/PP3PBP/RN3RK1 w kq c6 0 14",
+   "moves": "d5c6 d4f3 d3f3 g4f3",
+   "rating": 1209,
+   "themes": "crushing kingsideAttack middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 551
+  },
+  {
+   "id": "00tsE",
+   "fen": "2rq1k2/5ppp/p7/1p6/5Q2/2P5/P1P2PPP/4RK2 b - - 7 22",
+   "moves": "c8c3 f4b4 f8g8 b4c3",
+   "rating": 1092,
+   "themes": "crushing endgame fork short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 1429
+  },
+  {
+   "id": "00uDH",
+   "fen": "2r5/3k1p2/5Pp1/PP1pP1P1/1K1B3P/5p2/8/8 w - - 1 45",
+   "moves": "d4c5 c8c5 b4c5 f3f2",
+   "rating": 1279,
+   "themes": "advancedPawn crushing endgame sacrifice short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 375
+  },
+  {
+   "id": "00woo",
+   "fen": "8/r7/pkq1p1r1/R2pPp2/RPpP1Qp1/2P3Pp/4KP1P/8 w - - 1 44",
+   "moves": "b4b5 a6b5 a5a7 b5a4",
+   "rating": 1021,
+   "themes": "advantage endgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 80
+  },
+  {
+   "id": "00xsd",
+   "fen": "r1bqkb1r/1p1npp1p/p2p1np1/6B1/3N4/3BP3/PPP2PPP/RN1QK2R w KQkq - 0 8",
+   "moves": "c2c4 d8a5 b1c3 a5g5",
+   "rating": 1210,
+   "themes": "advantage fork opening short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 384
+  },
+  {
+   "id": "00yIS",
+   "fen": "3r3k/p5p1/5q1p/8/P1b5/4Q1RP/6BK/8 b - - 6 42",
+   "moves": "d8d3 e3e8 c4g8 g3d3",
+   "rating": 1140,
+   "themes": "advantage deflection discoveredAttack endgame master short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 216
+  },
+  {
+   "id": "00yWQ",
+   "fen": "8/5pk1/4b2p/8/2r1NKP1/4P2P/5R2/8 w - - 12 51",
+   "moves": "f4f3 e6d5 f2d2 d5e4",
+   "rating": 1282,
+   "themes": "crushing endgame master masterVsMaster short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 1664
+  },
+  {
+   "id": "00z3O",
+   "fen": "r2qr1k1/pp3pp1/2p2n1p/3bR3/3P4/3Q1N1P/PPB2PP1/4R1K1 b - - 11 23",
+   "moves": "d5f3 e5e8 d8e8 e1e8",
+   "rating": 1096,
+   "themes": "advantage kingsideAttack middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 318
+  },
+  {
+   "id": "014p4",
+   "fen": "3rn2r/pp1q1pkp/2n1b1p1/1Np1p3/8/4N1P1/PP1QPPBP/R2R2K1 w - - 0 18",
+   "moves": "g2c6 d7d2 d1d2 d8d2",
+   "rating": 1179,
+   "themes": "crushing master middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 280
+  },
+  {
+   "id": "014vH",
+   "fen": "4k3/pp3p1Q/1q2pP2/3p4/3P4/bP3NN1/r1n3PP/5RK1 w - - 1 25",
+   "moves": "f3e5 b6d4 g1h1 d4e5",
+   "rating": 1104,
+   "themes": "crushing fork middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 196
+  },
+  {
+   "id": "01DHd",
+   "fen": "r1bq1rk1/pp1nb1pp/4pp2/3pP2Q/2pP4/2P1P3/PPBN2PP/R1B2RK1 b - - 1 12",
+   "moves": "g7g6 c2g6 h7g6 h5g6",
+   "rating": 1134,
+   "themes": "crushing kingsideAttack opening short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 181
+  },
+  {
+   "id": "01GBu",
+   "fen": "5r1k/3p2bp/p4pp1/qp1br3/4P3/1Q4B1/PP2RPPP/4R1K1 w - - 0 23",
+   "moves": "e4d5 a5e1 e2e1 e5e1",
+   "rating": 1260,
+   "themes": "backRankMate mate mateIn2 middlegame short xRayAttack",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 249
+  },
+  {
+   "id": "01GnH",
+   "fen": "1R6/P7/6p1/7p/8/7k/K7/2q5 b - - 1 43",
+   "moves": "c1c4 b8b3 h3g4 a7a8q",
+   "rating": 1139,
+   "themes": "advancedPawn advantage endgame promotion queenRookEndgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 548
+  },
+  {
+   "id": "01HXY",
+   "fen": "8/8/1p1P1k1K/1p6/pP6/P7/8/8 w - - 0 42",
+   "moves": "h6h5 f6e6 d6d7 e6d7",
+   "rating": 884,
+   "themes": "crushing endgame master pawnEndgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 27
+  },
+  {
+   "id": "01IFU",
+   "fen": "r1b2rk1/pp3pp1/3b3p/3Bn3/P2N1q2/2P4P/1P3PP1/RN1Q1RK1 w - - 1 17",
+   "moves": "d4e2 e5f3 g2f3 f4h2",
+   "rating": 1011,
+   "themes": "kingsideAttack mate mateIn2 opening sacrifice short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 131
+  },
+  {
+   "id": "01J3q",
+   "fen": "r3r1k1/ppq1ppb1/2p3nN/2Pp3p/3Pn2N/1P2P2P/PB3QP1/R4RK1 b - - 9 23",
+   "moves": "g7h6 f2f7 g8h8 h4g6",
+   "rating": 1138,
+   "themes": "fork mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 220
+  },
+  {
+   "id": "01KyF",
+   "fen": "5rk1/6bp/1p2p1p1/1Pp5/2P4q/4NQ1P/5PP1/1R4K1 w - - 0 32",
+   "moves": "f3c6 h4f2 g1h1 f2e3",
+   "rating": 1087,
+   "themes": "crushing endgame fork short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 220
+  },
+  {
+   "id": "01LO7",
+   "fen": "r3r1k1/1pqb1p1p/4p1nQ/p1bp3N/3p4/P2B1P2/1PP2P1P/R3R1K1 b - - 0 17",
+   "moves": "c5f8 h5f6 g8h8 h6h7",
+   "rating": 1117,
+   "themes": "fork mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 744
+  },
+  {
+   "id": "01LlS",
+   "fen": "4rrk1/ppp1qppp/8/6N1/4N1P1/b2Q3P/P4P2/1R4K1 b - - 0 24",
+   "moves": "h7h6 e4f6 g7f6 d3h7",
+   "rating": 874,
+   "themes": "clearance kingsideAttack mate mateIn2 middlegame sacrifice short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 132
+  },
+  {
+   "id": "01NVd",
+   "fen": "8/1K3Npk/5n2/R6p/7r/p7/8/8 b - - 1 48",
+   "moves": "h4h3 f7g5 h7g6 g5h3",
+   "rating": 886,
+   "themes": "advantage endgame fork master short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 2958
+  },
+  {
+   "id": "01NfS",
+   "fen": "r3k2r/pp2bppp/2pQ4/2Bn4/6P1/3P4/PPP4P/1K2R1Nq b kq - 3 19",
+   "moves": "a8d8 e1e7 d5e7 d6e7",
+   "rating": 1193,
+   "themes": "mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 206
+  },
+  {
+   "id": "01OYe",
+   "fen": "3Q4/p5k1/1p2p1pn/1P1p1p1R/3P1P2/qN2r3/P1r3PP/R5K1 w - - 2 40",
+   "moves": "d8d7 h6f7 h5h7 g7h7",
+   "rating": 1129,
+   "themes": "crushing defensiveMove middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 62
+  },
+  {
+   "id": "01OgB",
+   "fen": "r3r1k1/1ppQ1pp1/1p5p/1P6/3P4/2P5/3B1PPP/5qK1 w - - 0 22",
+   "moves": "g1f1 a8a1 d2c1 a1c1",
+   "rating": 881,
+   "themes": "endgame mate mateIn2 short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 1162
+  },
+  {
+   "id": "01Pe4",
+   "fen": "r2qkb1r/1b3ppp/p1p1p3/2ppN3/4nPP1/1P2P3/PBPP3P/RN1QK2R w KQkq - 2 10",
+   "moves": "d2d3 d8h4 e1f1 h4f2",
+   "rating": 1200,
+   "themes": "mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 238
+  },
+  {
+   "id": "01QgT",
+   "fen": "8/8/p1pk1R2/1pp1rp2/8/1P1K4/P1P5/8 b - - 1 36",
+   "moves": "d6d5 c2c4 b5c4 b3c4",
+   "rating": 910,
+   "themes": "endgame mate mateIn2 rookEndgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 204
+  },
+  {
+   "id": "01SLc",
+   "fen": "3k4/5p2/3Pb3/4P1p1/N7/4K3/8/8 b - - 9 54",
+   "moves": "d8d7 a4c5 d7c6 c5e6",
+   "rating": 944,
+   "themes": "crushing deflection endgame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 291
+  },
+  {
+   "id": "01Suf",
+   "fen": "r1bqk1nr/pp3ppp/2nbp3/1Bp5/3pP3/5NN1/PPPP1PPP/R1BQK2R w KQkq - 4 7",
+   "moves": "d2d3 d8a5 f3d2 a5b5",
+   "rating": 1108,
+   "themes": "crushing fork opening short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 317
+  },
+  {
+   "id": "01TEE",
+   "fen": "2r1r1k1/pp2bppp/1q3n2/4B3/4N3/1P3Q2/P5PP/3R1R1K b - - 4 18",
+   "moves": "f6e4 f3f7 g8h8 f7g7",
+   "rating": 1187,
+   "themes": "kingsideAttack mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 853
+  },
+  {
+   "id": "01V4g",
+   "fen": "3r1rk1/p2nppbp/2p2np1/qpPp4/N2P1B2/PP1BP2P/5PP1/R2Q1RK1 b - - 0 15",
+   "moves": "b5a4 b3b4 a5b5 d3b5",
+   "rating": 1157,
+   "themes": "advantage middlegame short trappedPiece",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 318
+  },
+  {
+   "id": "01VFl",
+   "fen": "8/7R/4k3/6Pp/4p1nP/6K1/P4r2/8 b - - 1 45",
+   "moves": "e6f5 h7f7 f5e6 f7f2",
+   "rating": 982,
+   "themes": "crushing endgame master short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 443
+  },
+  {
+   "id": "01Vnj",
+   "fen": "6r1/5p1k/p3pBP1/2Pp2Q1/q1pP3P/P4P2/5K2/8 b - - 0 33",
+   "moves": "g8g6 g5h5 g6h6 h5f7",
+   "rating": 1071,
+   "themes": "endgame mate mateIn2 short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 258
+  },
+  {
+   "id": "01WoU",
+   "fen": "6k1/1p4pp/p3r3/2b1r3/5N2/2P5/PP2n1PP/2B1RR1K w - - 4 26",
+   "moves": "f4e6 e2g3 h2g3 e5h5",
+   "rating": 1115,
+   "themes": "mate mateIn2 middlegame pillsburysMate sacrifice short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 459
+  },
+  {
+   "id": "01Y2F",
+   "fen": "r3kb1r/pp1q1ppp/4p3/4Pn2/3pN3/2P4P/PP3RP1/R1BQ2K1 w kq - 0 15",
+   "moves": "f2f5 e6f5 e4d6 f8d6",
+   "rating": 1091,
+   "themes": "advantage hangingPiece master middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 283
+  },
+  {
+   "id": "01Yqt",
+   "fen": "8/2p5/3b2kp/3p2p1/P3p1K1/1P2R2P/1B4P1/8 w - - 2 36",
+   "moves": "h3h4 h6h5 g4h3 g5g4",
+   "rating": 1160,
+   "themes": "endgame mate mateIn2 short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 691
+  },
+  {
+   "id": "01c3W",
+   "fen": "3r1rk1/ppp1qp1p/6p1/8/4p1b1/3BP3/PPP2RPP/RN3QK1 w - - 0 17",
+   "moves": "d3c4 d8d1 f1d1 g4d1",
+   "rating": 1107,
+   "themes": "advantage middlegame pin short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 258
+  },
+  {
+   "id": "01eyQ",
+   "fen": "r2qk2r/3pppb1/p5pp/1p1n4/3p3B/3P1Q2/PPP2PPP/R3RBK1 b kq - 1 14",
+   "moves": "d5f6 h4f6 g7f6 f3f6",
+   "rating": 1298,
+   "themes": "advantage master middlegame pin short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 330
+  },
+  {
+   "id": "01fG3",
+   "fen": "1k2Q3/1qp5/1p3p1p/4p3/8/2P1n3/PP1R2rP/7K b - - 3 31",
+   "moves": "b7c8 d2d8 c8d8 e8d8",
+   "rating": 1081,
+   "themes": "advantage endgame master pin short",
+   "solvedAtDepth2": false,
+   "msAtDepth2": 52
+  },
+  {
+   "id": "01fHH",
+   "fen": "r4rk1/pp3ppp/2p2q2/3p4/4n3/1P1BQN2/1K3PPP/3R3R w - - 2 18",
+   "moves": "b2c2 f6c3 c2b1 c3b3",
+   "rating": 1126,
+   "themes": "crushing deflection middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 352
+  },
+  {
+   "id": "01gkL",
+   "fen": "r1b2bkr/ppp2Np1/3pPq1p/4n3/3Q4/8/PPP2PPP/RNB1K2R w KQ - 2 12",
+   "moves": "f7h8 e5f3 g2f3 f6d4",
+   "rating": 1264,
+   "themes": "crushing discoveredAttack opening short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 662
+  },
+  {
+   "id": "01jao",
+   "fen": "2kr3r/ppp2ppp/2nbp3/6B1/P2P2n1/2N2N1q/1PP1BP2/R2QR1K1 w - - 2 14",
+   "moves": "e2f1 d6h2 g1h1 g4f2",
+   "rating": 1294,
+   "themes": "deflection kingsideAttack mate mateIn2 middlegame short",
+   "solvedAtDepth2": true,
+   "msAtDepth2": 402
+  }
+ ]
+}
