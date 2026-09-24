@@ -897,7 +897,16 @@ fenLoadBtn.addEventListener('click', async () => {
   refreshGameState();
 });
 
+// AI games get their own header, and drop the White/Black name lines: the
+// "You play as" picker already says who is who.
+function showAiLayout() {
+  document.getElementById('gameTitle').textContent = 'LorFish AI';
+  whiteLabelEl.style.display = 'none';
+  blackLabelEl.style.display = 'none';
+}
+
 function initAi() {
+  showAiLayout();
   moveSource = createAiMoveSource(env);
   startNewGame();
 }
@@ -911,6 +920,7 @@ const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 // Restore an unfinished AI game from its stored move list and hand the board
 // back to the player. The engine picks up from wherever the game left off.
 function resumeAiGame(game) {
+  showAiLayout();
   resetSoundState();
   moveSource = createAiMoveSource(env);
 

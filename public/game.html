@@ -22,7 +22,7 @@
   <div class="info">
     <div class="userbar" id="userbar"></div>
     <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
-    <h2>LorChess</h2>
+    <h2 id="gameTitle">LorChess</h2>
 
     <!-- PvP clocks; hidden in AI mode. Top = opponent, bottom = you. -->
     <div id="clocks" style="display:none;">
@@ -39,20 +39,21 @@
 
     <!-- AI-only controls; hidden in PvP (the server fixes color, no depth/undo). -->
     <div id="aiControls">
-      <p>Play as:
-        <select id="humanColor">
-          <option value="w" selected>White</option>
-          <option value="b">Black</option>
-        </select>
-      </p>
       <p>Depth:
         <select id="depth">
           <option value="2" selected>2 (~1400)</option>
           <option value="4">4 (~1800)</option>
         </select>
       </p>
+      <p>You play as:
+        <select id="humanColor">
+          <option value="w" selected>White</option>
+          <option value="b">Black</option>
+        </select>
+      </p>
     </div>
 
+    <!-- Player names; hidden in AI games, where "You play as" already says it. -->
     <p id="whiteLabel">White: Human</p>
     <p id="blackLabel">Black: LorFish</p>
     <!-- PvP only: friend control for the opponent (filled by ui.js). -->
