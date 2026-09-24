@@ -8,9 +8,12 @@ const { Chess, sqIdx, rankOf, algOf } = require("../../src/shared/chess");
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-// A fresh standard-rules board loaded from a FEN string.
-function fromFen(fen) {
+// A fresh board loaded from a FEN string, under standard rules unless a
+// variant ("atomic", "pawnwars") is given. Mirrors what the server does when it
+// builds a room: setVariant first, then load the start position.
+function fromFen(fen, variant) {
   const chess = new Chess();
+  if (variant) chess.setVariant(variant);
   chess.loadFen(fen);
   return chess;
 }
