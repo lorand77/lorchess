@@ -17,15 +17,15 @@ process.env.DB_PATH = path.join(dir, "test.sqlite");
 process.env.SESSION_SECRET = "test-secret";
 process.on("exit", () => fs.rmSync(dir, { recursive: true, force: true }));
 
+// The server narrates connections, matches and results through console.log,
+// and the first load of the database logs its migrations. Keep the test
+// output to the runner's own report unless TEST_LOG is set.
+if (!process.env.TEST_LOG) console.log = () => {};
+
 // Start the server. Returns { baseUrl, io, close }. Servers may be started one
 // after another against the same database, which is how a restart is tested.
 async function startServer() {
-  // The first load opens the database and logs its migrations; keep the test
-  // output clean.
-  const log = console.log;
-  console.log = () => {};
-  let createServer;
-  try { ({ createServer } = require("../../src/app")); } finally { console.log = log; }
+  const { createServer } = require("../../src/app");
   const { server, io } = createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
