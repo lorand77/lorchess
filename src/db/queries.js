@@ -6,6 +6,49 @@
 
 const db = require("./index");
 
+// Leaderboard: every human account with a W/L/D record over finished rated PvP
+// games (the only games that move Elo). Param is the reserved AI username to
+// exclude. ORDER BY can't be a bound parameter, so there is one statement per
+// sortable column and direction, built from this allowlist — nothing from the
+// request is ever spliced into SQL. Ties fall back to the default ranking.
+const LEADERBOARD_SORTS = {
+  player: "u.username COLLATE NOCASE",
+  rating: "u.rating",
+  puzzles: "u.puzzle_rating",
+  games: "games",
+  wins: "wins",
+  losses: "losses",
+  draws: "draws",
+};
+
+function leaderboardStatements() {
+  const out = {};
+  for (const [key, expr] of Object.entries(LEADERBOARD_SORTS)) {
+    for (const dir of ["asc", "desc"]) {
+      out[`${key}:${dir}`] = db.prepare(`
+        SELECT u.id, u.username, u.rating, u.puzzle_rating,
+               u.member_since IS NOT NULL AS member,
+               COUNT(g.id) AS games,
+               COALESCE(SUM(CASE WHEN (g.result = '1-0' AND g.white_id = u.id)
+                                   OR (g.result = '0-1' AND g.black_id = u.id) THEN 1 ELSE 0 END), 0) AS wins,
+               COALESCE(SUM(CASE WHEN (g.result = '0-1' AND g.white_id = u.id)
+                                   OR (g.result = '1-0' AND g.black_id = u.id) THEN 1 ELSE 0 END), 0) AS losses,
+               COALESCE(SUM(CASE WHEN g.result = '1/2-1/2' THEN 1 ELSE 0 END), 0) AS draws
+        FROM users u
+        LEFT JOIN games g
+          ON (g.white_id = u.id OR g.black_id = u.id)
+         AND g.mode = 'pvp' AND g.status = 'finished' AND g.rated = 1
+        WHERE u.username <> ?
+        GROUP BY u.id
+        ORDER BY ${expr} ${dir.toUpperCase()},
+                 u.rating DESC, games DESC, u.username COLLATE NOCASE ASC
+        LIMIT 100
+      `);
+    }
+  }
+  return out;
+}
+
 module.exports = {
   // --- users ---
   createUser: db.prepare(
@@ -21,27 +64,8 @@ module.exports = {
   // Ops-only (src/db/setPassword.js); there is no self-service change flow.
   updatePassword: db.prepare("UPDATE users SET password_hash = ? WHERE id = ?"),
 
-  // Leaderboard: every human account ranked by rating, with a W/L/D record
-  // over finished rated PvP games (the only games that move Elo). Param is
-  // the reserved AI username to exclude.
-  leaderboard: db.prepare(`
-    SELECT u.id, u.username, u.rating, u.puzzle_rating,
-           u.member_since IS NOT NULL AS member,
-           COUNT(g.id) AS games,
-           COALESCE(SUM(CASE WHEN (g.result = '1-0' AND g.white_id = u.id)
-                               OR (g.result = '0-1' AND g.black_id = u.id) THEN 1 ELSE 0 END), 0) AS wins,
-           COALESCE(SUM(CASE WHEN (g.result = '0-1' AND g.white_id = u.id)
-                               OR (g.result = '1-0' AND g.black_id = u.id) THEN 1 ELSE 0 END), 0) AS losses,
-           COALESCE(SUM(CASE WHEN g.result = '1/2-1/2' THEN 1 ELSE 0 END), 0) AS draws
-    FROM users u
-    LEFT JOIN games g
-      ON (g.white_id = u.id OR g.black_id = u.id)
-     AND g.mode = 'pvp' AND g.status = 'finished' AND g.rated = 1
-    WHERE u.username <> ?
-    GROUP BY u.id
-    ORDER BY u.rating DESC, games DESC, u.username COLLATE NOCASE ASC
-    LIMIT 100
-  `),
+  // Leaderboard, keyed "<column>:<asc|desc>" (see leaderboardStatements).
+  leaderboard: leaderboardStatements(),
 
   // --- membership ---
   getMembership: db.prepare("SELECT member_since FROM users WHERE id = ?"),

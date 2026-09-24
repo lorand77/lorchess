@@ -2,17 +2,29 @@
 
 // Renders GET /api/leaderboard as a ranked table, highlights the current
 // user's row, and puts a friend control (Add / Requested / Accept / Friends)
-// on every other row. Built with DOM nodes, not HTML strings: usernames are
-// user-supplied.
+// on every other row. Column headings sort the table; the sorting itself is
+// done by the server, which only ever returns the top 100 for the chosen
+// column. Built with DOM nodes, not HTML strings: usernames are user-supplied.
+
+// [heading, sort key sent to the server (null = not sortable), cell class]
+const COLUMNS = [
+  ["#", null, ""], ["Player", "player", ""], ["Rating", "rating", "num"],
+  ["Puzzles", "puzzles", "num"], ["Games", "games", "num"], ["W", "wins", "num"],
+  ["L", "losses", "num"], ["D", "draws", "num"], ["", null, ""],
+];
 
 (async function () {
   const content = document.getElementById("leaderboardContent");
+
+  let sort = "rating";
+  let dir = "desc";
+  const lbUrl = () => "/api/leaderboard?sort=" + sort + "&dir=" + dir;
 
   let user, rows;
   try {
     const [meRes, lbRes] = await Promise.all([
       fetch("/api/me", { credentials: "same-origin" }),
-      fetch("/api/leaderboard", { credentials: "same-origin" }),
+      fetch(lbUrl(), { credentials: "same-origin" }),
       Friends.load(),
     ]);
     if (meRes.status === 401 || lbRes.status === 401) {
@@ -40,6 +52,28 @@
   content.appendChild(tableHost);
   render();
 
+  // Clicking the sorted column flips it; any other column starts the way it
+  // reads best (names A→Z, numbers biggest first). Only the latest click's
+  // response is drawn, so fast clicking can't leave an older order on screen.
+  let latest = 0;
+  async function sortBy(key) {
+    if (key === sort) dir = dir === "asc" ? "desc" : "asc";
+    else { sort = key; dir = key === "player" ? "asc" : "desc"; }
+    const ticket = ++latest;
+    render(); // show the new arrow straight away
+    try {
+      const res = await fetch(lbUrl(), { credentials: "same-origin" });
+      if (res.status === 401) { location.replace("/login.html"); return; }
+      if (!res.ok) throw new Error();
+      const next = await res.json();
+      if (ticket !== latest) return;
+      rows = next;
+      render();
+    } catch (e) {
+      if (ticket === latest) showError("Couldn't sort the leaderboard.");
+    }
+  }
+
   function showError(msg) {
     errorEl.textContent = msg || "";
     if (msg) setTimeout(() => { errorEl.textContent = ""; }, 4000);
@@ -49,11 +83,23 @@
     const table = el("table", "history-table lb-table");
     const thead = el("thead");
     const hr = el("tr");
-    for (const [label, cls] of [
-      ["#", ""], ["Player", ""], ["Rating", "num"], ["Puzzles", "num"],
-      ["Games", "num"], ["W", "num"], ["L", "num"], ["D", "num"], ["", ""],
-    ]) {
-      hr.appendChild(el("th", cls, label));
+    for (const [label, key, cls] of COLUMNS) {
+      const th = el("th", cls);
+      if (key) {
+        const active = key === sort;
+        const b = el("button", "lb-sort", label);
+        b.type = "button";
+        if (active) {
+          th.classList.add("sorted");
+          th.setAttribute("aria-sort", dir === "asc" ? "ascending" : "descending");
+          b.appendChild(el("span", "lb-arrow", dir === "asc" ? "▲" : "▼"));
+        }
+        b.addEventListener("click", () => sortBy(key));
+        th.appendChild(b);
+      } else {
+        th.textContent = label;
+      }
+      hr.appendChild(th);
     }
     thead.appendChild(hr);
     table.appendChild(thead);
