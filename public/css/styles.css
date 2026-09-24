@@ -872,6 +872,20 @@ img.drag-piece {
 }
 .mode-link:hover { background: #575757; }
 
+/* The small "Play the computer" panel under Play: text left, button right. */
+.ai-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ai-panel h2 { margin-bottom: 2px; }
+.ai-panel p { margin: 0; color: #969696; }
+.ai-panel .mode-link { white-space: nowrap; }
+.mode-link.primary { background: #3d6098; }
+.mode-link.primary:hover { background: #4a73b5; }
+
 /* ---- right column: puzzle cards ---- */
 .lobby-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .lobby-side .panel { margin: 0; }

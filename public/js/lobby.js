@@ -401,7 +401,7 @@ function renderPlayers() {
   if (players.length <= 1) {
     const hint = el("p", "muted empty");
     hint.appendChild(document.createTextNode("Nobody else is here yet — post a challenge and it'll be waiting, or "));
-    const ai = el("a", "nav-link", "play LorFish");
+    const ai = el("a", "nav-link", "play LorFish AI");
     ai.href = "/game.html?mode=ai";
     hint.appendChild(ai);
     hint.appendChild(document.createTextNode("."));
