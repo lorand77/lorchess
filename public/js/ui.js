@@ -27,6 +27,8 @@ let spectating = false;   // watching someone else's PvP game (?watch=<id>)
 let pvpResult = null;            // {result, termination} once a PvP game ends
 let whiteName = 'Human';
 let blackName = 'LorFish';
+let whiteMember = false; // PvP only: both come from the server's game state
+let blackMember = false;
 let pgnEvent = 'Human vs LorFish';
 
 // PvP clock state (server-authoritative; we render a smooth local countdown
@@ -811,8 +813,14 @@ function undo() {
 function setLabels() {
   const youW = humanColor === W;
   const you = (isYou) => (isYou && !spectating ? ' (you)' : '');
-  whiteLabelEl.textContent = 'White: ' + whiteName + you(youW);
-  blackLabelEl.textContent = 'Black: ' + blackName + you(!youW);
+  fillLabel(whiteLabelEl, 'White: ' + whiteName, whiteMember, you(youW));
+  fillLabel(blackLabelEl, 'Black: ' + blackName, blackMember, you(!youW));
+}
+
+function fillLabel(node, name, member, suffix) {
+  node.textContent = name;
+  if (member) node.appendChild(memberBadge());
+  node.appendChild(document.createTextNode(suffix));
 }
 
 // ---- AI mode ----
@@ -1080,7 +1088,9 @@ function chatLine(m) {
   who.className = 'chat-who';
   // No "(spectator)" marker needed: you only ever receive your own audience's
   // messages, so there is nothing to disambiguate.
-  who.textContent = m.username + ':';
+  who.textContent = m.username;
+  if (m.member) who.appendChild(memberBadge());
+  who.appendChild(document.createTextNode(':'));
   const text = document.createElement('span');
   text.className = 'chat-text';
   text.textContent = ' ' + m.text;
@@ -1426,6 +1436,8 @@ function applyPvpState(socket, state) {
   humanColor = !spectating && state.yourColor === 'b' ? B : W;
   whiteName = state.white;
   blackName = state.black;
+  whiteMember = !!state.whiteMember;
+  blackMember = !!state.blackMember;
   lastPvpState = state;
   renderFriendRow();
   setChatHistory(state.chat);

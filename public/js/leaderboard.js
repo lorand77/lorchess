@@ -68,6 +68,7 @@
       nameLink.href = "/achievements.html?user=" + r.id;
       nameLink.title = "Achievements";
       who.appendChild(nameLink);
+      if (r.member) who.appendChild(memberBadge());
       if (r.id === user.id) who.appendChild(el("span", "tag you", "you"));
       tr.appendChild(who);
 

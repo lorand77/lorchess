@@ -22,7 +22,7 @@
     { href: "/friends.html",      icon: "👥", label: "Friends" },
     { href: "/settings.html",     icon: "🎨", label: "Customize" },
     { href: "/leaderboard.html",  icon: "🏆", label: "Leaderboard" },
-    { href: "/membership.html",   icon: "🎟", label: "Membership" },
+    { href: "/membership.html",   icon: "💎", label: "Membership" },
   ];
 
   function el(tag, cls, text) {

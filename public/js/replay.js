@@ -317,7 +317,7 @@ function showReviewUpsell() {
   const link = document.createElement("a");
   link.className = "review-link";
   link.href = "/membership.html";
-  link.textContent = "🎟 Get membership";
+  link.textContent = "💎 Get membership";
   start.append(note, link);
   start.classList.add("review-locked");
 }

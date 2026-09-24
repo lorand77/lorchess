@@ -94,6 +94,7 @@
       const box = el("div", "challenge-box");
       const text = el("span", "row-main");
       text.appendChild(el("strong", null, r.username));
+      if (r.member) text.appendChild(memberBadge());
       text.appendChild(el("span", "rating", "(" + r.rating + ")"));
       text.appendChild(document.createTextNode(" wants to be friends"));
       box.appendChild(text);
@@ -108,6 +109,7 @@
       const row = el("div", "row");
       const who = el("span", "row-main");
       who.appendChild(el("span", "name", f.username));
+      if (f.member) who.appendChild(memberBadge());
       who.appendChild(el("span", "rating", "(" + f.rating + ")"));
       if (!p) who.appendChild(el("span", "tag offline", "offline"));
       else if (p.playing) who.appendChild(el("span", "tag playing", "playing"));
@@ -138,6 +140,7 @@
       const row = el("div", "row");
       const who = el("span", "row-main");
       who.appendChild(el("span", "name", r.username));
+      if (r.member) who.appendChild(memberBadge());
       who.appendChild(el("span", "rating", "(" + r.rating + ")"));
       who.appendChild(el("span", "tag pending", "request sent"));
       row.appendChild(who);

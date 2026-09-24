@@ -272,6 +272,7 @@ function renderSeeks() {
     const row = el("div", "row");
     const who = el("span", "row-main");
     who.appendChild(el("span", "name", s.username));
+    if (s.member) who.appendChild(memberBadge());
     who.appendChild(el("span", "rating", "(" + s.rating + ")"));
     who.appendChild(el("span", "tag", tcLabel(s.tc)));
     who.appendChild(el("span", "tag " + (s.rated ? "rated" : "casual"), s.rated ? "rated" : "casual"));
@@ -322,6 +323,7 @@ function renderGames() {
     const vs = el("div", "vs");
     const side = (p) => {
       vs.appendChild(el("span", "name", p.username));
+      if (p.member) vs.appendChild(memberBadge());
       if (p.rating != null) vs.appendChild(el("span", "rating", "(" + p.rating + ")"));
     };
     side(g.white);
@@ -362,6 +364,7 @@ function renderPlayers() {
     const who = el("span", "row-main");
     if (friendIds.has(p.userId)) who.appendChild(el("span", "friend-star", "★"));
     who.appendChild(el("span", "name", p.username));
+    if (p.member) who.appendChild(memberBadge());
     who.appendChild(el("span", "rating", "(" + p.rating + ")"));
     if (p.userId === myId()) who.appendChild(el("span", "tag you", "you"));
     if (p.playing) who.appendChild(el("span", "tag playing", "playing"));
@@ -412,6 +415,7 @@ function renderIncoming() {
     const box = el("div", "challenge-box");
     const text = el("span", "row-main");
     text.appendChild(el("strong", null, c.from.username));
+    if (c.from.member) text.appendChild(memberBadge());
     text.appendChild(el("span", "rating", "(" + c.from.rating + ")"));
     text.appendChild(document.createTextNode(" challenges you — "));
     text.appendChild(el("span", "tag", tcLabel(c.tc)));

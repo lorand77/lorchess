@@ -26,6 +26,7 @@ module.exports = {
   // the reserved AI username to exclude.
   leaderboard: db.prepare(`
     SELECT u.id, u.username, u.rating, u.puzzle_rating,
+           u.member_since IS NOT NULL AS member,
            COUNT(g.id) AS games,
            COALESCE(SUM(CASE WHEN (g.result = '1-0' AND g.white_id = u.id)
                                OR (g.result = '0-1' AND g.black_id = u.id) THEN 1 ELSE 0 END), 0) AS wins,
@@ -44,6 +45,8 @@ module.exports = {
 
   // --- membership ---
   getMembership: db.prepare("SELECT member_since FROM users WHERE id = ?"),
+  // Every member at once, so a list (lobby, game) can badge them in one query.
+  listMemberIds: db.prepare("SELECT id FROM users WHERE member_since IS NOT NULL"),
   // Only ever sets it once: re-redeeming must not move the join date.
   setMemberSince: db.prepare(
     "UPDATE users SET member_since = datetime('now') WHERE id = ? AND member_since IS NULL"
@@ -137,7 +140,8 @@ module.exports = {
   listFriendshipsForUser: db.prepare(`
     SELECT f.id, f.status, f.created_at, f.responded_at,
            f.requester_id, f.addressee_id,
-           u.id AS other_id, u.username AS other_username, u.rating AS other_rating
+           u.id AS other_id, u.username AS other_username, u.rating AS other_rating,
+           u.member_since IS NOT NULL AS other_member
     FROM friendships f
     JOIN users u ON u.id = CASE WHEN f.requester_id = @me THEN f.addressee_id
                                 ELSE f.requester_id END
@@ -225,7 +229,8 @@ module.exports = {
     )
   `),
   getChatById: db.prepare(`
-    SELECT c.id, c.user_id AS userId, u.username, c.role, c.body AS text, c.created_at AS at
+    SELECT c.id, c.user_id AS userId, u.username, u.member_since IS NOT NULL AS member,
+           c.role, c.body AS text, c.created_at AS at
     FROM chat_messages c JOIN users u ON u.id = c.user_id
     WHERE c.id = ?
   `),
@@ -235,7 +240,8 @@ module.exports = {
   // returns both, so no caller can leak one audience into the other by accident.
   listPlayerChat: db.prepare(`
     SELECT * FROM (
-      SELECT c.id, c.user_id AS userId, u.username, c.role, c.body AS text, c.created_at AS at
+      SELECT c.id, c.user_id AS userId, u.username, u.member_since IS NOT NULL AS member,
+           c.role, c.body AS text, c.created_at AS at
       FROM chat_messages c JOIN users u ON u.id = c.user_id
       WHERE c.game_id = ? AND c.role IN ('w', 'b')
       ORDER BY c.id DESC
@@ -244,7 +250,8 @@ module.exports = {
   `),
   listSpectatorChat: db.prepare(`
     SELECT * FROM (
-      SELECT c.id, c.user_id AS userId, u.username, c.role, c.body AS text, c.created_at AS at
+      SELECT c.id, c.user_id AS userId, u.username, u.member_since IS NOT NULL AS member,
+           c.role, c.body AS text, c.created_at AS at
       FROM chat_messages c JOIN users u ON u.id = c.user_id
       WHERE c.game_id = ? AND c.role = 's'
       ORDER BY c.id DESC

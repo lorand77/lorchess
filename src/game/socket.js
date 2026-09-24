@@ -290,6 +290,7 @@ function handleGameJoin(io, socket, payload, ack) {
 // The full board state a client needs to (re)draw a game. `color` is the
 // receiving player's colour, or null for a spectator.
 function stateOf(room, color) {
+  const members = new Set(queries.listMemberIds.all().map((r) => r.id));
   return {
     gameId: room.gameId,
     fen: room.chess.fen(),
@@ -303,6 +304,8 @@ function stateOf(room, color) {
     black: room.names.b,
     whiteId: room.players.w,
     blackId: room.players.b,
+    whiteMember: members.has(room.players.w),
+    blackMember: members.has(room.players.b),
     clocks: rooms.clockSnapshot(room),
     running: room.started,
     drawOffer: room.drawOffer,

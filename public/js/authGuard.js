@@ -8,6 +8,17 @@
 // are enforced server-side (requireAuth on the API, and authoritative socket
 // checks in PvP). The page may flash briefly before the redirect — acceptable.
 
+// Also home to memberBadge(), the 💎 shown after a member's name wherever
+// players are listed: this is the one script every signed-in page loads.
+window.memberBadge = function () {
+  const b = document.createElement("span");
+  b.className = "member-icon";
+  b.textContent = "💎";
+  b.title = "Member";
+  b.setAttribute("aria-label", "Member");
+  return b;
+};
+
 (function () {
   fetch("/api/me", { credentials: "same-origin" })
     .then((res) => {
@@ -44,6 +55,7 @@
       await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
       location.href = "/login.html";
     });
+    if (user.member_since) who.appendChild(memberBadge());
     bar.append(who, rating, logout);
   }
 })();

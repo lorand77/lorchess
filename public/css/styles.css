@@ -1084,6 +1084,8 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 }
 .member-badge { margin: 0; font-size: 18px; font-weight: bold; color: #ffd98a; }
 .member-since { margin: 4px 0 10px; font-size: 13px; color: #d8d8d8; }
+/* The 💎 after a member's name, wherever players are listed (memberBadge()). */
+.member-icon { margin-left: 4px; font-size: 0.9em; cursor: default; }
 
 /* The board + 280px side panel need the rail's width on top of their own. The
    standalone rule stacks them below 980px of viewport; with a 200px rail that

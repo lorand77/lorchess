@@ -142,7 +142,12 @@ function lastMoveOf(room) {
   return h && h.move ? { from: h.move.from, to: h.move.to } : null;
 }
 
+// Membership can be redeemed mid-session, so it is looked up per push rather
+// than cached on the presence entry.
+const memberIds = () => new Set(queries.listMemberIds.all().map((r) => r.id));
+
 function snapshot() {
+  const members = memberIds();
   // One query, not one per player: both sides of every live PvP game, with
   // the game id so a "playing" badge can double as a Watch link.
   const busy = new Map(); // userId -> gameId
@@ -155,6 +160,7 @@ function snapshot() {
       userId: p.userId,
       username: p.username,
       rating: p.rating,
+      member: members.has(p.userId),
       playing: busy.has(p.userId),
       gameId: busy.get(p.userId) || null,
     }))
@@ -173,8 +179,14 @@ function snapshot() {
     .filter((r) => r.status === "active")
     .map((r) => ({
       gameId: r.gameId,
-      white: { userId: r.players.w, username: r.names.w, rating: ratingOf(r.players.w) },
-      black: { userId: r.players.b, username: r.names.b, rating: ratingOf(r.players.b) },
+      white: {
+        userId: r.players.w, username: r.names.w, rating: ratingOf(r.players.w),
+        member: members.has(r.players.w),
+      },
+      black: {
+        userId: r.players.b, username: r.names.b, rating: ratingOf(r.players.b),
+        member: members.has(r.players.b),
+      },
       tc: r.timeControl,
       rated: r.rated,
       variant: r.variant,
@@ -193,6 +205,7 @@ function snapshot() {
     userId: s.userId,
     username: s.username,
     rating: s.rating,
+    member: members.has(s.userId),
     tc: s.tc,
     rated: s.rated,
     color: s.color,
@@ -206,6 +219,7 @@ function snapshot() {
 function pushChallenges(io, userId) {
   const entry = presence.get(userId);
   if (!entry) return;
+  const members = memberIds();
   const mine = { incoming: [], outgoing: [] };
   for (const c of challenges.values()) {
     const view = {
@@ -215,8 +229,11 @@ function pushChallenges(io, userId) {
       color: c.color,
       variant: c.variant || "standard",
       handicap: c.handicap ? c.handicap.label : null,
-      from: { userId: c.fromId, username: c.fromName, rating: c.fromRating },
-      to: { userId: c.toId, username: c.toName },
+      from: {
+        userId: c.fromId, username: c.fromName, rating: c.fromRating,
+        member: members.has(c.fromId),
+      },
+      to: { userId: c.toId, username: c.toName, member: members.has(c.toId) },
     };
     if (c.toId === userId) mine.incoming.push(view);
     else if (c.fromId === userId) mine.outgoing.push(view);

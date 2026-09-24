@@ -49,7 +49,8 @@
 
   function render(d) {
     const u = d.user;
-    nameEl.textContent = u.username + (u.member ? " 🎟" : "");
+    nameEl.textContent = u.username;
+    if (u.member) nameEl.appendChild(memberBadge());
     document.title = "LorChess — " + u.username;
     metaEl.textContent = "Joined " + fmtDate(u.createdAt);
     bodyEl.style.display = "";

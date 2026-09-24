@@ -31,6 +31,7 @@ function view(row) {
     userId: row.other_id,
     username: row.other_username,
     rating: row.other_rating,
+    member: !!row.other_member,
     since: row.responded_at || row.created_at,
   };
 }
