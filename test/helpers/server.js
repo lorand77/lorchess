@@ -32,11 +32,14 @@ async function startServer() {
   return {
     baseUrl: `http://127.0.0.1:${port}`,
     io,
-    close: () =>
-      new Promise((resolve) => {
-        server.closeAllConnections();
-        io.close(() => resolve());
-      }),
+    close: async () => {
+      await shutdownSockets();
+      server.closeAllConnections();
+      await new Promise((resolve) => io.close(() => resolve()));
+      // Disconnect handlers may have armed forfeit timers just now, and live
+      // games hold flag timers; none are unreferenced, so drop them all.
+      clearRoomTimers();
+    },
   };
 }
 
@@ -97,3 +100,92 @@ async function registerUser(baseUrl, base = "user", password = "hunter22") {
 }
 
 module.exports = { startServer, client, uniqueName, registerUser };
+
+// ---- Socket.IO ----
+
+const { io: ioClient } = require("socket.io-client");
+const openSockets = new Set();
+
+// Connect a Socket.IO client as the user whose session cookie this is. Rejects
+// with the handshake error when the server refuses the connection. The
+// `welcome` payload the server sends on connection is kept on socket.welcome.
+function connectSocket(baseUrl, cookie) {
+  const socket = ioClient(baseUrl, {
+    transports: ["websocket"],
+    extraHeaders: cookie ? { Cookie: `connect.sid=${cookie}` } : {},
+    reconnection: false,
+    forceNew: true,
+  });
+  openSockets.add(socket);
+  socket.on("disconnect", () => openSockets.delete(socket));
+  socket.welcome = new Promise((resolve) => socket.once("welcome", resolve));
+  return new Promise((resolve, reject) => {
+    socket.once("connect", () => resolve(socket));
+    socket.once("connect_error", (err) => { openSockets.delete(socket); socket.close(); reject(err); });
+  });
+}
+
+// Emit with an acknowledgement callback, as a promise.
+function emitAck(socket, event, payload, timeoutMs = 3000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`no ack for ${event}`)), timeoutMs);
+    socket.emit(event, payload, (reply) => { clearTimeout(timer); resolve(reply); });
+  });
+}
+
+// The next occurrence of an event, as a promise. Arm it BEFORE the action that
+// triggers the event, or the event may already have passed.
+function waitFor(socket, event, timeoutMs = 3000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`no ${event} within ${timeoutMs}ms`)), timeoutMs);
+    socket.once(event, (payload) => { clearTimeout(timer); resolve(payload); });
+  });
+}
+
+// Resolves true when the event does NOT arrive within the window.
+function expectNo(socket, event, windowMs = 300) {
+  return new Promise((resolve) => {
+    const handler = () => { clearTimeout(timer); socket.off(event, handler); resolve(false); };
+    const timer = setTimeout(() => { socket.off(event, handler); resolve(true); }, windowMs);
+    socket.on(event, handler);
+  });
+}
+
+// Quick-match two connected sockets. Returns { gameId, white, black } where
+// white/black are the sockets, plus each side's game:start payload.
+async function quickMatch(a, b, payload = {}) {
+  const startA = waitFor(a, "game:start");
+  const startB = waitFor(b, "game:start");
+  a.emit("lobby:join", payload);
+  b.emit("lobby:join", payload);
+  const [sa, sb] = await Promise.all([startA, startB]);
+  if (sa.gameId !== sb.gameId) throw new Error(`matched into different games ${sa.gameId} / ${sb.gameId}`);
+  const white = sa.color === "w" ? a : b;
+  const black = sa.color === "w" ? b : a;
+  return { gameId: sa.gameId, white, black, starts: { [sa.color]: sa, [sb.color]: sb } };
+}
+
+// The application's database handle, for assertions on persisted rows.
+function db() {
+  return require("../../src/db/index");
+}
+
+// Close every client socket and clear every live room's timers, so nothing
+// keeps the process alive after the server has closed.
+async function shutdownSockets() {
+  for (const s of openSockets) s.close();
+  openSockets.clear();
+}
+function clearRoomTimers() {
+  const rooms = require("../../src/game/rooms");
+  for (const room of rooms.listRooms()) rooms.clearTimers(room);
+}
+
+module.exports.connectSocket = connectSocket;
+module.exports.emitAck = emitAck;
+module.exports.waitFor = waitFor;
+module.exports.expectNo = expectNo;
+module.exports.quickMatch = quickMatch;
+module.exports.db = db;
+module.exports.shutdownSockets = shutdownSockets;
+module.exports.clearRoomTimers = clearRoomTimers;
