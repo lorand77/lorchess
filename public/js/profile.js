@@ -120,17 +120,6 @@
         : "No rated games against other players yet.",
     });
 
-    Chart.line(document.getElementById("gameChart"), {
-      points: d.games.history.map((h) => ({ at: h.at, value: h.value })),
-      color: Chart.COLORS.blue,
-      baseline: 0,
-      format: (v) => (v > 0 ? "+" : "") + Math.round(v),
-      ariaLabel: "Running wins minus losses over time",
-      empty: you
-        ? "Play a couple of games against other players and your form appears here."
-        : "Not enough games against other players yet.",
-    });
-
     // --- puzzles ---
     const p = d.puzzles;
     const ps = document.getElementById("puzzleStats");

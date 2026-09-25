@@ -36,10 +36,6 @@ function buildStats(userId) {
 
   const modes = { pvp: emptyRecord(), ai: emptyRecord() };
   const colours = { w: emptyRecord(), b: emptyRecord() };
-  // Running wins − losses over all games against other players: the shape of
-  // someone's form, which a single win-rate number can't show.
-  const history = [];
-  let running = 0;
 
   for (const g of rows) {
     const asWhite = g.white_id === userId;
@@ -58,11 +54,7 @@ function buildStats(userId) {
       else rec.draws++;
     };
     bump(modes[mode]);
-    if (mode === "pvp") {
-      bump(colours[asWhite ? "w" : "b"]);
-      running += outcome === "win" ? 1 : outcome === "loss" ? -1 : 0;
-      history.push({ at: g.finished_at, value: running, outcome });
-    }
+    if (mode === "pvp") bump(colours[asWhite ? "w" : "b"]);
   }
 
   return {
@@ -70,7 +62,6 @@ function buildStats(userId) {
     ai: withRate(modes.ai),
     white: withRate(colours.w),
     black: withRate(colours.b),
-    history,
   };
 }
 
