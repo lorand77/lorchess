@@ -1,5 +1,7 @@
 "use strict";
 
+// Account authentication and session lifecycle, shared by HTTP and sockets.
+
 const express = require("express");
 const argon2 = require("argon2");
 const queries = require("../db/queries");
@@ -12,12 +14,18 @@ const router = express.Router();
 const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
 const MIN_PASSWORD = 6;
 
+function disconnectSessionSockets(req, sessionId) {
+  req.app.get("io").in(`session:${sessionId}`).disconnectSockets(true);
+}
+
 // Establish a fresh, authenticated session. Always regenerate first to defeat
 // session-fixation: the pre-login session id is discarded.
 function startSession(req, user) {
   return new Promise((resolve, reject) => {
+    const oldSessionId = req.sessionID;
     req.session.regenerate((err) => {
       if (err) return reject(err);
+      disconnectSessionSockets(req, oldSessionId);
       req.session.userId = user.id;
       req.session.username = user.username;
       resolve();
@@ -89,7 +97,13 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
-  req.session.destroy(() => {
+  const sessionId = req.sessionID;
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("logout failed:", err);
+      return res.status(500).json({ error: "Logout failed." });
+    }
+    disconnectSessionSockets(req, sessionId);
     res.clearCookie("connect.sid");
     res.json({ ok: true });
   });

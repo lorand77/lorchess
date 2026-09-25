@@ -64,6 +64,7 @@ function createServer() {
   // Wrap Express in an http.Server so Socket.IO can share the same port.
   const server = http.createServer(app);
   const io = attachSockets(server);
+  app.set("io", io); // Auth routes revoke sockets when their session ends.
   return { app, server, io };
 }
 

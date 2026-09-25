@@ -66,6 +66,21 @@ const persistMove = db.transaction((gameId, ply, san, uci, fen, turn, userId, th
   queries.updateGameClocks.run(clock.w, clock.b, gameId);
 });
 
+// Engine.IO may have loaded the cookie before logout, and an established
+// connection may outlive its session. Check the store without saving/touching
+// it so a stale socket cannot recreate or extend a revoked/expired session.
+function reloadSocketSession(socket, done) {
+  const session = socket.request.session;
+  if (!session || !session.userId) return done(new Error("unauthorized"));
+  session.reload((err) => {
+    const current = socket.request.session;
+    if (err || !current.userId || (socket.userId != null && current.userId !== socket.userId)) {
+      return done(new Error("unauthorized"));
+    }
+    done(null, current);
+  });
+}
+
 function attachSockets(httpServer) {
   const io = new Server(httpServer);
 
@@ -82,16 +97,24 @@ function attachSockets(httpServer) {
   io.engine.use(sessionMiddleware);
 
   io.use((socket, next) => {
-    const session = socket.request.session;
-    if (session && session.userId) {
+    reloadSocketSession(socket, (err, session) => {
+      if (err) return next(err);
       socket.userId = session.userId;
       socket.username = session.username;
-      return next();
-    }
-    return next(new Error("unauthorized"));
+      next();
+    });
   });
 
   io.on("connection", (socket) => {
+    // All tabs sharing a cookie leave together; another login on the same
+    // account has its own session room and stays connected.
+    socket.join(`session:${socket.request.sessionID}`);
+    socket.use((_packet, next) => {
+      reloadSocketSession(socket, (err) => {
+        if (err) return socket.disconnect(true);
+        next();
+      });
+    });
     console.log(`[socket] connected: ${socket.username} (#${socket.userId})`);
     socket.emit("welcome", { userId: socket.userId, username: socket.username });
     // One room per user, so "your game is starting" reaches every tab this

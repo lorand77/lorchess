@@ -58,8 +58,14 @@ of keeping lists of their own that would drift the same way.
   That is a UX redirect, not a security boundary; every privileged action is
   enforced server-side.
 - **Socket auth:** the same session middleware is attached to the Socket.IO
-  engine (`io.engine.use`), and `io.use` rejects handshakes without
-  `session.userId`. No separate token.
+  engine (`io.engine.use`). The session is reloaded from SQLite at the socket
+  handshake and before every incoming event; missing or expired sessions
+  cannot act, and established sockets are disconnected on validation failure.
+  These checks do not refresh or recreate a session. No separate token.
+  Sockets also join a room per session ID: logout and session regeneration
+  disconnect every tab using the old session before returning success, running
+  the usual presence and game-disconnect cleanup. Separate logins on the same
+  account remain connected.
 - Cookie: `httpOnly`, `sameSite: lax`, `secure: "auto"` behind `trust proxy`
   (Caddy terminates TLS), 7 days. Sessions are rows in SQLite.
 - Usernames that differ only in case are one name: registration refuses the
