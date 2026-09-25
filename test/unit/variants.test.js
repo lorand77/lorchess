@@ -6,7 +6,7 @@ const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Chess } = require("../../src/shared/chess");
 const {
-  VARIANTS, BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, startOf,
+  VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, startOf,
 } = require("../../src/shared/variants");
 const { PAWN_WARS_START } = require("../../src/shared/chess");
 
@@ -14,8 +14,8 @@ describe("variant catalogue", () => {
   test("keys are unique and the lookup map mirrors the list", () => {
     const keys = VARIANTS.map((v) => v.key);
     assert.equal(new Set(keys).size, keys.length);
-    assert.ok(BY_KEY instanceof Map, "a Map, so prototype names cannot match");
-    assert.deepEqual([...BY_KEY.keys()], keys);
+    assert.ok(VARIANTS_BY_KEY instanceof Map, "a Map, so prototype names cannot match");
+    assert.deepEqual([...VARIANTS_BY_KEY.keys()], keys);
     for (const v of VARIANTS) {
       assert.equal(typeof v.label, "string", v.key);
       assert.equal(typeof v.standardSetup, "boolean", v.key);

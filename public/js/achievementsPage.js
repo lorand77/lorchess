@@ -60,13 +60,13 @@
 
     const body = el("div", "ach-body");
     body.appendChild(el("div", "ach-name", secret ? "???" : a.name));
-    body.appendChild(el("div", "ach-desc", secret ? "Hidden achievement." : describe(a, locked ? 1 : tier)));
+    body.appendChild(el("div", "ach-desc", secret ? "Hidden achievement." : describeAchievement(a, locked ? 1 : tier)));
 
     if (a.tiers && !secret) {
       const pips = el("div", "ach-tiers");
       a.tiers.forEach((n, i) => {
         const p = el("span", "ach-pip" + (i < tier ? " on" : ""), "");
-        p.title = TIER_NAMES[i] + ": " + describe(a, i + 1);
+        p.title = TIER_NAMES[i] + ": " + describeAchievement(a, i + 1);
         pips.appendChild(p);
       });
       const label = el("span", "ach-tier-label", tier ? TIER_NAMES[tier - 1] : "Locked");

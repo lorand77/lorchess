@@ -364,6 +364,9 @@ module.exports = {
   deleteMovesAfter: db.prepare(
     "DELETE FROM moves WHERE game_id = ? AND ply > ?"
   ),
+  // Only for an AI game nobody has moved in (see /abandon in game/routes.js):
+  // nothing else can refer to it yet.
+  deleteGame: db.prepare("DELETE FROM games WHERE id = ?"),
 
   // --- rating history ---
   insertRatingHistory: db.prepare(`

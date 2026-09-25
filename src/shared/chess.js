@@ -864,12 +864,15 @@ class Chess {
 // --- UMD export: Node `require` gets the named bindings; browser <script> and
 // Web Worker importScripts keep the top-level lexical globals (W/B/Chess/...)
 // that ui.js, lorfish.js, and engineWorker.js rely on. ---
+// The one copy of the standard start position; everything that compares a
+// stored start_fen against "the ordinary setup" reads it from here.
+const STANDARD_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // Pawn Wars opens with eight pawns a side on the outer ranks.
 const PAWN_WARS_START = 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1';
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    Chess, W, B, PIECE_NAMES, PAWN_WARS_START,
+    Chess, W, B, PIECE_NAMES, STANDARD_START, PAWN_WARS_START,
     sqIdx, fileOf, rankOf, algOf, opp, inBoard,
   };
 }

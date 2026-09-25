@@ -183,7 +183,9 @@ function maxTier(a) {
 }
 
 // Human description of one tier of an achievement.
-function describe(a, tier) {
+// Named for this file: as browser globals, handicap.js's describe() must not
+// clash with it.
+function describeAchievement(a, tier) {
   if (!a.tiers) return a.desc;
   const t = Math.max(1, Math.min(tier || 1, a.tiers.length));
   if (a.tierDescs) return a.tierDescs[t - 1];
@@ -197,5 +199,5 @@ function tierName(a, tier) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ACHIEVEMENTS, GROUPS, BY_KEY, TIER_NAMES, maxTier, describe, tierName };
+  module.exports = { ACHIEVEMENTS, GROUPS, BY_KEY, TIER_NAMES, maxTier, describeAchievement, tierName };
 }

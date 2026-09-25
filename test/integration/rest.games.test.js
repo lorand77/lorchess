@@ -168,6 +168,24 @@ describe("recording and finishing a game", () => {
     assert.match(late.body.error, /not active/);
   });
 
+  test("abandoning: an unplayed game is deleted, a played one is aborted", async () => {
+    const empty = await newGame({ humanColor: "w" });
+    const gone = await me.post(`/api/games/${empty.gameId}/abandon`);
+    assert.deepEqual(gone.body, { ok: true, deleted: true });
+    assert.equal((await me.get(`/api/games/${empty.gameId}`)).status, 404);
+
+    const played = await newGame({ humanColor: "w" });
+    assert.equal((await me.post(`/api/games/${played.gameId}/moves`, FOOLS_MATE[0])).status, 201);
+    const left = await me.post(`/api/games/${played.gameId}/abandon`);
+    assert.deepEqual(left.body, { ok: true, deleted: false });
+    const g = (await me.get(`/api/games/${played.gameId}`)).body;
+    assert.equal(g.status, "aborted");
+    assert.equal(g.termination, "abandoned");
+    assert.equal(g.moves.length, 1, "the record is kept");
+    assert.equal((await me.post(`/api/games/${played.gameId}/abandon`)).status, 409);
+    assert.equal((await me.post(`/api/games/${played.gameId}/moves`, FOOLS_MATE[1])).status, 409);
+  });
+
   test("a finished game cannot be ended again or truncated", async () => {
     const { gameId } = await newGame({ humanColor: "w" });
     for (const p of FOOLS_MATE) await me.post(`/api/games/${gameId}/moves`, p);
@@ -234,6 +252,7 @@ describe("ownership", () => {
     assert.equal((await me.post(`/api/games/${live}/moves`, next)).status, 403);
     assert.equal((await me.post(`/api/games/${live}/end`, { result: "1-0" })).status, 403);
     assert.equal((await me.post(`/api/games/${live}/truncate`, { toPly: 0, fen: START_FEN })).status, 403);
+    assert.equal((await me.post(`/api/games/${live}/abandon`)).status, 403);
     const g = (await me.get(`/api/games/${live}`)).body;
     assert.equal(g.status, "active");
     assert.equal(g.moves.length, 1);

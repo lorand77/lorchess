@@ -104,7 +104,9 @@ AI games from a pasted FEN earn no game-feat achievements (see below). Because
 those routes take the client's word, they accept **active AI games only**: a
 PvP record is written by the socket layer alone, and a finished game of either
 kind is closed to them. The `termination` they store is an allowlist, since it
-is shown in the game history.
+is shown in the game history. Starting another game abandons the one on the
+board (`/:id/abandon`): a game nobody moved in is deleted, one with moves is
+aborted, so nothing sits "in progress" for ever.
 
 ## Real-time PvP
 

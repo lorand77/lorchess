@@ -16,12 +16,11 @@
 // the caller can tell the player.
 
 const queries = require("../db/queries");
-const { Chess, fileOf, rankOf, sqIdx } = require("../shared/chess");
+const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/chess");
 const handicap = require("../shared/handicap");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
-const { BY_KEY, describe, tierName } = require("../shared/achievements");
+const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
 
-const STANDARD_START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 // Depth of LorFish's strongest setting (see the <select id="depth"> in game.html).
 const MAX_AI_DEPTH = 4;
@@ -58,7 +57,7 @@ function view(def, tier) {
     tier,
     tierName: tierName(def, tier),
     maxTier: def.tiers ? def.tiers.length : 1,
-    desc: describe(def, tier),
+    desc: describeAchievement(def, tier),
     hidden: !!def.hidden,
   };
 }

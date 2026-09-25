@@ -32,25 +32,26 @@ const VARIANTS = [
 
 // A Map, not a plain object: these keys come off the wire, and a lookup of
 // "__proto__" on an object literal returns Object.prototype — truthy, and
-// therefore accepted as a real variant.
-const BY_KEY = new Map(VARIANTS.map((v) => [v.key, v]));
+// therefore accepted as a real variant. Named for this file: as browser
+// globals, achievements.js's lookup table must not clash with it.
+const VARIANTS_BY_KEY = new Map(VARIANTS.map((v) => [v.key, v]));
 
 // Anything unrecognised becomes a standard game rather than an error: a variant
 // is a preference, not an instruction that can fail.
 function resolveVariant(name) {
-  return BY_KEY.has(name) ? name : 'standard';
+  return VARIANTS_BY_KEY.has(name) ? name : 'standard';
 }
 
 function variantLabel(name) {
-  return BY_KEY.get(resolveVariant(name)).label;
+  return VARIANTS_BY_KEY.get(resolveVariant(name)).label;
 }
 
 function usesStandardSetup(name) {
-  return !!BY_KEY.get(resolveVariant(name)).standardSetup;
+  return !!VARIANTS_BY_KEY.get(resolveVariant(name)).standardSetup;
 }
 
 function isReviewable(name) {
-  return !!BY_KEY.get(resolveVariant(name)).reviewable;
+  return !!VARIANTS_BY_KEY.get(resolveVariant(name)).reviewable;
 }
 
 // Where a game of this variant opens: null means the standard setup (or a
@@ -58,12 +59,12 @@ function isReviewable(name) {
 // 'shuffled' tells the caller to draw one per game. Matchmaking reads this, so
 // a new variant with its own start needs no change there.
 function startOf(name) {
-  const v = BY_KEY.get(resolveVariant(name));
+  const v = VARIANTS_BY_KEY.get(resolveVariant(name));
   return v.shuffled ? 'shuffled' : v.startFen || null;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    VARIANTS, BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, startOf,
+    VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, startOf,
   };
 }

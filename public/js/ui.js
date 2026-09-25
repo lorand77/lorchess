@@ -60,6 +60,7 @@ const fenError      = document.getElementById('fenError');
 
 function setThinking(v) {
   thinking = v;
+  if (v) hideEngineError(); // a new request supersedes an old failure
   render();
 }
 
@@ -93,6 +94,7 @@ const env = {
   }),
   applyMove,
   setThinking,
+  onEngineError: (msg) => showEngineError(msg),
   onReject: (msg) => {
     statusEl.textContent = msg || 'Move rejected.';
     statusEl.className = 'check-text';
@@ -758,8 +760,9 @@ function onSquareClick(sq) {
 
 // Right-click: drop the selection and any queued premove (chess.com habit).
 boardEl.addEventListener('contextmenu', (e) => {
-  if (selected === null && !premove) return;
+  if (selected === null && !premove && !promotionPending) return;
   e.preventDefault();
+  cancelPromotion();
   cancelPremove();
   clearSelection();
   render();
@@ -792,6 +795,18 @@ function showPromotionDialog() {
   }
   promoEl.classList.add('show');
 }
+
+// Put the pawn back: Escape, a right-click or a click beside the dialog
+// withdraws the move, as does the game ending while the dialog is up.
+function cancelPromotion() {
+  if (!promotionPending && !promoEl.classList.contains('show')) return;
+  promotionPending = null;
+  promoEl.classList.remove('show');
+  clearSelection();
+  render();
+}
+promoEl.addEventListener('click', (e) => { if (e.target === promoEl) cancelPromotion(); });
+promoEl.addEventListener('contextmenu', (e) => { e.preventDefault(); cancelPromotion(); });
 
 function undo() {
   // No undo in authoritative PvP games, nor once an AI game is over: its
@@ -862,12 +877,14 @@ function refreshGameState() {
   promotionPending = null;
   promoEl.classList.remove('show');
   thinking = false;
+  hideEngineError();
   render();
   syncUndoButton();
   moveSource.kickIfEngineTurn();
 }
 
 async function startNewGame() {
+  abandonCurrentGame();
   moveSource.cancel();
   chess.reset();
   startFullmove = 1;
@@ -878,10 +895,32 @@ async function startNewGame() {
   refreshGameState();
 }
 
+// LorFish failed to produce a move (the worker crashed, or could not replay the
+// game). The turn is still its own, so the board would wait for ever: say so
+// and offer to ask again. Hidden again as soon as a new request goes out.
+function showEngineError(message) {
+  const el = document.getElementById('engineNotice');
+  if (!el) return;
+  document.getElementById('engineNoticeText').textContent = `LorFish could not move (${message}). `;
+  el.hidden = false;
+}
+function hideEngineError() {
+  const el = document.getElementById('engineNotice');
+  if (el) el.hidden = true;
+}
+
+// Walking away from a game that is still going (New Game, a colour change,
+// Load FEN): tell the server, so it does not sit "in progress" for ever. A
+// finished game was already recorded by recordApplied.
+function abandonCurrentGame() {
+  if (!chess.isGameOver()) gameStore.abandon();
+}
+
 // ---- AI-only control wiring (these controls are hidden in PvP) ----
 document.addEventListener('keydown', e => {
   const tag = e.target && e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return; // typing in chat / FEN box
+  if (e.key === 'Escape' && promotionPending) { cancelPromotion(); return; }
   if (fenPanel.classList.contains('show')) {
     if (e.key === 'Escape') fenPanel.classList.remove('show');
     return;
@@ -892,6 +931,10 @@ document.addEventListener('keydown', e => {
 // server); redraw so the board picks them up.
 window.addEventListener('theme:changed', () => { if (!moveAnim) render(); });
 document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('engineRetry').addEventListener('click', () => {
+  hideEngineError();
+  moveSource.kickIfEngineTurn();
+});
 document.getElementById('resetBtn').addEventListener('click', startNewGame);
 colorSelectEl.addEventListener('change', startNewGame);
 
@@ -907,12 +950,14 @@ fenCancelBtn.addEventListener('click', () => {
 fenLoadBtn.addEventListener('click', async () => {
   const fen = fenText.value.trim();
   if (!fen) { fenError.textContent = 'Paste a FEN string first.'; return; }
+  const unfinished = !chess.isGameOver(); // of the game being left, not the new position
   try {
     chess.loadFen(fen);
   } catch (e) {
     fenError.textContent = e.message;
     return;
   }
+  if (unfinished) gameStore.abandon();
   moveSource.cancel();
   startFullmove = chess.fullmove;
   startTurn = chess.turn;
@@ -937,9 +982,6 @@ function initAi() {
   startNewGame();
 }
 
-const AI_STANDARD_START =
-  'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
 // Inverse of chess.js's algOf: 'e4' -> square index.
 const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 
@@ -960,7 +1002,7 @@ function resumeAiGame(game) {
     depthEl.value = String(game.ai_depth);
   }
 
-  if (game.start_fen && game.start_fen !== AI_STANDARD_START) {
+  if (game.start_fen && game.start_fen !== STANDARD_START) {
     chess.loadFen(game.start_fen);
     startFen = game.start_fen;
   } else {
@@ -1019,11 +1061,17 @@ function resumeAiGame(game) {
 }
 
 // ---- PvP mode ----
-function pvpNotice(text, kind) {
+// `ttlMs` makes the notice fade by itself — but only if nothing newer has
+// replaced it meanwhile, so an expiring "reconnected" never wipes out a fresh
+// "disconnected" or the rating line.
+let noticeSeq = 0;
+function pvpNotice(text, kind, ttlMs) {
   const el = document.getElementById('pvpNotice');
   if (!el) return;
+  const seq = ++noticeSeq;
   el.textContent = text || '';
   el.className = kind === 'info' ? 'pvp-info' : 'check-text';
+  if (ttlMs && text) setTimeout(() => { if (noticeSeq === seq) pvpNotice(''); }, ttlMs);
 }
 
 // ---- offers (draw / rematch) ----
@@ -1253,8 +1301,7 @@ function initSpectate(gameId) {
     pvpNotice(`${colorName(info.color)} disconnected — ${secs}s to reconnect…`);
   });
   socket.on('opponent:reconnected', (info) => {
-    pvpNotice(`${colorName(info && info.color)} reconnected.`, 'info');
-    setTimeout(() => pvpNotice(''), 3000);
+    pvpNotice(`${colorName(info && info.color)} reconnected.`, 'info', 3000);
   });
   socket.on('spectators', showSpectators);
   socket.on('friends:changed', () => renderFriendRow());
@@ -1342,8 +1389,7 @@ function initPvp(gameId) {
   });
   socket.on('draw:declined', () => {
     drawResolved();
-    pvpNotice('Draw declined.');
-    setTimeout(() => pvpNotice(''), 3000);
+    pvpNotice('Draw declined.', undefined, 3000);
   });
   // Broadcast when a move lapses the outstanding offer.
   socket.on('draw:cleared', drawResolved);
@@ -1404,6 +1450,7 @@ function initPvp(gameId) {
   });
   socket.on('game:over', (info) => {
     pvpResult = info;
+    cancelPromotion(); // nothing left to promote into
     clockRunning = false;
     playOutcomeSound(info.result);
     showReviewLink(gameId);
@@ -1424,8 +1471,7 @@ function initPvp(gameId) {
     pvpNotice(`Opponent disconnected — ${secs}s to reconnect…`);
   });
   socket.on('opponent:reconnected', () => {
-    pvpNotice('Opponent reconnected.');
-    setTimeout(() => pvpNotice(''), 3000);
+    pvpNotice('Opponent reconnected.', 'info', 3000);
   });
   // The opponent accepted / requested / removed us: redraw the friend control.
   socket.on('friends:changed', () => renderFriendRow());
@@ -1518,6 +1564,7 @@ function applyPvpState(socket, state) {
   clearSelection();
   premove = null;
   promotionPending = null;
+  promoEl.classList.remove('show');
   thinking = false;
   // If we're (re)joining a game that's already over, show its real outcome.
   pvpResult = state.status !== 'active'

@@ -8,7 +8,7 @@ const path = require("path");
 const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const {
-  ACHIEVEMENTS, GROUPS, BY_KEY, TIER_NAMES, maxTier, describe: describeTier, tierName,
+  ACHIEVEMENTS, GROUPS, BY_KEY, TIER_NAMES, maxTier, describeAchievement: describeTier, tierName,
 } = require("../../src/shared/achievements");
 
 const byKey = (key) => {

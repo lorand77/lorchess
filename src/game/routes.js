@@ -9,7 +9,7 @@
 const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
-const { Chess } = require("../shared/chess");
+const { Chess, STANDARD_START } = require("../shared/chess");
 const config = require("../config");
 const achievements = require("../achievements/service");
 
@@ -19,8 +19,6 @@ const router = express.Router();
 // white_id/black_id of the AI side; individual AI moves record by_user = NULL.
 const AI_ID = queries.getUserByUsername.get(config.AI_USERNAME).id;
 
-const STANDARD_START =
-  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const VALID_RESULTS = new Set(["1-0", "0-1", "1/2-1/2"]);
 // The ways the client's rules engine can end a game (terminationReason in
 // ui.js). Anything else is refused: the value is stored and later shown in the
@@ -192,6 +190,24 @@ router.post("/:id/truncate", (req, res) => {
   queries.deleteMovesAfter.run(game.id, toPly);
   queries.updateGamePosition.run(fen, turnOf(fen), game.id);
   res.json({ ok: true, toPly });
+});
+
+// POST /api/games/:id/abandon — the player walked away from an unfinished AI
+// game (New Game, a colour change, Load FEN). A game with no moves is deleted:
+// it was never played. One with moves is aborted, so the history shows it as
+// given up rather than as "in progress" for ever.
+router.post("/:id/abandon", (req, res) => {
+  const game = loadOwnAiGame(req, res);
+  if (!game) return;
+  if (game.status !== "active") {
+    return res.status(409).json({ error: "Game is not active." });
+  }
+  if (queries.getMovesForGame.all(game.id).length === 0) {
+    queries.deleteGame.run(game.id);
+    return res.json({ ok: true, deleted: true });
+  }
+  queries.abortGame.run("abandoned", game.id);
+  res.json({ ok: true, deleted: false });
 });
 
 module.exports = router;

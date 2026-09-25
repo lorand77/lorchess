@@ -62,8 +62,15 @@ test("another player's friends are listed, without their pending requests", asyn
   assert.equal(res.body.friends[0].username, bob.user.username);
 });
 
-test("LorFish, unknown players and bad ids have no games or friends to show", async () => {
-  for (const base of ["/api/games/user", "/api/friends/user"]) {
+test("another player's achievements are listed", async () => {
+  const res = await carol.c.get(`/api/achievements/user/${alice.user.id}`);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.user.id, alice.user.id);
+  assert.ok(Array.isArray(res.body.earned));
+});
+
+test("LorFish, unknown players and bad ids have no games, friends or achievements to show", async () => {
+  for (const base of ["/api/games/user", "/api/friends/user", "/api/achievements/user"]) {
     assert.equal((await carol.c.get(`${base}/${lorfishId()}`)).status, 404, base);
     assert.equal((await carol.c.get(`${base}/999999`)).status, 404, base);
     assert.equal((await carol.c.get(`${base}/abc`)).status, 400, base);

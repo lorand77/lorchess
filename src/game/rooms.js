@@ -4,15 +4,12 @@
 // instance per active game; clients are never trusted for legality. Rooms are
 // keyed by gameId and map 1:1 to the Socket.IO room `game:<id>`.
 
-const { Chess } = require("../shared/chess");
+const { Chess, STANDARD_START } = require("../shared/chess");
 const queries = require("../db/queries");
 const config = require("../config");
 const { describeTimeControl } = require("../shared/timeControls");
 const handicap = require("../shared/handicap");
 const { usesStandardSetup } = require("../shared/variants");
-
-const STANDARD_START =
-  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 const rooms = new Map(); // gameId -> room
 

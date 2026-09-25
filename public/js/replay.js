@@ -5,7 +5,6 @@
 // us captured pieces + last-move highlight for free), and lets the user step
 // through with buttons, arrow keys, or by clicking a move.
 
-const STANDARD_START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const CAPTURE_ORDER = ["p", "n", "b", "r", "q"];
 

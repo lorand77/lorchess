@@ -36,7 +36,6 @@ const ROOK_SQ = { K: 7, Q: 0, k: 63, q: 56 };
 // The types a square may be set to. Kings are excluded: a side must have exactly
 // one, and moving it would change the position's character entirely.
 const PLACEABLE = ['q', 'r', 'b', 'n', 'p'];
-const PIECE_NAMES = { k: 'King', q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight', p: 'Pawn' };
 
 const isStartSquare = (sq) => !!START_PIECES[sq];
 const isKingSquare = (sq) => sq === WHITE_KING_SQ || sq === BLACK_KING_SQ;
@@ -199,7 +198,7 @@ function diffFromFen(fen) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    START_PIECES, PLACEABLE, PIECE_NAMES, WHITE_KING_SQ, BLACK_KING_SQ,
+    START_PIECES, PLACEABLE, WHITE_KING_SQ, BLACK_KING_SQ,
     isStartSquare, isKingSquare, isEditable, isWhiteSquare, isBackRank,
     algOfSq, isWhitePiece, pieceFor,
     validateSquares, buildFen, describe, diffFromFen, mirror,

@@ -13,33 +13,52 @@
 //   getHumanColor() -> 'w'|'b'   getTurn() -> 'w'|'b'   isGameOver() -> bool
 //   getDepth() -> int            getPosition() -> { startFen, moves }
 //   applyMove(move, record, opts) setThinking(bool)     onReject(msg?)
+//   onEngineError(msg)  the engine could not move; the page offers a retry
 //   opts.premove marks a move the human queued before the opponent replied.
 
 // ---- AI: LorFish in a Web Worker ----
 function createAiMoveSource(env) {
-  const worker = new Worker("/js/engineWorker.js");
+  let worker = null;
   let busy = false;
   let reqId = 0;
   let activeReq = 0;
 
-  worker.onmessage = (e) => {
-    const data = e.data || {};
-    if (data.id !== activeReq) return; // stale reply from an abandoned game
-    busy = false;
-    env.setThinking(false);
-    if (data.error) {
-      console.error("Engine worker:", data.error);
-      return;
-    }
-    if (data.move) env.applyMove(data.move, true);
-  };
-  worker.onerror = (err) => {
-    busy = false;
-    env.setThinking(false);
-    console.error("Engine worker crashed:", (err && err.message) || err);
-  };
+  // The worker is single-threaded and its search is synchronous, so the only
+  // way to stop a search is to terminate the worker. One is kept warm between
+  // moves; it is dropped when a search has to be abandoned midway or after it
+  // has crashed, and the next request starts a fresh one.
+  function spawn() {
+    const w = new Worker("/js/engineWorker.js");
+    w.onmessage = (e) => {
+      const data = e.data || {};
+      if (data.id !== activeReq) return; // stale reply from an abandoned game
+      busy = false;
+      env.setThinking(false);
+      if (data.error) return fail(data.error);
+      if (data.move) env.applyMove(data.move, true);
+    };
+    w.onerror = (err) => {
+      const wasBusy = busy;
+      busy = false;
+      env.setThinking(false);
+      // Whatever state it is in now, don't trust it with the next request.
+      w.terminate();
+      if (worker === w) worker = null;
+      if (wasBusy) fail((err && err.message) || "the engine crashed");
+      else console.error("Engine worker:", (err && err.message) || err);
+    };
+    return w;
+  }
+
+  // The engine could not produce a move. The turn is still its own, so the
+  // player would be stuck waiting; tell the page, which offers to ask again.
+  function fail(message) {
+    console.error("Engine worker:", message);
+    if (env.onEngineError) env.onEngineError(String(message));
+  }
 
   function requestEngineMove() {
+    if (!worker) worker = spawn();
     busy = true;
     env.setThinking(true);
     activeReq = ++reqId;
@@ -63,11 +82,18 @@ function createAiMoveSource(env) {
       if (env.getTurn() === env.getHumanColor()) return;
       requestEngineMove();
     },
+    // Also the retry after a failure: it asks again if it is the engine's move.
     kickIfEngineTurn() {
       if (!env.isGameOver() && env.getTurn() !== env.getHumanColor()) requestEngineMove();
     },
     cancel() {
       activeReq = ++reqId;
+      // A search still running would hold the next game's first request behind
+      // it, for as long as the abandoned position takes; drop the worker instead.
+      if (busy && worker) {
+        worker.terminate();
+        worker = null;
+      }
       busy = false;
       env.setThinking(false);
     },
