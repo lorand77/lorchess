@@ -255,15 +255,34 @@ function armAbsence(io, room, color, settleMs) {
 
   room.timers[color] = setTimeout(() => onGraceExpired(io, gameId, color), GRACE_MS);
 
+  // The notice carries the time the absent player has left when it is shown,
+  // not the full grace period, since it may be held back by `settleMs`.
   const announce = () => {
     room.notices[color] = null;
     const live = rooms.getRoom(gameId);
     if (!live || live.status !== "active" || live.online[color].size > 0) return;
-    io.to(`game:${gameId}`).emit("opponent:disconnected", { color, graceMs: GRACE_MS });
+    io.to(`game:${gameId}`).emit("opponent:disconnected", {
+      color,
+      graceMs: Math.max(0, GRACE_MS - settleMs),
+    });
   };
   if (settleMs > 0) room.notices[color] = setTimeout(announce, settleMs);
   else announce();
 }
+
+// A fresh game has nobody in it yet. Both players are expected within the
+// grace period, so the absence clock runs against each until they arrive, and
+// a game nobody turns up for aborts (no move was played) instead of sitting
+// 'active' for ever — which, with one game at a time, would lock both players
+// out. The notice to whoever did arrive waits long enough for a normal page
+// load, so an opponent who is merely a few seconds behind is never reported.
+const JOIN_SETTLE_MS = 10000;
+matchmaking.onMatchStarted((io, gameId) => {
+  const room = rooms.getRoom(gameId);
+  if (!room) return;
+  armAbsence(io, room, "w", JOIN_SETTLE_MS);
+  armAbsence(io, room, "b", JOIN_SETTLE_MS);
+});
 
 function handleGameJoin(io, socket, payload, ack) {
   const gameId = Number(payload && payload.gameId);
@@ -279,6 +298,17 @@ function handleGameJoin(io, socket, payload, ack) {
   socket.join(chatRoom(gameId, "players"));
   socket.gameId = gameId;
   socket.gameColor = color;
+
+  // A game that is over has nothing live about it. Hand back its final state
+  // for the result screen (the socket stays in the game's rooms for post-game
+  // chat and the rematch offer) but keep no room for it: only concludeGame
+  // ever deletes rooms, and for this game it has already run.
+  if (room.status !== "active") {
+    const state = stateOf(room, color);
+    rooms.deleteRoom(gameId);
+    return reply(ack, { ok: true, state });
+  }
+
   room.online[color].add(socket.id);
   room.everJoined[color] = true;
 
@@ -470,6 +500,9 @@ function handleMove(io, socket, payload, ack) {
 
   const color = colorOf(room, socket.userId);
   if (!color) return reply(ack, { ok: false, error: "You are not a player in this game." });
+  // Moves come from a socket that has joined the game. One that never did has
+  // no seat in the room, so the clock would never start running against it.
+  if (socket.gameId !== gameId) return reply(ack, { ok: false, error: "Join the game first." });
 
   // (2) Turn enforcement.
   if (room.chess.turn !== color) return reply(ack, { ok: false, error: "Not your turn." });
@@ -646,6 +679,9 @@ function handleResign(io, socket, payload) {
   if (!room || room.status !== "active") return;
   const color = colorOf(room, socket.userId);
   if (!color) return;
+  // Before the first move there is nothing to concede: this is an abort, as
+  // when a player never turns up, never a rated loss for a game not played.
+  if (room.sans.length === 0) return concludeGame(io, room, "*", "aborted");
   // How long after the opponent's last move the resignation came (the "Rage
   // Quit" achievement wants to know). Only meaningful once the clock runs.
   room.resignReactionMs =

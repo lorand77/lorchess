@@ -111,14 +111,22 @@ sockets, clocks and timers.
 
 - **Finding a game.** Two paths, both purely in-memory because an offer means
   nothing once a socket closes. Quick-match (`matchmaking.js`) keeps FIFO
-  queues per time control and rated flag, so a bullet seeker is never handed a
-  classical game. The live lobby (`lobby.js`) has open **seeks** anyone may
-  take and **challenges** addressed to one user. Either path creates the
-  `games` row and the room and emits `game:start`; clients navigate to
+  queues per time control, rated flag and variant, so a bullet seeker is never
+  handed a classical game. The live lobby (`lobby.js`) has open **seeks**
+  anyone may take and **challenges** addressed to one user. Either path creates
+  the `games` row and the room and emits `game:start`; clients navigate to
   `game.html?id=<gameId>`. Handicap positions arrive as a sparse map of changes
   to the starting squares, never a FEN; the server rebuilds the position.
+  **One game at a time:** a player in a live PvP game (`rooms.liveGameOf`, read
+  from the database so a game awaiting resumption counts) may neither offer,
+  accept nor quick-match, and the moment a match starts both players' other
+  offers are withdrawn (`matchmaking.onMatchStarted`). Without that, a stale
+  challenge accepted mid-game would drag its owner's page to the new game and
+  forfeit the one they were playing.
 - **`move:make`** (`handleMove` in `socket.js`): confirm the sender is a
-  player in an active room → **turn enforcement** → **legality** against the
+  player in an active room and has joined it (a socket that never sent
+  `game:join` has no seat, so the clock would never start against it) →
+  **turn enforcement** → **legality** against the
   server's own `findMove` (never trust the client) → charge the mover's clock,
   and flag if it ran out → apply → persist move, position and clocks in one
   transaction → broadcast `move:made` to the room (mover included; everyone
@@ -132,12 +140,19 @@ sockets, clocks and timers.
   Elo (`elo.js`, K from `config.ELO_K`) moves after rated games, and every
   update writes `rating_history`.
 - **Disconnects.** When a player's last socket drops, a forfeit timer starts
-  (`DISCONNECT_GRACE_MS`, default 45 s) and the opponent sees
-  `opponent:disconnected`. Rejoining cancels it and `game:join` hands back the
-  full state. Expiry forfeits (`termination = 'disconnect'`), or aborts if no
-  move was ever played.
+  (`config.DISCONNECT_GRACE_MS`, env `GRACE_MS`, default 45 s) and the opponent
+  sees `opponent:disconnected`. Rejoining cancels it and `game:join` hands back
+  the full state. Expiry forfeits (`termination = 'disconnect'`), or aborts if no
+  move was ever played. Resigning before the first move is an abort as well,
+  never a rated loss. The same timer is armed against both players the moment a
+  match is created (a second `matchmaking.onMatchStarted` hook), so a game
+  nobody turns up for aborts instead of sitting `active` — which, with one game
+  at a time, would lock both players out.
 - **Restarts.** Nothing is thrown away at boot. A PvP game left `active` is
   rebuilt from the DB the moment a participant connects (`loadRoomFromDb`).
+  A finished game never keeps a room: rejoining one (a reload on the result
+  screen) answers with its final state and drops the rebuilt room at once,
+  since only `concludeGame` deletes rooms.
   `RESUME_WINDOW_MS` (default 10 min) after boot, a sweep aborts the games
   nobody came back for (`termination = 'server-restart'`). AI games keep no
   server state, so a restart never interrupted them.

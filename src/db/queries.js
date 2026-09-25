@@ -142,6 +142,13 @@ module.exports = {
   playersInLiveGames: db.prepare(
     "SELECT id, white_id, black_id FROM games WHERE status = 'active' AND mode = 'pvp'"
   ),
+  // The live PvP game one user is in, if any. The lobby keeps it to one at a
+  // time, hence LIMIT 1. Both params are the user id.
+  liveGameForUser: db.prepare(`
+    SELECT id FROM games
+     WHERE status = 'active' AND mode = 'pvp' AND (white_id = ? OR black_id = ?)
+     LIMIT 1
+  `),
 
   // --- friendships ---
   // The one row (if any) linking two users, in either direction.

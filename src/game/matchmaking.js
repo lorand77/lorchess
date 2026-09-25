@@ -1,10 +1,11 @@
 "use strict";
 
-// Quick-match: FIFO queues of waiting sockets, one per (time control, rated)
-// pair — pooling by clock matters, since someone waiting for a 1+0 bullet game
-// should not be handed a 30-minute classical one. When two DISTINCT users are
-// available in the same pool, pair them: randomize colors, create the games row
-// + room, and emit game:start so their clients navigate to game.html?id=<id>.
+// Quick-match: FIFO queues of waiting sockets, one per (time control, rated,
+// variant) triple — pooling by clock matters, since someone waiting for a 1+0
+// bullet game should not be handed a 30-minute classical one. When two DISTINCT
+// users are available in the same pool, pair them: randomize colors, create the
+// games row + room, and emit game:start so their clients navigate to
+// game.html?id=<id>.
 //
 // For a specific opponent or a published offer, see lobby.js — this is only the
 // "just find me a game" path.
@@ -26,6 +27,16 @@ const userRoom = (userId) => `user:${userId}`;
 // poolKey -> sockets currently seeking a match in that pool
 const pools = new Map();
 
+// Called whenever a match starts, with the game id and both players' user ids.
+// The lobby uses it to withdraw the players' open seeks and challenges (an offer
+// from someone who has just sat down to a game must not be acceptable any
+// more); socket.js to start the clock against players who never turn up. Hooks
+// rather than requires, because lobby.js already depends on this module.
+const startHooks = [];
+function onMatchStarted(fn) {
+  startHooks.push(fn);
+}
+
 const poolKey = (tcKey, rated, variant) => `${tcKey}|${rated ? 1 : 0}|${variant}`;
 
 function poolFor(key) {
@@ -40,6 +51,11 @@ function poolFor(key) {
 function join(io, socket, payload) {
   if (socket.userId == null) return;
   leave(socket); // never queued in two pools at once
+  // One game at a time: pairing someone who is already playing would pull them
+  // out of that game.
+  if (rooms.liveGameOf(socket.userId)) {
+    return socket.emit("lobby:error", { error: "Finish your current game first." });
+  }
 
   const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
   const rated = !payload || payload.rated !== false;
@@ -47,8 +63,11 @@ function join(io, socket, payload) {
   const key = poolKey(tc.key, rated, variant);
   const pool = poolFor(key);
 
-  // Pair with the first waiter who is a different user and still connected.
-  const idx = pool.findIndex((s) => s.userId !== socket.userId && s.connected);
+  // Pair with the first waiter who is a different user, still connected, and
+  // not meanwhile in a game.
+  const idx = pool.findIndex(
+    (s) => s.userId !== socket.userId && s.connected && !rooms.liveGameOf(s.userId)
+  );
   if (idx === -1) {
     socket.matchPool = key;
     pool.push(socket);
@@ -75,6 +94,19 @@ function leave(socket) {
     if (pool.length === 0) pools.delete(key);
   }
   socket.matchPool = null;
+}
+
+// Every socket of a user, out of every pool: when their game starts, a queue
+// entry left from another tab must not pair them a second time.
+function leaveUser(userId) {
+  for (const [key, pool] of pools) {
+    for (let i = pool.length - 1; i >= 0; i--) {
+      if (pool[i].userId !== userId) continue;
+      pool[i].matchPool = null;
+      pool.splice(i, 1);
+    }
+    if (pool.length === 0) pools.delete(key);
+  }
 }
 
 // Create a game between two connected sockets with the colours given by the
@@ -113,6 +145,12 @@ function startMatch(io, white, black, opts) {
     rated,
   });
 
+  // Both players are spoken for now: out of the queues, and every other offer
+  // they had open is withdrawn by the lobby.
+  leaveUser(white.userId);
+  leaveUser(black.userId);
+  for (const fn of startHooks) fn(io, gameId, white.userId, black.userId);
+
   io.to(userRoom(white.userId)).emit("game:start", {
     gameId, color: "w", opponent: { username: black.username },
   });
@@ -126,4 +164,4 @@ function startMatch(io, white, black, opts) {
   return gameId;
 }
 
-module.exports = { join, leave, startMatch, userRoom };
+module.exports = { join, leave, startMatch, onMatchStarted, userRoom };

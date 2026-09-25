@@ -128,6 +128,35 @@ describe("disconnect grace", () => {
   });
 });
 
+describe("turning up", () => {
+  test("a game neither player joins is aborted after the grace period, freeing both", async () => {
+    const a = await connectSocket(srv.baseUrl, alice.c.cookie());
+    const b = await connectSocket(srv.baseUrl, bob.c.cookie());
+    const { gameId } = await quickMatch(a, b, { tc: "10+0" });
+    assert.equal(rooms().liveGameOf(alice.user.id), gameId);
+    await sleep(600); // nobody sends game:join
+    assert.equal(gameRow(gameId).status, "aborted");
+    assert.equal(gameRow(gameId).termination, "aborted");
+    assert.equal(rooms().getRoom(gameId), undefined);
+    assert.equal(rooms().liveGameOf(alice.user.id), null);
+    assert.equal(rooms().liveGameOf(bob.user.id), null);
+    a.close(); b.close();
+  });
+
+  test("when only one player turns up, the game is aborted for them too", async () => {
+    const a = await connectSocket(srv.baseUrl, alice.c.cookie());
+    const b = await connectSocket(srv.baseUrl, bob.c.cookie());
+    const { gameId, white } = await quickMatch(a, b, { tc: "10+0" });
+    const over = waitFor(white, "game:over");
+    assert.equal((await emitAck(white, "game:join", { gameId })).ok, true);
+    const res = await over;
+    assert.equal(res.result, "*");
+    assert.equal(res.termination, "aborted");
+    assert.equal(res.ratings, null);
+    a.close(); b.close();
+  });
+});
+
 describe("clocks", () => {
   test("the side to move is flagged when their time runs out", async () => {
     const { gameId, white, black } = await joinedGame({ tc: "1+0" }, { fresh: true });
@@ -292,7 +321,8 @@ describe("restart", () => {
     const resumed = await joinedGame({ tc: "3+0" });
     await play(resumed.white, resumed.gameId, "a2", "a3");
     await play(resumed.black, resumed.gameId, "a7", "a6");
-    const abandoned = await joinedGame({ tc: "3+0" });
+    // Alice and Bob are in a game now, so the second one needs other players.
+    const abandoned = await joinedGame({ tc: "3+0" }, { fresh: true });
     await play(abandoned.white, abandoned.gameId, "h2", "h3");
     const stored = gameRow(resumed.gameId);
 

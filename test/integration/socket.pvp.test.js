@@ -58,6 +58,12 @@ describe("quick-match", () => {
     assert.equal(game.start_fen, START_FEN);
     assert.equal(game.white_id, white === a ? alice.user.id : bob.user.id);
     assert.equal(game.black_id, black === a ? alice.user.id : bob.user.id);
+
+    // Leave nothing live behind: a player in a game cannot be matched again.
+    await emitAck(white, "game:join", { gameId });
+    const over = waitFor(white, "game:over");
+    white.emit("game:resign", { gameId });
+    assert.equal((await over).result, "*", "resigning before any move aborts");
     a.close(); b.close();
   });
 
@@ -235,6 +241,9 @@ describe("a casual game", () => {
     assert.equal(joined.initialMs, 60000);
     const ratingsBefore = db().prepare("SELECT id, rating FROM users WHERE id IN (?, ?) ORDER BY id").all(alice.user.id, bob.user.id);
 
+    // A resignation only counts once a move has been played; before that it
+    // is an abort (see socket.hardening.test.js).
+    assert.equal((await emitAck(white, "move:make", { gameId, ...mv("e2", "e4") })).ok, true);
     const overB = waitFor(black, "game:over");
     white.emit("game:resign", { gameId });
     const over = await overB;

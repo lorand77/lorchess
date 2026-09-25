@@ -9,6 +9,11 @@
 //   seek      — open to the room; the first taker gets the game.
 //   challenge — addressed to one user; only that user may accept.
 //
+// A player in a live game is out of the market: they may neither offer nor
+// accept, and the moment a match starts both players' other offers are
+// withdrawn (the matchmaking hook at the bottom). Otherwise a stale offer
+// accepted mid-game would pull its owner out of the game they are playing.
+//
 // The client is never trusted for the clock: `tc` is a key into the shared
 // time-control allowlist, and the resolved milliseconds are what get stored.
 
@@ -332,11 +337,17 @@ function optsOf(offer) {
 
 function createSeek(io, socket, payload) {
   if (socket.userId == null) return;
-  const existing = seekOf(socket.userId);
-  if (existing) seeks.delete(existing.id); // one open seek per user
-
+  if (rooms.liveGameOf(socket.userId)) {
+    return socket.emit("lobby:error", { error: "Finish your current game first." });
+  }
   const norm = normalizeOffer(payload);
   if (!norm.ok) return socket.emit("lobby:error", { error: norm.error });
+
+  // One open seek per user: a new one replaces the old — but only once the
+  // new one is known to be valid, so a rejected offer doesn't silently
+  // withdraw the one everybody else can still see.
+  const existing = seekOf(socket.userId);
+  if (existing) seeks.delete(existing.id);
 
   const entry = presence.get(socket.userId);
   const seek = {
@@ -365,22 +376,24 @@ function acceptSeek(io, socket, payload) {
   if (seek.userId === socket.userId) {
     return socket.emit("lobby:error", { error: "You can't accept your own challenge." });
   }
+  if (rooms.liveGameOf(socket.userId)) {
+    return socket.emit("lobby:error", { error: "Finish your current game first." });
+  }
   const offerer = socketFor(seek.userId);
-  if (!offerer) {
+  if (!offerer || rooms.liveGameOf(seek.userId)) {
     seeks.delete(seek.id);
     broadcastState(io);
-    return socket.emit("lobby:error", { error: "That player went offline." });
+    return socket.emit("lobby:error", {
+      error: offerer ? "That player is already in a game." : "That player went offline.",
+    });
   }
 
-  // Consume the seek (and the accepter's own, if any) before starting, so a
-  // double-click can't produce two games.
+  // Consume the seek before starting, so a double-click can't produce two
+  // games. Whatever else either player had on offer is withdrawn by the
+  // match-start hook at the bottom of this file.
   seeks.delete(seek.id);
-  const own = seekOf(socket.userId);
-  if (own) seeks.delete(own.id);
-
   const { white, black } = assignColors(offerer, socket, seek.color);
   matchmaking.startMatch(io, white, black, optsOf(seek));
-  broadcastState(io);
 }
 
 // ---- direct challenges ----
@@ -390,6 +403,12 @@ function createChallenge(io, socket, payload) {
   if (!toId || toId === socket.userId) return;
   const target = presence.get(toId);
   if (!target) return socket.emit("lobby:error", { error: "That player is offline." });
+  if (rooms.liveGameOf(socket.userId)) {
+    return socket.emit("lobby:error", { error: "Finish your current game first." });
+  }
+  if (rooms.liveGameOf(toId)) {
+    return socket.emit("lobby:error", { error: "That player is in a game right now." });
+  }
 
   // One pending challenge per direction per pair — re-challenging replaces it.
   for (const [id, c] of challenges) {
@@ -418,19 +437,22 @@ function acceptChallenge(io, socket, payload) {
   const c = challenges.get(payload && payload.id);
   if (!c) return socket.emit("lobby:error", { error: "That challenge has expired." });
   if (c.toId !== socket.userId) return; // only the addressee may accept
+  if (rooms.liveGameOf(socket.userId)) {
+    return socket.emit("lobby:error", { error: "Finish your current game first." });
+  }
   const challenger = socketFor(c.fromId);
-  if (!challenger) {
+  if (!challenger || rooms.liveGameOf(c.fromId)) {
     challenges.delete(c.id);
+    pushChallenges(io, c.fromId);
     pushChallenges(io, c.toId);
-    return socket.emit("lobby:error", { error: "That player went offline." });
+    return socket.emit("lobby:error", {
+      error: challenger ? "That player is already in a game." : "That player went offline.",
+    });
   }
   challenges.delete(c.id);
 
   const { white, black } = assignColors(challenger, socket, c.color);
   matchmaking.startMatch(io, white, black, optsOf(c));
-  pushChallenges(io, c.fromId);
-  pushChallenges(io, c.toId);
-  broadcastState(io);
 }
 
 function declineChallenge(io, socket, payload) {
@@ -476,6 +498,17 @@ function nudge(io) {
     broadcastState(io);
   }, wait);
 }
+
+// The moment a match starts, both players' other offers are withdrawn: their
+// open seeks and every challenge to or from them. Neither can be seated in a
+// second game, so an offer of theirs is something nobody may accept.
+matchmaking.onMatchStarted((io, gameId, whiteId, blackId) => {
+  dropOffersFor(io, whiteId);
+  dropOffersFor(io, blackId);
+  pushChallenges(io, whiteId);
+  pushChallenges(io, blackId);
+  broadcastState(io);
+});
 
 module.exports = {
   connected,

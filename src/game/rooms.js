@@ -128,6 +128,14 @@ function resumableGames() {
   return queries.listActivePvpGames.all();
 }
 
+// The live PvP game a user is in, or null. Read from the database rather than
+// the room map so a game waiting to be resumed after a restart counts too: its
+// player is still committed to it.
+function liveGameOf(userId) {
+  const row = queries.liveGameForUser.get(userId, userId);
+  return row ? row.id : null;
+}
+
 // Abort whatever nobody came back for. A game that WAS resumed has a live room
 // and is skipped. Called once, RESUME_WINDOW_MS after boot.
 function sweepUnresumed() {
@@ -211,6 +219,7 @@ module.exports = {
   clearTimers,
   clockSnapshot,
   resumableGames,
+  liveGameOf,
   sweepUnresumed,
   STANDARD_START,
 };
