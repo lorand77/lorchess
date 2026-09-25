@@ -34,6 +34,33 @@ const has = (list, ...keys) => keys.every((k) => list.includes(k));
 const lacks = (list, ...keys) => keys.every((k) => !list.includes(k));
 
 describe("game feats", () => {
+  test("castling keeps a capture-free win eligible for Pacifist", () => {
+    const r = playAndEvaluate({
+      moves: ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5", "e1h1", "g8f6", "d2d3", "d7d6",
+        "b1c3", "e8h8", "a2a3", "a7a6", "h2h3", "h7h6", "c4a2", "c5a7", "c1e3", "c8e6"],
+      result: "1-0", termination: "resign",
+    });
+    assert.ok(has(r.w, "pacifist"), r.w);
+    const stored = queries.getMovesForGame.all(r.gameId);
+    assert.ok(stored.some(m => m.uci === "e1h1"));
+    const analysis = achievements.analyze(queries.getGameById.get(r.gameId), stored);
+    assert.ok(analysis.plies.every(p => p.captured === null));
+  });
+
+  test("rook-target castling never counts as a capture or triggers Rage Quit", () => {
+    for (const [variant, start, move] of [
+      ["standard", "4k3/8/8/8/8/8/8/4K2R w K - 0 1", "e1h1"],
+      ["chess960", "4k3/8/8/8/8/8/8/5K1R w K - 0 1", "f1h1"],
+      ["chess960", "4k3/8/8/8/8/8/8/6KR w K - 0 1", "g1h1"],
+    ]) {
+      const r = playAndEvaluate({ variant, start, moves: [move], result: "1-0", termination: "resign" }, { resignReactionMs: 100 });
+      const analysis = achievements.analyze(queries.getGameById.get(r.gameId), queries.getMovesForGame.all(r.gameId));
+      assert.equal(analysis.plies[0].castle, "K");
+      assert.equal(analysis.plies[0].captured, null);
+      assert.ok(lacks(r.b, "rage_quit"), r.b);
+    }
+  });
+
   test("fool's mate: queen mate, blitzkrieg and the first tiers", () => {
     const r = playAndEvaluate({ moves: ["f2f3", "e7e5", "g2g4", "d8h4"], result: "0-1", termination: "checkmate" });
     assert.ok(has(r.b, "fools_mate", "mate_queen", "blitzkrieg", "games_played", "wins", "checkmates", "rapid_wins"), r.b);

@@ -106,7 +106,8 @@ function analyze(game, moves) {
     if (!mv) return null;
     const color = chess.turn;
     const origPiece = chess.squares[from].t;
-    const captured = mv.enpassant ? "p" : chess.squares[to] ? chess.squares[to].t : null;
+    // Stored castling UCI targets our rook, but castling captures nothing.
+    const captured = mv.castle ? null : mv.enpassant ? "p" : chess.squares[mv.to] ? chess.squares[mv.to].t : null;
     chess.makeMove(mv);
     const sig = signature(chess);
     plies.push({
