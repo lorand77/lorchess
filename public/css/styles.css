@@ -382,6 +382,7 @@ select {
 .auth-card, .lobby { max-width: 100%; box-sizing: border-box; }
 .history-page { width: 760px; max-width: 100%; }
 #historyContent { overflow-x: auto; }
+.table-scroll { max-width: 100%; overflow-x: auto; }
 
 /* ---- live lobby: presence, seeks, challenges ---- */
 .lobby { width: 560px; }

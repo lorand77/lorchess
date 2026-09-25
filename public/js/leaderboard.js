@@ -48,7 +48,10 @@ const COLUMNS = [
   const errorEl = el("p", "lobby-error");
   content.innerHTML = "";
   content.appendChild(errorEl);
-  const tableHost = el("div");
+  const tableHost = el("div", "table-scroll");
+  tableHost.tabIndex = 0;
+  tableHost.setAttribute("role", "region");
+  tableHost.setAttribute("aria-label", "Leaderboard table");
   content.appendChild(tableHost);
   render();
 

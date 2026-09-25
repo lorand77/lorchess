@@ -68,9 +68,10 @@ test("moves played during game creation survive its response", async (t) => {
   await page.waitForFunction(() => chess.history.length === 2 && !thinking);
   const before = await page.evaluate(() => ({ fen: chess.fen(), pgn: moveHistory.slice() }));
   assert.equal(before.pgn.length, 2);
+  const saved = page.waitForResponse(r => r.url().endsWith("/moves") && r.request().postDataJSON().ply === 2);
   release.resolve();
   const id = await ready(page);
-  await page.waitForLoadState("networkidle");
+  assert.equal((await saved).status(), 201);
   assert.deepEqual(await page.evaluate(() => ({ fen: chess.fen(), pgn: moveHistory.slice() })), before);
   assert.equal(db().prepare("SELECT COUNT(*) AS n FROM moves WHERE game_id = ?").get(id).n, 2);
 });
