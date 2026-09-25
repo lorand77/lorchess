@@ -145,3 +145,40 @@ test("changing depth starts a game whose worker and saved strength agree", async
     await page.waitForFunction(() => chess.history.length === 0);
   }
 });
+
+test("premoves resolve rook-target castling and queen promotion through legal moves", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/game.html");
+  await ready(page);
+  const cases = [
+    { fen: "4k3/8/8/8/8/8/8/4K2R w K - 0 1", from: 4, to: 7, castle: "K" },
+    { fen: "4k3/8/8/8/8/8/8/4K2R w K - 0 1", from: 4, to: 6, castle: "K" },
+    { fen: "4k3/8/8/8/8/8/8/R3K3 w Q - 0 1", from: 4, to: 0, castle: "Q" },
+    { fen: "4k3/8/8/8/8/8/8/5K1R w K - 0 1", from: 5, to: 7, castle: "K", variant: "chess960" },
+    { fen: "4k3/8/8/8/8/8/8/6KR w K - 0 1", from: 6, to: 7, castle: "K", variant: "chess960" },
+    // The king's one-square gesture in Chess960 is an ordinary move.
+    { fen: "4k3/8/8/8/8/8/8/5K1R w K - 0 1", from: 5, to: 6, castle: null, variant: "chess960" },
+    { fen: "4kr2/8/8/8/8/8/8/4K2R w K - 0 1", from: 4, to: 7, illegal: true },
+    { fen: "7k/P7/8/8/8/8/8/K7 w - - 0 1", from: 48, to: 56, promo: "q" },
+  ];
+  for (const spec of cases) {
+    const result = await page.evaluate(spec => {
+      if (moveSource.cancel) moveSource.cancel();
+      chess.setVariant(spec.variant || "standard");
+      chess.loadFen(spec.fen);
+      humanColor = "w";
+      thinking = false;
+      let submitted = null;
+      moveSource = {
+        kind: "ai", canHumanMoveNow: () => true,
+        submitMove: (move, opts) => { submitted = { castle: move.castle || null, promo: move.promo || null, premove: opts.premove }; },
+      };
+      const offered = premoveTargets(spec.from).includes(spec.to);
+      playPremove({ from: spec.from, to: spec.to });
+      return { offered, submitted };
+    }, spec);
+    assert.equal(result.offered, true);
+    if (spec.illegal) assert.equal(result.submitted, null);
+    else assert.deepEqual(result.submitted, { castle: spec.castle || null, promo: spec.promo || null, premove: true });
+  }
+});

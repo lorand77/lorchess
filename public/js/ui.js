@@ -135,8 +135,7 @@ function applyMove(rmove, record, opts) {
 // was decided before the position existed.
 function playPremove(pm) {
   if (gameIsOver() || !canMoveNow()) return;
-  const move = chess.legalMoves().find(m =>
-    m.from === pm.from && m.to === pm.to && (!m.promo || m.promo === 'q'));
+  const move = chess.findMove(pm.from, pm.to) || chess.findMove(pm.from, pm.to, 'q');
   if (!move) return;
   doHumanMove(move, { premove: true });
 }

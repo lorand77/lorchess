@@ -297,6 +297,8 @@ premove is consumed in `applyMove` the moment a move makes it our turn: if it
 is legal in the new position it is submitted through the normal move source
 (so PvP still goes through the server's validation), otherwise it is dropped.
 Promotion premoves always take a queen. Any click or a right-click cancels it.
+Premoves use the same legal-move resolver as ordinary moves, including
+king-to-rook castling gestures in standard chess and Chess960.
 
 A premoved move is flagged on its way to the server (`premove` in the socket
 payload / AI move POST) and stored in `moves.premove`. PvP believes the flag
