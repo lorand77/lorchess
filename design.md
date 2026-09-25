@@ -35,6 +35,10 @@ the same square colour can explode a king and must not trigger the standard
 bishop-ending draw. The Atomic material cases follow the
 [python-chess variant reference](https://python-chess.readthedocs.io/en/latest/_modules/chess/variant.html#AtomicBoard.has_insufficient_material).
 
+Repetition keys include en passant only when a legal capture exists. An
+uncapturable FEN target, including one blocked by a pin, does not distinguish
+otherwise identical positions; FEN output still preserves the original target.
+
 The engine and the catalogues next to it (`achievements.js`, `timeControls.js`,
 `variants.js`, `chess960.js`, `handicap.js`) live **only** in `src/shared/` and
 load three ways: as a browser `<script>` global, via `importScripts` in the

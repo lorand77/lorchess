@@ -139,14 +139,39 @@ describe("game end", () => {
       assert.equal(chess.isThreefoldRepetition(), true);
     });
 
-    test("positions that differ only in the en passant square are not repetitions", () => {
+    test("an uncapturable en passant target does not change repetition", () => {
       const chess = fromFen("k7/8/8/8/8/8/P7/K7 w - - 0 1");
       play(chess, "a2a4");
       const cycle = ["a8b8", "a1b1", "b8a8", "b1a1"];
       play(chess, cycle, cycle);
-      assert.equal(chess.isThreefoldRepetition(), false, "the push itself had an ep square");
-      play(chess, cycle);
       assert.equal(chess.isThreefoldRepetition(), true);
+    });
+
+    test("the position after e4 counts toward the third occurrence", () => {
+      const chess = new Chess();
+      play(chess, "e2e4", "g8f6", "g1f3", "f6g8", "f3g1", "g8f6", "g1f3", "f6g8", "f3g1");
+      assert.equal(chess.isThreefoldRepetition(), true);
+      chess.undoMove();
+      assert.equal(chess.isThreefoldRepetition(), false);
+      play(chess, "f3g1");
+      assert.equal(chess.result(), "1/2-1/2");
+    });
+
+    test("only legal en passant changes the key, without changing board or history", () => {
+      for (const [fen, legal] of [
+        ["k7/8/8/3pP3/8/8/8/4K3 w - d6 0 1", true],
+        ["k3r3/8/8/3pP3/8/8/8/4K3 w - d6 0 1", false],
+        ["k7/8/8/r4pPK/8/8/8/8 w - f6 0 1", false],
+      ]) {
+        const chess = fromFen(fen);
+        const counts = [...chess.positionCounts];
+        const key = chess.positionKey();
+        const withoutEp = fromFen(fen.replace(/ [a-h][36] /, " - ")).positionKey();
+        assert.equal(key !== withoutEp, legal, fen);
+        assert.equal(chess.fen(), fen);
+        assert.equal(chess.history.length, 0);
+        assert.deepEqual([...chess.positionCounts], counts);
+      }
     });
   });
 });

@@ -291,7 +291,9 @@ class Chess {
     return walk(kingFrom, kingTo) && walk(rookFrom, rookTo);
   }
 
-  // FEN-like key for repetition detection: pieces + turn + castling + ep target.
+  // Repetition compares available moves: a FEN ep target matters only when a
+  // legal capture exists (a pinned pawn cannot exercise that right). Legal
+  // move probes use untracked make/undo, so they never recurse into this key.
   positionKey() {
     let s = '';
     for (let i = 0; i < 64; i++) {
@@ -301,7 +303,8 @@ class Chess {
     s += '|' + this.turn;
     s += '|' + (this.castling.K ? 'K' : '') + (this.castling.Q ? 'Q' : '')
             + (this.castling.k ? 'k' : '') + (this.castling.q ? 'q' : '');
-    s += '|' + (this.ep != null ? this.ep : '-');
+    const legalEp = this.ep != null && this.legalMoves().some(m => m.enpassant);
+    s += '|' + (legalEp ? this.ep : '-');
     return s;
   }
 
