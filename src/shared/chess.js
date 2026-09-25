@@ -734,6 +734,26 @@ class Chess {
       const p = this.squares[i];
       if (p) ps.push({ t: p.t, c: p.c, sq: i });
     }
+    if (this.isAtomic) {
+      if (this.kingMissing(W) || this.kingMissing(B)) return false;
+      const pieces = ps.filter(p => p.t !== 'k');
+      if (!pieces.length) return true;
+      // Against a bare king, one minor/rook or two knights cannot mate.
+      // With material on both sides, captures can explode a nearby king.
+      if (pieces.every(p => p.c === pieces[0].c)) {
+        return (pieces.length === 1 && ['b', 'n', 'r'].includes(pieces[0].t))
+            || (pieces.length <= 2 && pieces.every(p => p.t === 'n'));
+      }
+      // Only bishops confined to opposite square colours cannot meet. Same-
+      // coloured enemy bishops can capture and explode each other's king.
+      if (pieces.every(p => p.t === 'b')) {
+        const colours = c => new Set(pieces.filter(p => p.c === c)
+          .map(p => (fileOf(p.sq) + rankOf(p.sq)) & 1));
+        const white = colours(W), black = colours(B);
+        return [...white].every(c => !black.has(c));
+      }
+      return false;
+    }
     if (ps.length === 2) return true;
     if (ps.length === 3) {
       const nk = ps.find(p => p.t !== 'k');

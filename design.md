@@ -30,6 +30,11 @@ squares, and the Atomic and Pawn Wars rule sets. `src/shared/lorfish.js` is
 **LorFish**, a synchronous search engine ported from a sunfish-derived Python
 original (roughly 1400–1800 strength). It depends tightly on `chess.js`.
 
+Dead-material detection follows the variant: in Atomic, opposing bishops on
+the same square colour can explode a king and must not trigger the standard
+bishop-ending draw. The Atomic material cases follow the
+[python-chess variant reference](https://python-chess.readthedocs.io/en/latest/_modules/chess/variant.html#AtomicBoard.has_insufficient_material).
+
 The engine and the catalogues next to it (`achievements.js`, `timeControls.js`,
 `variants.js`, `chess960.js`, `handicap.js`) live **only** in `src/shared/` and
 load three ways: as a browser `<script>` global, via `importScripts` in the

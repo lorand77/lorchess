@@ -12,6 +12,31 @@ const { perft } = require("../helpers/perft");
 const atomic = (fen) => fromFen(fen, "atomic");
 
 describe("Atomic", () => {
+  test("same-coloured bishops can explode a king instead of drawing", () => {
+    const chess = atomic("7k/6b1/8/4B3/8/8/8/K7 w - - 0 1");
+    assert.equal(chess.isInsufficientMaterial(), false);
+    assert.equal(chess.isGameOver(), false);
+    play(chess, "e5g7");
+    assert.equal(chess.result(), "1-0");
+    assert.equal(chess.isInsufficientMaterial(), false, "a missing king means a win");
+  });
+
+  test("Atomic dead material differs from standard chess", () => {
+    for (const fen of [
+      "7k/8/8/8/8/8/8/K7 w - - 0 1",
+      "7k/8/8/8/8/8/8/KN6 w - - 0 1",
+      "7k/8/8/8/8/8/8/KB6 w - - 0 1",
+      "7k/8/8/8/8/8/8/KR6 w - - 0 1",
+      "7k/8/8/8/8/8/8/KNN5 w - - 0 1",
+      "7k/7b/8/4B3/8/8/8/K7 w - - 0 1",
+    ]) assert.equal(atomic(fen).isInsufficientMaterial(), true, fen);
+    for (const fen of [
+      "7k/8/8/8/8/8/8/KQ6 w - - 0 1",
+      "7k/8/8/8/8/8/P7/K7 w - - 0 1",
+      "7k/6n1/8/4B3/8/8/8/K7 w - - 0 1",
+    ]) assert.equal(atomic(fen).isInsufficientMaterial(), false, fen);
+  });
+
   test("an explosion covers the square and its neighbours, clipped at the edge", () => {
     const chess = new Chess().setVariant("atomic");
     const blast = (name) => chess.explosionSquares(sq(name)).map(algOf).sort();
