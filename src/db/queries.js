@@ -54,6 +54,10 @@ module.exports = {
   createUser: db.prepare(
     "INSERT INTO users (username, password_hash, puzzle_rating) VALUES (?, ?, ?)"
   ),
+  // Registration refuses a name that exists in any casing; login matches exactly.
+  getUserByUsernameNoCase: db.prepare(
+    "SELECT * FROM users WHERE username = ? COLLATE NOCASE"
+  ),
   // Full row incl. password_hash — for login verification only.
   getUserByUsername: db.prepare("SELECT * FROM users WHERE username = ?"),
   // Safe public view (no hash) — for /api/me and general lookups.
@@ -204,7 +208,30 @@ module.exports = {
       (id, fen, moves, rating, rating_deviation, popularity, nb_plays, themes, game_url, opening_tags)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
-  wipePuzzles: db.prepare("DELETE FROM puzzles"),
+  // Clearing the table before a re-import. Attempts, skips, daily picks and
+  // badges all point at puzzle rows (foreign keys are on), so only the puzzles
+  // nothing refers to can go; the rest are refreshed in place by insertPuzzle's
+  // INSERT OR REPLACE.
+  wipeUnreferencedPuzzles: db.prepare(`
+    DELETE FROM puzzles WHERE id NOT IN (
+      SELECT puzzle_id FROM puzzle_attempts
+      UNION SELECT puzzle_id FROM puzzle_skips
+      UNION SELECT puzzle_id FROM daily_puzzles
+      UNION SELECT puzzle_id FROM user_achievements WHERE puzzle_id IS NOT NULL
+    )
+  `),
+  countReferencedPuzzles: db.prepare(`
+    SELECT COUNT(*) AS n FROM puzzles WHERE id IN (
+      SELECT puzzle_id FROM puzzle_attempts
+      UNION SELECT puzzle_id FROM puzzle_skips
+      UNION SELECT puzzle_id FROM daily_puzzles
+      UNION SELECT puzzle_id FROM user_achievements WHERE puzzle_id IS NOT NULL
+    )
+  `),
+  // Rating histogram in 400-point bands, for the importer's summary line.
+  puzzleRatingBuckets: db.prepare(
+    "SELECT (rating / 400) * 400 AS lo, COUNT(*) AS n FROM puzzles GROUP BY lo ORDER BY lo"
+  ),
 
   getPuzzleUser: db.prepare(
     "SELECT id, username, puzzle_rating, daily_streak, daily_last_date FROM users WHERE id = ?"
@@ -386,10 +413,10 @@ module.exports = {
   `),
   // PvP wins per time control (initial_ms), for the format badges.
   achievementWinsByClock: db.prepare(`
-    SELECT initial_ms, COUNT(*) AS n FROM games
+    SELECT initial_ms, increment_ms, COUNT(*) AS n FROM games
     WHERE mode = 'pvp' AND status = 'finished'
       AND ((result = '1-0' AND white_id = @me) OR (result = '0-1' AND black_id = @me))
-    GROUP BY initial_ms
+    GROUP BY initial_ms, increment_ms
   `),
   achievementMoveStats: db.prepare(`
     SELECT COUNT(*) AS moves,

@@ -46,11 +46,11 @@ const ACHIEVEMENTS = [
 
   // ---- modes and formats ----
   { key: "bullet_wins", name: "Bullet Brawler", icon: "💨", group: "formats",
-    desc: "Win {n} bullet (1+0) games.", tiers: [1, 10, 50] },
+    desc: "Win {n} bullet games (under 3 minutes).", tiers: [1, 10, 50] },
   { key: "blitz_wins", name: "Blitz Boss", icon: "⚡", group: "formats",
-    desc: "Win {n} blitz (3+0 or 5+0) games.", tiers: [1, 10, 50] },
+    desc: "Win {n} blitz games (3 to 8 minutes).", tiers: [1, 10, 50] },
   { key: "rapid_wins", name: "Rapid Regular", icon: "⏱️", group: "formats",
-    desc: "Win {n} rapid (10+0) games.", tiers: [1, 10, 50] },
+    desc: "Win {n} rapid games (8 to 25 minutes).", tiers: [1, 10, 50] },
   { key: "well_rounded", name: "Well Rounded", icon: "🧭", group: "formats",
     desc: "Win a game in every time control." },
   { key: "beat_fish_2", name: "Fish Food", icon: "🐟", group: "formats",
@@ -147,7 +147,7 @@ const ACHIEVEMENTS = [
   { key: "oops", name: "Oops", icon: "🙈", group: "hidden", hidden: true,
     desc: "Resign on move 1." },
   { key: "hasty", name: "Hasty", icon: "🐌", group: "hidden", hidden: true,
-    desc: "Lose on time in a 10+0 game with fewer than 10 moves played." },
+    desc: "Lose on time in a rapid game with fewer than 10 moves played." },
   { key: "bongcloud", name: "Bongcloud", icon: "☁️", group: "hidden", hidden: true,
     desc: "Play Ke2 (or Ke7) on move 2 and win." },
   { key: "mirror_match", name: "Mirror Match", icon: "🪞", group: "hidden", hidden: true,

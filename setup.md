@@ -126,6 +126,23 @@ chmod 600 .env
   "Internal Server Error" instead of a stack trace in the HTTP response body.
   Also makes `npm install` skip devDependencies.
 
+Everything else has a default and is read in `src/config.js`; put it in `.env`
+only to change it:
+
+- `PORT` — the HTTP port (default 3000).
+- `DB_PATH` — the SQLite file (default `data/lorchess.sqlite` in the project).
+- `GRACE_MS` — how long a disconnected PvP player has to come back before they
+  forfeit, and how long a player has to turn up to a game that just started
+  before it is aborted (default 45000, i.e. 45 s).
+- `RESUME_WINDOW_MS` — after a restart, how long games left in progress wait
+  for their players before being aborted (default 600000, i.e. 10 min).
+- `CHAT_RETENTION_DAYS` — how long in-game chat is kept after a game ends;
+  `-1` keeps it for ever (default 30).
+- `ELO_K` — the K-factor for rating changes after rated games (default 32).
+- `CLOCK_MS`, `CLOCK_INC_MS` — the clock assumed for PvP games stored before
+  time controls existed (default 600000 and 0). New games take theirs from the
+  lobby's time-control list.
+
 ## run the app
 ```
 npm install

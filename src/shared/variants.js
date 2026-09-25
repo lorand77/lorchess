@@ -20,9 +20,14 @@ const VARIANTS = [
     // only in the starting position, so that one is fine.
     reviewable: true,
   },
-  { key: 'chess960', label: 'Chess960',  standardSetup: false, reviewable: true },
+  // Draws a fresh back rank for every game (chess960.js has the generator).
+  { key: 'chess960', label: 'Chess960',  standardSetup: false, reviewable: true, shuffled: true },
   { key: 'atomic',   label: 'Atomic',    standardSetup: true,  reviewable: false },
-  { key: 'pawnwars', label: 'Pawn Wars', standardSetup: false, reviewable: false },
+  // Its own fixed start: pawns only, on the outermost ranks. The same FEN as
+  // PAWN_WARS_START in chess.js (a test holds them together); repeated here
+  // because this file also loads in the browser without chess.js.
+  { key: 'pawnwars', label: 'Pawn Wars', standardSetup: false, reviewable: false,
+    startFen: 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1' },
 ];
 
 // A Map, not a plain object: these keys come off the wire, and a lookup of
@@ -48,6 +53,17 @@ function isReviewable(name) {
   return !!BY_KEY.get(resolveVariant(name)).reviewable;
 }
 
+// Where a game of this variant opens: null means the standard setup (or a
+// handicap built from it), a FEN is a fixed start of the variant's own, and
+// 'shuffled' tells the caller to draw one per game. Matchmaking reads this, so
+// a new variant with its own start needs no change there.
+function startOf(name) {
+  const v = BY_KEY.get(resolveVariant(name));
+  return v.shuffled ? 'shuffled' : v.startFen || null;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { VARIANTS, BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable };
+  module.exports = {
+    VARIANTS, BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, startOf,
+  };
 }

@@ -55,6 +55,26 @@ describe("register", () => {
     const dup = await client(srv.baseUrl).post("/api/register", { username: taken, password: "other123" });
     assert.equal(dup.status, 409);
     assert.match(dup.body.error, /already taken/);
+    // A name that differs only in case is the same name.
+    const cased = await client(srv.baseUrl).post("/api/register", { username: taken.toUpperCase(), password: "other123" });
+    assert.equal(cased.status, 409);
+    assert.match(cased.body.error, /already taken/);
+  });
+
+  test("two registrations racing for one name: the loser gets a 409, not a 500", async (t) => {
+    const argon2 = require("argon2");
+    const queries = require("../../src/db/queries");
+    const name = uniqueName("dave");
+    const realHash = argon2.hash.bind(argon2);
+    // While this request is still hashing its password, "the other" request
+    // for the same name gets its row in first.
+    t.mock.method(argon2, "hash", async (password) => {
+      queries.createUser.run(name, "hash-of-the-other-request", 1200);
+      return realHash(password);
+    });
+    const res = await client(srv.baseUrl).post("/api/register", { username: name, password: "hunter22" });
+    assert.equal(res.status, 409);
+    assert.match(res.body.error, /already taken/);
   });
 });
 
@@ -129,7 +149,7 @@ describe("login and logout", () => {
 describe("access control", () => {
   const protectedPaths = [
     "/api/me", "/api/games", "/api/leaderboard", "/api/friends", "/api/settings",
-    "/api/puzzles/me", "/api/membership", "/api/stats", "/api/achievements/me",
+    "/api/puzzles/daily", "/api/membership", "/api/stats", "/api/achievements/me",
   ];
 
   test("protected routes answer 401 without a session", async () => {

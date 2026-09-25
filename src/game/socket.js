@@ -119,7 +119,6 @@ function attachSockets(httpServer) {
 
     // Live lobby: presence, open seeks, direct challenges.
     on("lobby:enter", () => lobby.enter(io, socket));
-    on("lobby:exit", () => lobby.exit(io, socket));
     on("seek:create", (p) => lobby.createSeek(io, socket, p));
     on("seek:cancel", (p) => lobby.cancelSeek(io, socket, p));
     on("seek:accept", (p) => lobby.acceptSeek(io, socket, p));

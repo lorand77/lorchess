@@ -6,8 +6,9 @@ const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Chess } = require("../../src/shared/chess");
 const {
-  VARIANTS, BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable,
+  VARIANTS, BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, startOf,
 } = require("../../src/shared/variants");
+const { PAWN_WARS_START } = require("../../src/shared/chess");
 
 describe("variant catalogue", () => {
   test("keys are unique and the lookup map mirrors the list", () => {
@@ -56,6 +57,18 @@ describe("variant catalogue", () => {
     assert.equal(usesStandardSetup("chess960"), false);
     assert.equal(usesStandardSetup("pawnwars"), false);
     assert.equal(usesStandardSetup("nope"), true, "unknown means standard");
+  });
+
+  test("says where each variant opens, and Pawn Wars agrees with the engine", () => {
+    assert.equal(startOf("standard"), null);
+    assert.equal(startOf("atomic"), null);
+    assert.equal(startOf("chess960"), "shuffled");
+    assert.equal(startOf("pawnwars"), PAWN_WARS_START);
+    assert.equal(startOf("nope"), null, "unknown means standard");
+    for (const v of VARIANTS) {
+      assert.ok(!(v.shuffled && v.startFen), `${v.key}: shuffled or a fixed start, not both`);
+      assert.ok(!(v.standardSetup && (v.shuffled || v.startFen)), `${v.key}: the standard setup is not a start of its own`);
+    }
   });
 
   test("only variants played by the ordinary rules are reviewable", () => {

@@ -6,6 +6,9 @@
 //                             [--max-rd 100] [--min-popularity 50] [--min-plays 100]
 //                             [--min-rating 400] [--max-rating 3200]
 //
+// --wipe first clears every puzzle nobody has attempted, skipped, had as the
+// daily or earned a badge on; those are kept (players' records point at them)
+// and refreshed in place when the import reaches them again.
 // Without --file the ~300 MB dump is downloaded once to data/ and reused.
 // Node's built-in zstd handles decompression, so no extra tooling is needed.
 // The dump is written by pzstd: 30-odd independent zstd frames, each preceded
@@ -139,8 +142,12 @@ async function main() {
   }
 
   if (opts.wipe) {
-    console.log("Wiping existing puzzles…");
-    queries.wipePuzzles.run();
+    const kept = queries.countReferencedPuzzles.get().n;
+    const gone = queries.wipeUnreferencedPuzzles.run().changes;
+    console.log(
+      `Wiped ${gone.toLocaleString()} puzzles` +
+      (kept ? `; kept ${kept.toLocaleString()} that players' records refer to.` : ".")
+    );
   }
 
   const input = file.endsWith(".zst") ? decompressZst(file) : fs.createReadStream(file);
@@ -199,9 +206,7 @@ async function main() {
   const total = queries.countPuzzles.get().n;
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`Done in ${secs}s: scanned ${seen.toLocaleString()}, inserted ${kept.toLocaleString()}; table now holds ${total.toLocaleString()} puzzles.`);
-  const buckets = db.prepare(
-    "SELECT (rating / 400) * 400 AS lo, COUNT(*) AS n FROM puzzles GROUP BY lo ORDER BY lo"
-  ).all();
+  const buckets = queries.puzzleRatingBuckets.all();
   console.log("By rating: " + buckets.map((b) => `${b.lo}–${b.lo + 399}: ${b.n}`).join(", "));
 }
 

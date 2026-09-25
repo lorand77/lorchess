@@ -215,3 +215,21 @@ describe("achievements from puzzles", () => {
     assert.ok(rows.puzzle_rating && rows.puzzle_rating.tier >= 1, `rating now ${ratingOf(me.id)}`);
   });
 });
+
+// Last: this empties the table of everything no test above still refers to.
+describe("re-import", () => {
+  test("wiping keeps every puzzle a player's record points at, and refreshes it in place", () => {
+    const me = makeUser("me");
+    const kept = insert({ ...ONE, id: "wipe_kept" });
+    insert({ ...ONE, id: "wipe_gone" });
+    puzzles.recordAttempt(me.id, kept, true);
+    assert.ok(queries.countReferencedPuzzles.get().n >= 1);
+    // Foreign keys are on: a plain DELETE would fail here.
+    queries.wipeUnreferencedPuzzles.run();
+    assert.ok(queries.getPuzzle.get("wipe_kept"), "the attempted puzzle stays");
+    assert.equal(queries.getPuzzle.get("wipe_gone"), undefined, "the untouched one goes");
+    insert({ ...ONE, id: "wipe_kept", rating: 1234 });
+    assert.equal(queries.getPuzzle.get("wipe_kept").rating, 1234, "re-import updates the kept row");
+    assert.ok(queries.getAttempt.get(me.id, "wipe_kept"), "and the attempt still points at it");
+  });
+});

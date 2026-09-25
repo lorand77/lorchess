@@ -5,7 +5,7 @@
 const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const {
-  TIME_CONTROLS, DEFAULT_TC, findTimeControl, resolveTimeControl, describeTimeControl,
+  TIME_CONTROLS, DEFAULT_TC, findTimeControl, resolveTimeControl, describeTimeControl, speedOf,
 } = require("../../src/shared/timeControls");
 
 describe("time controls", () => {
@@ -33,6 +33,21 @@ describe("time controls", () => {
     assert.equal(resolveTimeControl("1+0").key, "1+0");
     for (const bad of ["24h", "", undefined, null, {}, "__proto__"]) {
       assert.equal(resolveTimeControl(bad).key, DEFAULT_TC, String(bad));
+    }
+  });
+
+  test("speedOf classes a clock by its estimated length, and the labels agree", () => {
+    assert.equal(speedOf(60000, 0), "bullet");
+    assert.equal(speedOf(180000, 0), "blitz");
+    assert.equal(speedOf(300000, 0), "blitz");
+    assert.equal(speedOf(600000, 0), "rapid");
+    assert.equal(speedOf(600000), "rapid", "a missing increment is none");
+    assert.equal(speedOf(120000, 1000), "bullet", "2+1 estimates to 160 s");
+    assert.equal(speedOf(180000, 2000), "blitz", "3+2");
+    assert.equal(speedOf(900000, 10000), "rapid", "15+10 estimates to 1300 s");
+    assert.equal(speedOf(1800000, 0), "classical");
+    for (const t of TIME_CONTROLS) {
+      assert.ok(t.label.toLowerCase().startsWith(speedOf(t.initialMs, t.incrementMs)), t.key);
     }
   });
 

@@ -3,7 +3,6 @@
 // Puzzle API. The server holds the solutions; the client sends the moves it
 // has played so far and learns only whether it's still on track.
 //
-//   GET  /api/puzzles/me              rating, attempt stats, daily streak
 //   GET  /api/puzzles/next            a puzzle near your rating — the same one
 //                                     until you solve it or give up (resumed: true)
 //   GET  /api/puzzles/daily           today's shared puzzle (+ your result if done)
@@ -29,23 +28,6 @@ function noPuzzles(res) {
     error: "No puzzles imported yet. Run `npm run puzzles:import` on the server.",
   });
 }
-
-function meView(userId) {
-  const user = queries.getPuzzleUser.get(userId);
-  const stats = queries.attemptStats.get(userId);
-  const today = svc.todayUtc();
-  const daily = queries.getDaily.get(today);
-  const dailyAttempt = daily ? queries.getAttempt.get(userId, daily.puzzle_id) : null;
-  return {
-    rating: user.puzzle_rating,
-    attempts: stats.attempts,
-    solved: stats.solved,
-    streak: svc.streakOf(user, today),
-    dailyDone: !!dailyAttempt,
-  };
-}
-
-router.get("/me", (req, res) => res.json(meView(req.session.userId)));
 
 const isMember = (uid) => {
   const row = queries.getMembership.get(uid);
@@ -85,12 +67,16 @@ router.get("/daily", (req, res) => {
   if (!puzzle) return noPuzzles(res);
   const user = queries.getPuzzleUser.get(uid);
   const attempt = queries.getAttempt.get(uid, puzzle.id);
+  // Today's puzzle may have been attempted before it was today's, through the
+  // rated stream. It is done either way, and done counts for the streak — so
+  // credit it here, or "done" and the streak would disagree. Idempotent per day.
+  const streak = attempt ? svc.bumpStreak(uid, today) : svc.streakOf(user, today);
   const out = {
     date: today,
     puzzle: svc.publicView(puzzle),
     done: !!attempt,
     solved: attempt ? !!attempt.solved : null,
-    streak: svc.streakOf(user, today),
+    streak,
     rating: user.puzzle_rating,
   };
   if (attempt) Object.assign(out, svc.revealView(puzzle));
@@ -99,8 +85,8 @@ router.get("/daily", (req, res) => {
 
 // GET /api/puzzles/:id — one specific puzzle, so a card that previews a board
 // can hand out the same board when it is clicked instead of a fresh random one.
-// Declared before the :id/* routes below, and after /me, /next and /daily so
-// those literal paths still win.
+// Declared before the :id/* routes below, and after /next and /daily so those
+// literal paths still win.
 router.get("/:id", (req, res) => {
   const puzzle = queries.getPuzzle.get(String(req.params.id));
   if (!puzzle) return res.status(404).json({ error: "No such puzzle." });
@@ -134,8 +120,13 @@ function finish(uid, puzzle, solved) {
   const daily = queries.getDaily.get(today);
   const isDaily = !!daily && daily.puzzle_id === puzzle.id;
   const out = { rating, ...svc.revealView(puzzle) };
-  if (isDaily) out.streak = svc.bumpStreak(uid, today);
-  // Retries are unrated and count for nothing; only a first attempt can earn.
+  // Retries are unrated and count for nothing — not for the streak either;
+  // only a first attempt can earn. A retry just reports the streak as it is.
+  if (isDaily) {
+    out.streak = rating
+      ? svc.bumpStreak(uid, today)
+      : svc.streakOf(queries.getPuzzleUser.get(uid), today);
+  }
   out.achievements = rating ? achievements.onPuzzleFinished(uid, puzzle) : [];
   return out;
 }

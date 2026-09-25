@@ -18,7 +18,7 @@
 const queries = require("../db/queries");
 const { Chess, fileOf, rankOf, sqIdx } = require("../shared/chess");
 const handicap = require("../shared/handicap");
-const { TIME_CONTROLS } = require("../shared/timeControls");
+const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
 const { BY_KEY, describe, tierName } = require("../shared/achievements");
 
 const STANDARD_START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -294,7 +294,9 @@ const GAME_CHECKS = {
 
   // hidden
   oops: (c) => c.lost && c.game.termination === "resign" && c.plies <= 2,
-  hasty: (c) => c.lost && c.game.termination === "timeout" && c.game.initial_ms === 600000 && c.plies < 20,
+  hasty: (c) =>
+    c.lost && c.game.termination === "timeout" && c.plies < 20 &&
+    c.game.initial_ms != null && speedOf(c.game.initial_ms, c.game.increment_ms) === "rapid",
   bongcloud: (c) => {
     if (!c.won) return false;
     const p = c.a.plies[c.me === "w" ? 2 : 3];
@@ -383,8 +385,11 @@ function ratingsBefore(game, userId) {
 
 // ---- stats ----
 
-function clockKey(initialMs) {
-  const tc = TIME_CONTROLS.find((t) => t.initialMs === initialMs);
+// The catalogue key a stored clock was played on, if it is one of the presets.
+function clockKey(initialMs, incrementMs) {
+  const tc = TIME_CONTROLS.find(
+    (t) => t.initialMs === initialMs && t.incrementMs === (incrementMs || 0)
+  );
   return tc ? tc.key : null;
 }
 
@@ -393,14 +398,17 @@ function evaluateStats(userId, ref) {
   if (!user) return [];
   const g = queries.achievementGameStats.get({ me: userId });
   const mv = queries.achievementMoveStats.get(userId);
+  // Wins by preset (for "every time control") and by speed class (for the
+  // format badges), both read off the clock each game was played on.
   const byClock = {};
+  const bySpeed = { bullet: 0, blitz: 0, rapid: 0, classical: 0 };
   for (const r of queries.achievementWinsByClock.all({ me: userId })) {
-    const k = clockKey(r.initial_ms);
+    if (r.initial_ms == null) continue;
+    bySpeed[speedOf(r.initial_ms, r.increment_ms)] += r.n;
+    const k = clockKey(r.initial_ms, r.increment_ms);
     if (k) byClock[k] = (byClock[k] || 0) + r.n;
   }
-  const bullet = byClock["1+0"] || 0;
-  const blitz = (byClock["3+0"] || 0) + (byClock["5+0"] || 0);
-  const rapid = byClock["10+0"] || 0;
+  const { bullet, blitz, rapid } = bySpeed;
   const recent = queries.achievementRecentResults.all(userId, userId);
   const attempts = queries.achievementRecentAttempts.all(userId);
   let firstTry = 0;

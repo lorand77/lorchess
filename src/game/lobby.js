@@ -71,18 +71,13 @@ function connected(io, socket) {
 }
 
 // Subscribe to lobby broadcasts. Presence is already established by connected();
-// this only controls who receives the pushes.
+// this only controls who receives the pushes. There is no unsubscribe: a page
+// that leaves the lobby drops its socket, and presence is what outlives that.
 function enter(io, socket) {
   if (socket.userId == null) return;
   socket.join(LOBBY_ROOM);
   socket.emit("lobby:state", snapshot());
   pushChallenges(io, socket.userId);
-}
-
-// Unsubscribe. NOT the same as going offline — the socket stays connected (it
-// may be heading into a game), it just stops listening here.
-function exit(io, socket) {
-  socket.leave(LOBBY_ROOM);
 }
 
 function onDisconnect(io, socket) {
@@ -513,7 +508,6 @@ matchmaking.onMatchStarted((io, gameId, whiteId, blackId) => {
 module.exports = {
   connected,
   enter,
-  exit,
   onDisconnect,
   createSeek,
   cancelSeek,

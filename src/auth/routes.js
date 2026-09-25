@@ -41,7 +41,9 @@ router.post("/register", async (req, res) => {
     if (username.toLowerCase() === config.AI_USERNAME.toLowerCase()) {
       return res.status(400).json({ error: "That username is reserved." });
     }
-    if (queries.getUserByUsername.get(username)) {
+    // Names that differ only in case would be indistinguishable in every list,
+    // so they count as the same name (login still wants the exact spelling).
+    if (queries.getUserByUsernameNoCase.get(username)) {
       return res.status(409).json({ error: "Username already taken." });
     }
 
@@ -51,6 +53,11 @@ router.post("/register", async (req, res) => {
     await startSession(req, user);
     return res.status(201).json(user);
   } catch (err) {
+    // Two registrations for the same name can both pass the check above while
+    // the first is still hashing; the second then trips the UNIQUE constraint.
+    if (err && err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      return res.status(409).json({ error: "Username already taken." });
+    }
     console.error("register failed:", err);
     return res.status(500).json({ error: "Registration failed." });
   }

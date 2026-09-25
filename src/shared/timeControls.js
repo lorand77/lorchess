@@ -42,6 +42,21 @@ function describeTimeControl(initialMs, incrementMs) {
   return found ? found.label : `${mins}+${inc}`;
 }
 
+// The speed class of a clock, by the usual estimate of a game's length
+// (initial time plus forty increments): under 3 minutes is bullet, under 8
+// blitz, under 25 rapid, anything longer classical. The catalogue's labels
+// follow this, and so do the "Bullet Brawler" style badges — one rule, so a
+// new control lands in the right bucket by itself.
+function speedOf(initialMs, incrementMs) {
+  const secs = (initialMs + 40 * (incrementMs || 0)) / 1000;
+  if (secs < 180) return 'bullet';
+  if (secs < 480) return 'blitz';
+  if (secs < 1500) return 'rapid';
+  return 'classical';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { TIME_CONTROLS, DEFAULT_TC, findTimeControl, resolveTimeControl, describeTimeControl };
+  module.exports = {
+    TIME_CONTROLS, DEFAULT_TC, findTimeControl, resolveTimeControl, describeTimeControl, speedOf,
+  };
 }

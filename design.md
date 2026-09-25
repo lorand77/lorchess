@@ -43,7 +43,10 @@ by. The catalogues are **allowlists**: seeks, challenges and moves arrive over a
 socket, and the server resolves the client's key (time control, variant,
 handicap) against the shared table rather than trusting the payload. They exist
 because this knowledge was once duplicated in three places and the copies
-drifted (see the header of `variants.js`).
+drifted (see the header of `variants.js`). They also carry what varies per
+entry — a variant's start position (`startOf`) and a clock's speed class
+(`speedOf`) — so matchmaking and the format badges read the catalogue instead
+of keeping lists of their own that would drift the same way.
 
 ## Authentication
 
