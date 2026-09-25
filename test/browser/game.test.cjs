@@ -108,3 +108,40 @@ test("an earlier creation response cannot reset a newer board or its URL", async
   assert.equal(new URL(page.url()).searchParams.get("id"), String(id));
   assert.deepEqual(await page.evaluate(() => ({ fen: chess.fen(), pgn: moveHistory.slice() })), state);
 });
+
+test("changing depth starts a game whose worker and saved strength agree", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.addInitScript(() => {
+    window.requestedDepths = [];
+    const post = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function (data, ...args) {
+      window.requestedDepths.push(data.depth);
+      return post.call(this, data, ...args);
+    };
+  });
+  await page.goto(srv.baseUrl + "/game.html");
+  let id = await ready(page);
+  for (const depth of [4, 2]) {
+    await page.locator('#board [data-sq="12"]').click();
+    await page.locator('#board [data-sq="28"]').click();
+    await page.waitForFunction(() => chess.history.length === 2 && !thinking);
+    await page.locator("#depth").selectOption(String(depth));
+    await page.waitForFunction(old => gameStore.currentId() && gameStore.currentId() !== old, id);
+    const previous = id;
+    id = await ready(page);
+    await page.waitForLoadState("networkidle");
+    assert.equal(db().prepare("SELECT status FROM games WHERE id = ?").get(previous).status, "aborted");
+    assert.equal(db().prepare("SELECT ai_depth FROM games WHERE id = ?").get(id).ai_depth, depth);
+    assert.equal(await page.evaluate(() => chess.history.length), 0);
+    await page.reload();
+    assert.equal(await ready(page), id);
+    assert.equal(await page.locator("#depth").inputValue(), String(depth));
+    await page.locator('#board [data-sq="12"]').click();
+    await page.locator('#board [data-sq="28"]').click();
+    await page.waitForFunction(() => chess.history.length === 2 && !thinking);
+    assert.deepEqual(await page.evaluate(() => window.requestedDepths), [depth]);
+    // Restore the starting board so the next loop can test another change.
+    await page.locator("#undoBtn").click();
+    await page.waitForFunction(() => chess.history.length === 0);
+  }
+});

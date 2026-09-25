@@ -143,6 +143,10 @@ bookmark too; a late response for an earlier board cannot overwrite it.
 The board, PGN and move source reset synchronously before persistence resolves.
 Moves played while creation is pending queue against that game, and completion
 only updates the bookmark; it never resets a board that has already advanced.
+AI depth is fixed per game. Changing the depth selector starts a new game and
+abandons the previous one, just like changing colour; the controls explain
+this. Worker requests use the game's captured depth, which is also saved for
+resume and strength-dependent achievements.
 
 ## Real-time PvP
 

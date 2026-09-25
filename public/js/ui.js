@@ -2,6 +2,7 @@
 
 const chess = new Chess();
 let humanColor = W;
+let aiDepth = 2; // Fixed for the current game, including every worker request.
 let selected = null;
 let legalFromSelected = [];
 let lastMove = null;
@@ -47,6 +48,7 @@ const historyEl     = document.getElementById('history');
 const promoEl       = document.getElementById('promo');
 const promoOpts     = document.getElementById('promoOptions');
 const colorSelectEl = document.getElementById('humanColor');
+const depthSelectEl = document.getElementById('depth');
 const whiteLabelEl  = document.getElementById('whiteLabel');
 const blackLabelEl  = document.getElementById('blackLabel');
 const capturedTopEl    = document.getElementById('capturedTop');
@@ -65,7 +67,7 @@ function setThinking(v) {
 }
 
 function getDepth() {
-  return parseInt(document.getElementById('depth').value, 10);
+  return aiDepth;
 }
 
 function gameIsOver() {
@@ -924,6 +926,7 @@ async function startNewGame() {
   startTurn = W;
   startFen = null;
   humanColor = colorSelectEl.value === 'b' ? B : W;
+  aiDepth = Number(depthSelectEl.value);
   const ready = persistNewAiGame(null);
   refreshGameState();
   return ready;
@@ -971,6 +974,7 @@ document.getElementById('engineRetry').addEventListener('click', () => {
 });
 document.getElementById('resetBtn').addEventListener('click', startNewGame);
 colorSelectEl.addEventListener('change', startNewGame);
+depthSelectEl.addEventListener('change', startNewGame);
 
 loadFenBtn.addEventListener('click', () => {
   fenText.value = '';
@@ -998,6 +1002,7 @@ fenLoadBtn.addEventListener('click', async () => {
   startFen = fen;
   fenPanel.classList.remove('show');
   humanColor = colorSelectEl.value === 'b' ? B : W;
+  aiDepth = Number(depthSelectEl.value);
   const ready = persistNewAiGame(fen);
   refreshGameState();
   return ready;
@@ -1032,10 +1037,10 @@ function resumeAiGame(game) {
   colorSelectEl.value = humanColor === B ? 'b' : 'w';
 
   // Restore the search depth, but only if the picker actually offers it.
-  const depthEl = document.getElementById('depth');
-  if (depthEl && [...depthEl.options].some(o => o.value === String(game.ai_depth))) {
-    depthEl.value = String(game.ai_depth);
+  if ([...depthSelectEl.options].some(o => o.value === String(game.ai_depth))) {
+    depthSelectEl.value = String(game.ai_depth);
   }
+  aiDepth = Number(depthSelectEl.value);
 
   if (game.start_fen && game.start_fen !== STANDARD_START) {
     chess.loadFen(game.start_fen);
