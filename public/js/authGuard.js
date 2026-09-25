@@ -11,7 +11,7 @@
 // Also home to the shared player-name helpers, because this is the one script
 // every signed-in page loads.
 
-// A player's name as a link to their stats. `newTab` is for live pages (the
+// A player's name as a link to their profile. `newTab` is for live pages (the
 // lobby, friends, a game), where navigating away would drop the socket — and
 // with it any open seek, challenge or game.
 window.playerLink = function (userId, username, opts) {
@@ -19,8 +19,10 @@ window.playerLink = function (userId, username, opts) {
   const a = document.createElement("a");
   a.className = o.cls == null ? "name" : o.cls;
   a.textContent = username;
-  a.href = "/stats.html?id=" + encodeURIComponent(userId);
-  a.title = "View stats";
+  // Your own name goes to your own profile, so the rail marks it as yours.
+  const mine = window.currentUser && window.currentUser.id === Number(userId);
+  a.href = mine ? "/profile.html" : "/profile.html?id=" + encodeURIComponent(userId);
+  a.title = "View profile";
   if (o.newTab) { a.target = "_blank"; a.rel = "noopener"; }
   return a;
 };

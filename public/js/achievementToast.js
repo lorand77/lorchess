@@ -26,7 +26,7 @@ const AchievementToast = (function () {
   function one(a) {
     const box = document.createElement("a");
     box.className = "ach-toast";
-    box.href = "/achievements.html";
+    box.href = "/profile.html#achievements";
     box.title = "See all achievements";
 
     const icon = document.createElement("span");

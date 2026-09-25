@@ -1,11 +1,12 @@
 "use strict";
 
-// The Friends page: pending requests, then your friends with live presence and
-// a one-click challenge. Friendships come from /api/friends (REST); the socket
+// The profile's Friends tab: pending requests, then your friends with live
+// presence and a one-click challenge. Friendships come from /api/friends (REST); the socket
 // only supplies two things — a `friends:changed` nudge telling us to refetch,
-// and `lobby:state` for the online / playing badges.
+// and `lobby:state` for the online / playing badges. The socket opens the
+// first time the tab is shown, not with the page.
 
-(function () {
+(window.profileTabs = window.profileTabs || {}).friends = function () {
   const reqsEl    = document.getElementById("friendRequests");
   const listEl    = document.getElementById("friendList");
   const errorEl   = document.getElementById("friendsError");
@@ -162,4 +163,4 @@
   }
 
   refresh();
-})();
+};

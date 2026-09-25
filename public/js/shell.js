@@ -16,10 +16,7 @@
   const ITEMS = [
     { href: "/lobby.html",        icon: "▶",  label: "Play" },
     { href: "/puzzles.html",      icon: "🧩", label: "Puzzles" },
-    { href: "/stats.html",      icon: "📊", label: "Stats" },
-    { href: "/history.html",      icon: "📜", label: "My Games" },
-    { href: "/achievements.html", icon: "🏅", label: "Achievements" },
-    { href: "/friends.html",      icon: "👥", label: "Friends" },
+    { href: "/profile.html",      icon: "👤", label: "Profile" },
     { href: "/settings.html",     icon: "🎨", label: "Customize" },
     { href: "/leaderboard.html",  icon: "🏆", label: "Leaderboard" },
     { href: "/membership.html",   icon: "💎", label: "Membership" },
@@ -69,13 +66,11 @@
   const rail = el("nav", "app-rail");
   rail.setAttribute("aria-label", "Sections");
   const here = location.pathname.replace(/\/$/, "") || "/lobby.html";
-  // Someone else's stats or achievements page is not "yours": keep those rail
-  // items as links back to your own.
-  const params = new URLSearchParams(location.search);
-  const someoneElses = params.has("id") || params.has("user");
+  // Someone else's profile is not "yours": keep the Profile rail item as a link
+  // back to your own.
+  const someoneElses = new URLSearchParams(location.search).has("id");
   for (const item of ITEMS) {
-    const current = here === item.href &&
-      !(someoneElses && (here === "/stats.html" || here === "/achievements.html"));
+    const current = here === item.href && !(someoneElses && here === "/profile.html");
     // The page you are on is not a link to itself.
     const node = el(current ? "span" : "a", "rail-item" + (current ? " current" : ""));
     if (current) node.setAttribute("aria-current", "page");

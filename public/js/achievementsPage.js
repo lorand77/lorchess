@@ -1,19 +1,14 @@
 "use strict";
 
-// The achievements page: the whole catalogue, grouped, with what this user has
-// earned. `?user=<id>` shows someone else's (earned badges only are returned
-// for them; the locked ones still render so the page reads the same).
-//
-// Built with DOM nodes, not HTML strings: usernames are user-supplied.
+// The profile's Achievements tab: the whole catalogue, grouped, with what this
+// user has earned. On someone else's profile only their earned badges are
+// returned; the locked ones still render so the tab reads the same.
 
-(async function () {
+(window.profileTabs = window.profileTabs || {}).achievements = async function ({ you, userId }) {
   const content = document.getElementById("achContent");
   const summary = document.getElementById("achSummary");
-  const title = document.getElementById("achTitle");
 
-  const params = new URLSearchParams(location.search);
-  const otherId = params.get("user");
-  const url = otherId ? "/api/achievements/user/" + encodeURIComponent(otherId) : "/api/achievements/me";
+  const url = you ? "/api/achievements/me" : "/api/achievements/user/" + encodeURIComponent(userId);
 
   let data;
   try {
@@ -26,13 +21,8 @@
     return;
   }
 
-  const mine = !otherId || (window.currentUser && window.currentUser.id === data.user.id);
-  if (!mine) {
-    title.textContent = "";
-    title.append(playerLink(data.user.id, data.user.username, { cls: "player-link" }), "'s achievements");
-  }
   // Something time-based (the anniversary) may have just been awarded.
-  if (mine && data.fresh && data.fresh.length) AchievementToast.show(data.fresh);
+  if (you && data.fresh && data.fresh.length) AchievementToast.show(data.fresh);
 
   const earned = {};
   for (const e of data.earned) earned[e.key] = e;
@@ -112,4 +102,4 @@
     if (text != null) node.textContent = text;
     return node;
   }
-})();
+};

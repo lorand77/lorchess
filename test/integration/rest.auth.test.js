@@ -158,4 +158,20 @@ describe("access control", () => {
     assert.match(engine.body, /class Chess/);
     assert.equal((await anon.get("/js/ui.js")).status, 200, "public/js falls through");
   });
+
+  test("the old My Games, Achievements and Friends pages redirect to profile tabs", async () => {
+    const cases = [
+      ["/history.html", "/profile.html#games"],
+      ["/friends.html", "/profile.html#friends"],
+      ["/achievements.html", "/profile.html#achievements"],
+      ["/achievements.html?user=42", "/profile.html?id=42#achievements"],
+      ["/achievements.html?user=nonsense", "/profile.html#achievements"],
+    ];
+    for (const [from, to] of cases) {
+      const res = await fetch(srv.baseUrl + from, { redirect: "manual" });
+      assert.equal(res.status, 302, from);
+      assert.equal(res.headers.get("location"), to, from);
+    }
+    assert.equal((await client(srv.baseUrl).get("/profile.html")).status, 200);
+  });
 });

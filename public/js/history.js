@@ -1,22 +1,19 @@
 "use strict";
 
-// Lists the current user's games (GET /api/games) with result from their
-// perspective and a link into the replay viewer.
+// The profile's My Games tab: the current user's games (GET /api/games) with
+// result from their perspective and a link into the replay viewer.
 
-(async function () {
+(window.profileTabs = window.profileTabs || {}).games = async function ({ data }) {
   const content = document.getElementById("historyContent");
+  const user = data.user;
 
-  let user, games;
+  let games;
   try {
-    const [meRes, gamesRes] = await Promise.all([
-      fetch("/api/me", { credentials: "same-origin" }),
-      fetch("/api/games", { credentials: "same-origin" }),
-    ]);
-    if (meRes.status === 401 || gamesRes.status === 401) {
+    const gamesRes = await fetch("/api/games", { credentials: "same-origin" });
+    if (gamesRes.status === 401) {
       location.replace("/login.html");
       return;
     }
-    user = await meRes.json();
     games = await gamesRes.json();
   } catch (e) {
     content.textContent = "Failed to load games.";
@@ -39,7 +36,7 @@
     const opp = youWhite ? g.black_username : g.white_username;
     const oppId = Number(youWhite ? g.black_id : g.white_id);
     const oppCell = g.mode === "pvp" && oppId
-      ? `<a class="name" href="/stats.html?id=${oppId}">${escapeHtml(opp || "?")}</a>`
+      ? `<a class="name" href="/profile.html?id=${oppId}#stats">${escapeHtml(opp || "?")}</a>`
       : escapeHtml(opp || "?");
     const res = outcome(g, youWhite);
     const tr = document.createElement("tr");
@@ -80,4 +77,4 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
     );
   }
-})();
+};

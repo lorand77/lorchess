@@ -48,6 +48,16 @@ function createServer() {
   // through to public/js below.
   app.use("/js", express.static(path.join(__dirname, "shared")));
 
+  // My Games, Achievements and Friends used to be pages of their own; they are
+  // tabs of profile.html now. Keep old bookmarks and links landing on the tab.
+  app.get("/history.html", (req, res) => res.redirect("/profile.html#games"));
+  app.get("/friends.html", (req, res) => res.redirect("/profile.html#friends"));
+  app.get("/achievements.html", (req, res) => {
+    const user = Number(req.query.user);
+    const who = Number.isInteger(user) && user > 0 ? "?id=" + user : "";
+    res.redirect("/profile.html" + who + "#achievements");
+  });
+
   // Static UI (login.html, lobby.html, game.html, css, assets, public/js/*).
   app.use(express.static(path.join(__dirname, "..", "public")));
 

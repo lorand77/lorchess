@@ -256,7 +256,7 @@ socket.on("challenge:declined", (info) => {
 
 socket.on("lobby:error", (info) => showError(info && info.error));
 
-// The friends list lives on /friends.html now. All this page needs is who they
+// The friends list lives on the profile's Friends tab now. All this page needs is who they
 // are, so it can star them in Players online.
 socket.on("friends:changed", refreshFriends);
 
@@ -433,7 +433,7 @@ function renderIncoming() {
 }
 
 // --- friends ---
-// The friends panel now lives on /friends.html. Here we only need the set of
+// The friends panel now lives on the profile's Friends tab. Here we only need the set of
 // friend ids, so Players online can mark them with a star.
 
 async function refreshFriends() {

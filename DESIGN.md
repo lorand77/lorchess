@@ -143,7 +143,8 @@ Hooks: `concludeGame` (PvP, pushes `achievements:earned` to each player's
 sockets), `POST /api/games/:id/end` (AI, returned in the reply), the puzzle
 `finish` helper (returned in the reply), `chat:send`, and login. The UI shows
 unlock toasts (`public/js/achievementToast.js`) on the game, puzzle and lobby
-pages; `achievements.html` lists the catalogue with `?user=<id>` for others.
+pages; the profile's Achievements tab (`profile.html#achievements`) lists the
+catalogue, and `?id=<id>` shows someone else's.
 
 ## Premoves
 
