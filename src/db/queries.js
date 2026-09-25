@@ -290,25 +290,25 @@ module.exports = {
     ) ORDER BY id ASC
   `),
 
-  // --- profile ---
-  // Every finished game a user played, oldest first. The profile computes its
+  // --- stats ---
+  // Every finished game a user played, oldest first. The stats page computes its
   // own totals from these rather than running a query per statistic, and needs
   // the ordered list for the performance chart anyway.
-  profileGames: db.prepare(`
+  statsGames: db.prepare(`
     SELECT id, white_id, black_id, mode, result, rated, finished_at
     FROM games
     WHERE status = 'finished' AND (white_id = ? OR black_id = ?)
     ORDER BY COALESCE(finished_at, created_at), id
   `),
-  // Game rating after each rated game, for the profile's rating chart.
+  // Game rating after each rated game, for the stats page's rating chart.
   // rating_history is written by applyElo (src/game/socket.js), so it covers
   // every rated PvP game since that was added — and nothing before it.
-  profileRatingHistory: db.prepare(`
+  statsRatingHistory: db.prepare(`
     SELECT game_id, rating_before, rating_after, created_at
     FROM rating_history WHERE user_id = ? ORDER BY id
   `),
   // Puzzle rating after each attempt, for the puzzle chart.
-  profilePuzzleHistory: db.prepare(`
+  statsPuzzleHistory: db.prepare(`
     SELECT rating_after, solved, created_at
     FROM puzzle_attempts WHERE user_id = ? ORDER BY id
   `),

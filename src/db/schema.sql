@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS daily_puzzles (
 
 -- Achievements. One row per user per achievement; tiered achievements keep
 -- only the highest tier reached (earned_at is when that tier was reached).
--- game_id / puzzle_id point at whatever earned it, so a profile can link to it.
+-- game_id / puzzle_id point at whatever earned it, so a stats page can link to it.
 CREATE TABLE IF NOT EXISTS user_achievements (
   user_id    INTEGER NOT NULL REFERENCES users(id),
   key        TEXT    NOT NULL,

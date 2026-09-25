@@ -1,14 +1,14 @@
 "use strict";
 
-// Player profile: the headline numbers as stat tiles, the record as one
+// Player stats: the headline numbers as stat tiles, the record as one
 // part-to-whole bar, and two lines over time. ?id=<userId> shows someone else.
 
 (function () {
   const id = new URLSearchParams(location.search).get("id");
-  const nameEl = document.getElementById("profileName");
-  const metaEl = document.getElementById("profileMeta");
-  const errEl = document.getElementById("profileError");
-  const bodyEl = document.getElementById("profileBody");
+  const nameEl = document.getElementById("statsName");
+  const metaEl = document.getElementById("statsMeta");
+  const errEl = document.getElementById("statsError");
+  const bodyEl = document.getElementById("statsBody");
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -34,24 +34,24 @@
   async function load() {
     let data;
     try {
-      const res = await fetch("/api/profile" + (id ? "/" + encodeURIComponent(id) : ""),
+      const res = await fetch("/api/stats" + (id ? "/" + encodeURIComponent(id) : ""),
         { credentials: "same-origin" });
       if (res.status === 401) { location.replace("/login.html"); return; }
       if (res.status === 404) { errEl.textContent = "No such player."; return; }
       if (!res.ok) throw new Error();
       data = await res.json();
     } catch (e) {
-      errEl.textContent = "Couldn't load that profile.";
+      errEl.textContent = "Couldn't load those stats.";
       return;
     }
     render(data);
   }
 
-  // Someone else's profile: word it for a visitor, and offer their
+  // Someone else's stats: word it for a visitor, and offer their
   // achievements and a friend control.
   function renderVisitor(u) {
     for (const s of document.querySelectorAll("[data-them]")) s.textContent = s.dataset.them;
-    const actions = document.getElementById("profileActions");
+    const actions = document.getElementById("statsActions");
     actions.innerHTML = "";
     const ach = el("a", "nav-link", "🏅 Achievements");
     ach.href = "/achievements.html?user=" + encodeURIComponent(u.id);
@@ -70,7 +70,7 @@
         draw();
         actions.appendChild(slot);
       })
-      .catch(() => { /* the profile works fine without it */ });
+      .catch(() => { /* the stats page works fine without it */ });
   }
 
   function render(d) {

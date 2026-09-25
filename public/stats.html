@@ -3,18 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LorChess — Profile</title>
+<title>LorChess — Stats</title>
 <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-<div class="profile-page">
-  <h1 id="profileName">Profile</h1>
-  <p class="muted small" id="profileMeta"></p>
-  <!-- Someone else's profile only: their achievements, and a friend control. -->
-  <p class="profile-actions" id="profileActions" style="display:none;"></p>
-  <p id="profileError" class="check-text"></p>
+<div class="stats-page">
+  <h1 id="statsName">Stats</h1>
+  <p class="muted small" id="statsMeta"></p>
+  <!-- Someone else's stats only: their achievements, and a friend control. -->
+  <p class="stats-actions" id="statsActions" style="display:none;"></p>
+  <p id="statsError" class="check-text"></p>
 
-  <div id="profileBody" style="display:none;">
+  <div id="statsBody" style="display:none;">
     <!-- Headline numbers: a KPI row, not a chart. -->
     <div class="stat-row" id="ratingRow"></div>
 
@@ -55,6 +55,6 @@
 <script src="/js/theme.js"></script>
 <script src="/js/chart.js"></script>
 <script src="/js/friends.js"></script>
-<script src="/js/profile.js"></script>
+<script src="/js/stats.js"></script>
 </body>
 </html>

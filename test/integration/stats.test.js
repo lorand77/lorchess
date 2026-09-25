@@ -1,6 +1,6 @@
 "use strict";
 
-// Profiles are visible to every signed-in player, not just their owner.
+// Stats are visible to every signed-in player, not just their owner.
 
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -15,19 +15,19 @@ before(async () => {
 });
 after(async () => { await srv.close(); });
 
-test("your own profile says it is yours", async () => {
-  const res = await alice.c.get("/api/profile");
+test("your own stats say they are yours", async () => {
+  const res = await alice.c.get("/api/stats");
   assert.equal(res.status, 200);
   assert.equal(res.body.user.id, alice.user.id);
   assert.equal(res.body.you, true);
 
-  const byId = await alice.c.get(`/api/profile/${alice.user.id}`);
+  const byId = await alice.c.get(`/api/stats/${alice.user.id}`);
   assert.equal(byId.status, 200);
   assert.equal(byId.body.you, true);
 });
 
-test("another player's profile is readable, and says it isn't yours", async () => {
-  const res = await alice.c.get(`/api/profile/${bob.user.id}`);
+test("another player's stats are readable, and say they aren't yours", async () => {
+  const res = await alice.c.get(`/api/stats/${bob.user.id}`);
   assert.equal(res.status, 200);
   assert.equal(res.body.user.id, bob.user.id);
   assert.equal(res.body.user.username, bob.user.username);
@@ -35,13 +35,13 @@ test("another player's profile is readable, and says it isn't yours", async () =
   assert.ok(res.body.games && res.body.puzzles);
 });
 
-test("LorFish is not a player and has no profile", async () => {
-  const res = await alice.c.get(`/api/profile/${lorfishId()}`);
+test("LorFish is not a player and has no stats", async () => {
+  const res = await alice.c.get(`/api/stats/${lorfishId()}`);
   assert.equal(res.status, 404);
 });
 
 test("unknown and malformed ids", async () => {
-  assert.equal((await alice.c.get("/api/profile/999999")).status, 404);
-  assert.equal((await alice.c.get("/api/profile/abc")).status, 400);
-  assert.equal((await alice.c.get("/api/profile/0")).status, 400);
+  assert.equal((await alice.c.get("/api/stats/999999")).status, 404);
+  assert.equal((await alice.c.get("/api/stats/abc")).status, 400);
+  assert.equal((await alice.c.get("/api/stats/0")).status, 400);
 });

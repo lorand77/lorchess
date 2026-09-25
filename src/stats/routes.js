@@ -1,11 +1,11 @@
 "use strict";
 
-// Player profiles: the numbers behind a username, plus the two series the page
+// Player stats: the numbers behind a username, plus the two series the page
 // charts. Public to any signed-in user — the leaderboard already shows ratings
 // and records, so there is nothing here that wasn't already on display.
 //
-//   GET /api/profile        your own
-//   GET /api/profile/:id    anyone's (LorFish is not a player, so it has none)
+//   GET /api/stats        your own
+//   GET /api/stats/:id    anyone's (LorFish is not a player, so it has none)
 //
 // Both carry `you: true|false`, so the page can word things for the viewer.
 
@@ -32,7 +32,7 @@ function withRate(r) {
 }
 
 function buildStats(userId) {
-  const rows = queries.profileGames.all(userId, userId);
+  const rows = queries.statsGames.all(userId, userId);
 
   const modes = { pvp: emptyRecord(), ai: emptyRecord() };
   const colours = { w: emptyRecord(), b: emptyRecord() };
@@ -69,7 +69,7 @@ function buildStats(userId) {
 // Prepending the starting point makes a first game render as a line rather than
 // a lone dot with nothing to compare it to.
 function buildRatingHistory(userId) {
-  const rows = queries.profileRatingHistory.all(userId);
+  const rows = queries.statsRatingHistory.all(userId);
   if (!rows.length) return [];
   const points = [{ at: rows[0].created_at, value: rows[0].rating_before, delta: null }];
   for (const r of rows) {
@@ -83,7 +83,7 @@ function buildRatingHistory(userId) {
 }
 
 function buildPuzzles(userId) {
-  const rows = queries.profilePuzzleHistory.all(userId);
+  const rows = queries.statsPuzzleHistory.all(userId);
   const solved = rows.filter((r) => r.solved).length;
   return {
     attempted: rows.length,
@@ -94,7 +94,7 @@ function buildPuzzles(userId) {
   };
 }
 
-function profileFor(userId) {
+function statsFor(userId) {
   const user = queries.getUserById.get(userId);
   if (!user) return null;
   const extra = queries.getPuzzleUser.get(userId);
@@ -112,12 +112,12 @@ function profileFor(userId) {
   };
 }
 
-router.get("/", (req, res) => res.json({ ...profileFor(req.session.userId), you: true }));
+router.get("/", (req, res) => res.json({ ...statsFor(req.session.userId), you: true }));
 
 router.get("/:id", (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Bad user id." });
-  const out = id === AI_ID ? null : profileFor(id);
+  const out = id === AI_ID ? null : statsFor(id);
   if (!out) return res.status(404).json({ error: "No such player." });
   res.json({ ...out, you: id === req.session.userId });
 });

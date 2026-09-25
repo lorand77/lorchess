@@ -16,7 +16,7 @@
   const ITEMS = [
     { href: "/lobby.html",        icon: "▶",  label: "Play" },
     { href: "/puzzles.html",      icon: "🧩", label: "Puzzles" },
-    { href: "/profile.html",      icon: "👤", label: "Profile" },
+    { href: "/stats.html",      icon: "📊", label: "Stats" },
     { href: "/history.html",      icon: "📜", label: "My Games" },
     { href: "/achievements.html", icon: "🏅", label: "Achievements" },
     { href: "/friends.html",      icon: "👥", label: "Friends" },
@@ -69,13 +69,13 @@
   const rail = el("nav", "app-rail");
   rail.setAttribute("aria-label", "Sections");
   const here = location.pathname.replace(/\/$/, "") || "/lobby.html";
-  // Someone else's profile or achievements is not "your" page: keep those rail
+  // Someone else's stats or achievements page is not "yours": keep those rail
   // items as links back to your own.
   const params = new URLSearchParams(location.search);
   const someoneElses = params.has("id") || params.has("user");
   for (const item of ITEMS) {
     const current = here === item.href &&
-      !(someoneElses && (here === "/profile.html" || here === "/achievements.html"));
+      !(someoneElses && (here === "/stats.html" || here === "/achievements.html"));
     // The page you are on is not a link to itself.
     const node = el(current ? "span" : "a", "rail-item" + (current ? " current" : ""));
     if (current) node.setAttribute("aria-current", "page");

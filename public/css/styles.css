@@ -442,7 +442,7 @@ select {
 .name { font-weight: bold; color: var(--text); }
 a.name { text-decoration: none; }
 a.name:hover { text-decoration: underline; }
-/* A name linked to a profile inside running text: looks like the text around it. */
+/* A name linked to a stats page inside running text: looks like the text around it. */
 a.player-link { color: inherit; text-decoration: none; }
 a.player-link:hover { text-decoration: underline; }
 .rating { color: var(--text-muted); }
@@ -1238,12 +1238,12 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 .member-perks li { margin: 4px 0; }
 .review-start.review-locked { flex-wrap: wrap; gap: 6px; }
 
-/* ---- player profile (public/js/profile.js) ---- */
-.profile-page { width: 700px; max-width: 100%; margin: 24px auto 0; }
-.profile-page h1 { margin: 0 0 4px; }
-.profile-page .panel { margin: 16px 0; }
-.profile-page h3 { margin: 18px 0 2px; font-size: 14px; }
-.profile-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 6px 0 0; font-size: 13px; }
+/* ---- player stats (public/js/stats.js) ---- */
+.stats-page { width: 700px; max-width: 100%; margin: 24px auto 0; }
+.stats-page h1 { margin: 0 0 4px; }
+.stats-page .panel { margin: 16px 0; }
+.stats-page h3 { margin: 18px 0 2px; font-size: 14px; }
+.stats-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 6px 0 0; font-size: 13px; }
 
 /* KPI row: headline numbers, not a chart. */
 .stat-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }

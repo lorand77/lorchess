@@ -39,7 +39,7 @@
     const opp = youWhite ? g.black_username : g.white_username;
     const oppId = Number(youWhite ? g.black_id : g.white_id);
     const oppCell = g.mode === "pvp" && oppId
-      ? `<a class="name" href="/profile.html?id=${oppId}">${escapeHtml(opp || "?")}</a>`
+      ? `<a class="name" href="/stats.html?id=${oppId}">${escapeHtml(opp || "?")}</a>`
       : escapeHtml(opp || "?");
     const res = outcome(g, youWhite);
     const tr = document.createElement("tr");

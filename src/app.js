@@ -15,7 +15,7 @@ const friendRoutes = require("./friends/routes");
 const settingsRoutes = require("./settings/routes");
 const puzzleRoutes = require("./puzzles/routes");
 const membershipRoutes = require("./membership/routes");
-const profileRoutes = require("./profile/routes");
+const statsRoutes = require("./stats/routes");
 const achievementRoutes = require("./achievements/routes");
 const { attachSockets } = require("./game/socket");
 
@@ -38,7 +38,7 @@ function createServer() {
   app.use("/api/settings", settingsRoutes);
   app.use("/api/puzzles", puzzleRoutes);
   app.use("/api/membership", membershipRoutes);
-  app.use("/api/profile", profileRoutes);
+  app.use("/api/stats", statsRoutes);
   app.use("/api/achievements", achievementRoutes);
 
   // --- Static assets ---

@@ -29,7 +29,7 @@ let whiteName = 'Human';
 let blackName = 'LorFish';
 let whiteMember = false; // PvP only: these come from the server's game state
 let blackMember = false;
-let whiteId = null;       // null in AI games: LorFish has no profile to link to
+let whiteId = null;       // null in AI games: LorFish has no stats page to link to
 let blackId = null;
 let pgnEvent = 'Human vs LorFish';
 

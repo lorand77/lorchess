@@ -129,7 +129,7 @@ describe("login and logout", () => {
 describe("access control", () => {
   const protectedPaths = [
     "/api/me", "/api/games", "/api/leaderboard", "/api/friends", "/api/settings",
-    "/api/puzzles/me", "/api/membership", "/api/profile", "/api/achievements/me",
+    "/api/puzzles/me", "/api/membership", "/api/stats", "/api/achievements/me",
   ];
 
   test("protected routes answer 401 without a session", async () => {
