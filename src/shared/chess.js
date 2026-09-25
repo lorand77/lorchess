@@ -135,8 +135,18 @@ class Chess {
         : 'FEN must have exactly one king per side');
     }
 
+    if (parts[1] !== 'w' && parts[1] !== 'b') {
+      throw new Error(`FEN: side to move must be "w" or "b", not "${parts[1]}"`);
+    }
+    const turn = parts[1] === 'b' ? B : W;
+
     // Validate the en-passant field before touching any state, so a bad FEN
-    // never leaves a half-loaded position behind.
+    // never leaves a half-loaded position behind. A capture square only ever
+    // follows a double pawn push: it is empty, the pawn that just passed it
+    // stands beyond it, the square that pawn came from is empty, and in chess
+    // proper it lies on the pusher's third rank (rank 6 with White to move,
+    // rank 3 with Black). Anything else would let a "capture" remove a piece
+    // that never moved — possibly the capturer's own.
     let ep = null;
     if (parts[3] && parts[3] !== '-') {
       const file = parts[3].charCodeAt(0) - 97;
@@ -145,10 +155,22 @@ class Chess {
         throw new Error(`FEN: bad en-passant square "${parts[3]}"`);
       }
       ep = sqIdx(file, rank);
+      const forward = turn === W ? -8 : 8; // towards the pawn that pushed
+      const pawn = newSquares[ep + forward];
+      if (
+        (!this.isPawnWars && rank !== (turn === W ? 5 : 2)) ||
+        newSquares[ep] ||
+        !pawn || pawn.t !== 'p' || pawn.c === turn ||
+        newSquares[ep - forward]
+      ) {
+        throw new Error(
+          `FEN: en-passant square "${parts[3]}" is not behind a pawn that just moved two squares`
+        );
+      }
     }
 
     this.squares = newSquares;
-    this.turn = parts[1] === 'b' ? B : W;
+    this.turn = turn;
     const cr = parts[2] || '-';
     this.castling = {
       K: cr.includes('K'),
@@ -720,6 +742,28 @@ class Chess {
       }
     }
     return false;
+  }
+
+  // Can this side, in principle, still deliver checkmate? False for a bare
+  // king, a king with one knight, or a king with bishops all on one square
+  // colour: no series of legal moves lets those mate. A player who runs out of
+  // time against such a side draws rather than loses, whatever the flagging
+  // side has left. Atomic and Pawn Wars win by other means (an explosion, the
+  // last pawn), so there the answer is always yes.
+  hasMatingMaterial(c) {
+    if (this.isAtomic || this.isPawnWars) return true;
+    let knights = 0;
+    const bishopColours = new Set();
+    for (let i = 0; i < 64; i++) {
+      const p = this.squares[i];
+      if (!p || p.c !== c || p.t === 'k') continue;
+      if (p.t === 'p' || p.t === 'r' || p.t === 'q') return true;
+      if (p.t === 'n') knights++;
+      else bishopColours.add((fileOf(i) + rankOf(i)) & 1);
+    }
+    if (knights === 0) return bishopColours.size >= 2;
+    if (knights === 1) return bishopColours.size >= 1;
+    return true; // two knights can mate with the defender's help
   }
 
   // Atomic ends the moment a king is destroyed, however that happened.

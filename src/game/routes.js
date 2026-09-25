@@ -9,6 +9,7 @@
 const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
+const { Chess } = require("../shared/chess");
 const config = require("../config");
 const achievements = require("../achievements/service");
 
@@ -60,6 +61,16 @@ router.post("/", (req, res) => {
   const blackId = human === "w" ? AI_ID : uid;
   const fen =
     typeof startFen === "string" && startFen.trim() ? startFen.trim() : STANDARD_START;
+  // The client's own board has already loaded this FEN, but the record must
+  // not hold a position the rules engine refuses: everything that later
+  // replays the game (review, achievements, history) runs it through loadFen.
+  if (fen !== STANDARD_START) {
+    try {
+      new Chess().loadFen(fen);
+    } catch (err) {
+      return res.status(400).json({ error: `Invalid start position: ${err.message}` });
+    }
+  }
   const aiDepth = parseInt(depth, 10) || 2;
 
   const info = queries.createGame.run(

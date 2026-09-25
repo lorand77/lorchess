@@ -47,6 +47,15 @@ const audienceOf = (role) => (role === "s" ? "spectators" : "players");
 const rematches = new Map();
 const winResult = (winnerColor) => (winnerColor === "w" ? "1-0" : "0-1");
 
+// Running out of time loses — unless the other side could never have delivered
+// mate, in which case it is a draw, as over the board (FIDE 6.9: the flag only
+// wins for a side that could still have won). Atomic and Pawn Wars win by other
+// means, so there hasMatingMaterial is always true and a flag is always a loss.
+function flagResult(room, flagged) {
+  const winner = other(flagged);
+  return room.chess.hasMatingMaterial(winner) ? winResult(winner) : "1/2-1/2";
+}
+
 // One move's writes as a single transaction: the move row, the position and
 // the clocks (so the game survives a restart). All or nothing, so a failure can
 // be rolled back in memory without a half-recorded move left behind.
@@ -180,7 +189,7 @@ function onFlag(io, gameId, turn) {
   if (!room || room.status !== "active") return;
   if (room.chess.turn !== turn) return; // a move already switched the turn
   room.clock[turn] = 0;
-  concludeGame(io, room, winResult(other(turn)), "timeout");
+  concludeGame(io, room, flagResult(room, turn), "timeout");
 }
 
 // ---- game lifecycle ----
@@ -351,6 +360,10 @@ function stateOf(room, color) {
     gameId: room.gameId,
     fen: room.chess.fen(),
     sans: room.sans.slice(),
+    // The moves as played (castling by the rook square), so a client can
+    // rebuild the position by replaying them: a FEN loses the repetition
+    // history, and cannot always say which rook a Chess960 castling right means.
+    moves: room.chess.history.map((h) => uciOf(h.move)),
     yourColor: color,
     turn: room.chess.turn,
     status: room.status,
@@ -524,7 +537,7 @@ function handleMove(io, socket, payload, ack) {
     if (remaining <= 0) {
       room.clock[color] = 0;
       reply(ack, { ok: false, error: "Out of time." });
-      return concludeGame(io, room, winResult(other(color)), "timeout");
+      return concludeGame(io, room, flagResult(room, color), "timeout");
     }
     room.clock[color] = remaining + room.incrementMs;
     room.turnStartedAt = now;

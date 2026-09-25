@@ -176,6 +176,7 @@ describe("a game", () => {
     const again = await connectSocket(srv.baseUrl, (white === a ? alice : bob).c.cookie());
     const { state } = await emitAck(again, "game:join", { gameId });
     assert.deepEqual(state.sans, ["a3", "a6"]);
+    assert.deepEqual(state.moves, ["a2a3", "a7a6"], "the record to replay from");
     assert.equal(state.fen, "rnbqkbnr/1ppppppp/p7/8/8/P7/1PPPPPPP/RNBQKBNR w KQkq - 0 2");
     assert.equal(state.yourColor, "w");
     assert.equal(state.running, true);

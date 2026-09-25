@@ -139,8 +139,10 @@ sockets, clocks and timers.
   better-sqlite3 throws synchronously, so an unguarded error would take the
   process, and every live game, down with it.
 - **Clocks and rating.** Clocks are server-side; clients render snapshots.
-  Elo (`elo.js`, K from `config.ELO_K`) moves after rated games, and every
-  update writes `rating_history`.
+  A flag loses unless the other side has no mating material (a bare king, a
+  lone minor piece, bishops on one colour: `Chess.hasMatingMaterial`), in which
+  case it is a draw, as over the board. Elo (`elo.js`, K from `config.ELO_K`)
+  moves after rated games, and every update writes `rating_history`.
 - **Disconnects.** When a player's last socket drops, a forfeit timer starts
   (`config.DISCONNECT_GRACE_MS`, env `GRACE_MS`, default 45 s) and the opponent
   sees `opponent:disconnected`. Rejoining cancels it and `game:join` hands back
@@ -190,7 +192,7 @@ Undo is disabled in PvP. `game.html` picks the source from the URL:
 
 - **Blocking engine** → must run in a Web Worker; the old paint hacks existed only because it blocks.
 - **One engine, three runtimes** via the UMD tail + serving `src/shared` at `/js`.
-- **Authoritative validation + repetition state** — worker and server rebuild positions by replaying `moves`, because `loadFen` resets `positionCounts`.
+- **Authoritative validation + repetition state** — worker, server and the PvP client (on every `game:join`, from the `moves` in the state) rebuild positions by replaying moves, because `loadFen` resets `positionCounts` and a plain FEN cannot always say which rook a Chess960 castling right refers to.
 - **Decoupling the opponent** from the board via the move source.
 - **Surviving restarts** — position and clocks are persisted on every move, so a room can be rebuilt from the DB.
 - **Trusting nothing from the socket** — legality, turn, time, time control, variant, handicap and the premove flag are all decided or re-checked server-side.

@@ -75,6 +75,16 @@ describe("LorFish search", () => {
     assert.ok(searched >= 16, `only ${searched} positions searched`);
   });
 
+  test("a depth below 1 searches at 1 rather than never bottoming out", () => {
+    for (const depth of [0, -2, undefined, NaN, "x"]) {
+      const chess = new Chess();
+      const verdict = LorFish.analyse(chess, depth);
+      assert.ok(verdict && isLegal(chess, verdict.move), String(depth));
+      assert.ok(verdict.depth >= 1);
+      assert.equal(chess.history.length, 0, "the board is left as it was");
+    }
+  });
+
   test("handles the tactical reference positions", () => {
     // Kiwipete is left out: its capture chains run the quiescence search
     // nineteen plies deep and cost about four seconds even at depth 1.

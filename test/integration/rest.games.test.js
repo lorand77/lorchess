@@ -39,6 +39,22 @@ async function newGame(body) {
 }
 
 describe("creating games", () => {
+  test("a custom start position must be one the rules accept", async () => {
+    for (const bad of [
+      "not a fen",
+      "4k3/8/8/8/8/8/3PP3/4K3 w - e3 0 1",   // an en passant square that would delete White's own pawn
+      "8/8/8/8/8/8/8/4K3 w - - 0 1",         // no black king
+    ]) {
+      const res = await me.post("/api/games", { humanColor: "w", startFen: bad });
+      assert.equal(res.status, 400, bad);
+      assert.match(res.body.error, /Invalid start position/);
+    }
+    const fen = "k7/8/8/8/8/8/8/K6R w - - 0 1";
+    const created = await me.post("/api/games", { humanColor: "w", startFen: fen });
+    assert.equal(created.status, 201);
+    assert.equal((await me.get(`/api/games/${created.body.gameId}`)).body.start_fen, fen);
+  });
+
   test("an AI game for the chosen colour", async () => {
     const created = await newGame({ humanColor: "b", depth: 2 });
     assert.deepEqual(created, { gameId: created.gameId, humanColor: "b", aiColor: "w", turn: "w" });

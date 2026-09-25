@@ -75,6 +75,11 @@ describe("FEN", () => {
       ["two white kings", "4k3/8/8/8/8/8/8/K3K3 w - - 0 1", /exactly one king/],
       ["no black king", "8/8/8/8/8/8/8/4K3 w - - 0 1", /exactly one king/],
       ["a bad en passant square", "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq z9 0 1", /bad en-passant/],
+      ["a side to move that is neither w nor b", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1", /side to move/],
+      ["an en passant square with no pawn beyond it", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e4 0 1", /not behind a pawn/],
+      ["an en passant square on the wrong rank", "4k3/8/8/8/8/8/3PP3/4K3 w - e3 0 1", /not behind a pawn/],
+      ["an en passant square behind the mover's own pawn", "4k3/8/8/4P3/8/8/8/4K3 w - e6 0 1", /not behind a pawn/],
+      ["an en passant square whose pawn never moved two squares", "4k3/4p3/8/4p3/8/8/8/4K3 w - e6 0 1", /not behind a pawn/],
       ["an empty string", "", /at least 4 fields/],
     ];
     for (const [name, fen, message] of bad) {

@@ -1469,6 +1469,30 @@ function renderFriendRow() {
     .catch(() => { /* the game works fine without it */ });
 }
 
+// Set the board to the game's current position by replaying its moves from the
+// start position, as the engine worker and the server do, rather than loading
+// the FEN the server also sends. Two things only a replay gets right: the
+// repetition counts (a loaded FEN starts them afresh, so the board would never
+// show a threefold draw after a rejoin) and Chess960 castling rights, which a
+// plain FEN cannot always spell — fen() writes KQkq, and with two rooks on one
+// side of the king that names the wrong one. The FEN stays as the fallback.
+function rebuildFromRecord(state) {
+  lastMove = null;
+  if (!Array.isArray(state.moves)) { chess.loadFen(state.fen); return; }
+  if (state.startFen) chess.loadFen(state.startFen); else chess.reset();
+  for (const uci of state.moves) {
+    const mv = chess.findMove(sqFromAlg(uci.slice(0, 2)), sqFromAlg(uci.slice(2, 4)), uci[4] || null);
+    if (!mv) {
+      console.warn('The move record did not replay; showing the position as sent.');
+      chess.loadFen(state.fen);
+      lastMove = null;
+      return;
+    }
+    chess.makeMove(mv);
+    lastMove = mv;
+  }
+}
+
 function applyPvpState(socket, state) {
   // Spectators watch from White's side of the board.
   humanColor = !spectating && state.yourColor === 'b' ? B : W;
@@ -1484,14 +1508,13 @@ function applyPvpState(socket, state) {
   // Atomic changes the rules, not just the position — tell the board before
   // loading anything, or captures will be applied the standard way.
   chess.setVariant(state.variant || 'standard');
-  chess.loadFen(state.fen);
+  rebuildFromRecord(state);
   startFullmove = 1;
   startTurn = W;
   // Non-null for a handicap game, so the exported PGN carries SetUp/FEN. A
   // handicap position is always white-to-move on move 1, so the two above hold.
   startFen = state.startFen || null;
   moveHistory = state.sans.slice();
-  lastMove = null;
   clearSelection();
   premove = null;
   promotionPending = null;

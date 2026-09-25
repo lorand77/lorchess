@@ -177,6 +177,26 @@ describe("clocks", () => {
     white.close(); black.close();
   });
 
+  test("flagging against a side that cannot mate is a draw, not a loss", async () => {
+    const { gameId, white, black } = await joinedGame({ tc: "1+0" }, { fresh: true });
+    // Black has king and rook, White a bare king. When Black runs out of time
+    // White has no way to have won, so the game is drawn.
+    const room = rooms().getRoom(gameId);
+    room.chess.loadFen("k6r/8/8/8/8/8/8/K7 w - - 0 1");
+    room.clock.b = 150;
+    const overW = waitFor(white, "game:over");
+    await play(white, gameId, "a1", "b1");
+    const w = await overW;
+    assert.equal(w.result, "1/2-1/2");
+    assert.equal(w.termination, "timeout");
+    assert.equal(w.ratings.w.delta, 0);
+    assert.equal(w.clocks.b, 0);
+    const row = gameRow(gameId);
+    assert.equal(row.result, "1/2-1/2");
+    assert.equal(row.termination, "timeout");
+    white.close(); black.close();
+  });
+
   test("a move that arrives after the clock hit zero is refused and loses on time", async () => {
     const { gameId, white, black } = await joinedGame({ tc: "1+0" });
     const room = rooms().getRoom(gameId);

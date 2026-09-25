@@ -320,7 +320,9 @@ const LorFish = {
     const noise = !!(opts && opts.noise);
     this.nodes = 0;
     this.maxQ = 0;
-    const effDepth = this.adaptiveDepth(chess, depth);
+    // Below 1 the search would never bottom out (negamax stops at 0 and the
+    // root searches one less), so anything unusable searches at 1.
+    const effDepth = this.adaptiveDepth(chess, Math.max(1, Math.floor(Number(depth)) || 1));
     const moves = this.orderMoves(chess, chess.legalMoves());
     const evals = [];
     let best = null;
