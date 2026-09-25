@@ -52,14 +52,18 @@ function runReview(data) {
     else chess.reset();
 
     for (let ply = 0; ply <= total; ply++) {
-      const a = LorFish.analyse(chess, depth);
+      const terminal = chess.isGameOver();
+      const a = terminal ? null : LorFish.analyse(chess, depth);
+      // Search has no move to return at mate/stalemate. Score the outcome
+      // explicitly, including rule draws where legal moves still exist.
+      const terminalScore = chess.isCheckmate() ? -100000 : 0;
       self.postMessage({
         id,
         type: "review:eval",
         ply,
         total,
         turn: chess.turn,
-        score: a ? a.score : null,
+        score: terminal ? terminalScore : a ? a.score : null,
         best: a ? { uci: uciOf(a.move), san: a.san } : null,
         depth: a ? a.depth : null,
       });

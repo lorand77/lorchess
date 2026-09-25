@@ -122,6 +122,9 @@ needed.) The worker `importScripts` the engine, receives
 current FEN, because `loadFen` and `reset` wipe `positionCounts` and threefold
 repetition would be wrong. The same worker streams per-ply evaluations for game
 review (`type: "review"`).
+Review reports terminal positions explicitly: draws score zero and checkmate
+scores as a loss for the side to move. A missing evaluation is left ungraded,
+so missing data cannot disguise a stalemate blunder as a good move.
 
 The browser is authoritative for its own AI game. `public/js/gameStore.js`
 mirrors it to the server (`POST /api/games`, `/:id/moves`, `/:id/end`,

@@ -61,13 +61,13 @@ window.GameReview = (function () {
     for (let i = 0; i < uciMoves.length; i++) {
       const before = evals[i];
       const after = evals[i + 1];
-      if (!before || before.score == null) continue;
+      if (!before || before.score == null || !after || after.score == null) continue;
 
       const mover = before.turn; // 'w' | 'b'
       const scoreBefore = clamp(before.score);
-      // No eval after means the move ended the game; the mover cannot have lost
-      // anything by delivering mate or stalemate, so treat it as holding.
-      const scoreAfter = after && after.score != null ? -clamp(after.score) : scoreBefore;
+      // Terminal outcomes have explicit scores too: stalemating from a won
+      // position loses the advantage, while delivering mate preserves it.
+      const scoreAfter = -clamp(after.score);
       const loss = Math.max(0, scoreBefore - scoreAfter);
       const playedBest = !!(before.best && before.best.uci === uciMoves[i]);
       const kind = classify(loss, playedBest);
