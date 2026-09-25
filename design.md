@@ -58,7 +58,7 @@ drifted (see the header of `variants.js`).
   engine (`io.engine.use`), and `io.use` rejects handshakes without
   `session.userId`. No separate token.
 - Cookie: `httpOnly`, `sameSite: lax`, `secure: "auto"` behind `trust proxy`
-  (Caddy or Railway terminate TLS), 7 days. Sessions are rows in SQLite.
+  (Caddy terminates TLS), 7 days. Sessions are rows in SQLite.
 
 ## Database
 

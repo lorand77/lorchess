@@ -69,7 +69,10 @@ open http://localhost:3000
 
 --------------------------------------------------------
 
-# PROD environment 1 - ubuntu server
+# PROD environment - ubuntu server (AWS EC2)
+
+This is the only deployment. Railway was used earlier and is retired; its notes
+are kept in the appendix at the end, for reference only.
 
 ## setup server
 
@@ -151,6 +154,7 @@ pm2 monit                       # live dashboard: CPU, memory, logs
 
 ## https with custom domain (Caddy)
 
+- the domain `lorand77.dev` is registered at name.com
 - name.com: manage DNS -> add A record: host `lorchess` -> IP_ADDRESS
 - EC2 firewall: allow ports 80 and 443 (80 = cert challenge, 443 = https)
 
@@ -239,24 +243,43 @@ and create a cron job to run the backup script daily
 
 --------------------------------------------------------
 
-# PROD environment 2 - platform-as-a-service on railway
+# Appendix - retired: platform-as-a-service on railway
+
+LorChess ran on Railway before the EC2 server and is not going back. Nothing in
+this section is in use; it is kept as a record of how the PaaS deployment
+worked. The DNS records for `lorchess.lorand77.dev` now point at the EC2 server
+(see "https with custom domain" above), so do not re-apply the custom-domain
+steps below: they would take the live site down.
+
+What a PaaS needs from this app, should one ever be considered again:
+
+- a persistent volume, with `DB_PATH` pointing into it. The default
+  `data/lorchess.sqlite` lives inside the checkout, which a PaaS rebuilds on
+  every deploy, so without the volume every deploy starts with an empty database.
+- `SESSION_SECRET` and `NODE_ENV=production` set as platform environment
+  variables. There is no `.env` file on a PaaS; the npm scripts use
+  `--env-file-if-exists`, so they start fine without one.
+- TLS terminated at the platform's edge. `src/app.js` trusts one proxy hop
+  (`trust proxy`), which is what lets the session cookie be `secure` behind it.
+
+## setup
 
 - create railway account
 - create new project, link to github repo
 - networking: generate domain, e.g. https://lorchess-production.up.railway.app
 - open app in browser
 
-## make sqlite data persistent:
+## make sqlite data persistent
 
 - attach volume `/data`
 - Set environment variables (Service → Variables)
 ```
 DB_PATH=/data/lorchess.sqlite
-SESSION_SECRET=61aed5dc... (generate a new one)
+SESSION_SECRET=<generated hex, see "configure environment" above>
 NODE_ENV=production
 ```
 
-## setting up custom domain
+## custom domain
 
 - buy lorand77.dev on name.com
 - in railway: networking / custom domain -> gives CNAME and TXT to set
