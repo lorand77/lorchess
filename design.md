@@ -1,121 +1,173 @@
-# LorChess — Design Document
+# LorChess — Design Notes
 
-A chess web application where authenticated users play **against the LorFish AI** or **in real-time against other logged-in users**. Node.js backend + SQLite, reusing the existing vanilla-JS UI and AI.
+What the code does and, more importantly, why. This describes the **current
+state**, not a plan: when a decision changes, change it here in the same
+commit. How to run and deploy is in `setup.md`; conventions for working in the
+repo are in `CLAUDE.md`.
 
-## Context
-
-The repo is greenfield except for a complete **vanilla-JS** chess app in `tmp/`:
-
-- `tmp/chess.js` — framework-agnostic `Chess` class (move gen, legality, FEN, SAN, draw/mate detection). Defines globals `W`/`B`. Runs in browser **and** Node.
-- `tmp/lorfish.js` — custom synchronous engine "LorFish" (`LorFish.getBestMove(chess, depth)`, ~1400–1800). Depends tightly on `chess.js`. **Blocks the main thread** during search — the original code papers over this with a `setTimeout` paint hack + a Web-Audio "scanner" sound. The Web Worker approach (below) eliminates the freeze, so the scanner is dropped.
-- `tmp/ui.js` + `styles.css` + `index.html` + `assets/` — DOM board (CSS grid, click-to-move), promotion modal, captured pieces, PGN export, FEN load, sounds. The opponent is **hardwired** to LorFish.
-
-There is no backend, DB, auth, or `package.json`. This design adds them while **reusing the UI and AI nearly verbatim**.
-
-**Decisions (confirmed):** AI runs **client-side in a Web Worker**; DB is **SQLite (better-sqlite3)**; **full scope** (auth + AI + real-time PvP) delivered in milestones; **keep the vanilla UI**, adapt minimally.
+LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
+engine) or **each other in real time**, with server-side clocks and Elo, in
+standard chess, Chess960, Atomic or Pawn Wars. Around the games: puzzles,
+achievements, friends, a leaderboard, spectating, in-game chat and a
+promo-code membership. Node.js + SQLite on the server, vanilla JS in the
+browser, no build step.
 
 ## Tech stack
 
-- **Express 5** — static UI + REST auth.
+- **Express 5** — static pages + REST API.
 - **Socket.IO** — rooms, auto-reconnect, acks for real-time PvP (vs hand-rolling `ws`).
 - **better-sqlite3** — single-file, synchronous, zero-ops. Schema written to port to Postgres later.
-- **Raw SQL** via a thin prepared-statement module (only ~3 tables; no ORM).
-- **express-session** + `better-sqlite3-session-store` — session cookie shared with the Socket.IO handshake (one auth mechanism for REST and WS).
-- **argon2** for password hashing (fall back to `bcrypt`/`@node-rs/argon2` if the native build is troublesome in the devcontainer).
-- **No bundler.** UI stays static vanilla JS.
+- **Raw SQL** via prepared statements in `src/db/queries.js`; no ORM.
+- **express-session** + `better-sqlite3-session-store` — one session cookie serves REST and the Socket.IO handshake.
+- **argon2** for password hashing.
+- **No bundler, no framework.** Static HTML pages with their scripts in `public/js/`.
 
-## Directory structure
+## Engine: one file, three runtimes
 
-```
-/workspaces/lorchess
-├── package.json            # "type":"commonjs"; scripts below
-├── .gitignore              # node_modules, data/*.sqlite, .env
-├── data/lorchess.sqlite    # created at runtime
-├── src/                    # server (Node)
-│   ├── server.js           # express + http + socket.io wiring; shares session w/ sockets
-│   ├── config.js           # env/constants (PORT, SESSION_SECRET, DB_PATH)
-│   ├── db/{index.js, schema.sql, queries.js, reset.js}
-│   ├── auth/{routes.js, middleware.js}      # register/login/logout/me, requireAuth
-│   ├── game/{matchmaking.js, rooms.js, socket.js}
-│   └── shared/{chess.js, lorfish.js}        # MOVED from tmp/, UMD-wrapped (single source of truth)
-└── public/                 # static
-    ├── login.html, lobby.html, game.html    # game.html ADAPTED from tmp/index.html
-    ├── css/styles.css                        # MOVED from tmp/
-    ├── js/{engineWorker.js, moveSource.js, net.js, ui.js}   # ui.js ADAPTED; others NEW
-    └── assets/                               # MOVED from tmp/assets
-```
+`src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
+legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
+squares, and the Atomic and Pawn Wars rule sets. `src/shared/lorfish.js` is
+**LorFish**, a synchronous search engine ported from a sunfish-derived Python
+original (roughly 1400–1800 strength). It depends tightly on `chess.js`.
 
-**Single source of truth for engine code:** keep `chess.js`/`lorfish.js` only in `src/shared/`, UMD-wrap them (`if (typeof module!=='undefined'&&module.exports) module.exports={Chess,W,B}` at the bottom, keep top-level globals for browser/worker), and have Express serve `src/shared/*.js` at the `/js/...` route. Same file loads as a browser `<script>` global, a Web Worker `importScripts`, and a Node `require`.
+The engine and the catalogues next to it (`achievements.js`, `timeControls.js`,
+`variants.js`, `chess960.js`, `handicap.js`) live **only** in `src/shared/` and
+load three ways: as a browser `<script>` global, via `importScripts` in the
+engine Web Worker, and as a Node `require`. The UMD tail
+(`if (typeof module !== 'undefined' && module.exports) module.exports = {...}`)
+makes one file serve all three; Express mounts `src/shared/` at `/js/` ahead of
+`public/`, so `/js/chess.js` resolves there while `/js/ui.js` falls through.
+
+One copy means the server validates with exactly the rules the browser plays
+by. The catalogues are **allowlists**: seeks, challenges and moves arrive over a
+socket, and the server resolves the client's key (time control, variant,
+handicap) against the shared table rather than trusting the payload. They exist
+because this knowledge was once duplicated in three places and the copies
+drifted (see the header of `variants.js`).
 
 ## Authentication
 
-- `POST /api/register {username,password}` — validate, check uniqueness, `argon2.hash`, insert, create session.
-- `POST /api/login` — `argon2.verify`, `req.session.regenerate` (anti-fixation), store `req.session.userId`.
-- `POST /api/logout` — `req.session.destroy`. `GET /api/me` — current user or 401.
-- **REST protection:** `requireAuth` middleware. **Page protection:** lobby/game pages call `/api/me` on load and redirect to login on 401.
-- **Socket auth (critical):** share the Express session middleware with Socket.IO; `io.use(...)` rejects handshakes without `socket.request.session.userId`. No separate token.
+- `POST /api/register`, `POST /api/login`, `POST /api/logout`, `GET /api/me`.
+  Register and login both go through `startSession`, which calls
+  `req.session.regenerate` first (anti-fixation) and then stores `userId`.
+- **REST protection:** `requireAuth` middleware. **Page protection:**
+  `public/js/authGuard.js` calls `/api/me` on load and bounces to login on 401.
+  That is a UX redirect, not a security boundary; every privileged action is
+  enforced server-side.
+- **Socket auth:** the same session middleware is attached to the Socket.IO
+  engine (`io.engine.use`), and `io.use` rejects handshakes without
+  `session.userId`. No separate token.
+- Cookie: `httpOnly`, `sameSite: lax`, `secure: "auto"` behind `trust proxy`
+  (Caddy or Railway terminate TLS), 7 days. Sessions are rows in SQLite.
 
-## Database schema (`src/db/schema.sql`, idempotent `IF NOT EXISTS`)
+## Database
 
-- **users**: `id, username UNIQUE, password_hash, rating DEFAULT 1200, created_at`.
-- **games**: `id, white_id, black_id, mode('ai'|'pvp'), ai_color, ai_depth, status('active'|'finished'|'aborted'), result, termination, start_fen, current_fen, turn DEFAULT 'w', created_at, finished_at`.
-- **moves**: `id, game_id, ply, san, uci, fen_after, by_user(NULL=AI), created_at, UNIQUE(game_id,ply)` + index on `(game_id,ply)`.
+`src/db/schema.sql` only ever `CREATE`s, which is idempotent. Adding a column to
+a table that already exists needs `ALTER`, so those go through
+`addColumnIfMissing` in `src/db/index.js`, which runs at every boot and brings
+an older database up to date. A new column on an existing table therefore needs
+a line there, or existing databases never get it.
 
-`current_fen` + `turn` make reconnection trivial; `moves` gives full PGN/history. Use a reserved "LorFish" system user row for the AI side so FKs/queries stay uniform.
+Design notes:
 
-## AI gameplay — client-side Web Worker
+- **PvP games survive restarts.** `games.current_fen`/`turn` and
+  `clock_w_ms`/`clock_b_ms` are written on every move; `moves` holds the full
+  record (`san`, `uci`, `fen_after`, server-measured `think_ms`, `premove`).
+  Position from `moves`, clocks from the row: that is all a room needs.
+- **The AI side is a real user.** A reserved `LorFish` account
+  (`config.AI_USERNAME`, `password_hash NULL` so it can never log in) owns the
+  AI side of games, so foreign keys and queries stay uniform.
+- **Chat is temporary.** Messages exist so two players can talk during a game
+  and arrange a rematch afterwards. `src/db/retention.js` sweeps them
+  `CHAT_RETENTION_DAYS` after the game ends (−1 keeps everything); only the
+  per-user tally survives, for the "Chatty" achievement.
 
-- `public/js/engineWorker.js`: `importScripts('/js/chess.js','/js/lorfish.js')`, receives `{fen, moves, depth}`, rebuilds `Chess` (loadFen + **replay moves** so `positionCounts`/threefold is correct, since `loadFen` resets it), calls `LorFish.getBestMove`, posts back `{from,to,promo}`.
-- Main thread's old `makeEngineMove` becomes async: post to worker → await reply → apply move. **This removes the `setTimeout` paint hack and the scanner sound entirely** (the freeze the hacks worked around no longer exists, so no scanner — sound or animation — is needed).
-- AI games are still persisted server-side (games/moves rows); client is authoritative for its own solo game in v1.
+## AI games: client-side Web Worker
 
-## Real-time multiplayer
+LorFish's search is synchronous and blocks whatever thread runs it. It runs in
+`public/js/engineWorker.js`, so the page never freezes. (The original UI hid the
+freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
+needed.) The worker `importScripts` the engine, receives
+`{ startFen, moves, depth }` and **replays the moves** instead of loading the
+current FEN, because `loadFen` and `reset` wipe `positionCounts` and threefold
+repetition would be wrong. The same worker streams per-ply evaluations for game
+review (`type: "review"`).
 
-Server holds authoritative state. `src/game/rooms.js`: `Map<gameId,{chess:Chess, players:{w,b}, sockets, timers}>`.
+The browser is authoritative for its own AI game. `public/js/gameStore.js`
+mirrors it to the server (`POST /api/games`, `/:id/moves`, `/:id/end`)
+best-effort and in order, so history, stats and achievements see it; nothing
+about play waits on the server. This is also why AI games from a pasted FEN
+earn no game-feat achievements (see below).
 
-- **Matchmaking** (`matchmaking.js`): `lobby:join`/`lobby:leave`/`lobby:list`. Quick-match FIFO queue → pair two waiters, randomize colors, create `games` row + room, emit `game:start {gameId,color,opponent}`, redirect both to `game.html?id=<gameId>`.
-- **Rooms:** Socket.IO room `game:<id>`. On `game:join`, validate participant, send `game:state {fen,moves,yourColor,turn,status}`.
-- **Authoritative `move:make {gameId,from,to,promo}`** (`socket.js`): (1) get room's server `Chess`; (2) **turn enforcement** — reject if `socket.userId`'s color ≠ `chess.turn`; (3) **legality** — match against `chess.legalMoves()`, reject if absent (never trust client); (4) `moveToSan` + `makeMove`; (5) persist move row + update `current_fen`/`turn`, set result/termination on game over; (6) broadcast `move:made {from,to,promo,san,fen,turn}`; (7) `game:over` if finished.
-- **Disconnect/reconnect:** on disconnect, start a 30–60s grace timer, broadcast `opponent:disconnected`; keep state in rooms+DB. Reconnect cancels timer, resends `game:state`. Timer fires → forfeit (`termination='disconnect'`), `game:over`, free room. On server boot, v1 marks orphaned `active` games as `aborted` (document this; full rehydrate-by-replay is a later enhancement).
+## Real-time PvP
 
-## Reusing the UI — the "move source" abstraction
+The server holds the authoritative state. `src/game/rooms.js` keeps one
+in-memory room per live PvP game: the server-side `Chess`, both players, their
+sockets, clocks and timers.
 
-The one real refactor. Introduce `public/js/moveSource.js` so the board talks to a source instead of calling LorFish/socket directly:
+- **Finding a game.** Two paths, both purely in-memory because an offer means
+  nothing once a socket closes. Quick-match (`matchmaking.js`) keeps FIFO
+  queues per time control and rated flag, so a bullet seeker is never handed a
+  classical game. The live lobby (`lobby.js`) has open **seeks** anyone may
+  take and **challenges** addressed to one user. Either path creates the
+  `games` row and the room and emits `game:start`; clients navigate to
+  `game.html?id=<gameId>`. Handicap positions arrive as a sparse map of changes
+  to the starting squares, never a FEN; the server rebuilds the position.
+- **`move:make`** (`handleMove` in `socket.js`): confirm the sender is a
+  player in an active room → **turn enforcement** → **legality** against the
+  server's own `findMove` (never trust the client) → charge the mover's clock,
+  and flag if it ran out → apply → persist move, position and clocks →
+  broadcast `move:made` to the room (mover included; everyone applies on
+  confirmation) → `game:over`, or re-arm the flag timer for the other side.
+- **Clocks and rating.** Clocks are server-side; clients render snapshots.
+  Elo (`elo.js`, K from `config.ELO_K`) moves after rated games, and every
+  update writes `rating_history`.
+- **Disconnects.** When a player's last socket drops, a forfeit timer starts
+  (`DISCONNECT_GRACE_MS`, default 45 s) and the opponent sees
+  `opponent:disconnected`. Rejoining cancels it and `game:join` hands back the
+  full state. Expiry forfeits (`termination = 'disconnect'`), or aborts if no
+  move was ever played.
+- **Restarts.** Nothing is thrown away at boot. A PvP game left `active` is
+  rebuilt from the DB the moment a participant connects (`loadRoomFromDb`).
+  `RESUME_WINDOW_MS` (default 10 min) after boot, a sweep aborts the games
+  nobody came back for (`termination = 'server-restart'`). AI games keep no
+  server state, so a restart never interrupted them.
+- **Spectating.** `game.html?watch=<id>` joins a live game read-only via
+  `game:watch`. Spectator chat reaches only other spectators; player chat
+  reaches only the opponent.
 
-- `AiMoveSource` — `onLocalMove` posts position to the Web Worker; reply → `applyRemoteMove`. (Replaces `makeEngineMove`.)
-- `RemoteMoveSource` (PvP) — `onLocalMove` emits `move:make`; listens for `move:made` → `applyRemoteMove`. `canHumanMoveNow` also checks it's my color/turn (server still enforces).
-- `LocalMoveSource` (optional hot-seat).
+## The board talks to a "move source"
 
-**`ui.js` edits (surgical):** replace direct `LorFish` use + the auto-engine `setTimeout` with `moveSource.onLocalMove(...)`; add `applyRemoteMove(move)` (= the apply branch of old `makeEngineMove`: `moveToSan`→`makeMove`→sound→render), reused by AI and Remote; gate `onSquareClick` via `moveSource.canHumanMoveNow(chess.turn)`; color fixed by server in PvP (existing `flip` handles Black). Disable undo/load-FEN in PvP. **PGN/captured/promotion/sound code reused unchanged.** `game.html` selects the source via `?mode=ai` vs `?id=<gameId>`.
+`public/js/ui.js` never calls LorFish or the socket directly. It talks to a
+**move source** (`public/js/moveSource.js`) with one interface:
+`{ kind, canHumanMoveNow(turn), submitMove(move), kickIfEngineTurn(), cancel() }`.
+Three implementations:
 
-## Build / run
+- `createAiMoveSource` — posts the position to the engine worker and applies
+  the reply.
+- `createRemoteMoveSource` — emits `move:make`, applies `move:made` from the
+  server. `canHumanMoveNow` also checks that it is your colour and no move is
+  awaiting confirmation (the server enforces regardless). Socket listeners are
+  registered once in `ui.js` and dispatched to the current source through
+  `onServerMove`, so a reconnect that rebuilds the source never stacks
+  duplicate handlers.
+- `createSpectatorMoveSource` — applies server moves; the human can never move.
 
-`package.json` scripts: `start: node src/server.js`, `dev: node --watch src/server.js`, `db:reset: node src/db/reset.js`. Use Node v24 `--watch` (no nodemon) and `--env-file=.env` (or `dotenv`). Deps: `express`, `socket.io`, `better-sqlite3`, `better-sqlite3-session-store`, `express-session`, `argon2`. No transpile/bundle.
-
-## Milestones (delivery order)
-
-1. **Skeleton + AI works.** package.json, Express serving `public/`, move tmp assets, UMD-wrap engine, AI in Web Worker behind `AiMoveSource`. Single-player works, no freeze, no login.
-2. **DB + Auth.** schema/db module, argon2, sessions, register/login/logout/me, login page, gated pages.
-3. **AI games persisted** per user (games/moves rows, reserved LorFish user).
-4. **Socket.IO infra** with shared-session authenticated handshake.
-5. **PvP core.** Matchmaking/lobby, rooms, `RemoteMoveSource`, authoritative `move:make` validation via server-side chess.js, broadcast, persistence, game-over.
-6. **Robustness.** Disconnect grace + reconnect `game:state` resend; resign/abort; boot cleanup of orphaned games.
-7. **Optional polish.** ELO updates, clocks/timeouts, spectators, live lobby.
+Every move that reaches the board — the engine's, the opponent's, the player's
+own once confirmed — goes through the single `env.applyMove` path, so sounds,
+captured pieces, PGN and premove consumption behave the same in every mode.
+Undo is disabled in PvP. `game.html` picks the source from the URL:
+`?watch=<id>` spectates, `?id=<id>` plays a PvP game, and no parameter starts
+(or resumes) an AI game.
 
 ## Trickiest parts
 
-- **Blocking engine** → must run in a Web Worker (the original hacks exist because it blocks).
-- **One engine, three runtimes** (browser global / worker `importScripts` / Node `require`) via the UMD wrapper + serving `src/shared` at `/js`.
-- **Authoritative validation + repetition state** — replay `moves` to rebuild `positionCounts` (since `loadFen` resets it).
-- **Decoupling the opponent** from the board via `MoveSource`.
-
-## Verification
-
-- **M1:** `npm run dev`, open `game.html?mode=ai`, play a full game vs AI — board never freezes, AI replies, checkmate/draw detected, PGN exports.
-- **M2:** register → logout → login; `/api/me` gates pages; bad password rejected; session persists across reload.
-- **M3:** AI game creates `games`/`moves` rows (inspect SQLite); moves recorded with correct SAN/FEN.
-- **M5:** two browser sessions (two users) quick-match, get opposite colors, moves relay in real time; **illegal/out-of-turn `move:make` rejected by server** (test via crafted socket emit); checkmate ends both clients with correct result; rows persisted.
-- **M6:** close one tab mid-game → opponent sees `opponent:disconnected`; reopen within grace → board restored via `game:state`; exceed grace → forfeit recorded.
+- **Blocking engine** → must run in a Web Worker; the old paint hacks existed only because it blocks.
+- **One engine, three runtimes** via the UMD tail + serving `src/shared` at `/js`.
+- **Authoritative validation + repetition state** — worker and server rebuild positions by replaying `moves`, because `loadFen` resets `positionCounts`.
+- **Decoupling the opponent** from the board via the move source.
+- **Surviving restarts** — position and clocks are persisted on every move, so a room can be rebuilt from the DB.
+- **Trusting nothing from the socket** — legality, turn, time, time control, variant, handicap and the premove flag are all decided or re-checked server-side.
 
 ## Achievements
 
