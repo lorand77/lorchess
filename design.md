@@ -186,6 +186,8 @@ sockets, clocks and timers.
   (`termination = 'corrupt-record'`) rather than left blocking its players.
 - **Restarts.** Nothing is thrown away at boot. A PvP game left `active` is
   rebuilt from the DB the moment a participant connects (`loadRoomFromDb`).
+  A join checks the stored participants before rebuilding anything, so a
+  rejected outsider cannot keep an unresumed game out of the restart sweep.
   A finished game never keeps a room: rejoining one (a reload on the result
   screen) answers with its final state and drops the rebuilt room at once,
   since nothing else ever drops a live room.

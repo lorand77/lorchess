@@ -346,7 +346,18 @@ function handleGameJoin(io, socket, payload, ack) {
   const gameId = Number(payload && payload.gameId);
   if (!gameId) return reply(ack, { ok: false, error: "Missing gameId." });
 
-  const room = rooms.getRoom(gameId) || rooms.loadRoomFromDb(gameId);
+  let room = rooms.getRoom(gameId);
+  if (!room) {
+    // Rebuilding registers live state and may abort a corrupt record. Only a
+    // participant may trigger those effects; rejected joins must not shelter
+    // an unresumed game from the restart sweep.
+    const game = queries.getGameById.get(gameId);
+    if (!game || game.mode !== "pvp") return reply(ack, { ok: false, error: "Game not found." });
+    if (game.white_id !== socket.userId && game.black_id !== socket.userId) {
+      return reply(ack, { ok: false, error: "You are not a player in this game." });
+    }
+    room = rooms.loadRoomFromDb(gameId);
+  }
   if (!room) {
     const g = queries.getGameById.get(gameId);
     const damaged = !!g && g.termination === "corrupt-record";

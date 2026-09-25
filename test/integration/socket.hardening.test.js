@@ -28,6 +28,32 @@ const idOf = (who) => who.user.id;
 const gameRow = (id) => db().prepare("SELECT * FROM games WHERE id = ?").get(id);
 const ratingOf = (who) => db().prepare("SELECT rating FROM users WHERE id = ?").get(idOf(who)).rating;
 
+for (const status of ["active", "finished"]) {
+  test(`an outsider cannot rehydrate a ${status} game after a restart`, async (t) => {
+    const a = await connectAs(alice);
+    const b = await connectAs(bob);
+    const c = await connectAs(carol);
+    t.after(() => { a.close(); b.close(); c.close(); });
+    const { gameId } = await quickMatch(a, b);
+    rooms.clearTimers(rooms.getRoom(gameId));
+    rooms.deleteRoom(gameId);
+    if (status === "finished") {
+      db().prepare("UPDATE games SET status = 'finished', result = '1-0' WHERE id = ?").run(gameId);
+    }
+    assert.deepEqual(await emitAck(c, "game:join", { gameId }), {
+      ok: false, error: "You are not a player in this game.",
+    });
+    assert.equal(rooms.getRoom(gameId), undefined);
+    assert.equal(gameRow(gameId).status, status);
+    if (status === "active") {
+      assert.equal(rooms.sweepUnresumed(), 1);
+      assert.equal(gameRow(gameId).termination, "server-restart");
+      assert.equal(rooms.liveGameOf(idOf(alice)), null);
+      assert.equal(rooms.liveGameOf(idOf(bob)), null);
+    }
+  });
+}
+
 // lobby:state is broadcast on many occasions; wait for the one that says `pred`.
 function waitForState(socket, pred, timeoutMs = 3000) {
   return new Promise((resolve, reject) => {
