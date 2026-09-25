@@ -209,6 +209,7 @@ const socket = connectSocket({
 
 function resetSearch() {
   searching = false;
+  awaitingQueue = false;
   quickBtn.textContent = "Quick Match";
   matchStatusEl.textContent = "";
 }
@@ -540,8 +541,10 @@ socket.on("game:start", (info) => {
 });
 
 // --- resuming an unfinished game ---
-// Fetched once on load and refreshed whenever the lobby state changes (a game
-// ending is broadcast), rather than on the old five-second timer.
+// Fetched on load, and again only when something that could change the answer
+// happens: my own "playing" flag flips, the set of live games changes, or the
+// tab comes back into view. Not on every broadcast — those arrive up to once a
+// second while any game is being played.
 
 async function checkActiveGame() {
   try {
@@ -587,7 +590,15 @@ async function checkActiveGame() {
   }
 }
 
-socket.on("lobby:state", checkActiveGame);
+let resumeKey = null;
+socket.on("lobby:state", (state) => {
+  const mine = (state.players || []).find((p) => p.userId === myId());
+  const key = (mine ? mine.playing : "?") + "|" + (state.games || []).map((g) => g.gameId).join(",");
+  if (key === resumeKey) return;
+  resumeKey = key;
+  checkActiveGame();
+});
+window.addEventListener("focus", checkActiveGame);
 
 // authGuard resolves window.currentUser asynchronously; wait for it so the
 // "you" marker and own-seek detection are right on the very first render.

@@ -20,7 +20,8 @@ is in `setup.md`. Read `design.md` before changing anything under `src/game/`,
 
 - `src/app.js` builds the app; `src/server.js` only listens. Tests boot
   `app.js` on a random port against a throwaway database, one per test file.
-- `src/<area>/routes.js` — Express routers mounted at `/api/<area>` in `app.js`.
+- `src/<area>/routes.js` — Express routers mounted at `/api/<area>` in `app.js`
+  (auth is mounted at `/api` itself; the leaderboard router is `src/game/leaderboard.js`).
   `src/game/socket.js` owns every Socket.IO event, `src/game/rooms.js` the
   in-memory PvP state.
 - `src/shared/` — engine and catalogues loaded by browser, Web Worker and Node
@@ -43,7 +44,8 @@ is in `setup.md`. Read `design.md` before changing anything under `src/game/`,
 
 - `schema.sql` only CREATEs. A new column on an existing table also needs an
   `addColumnIfMissing` line in `src/db/index.js`, or old databases never get it.
-- Test files must `require("../helpers/server")` before anything under `src/`;
+- Test files must `require("../helpers/server")` before anything that loads
+  `src/db/index.js` (pure modules such as `src/shared/*` are fine without it);
   the database path is fixed when `src/db/index.js` loads.
 - `src/shared/*.js` runs in three runtimes: keep the UMD tail at the bottom and
   use no Node-only or DOM-only APIs.

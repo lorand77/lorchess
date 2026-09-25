@@ -37,7 +37,9 @@ const AchievementToast = (function () {
     body.className = "ach-toast-body";
     const head = document.createElement("span");
     head.className = "ach-toast-head";
-    head.textContent = a.tierName && a.tier > 1 ? "Achievement upgraded" : "Achievement unlocked";
+    // "Upgraded" only when a lower tier was already held; a first award that
+    // lands straight at a higher tier is still an unlock.
+    head.textContent = a.upgraded ? "Achievement upgraded" : "Achievement unlocked";
     const name = document.createElement("span");
     name.className = "ach-toast-name";
     name.textContent = a.name + (a.tierName ? " · " + a.tierName : "");

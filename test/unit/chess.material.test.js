@@ -35,6 +35,15 @@ describe("mating material", () => {
     assert.equal(has("k7/8/8/8/8/8/8/K6N w - - 0 1", "w"), false, "a lone knight against a bare king still cannot");
   });
 
+  test("a queen, or a rook against a bishop, always takes or interposes: no mate, no material", () => {
+    // Exhaustively verified: no legal checkmate exists in these endings.
+    assert.equal(has("kq6/8/8/8/8/8/8/K6N w - - 0 1", "w"), false, "knight against a queen");
+    assert.equal(has("kq6/8/8/8/8/8/8/K6B w - - 0 1", "w"), false, "bishop against a queen");
+    assert.equal(has("kr6/8/8/8/8/8/8/K6B w - - 0 1", "w"), false, "bishop against a rook");
+    assert.equal(has("kr6/8/8/8/8/8/8/K6N w - - 0 1", "w"), true, "knight against a rook (mate exists)");
+    assert.equal(has("kqr5/8/8/8/8/8/8/K6N w - - 0 1", "w"), true, "knight against queen and rook (the rook can be mated against)");
+  });
+
   test("Atomic and Pawn Wars always have a way to win", () => {
     assert.equal(has("k7/8/8/8/8/8/8/K7 w - - 0 1", "w", "atomic"), true);
     assert.equal(has("pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1", "b", "pawnwars"), true);

@@ -22,6 +22,7 @@
 
   let players = new Map();            // userId -> presence entry
   let outgoingChallenges = new Map(); // userId -> pending game challenge
+  let incomingChallenges = [];        // challenges to me, answerable from here
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -62,6 +63,7 @@
   });
   socket.on("challenge:list", (list) => {
     outgoingChallenges = new Map(((list && list.outgoing) || []).map((c) => [c.to.userId, c]));
+    incomingChallenges = (list && list.incoming) || [];
     render();
   });
   socket.on("lobby:error", (info) => showError(info && info.error));
@@ -109,6 +111,26 @@
       box.appendChild(text);
       box.appendChild(button("Accept", "primary", () => act(Friends.accept(r.id))));
       box.appendChild(button("Decline", "", () => act(Friends.decline(r.id))));
+      reqsEl.appendChild(box);
+    }
+    // Game challenges addressed to me, so one that arrives while I sit on this
+    // tab can be answered here and not only from the lobby.
+    for (const c of incomingChallenges) {
+      const box = el("div", "challenge-box");
+      const text = el("span", "row-main");
+      const from = el("strong");
+      from.appendChild(playerLink(c.from.userId, c.from.username, { newTab: true, cls: "player-link" }));
+      text.appendChild(from);
+      if (c.from.member) text.appendChild(memberBadge());
+      text.appendChild(el("span", "rating", "(" + c.from.rating + ")"));
+      const tc = findTimeControl(c.tc);
+      const terms = [tc ? tc.label : c.tc, c.rated ? "rated" : "casual"];
+      if (c.variant && c.variant !== "standard") terms.push(c.variant);
+      if (c.handicap) terms.push("handicap: " + c.handicap);
+      text.appendChild(document.createTextNode(" challenges you · " + terms.join(" · ")));
+      box.appendChild(text);
+      box.appendChild(button("Accept", "primary", () => socket.emit("challenge:accept", { id: c.id })));
+      box.appendChild(button("Decline", "", () => socket.emit("challenge:decline", { id: c.id })));
       reqsEl.appendChild(box);
     }
 

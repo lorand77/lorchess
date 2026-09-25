@@ -81,6 +81,8 @@ Design notes:
   `clock_w_ms`/`clock_b_ms` are written on every move; `moves` holds the full
   record (`san`, `uci`, `fen_after`, server-measured `think_ms`, `premove`).
   Position from `moves`, clocks from the row: that is all a room needs.
+  `clock_started` records that both players once took their seats, so a
+  rebuilt room still knows that a player who never came cannot be forfeited.
 - **The AI side is a real user.** A reserved `LorFish` account
   (`config.AI_USERNAME`, `password_hash NULL` so it can never log in) owns the
   AI side of games, so foreign keys and queries stay uniform.
@@ -101,7 +103,7 @@ LorFish's search is synchronous and blocks whatever thread runs it. It runs in
 `public/js/engineWorker.js`, so the page never freezes. (The original UI hid the
 freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
 needed.) The worker `importScripts` the engine, receives
-`{ startFen, moves, depth }` and **replays the moves** instead of loading the
+`{ id, startFen, moves, depth }` and **replays the moves** instead of loading the
 current FEN, because `loadFen` and `reset` wipe `positionCounts` and threefold
 repetition would be wrong. The same worker streams per-ply evaluations for game
 review (`type: "review"`).
@@ -158,9 +160,11 @@ sockets, clocks and timers.
 - **Clocks and rating.** Clocks are server-side; clients render snapshots.
   A flag loses unless the other side could not have mated by any series of
   legal moves, even with the flagging side's help (FIDE 6.9 as Lichess reads
-  it, `Chess.hasMatingMaterial`: a bare king never; a lone knight, or bishops
-  all on one colour, only against a bare king or same-coloured bishops), in
-  which case it is a draw. Elo (`elo.js`, K from `config.ELO_K`)
+  it, `Chess.hasMatingMaterial`: a bare king never; a lone knight only if the
+  opponent still has a rook, bishop, knight or pawn; bishops all on one colour
+  only if the opponent has a knight, a pawn or a bishop on the other colour —
+  a queen, or a rook against a bishop, can always take or interpose), in which
+  case it is a draw. Elo (`elo.js`, K from `config.ELO_K`)
   moves after rated games, and every update writes `rating_history`.
 - **Disconnects.** When a player's last socket drops, a forfeit timer starts
   (`config.DISCONNECT_GRACE_MS`, env `GRACE_MS`, default 45 s) and the opponent

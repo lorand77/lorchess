@@ -17,6 +17,11 @@
       location.replace("/login.html");
       return;
     }
+    if (gamesRes.status === 404) {
+      content.textContent = "No such player.";
+      return;
+    }
+    if (!gamesRes.ok) throw new Error("HTTP " + gamesRes.status);
     games = await gamesRes.json();
   } catch (e) {
     content.textContent = "Failed to load games.";

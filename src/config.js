@@ -21,7 +21,7 @@ module.exports = {
   // Single-file SQLite database (created on first run).
   DB_PATH: process.env.DB_PATH || path.join(__dirname, "..", "data", "lorchess.sqlite"),
 
-  // Reserved system account that owns the AI side of games (M3+).
+  // Reserved system account that owns the AI side of games.
   AI_USERNAME: "LorFish",
 
   // Grace period a disconnected PvP player has to reconnect before forfeiting.

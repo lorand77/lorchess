@@ -753,17 +753,18 @@ class Chess {
   // Could this side still deliver checkmate by any series of legal moves, the
   // opponent cooperating (FIDE 6.9, as Lichess reads it)? A player who runs
   // out of time against a side that could not draws rather than loses. A pawn,
-  // rook or queen always can; two knights can with help; a lone knight can only
-  // if the opponent has a piece to be mated against; bishops all on one colour
-  // can only if the opponent has something other than a king and bishops on
-  // that same colour. Atomic and Pawn Wars win by other means (an explosion,
-  // the last pawn), so there the answer is always yes.
+  // rook or queen always can, and so can two knights. A lone knight needs the
+  // opponent to hold a rook, bishop, knight or pawn to be mated against — a
+  // queen always captures or interposes. Bishops all on one colour need a
+  // knight, a pawn or a bishop on the other colour — a rook or queen can
+  // always take or interpose, and same-coloured bishops never meet. Atomic and
+  // Pawn Wars win by other means (an explosion, the last pawn), so there the
+  // answer is always yes.
   hasMatingMaterial(c) {
     if (this.isAtomic || this.isPawnWars) return true;
     let knights = 0;
     const myBishops = new Set();
-    let theirPieces = 0;
-    let theirOther = 0;                 // anything of theirs that is not a bishop
+    const theirs = { p: 0, n: 0, b: 0, r: 0, q: 0 };
     const theirBishops = new Set();
     for (let i = 0; i < 64; i++) {
       const p = this.squares[i];
@@ -774,17 +775,18 @@ class Chess {
         if (p.t === 'n') knights++;
         else myBishops.add(colour);
       } else {
-        theirPieces++;
+        theirs[p.t]++;
         if (p.t === 'b') theirBishops.add(colour);
-        else theirOther++;
       }
     }
     if (knights >= 2) return true;
-    if (knights === 1) return myBishops.size >= 1 || theirPieces > 0;
+    if (knights === 1) {
+      return myBishops.size >= 1 || theirs.r + theirs.b + theirs.n + theirs.p > 0;
+    }
     if (myBishops.size === 0) return false;                 // a bare king
     if (myBishops.size >= 2) return true;                   // bishops of both colours
     const mine = [...myBishops][0];
-    return theirOther > 0 || [...theirBishops].some((col) => col !== mine);
+    return theirs.n > 0 || theirs.p > 0 || [...theirBishops].some((col) => col !== mine);
   }
 
   // Atomic ends the moment a king is destroyed, however that happened.

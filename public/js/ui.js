@@ -368,10 +368,10 @@ function planMoveAnimation(move) {
   if (reducedMotion) return;
   const pieces = [{ from: move.from, to: move.to }];
   if (move.castle) {
+    // The rook comes from wherever it stood — a corner in standard chess, any
+    // file on the home rank in Chess960 — and lands beside the king.
     const home = rankOf(move.from);
-    pieces.push(move.castle === 'K'
-      ? { from: sqIdx(7, home), to: sqIdx(5, home) }
-      : { from: sqIdx(0, home), to: sqIdx(3, home) });
+    pieces.push({ from: castlingRookFrom(move), to: sqIdx(move.castle === 'K' ? 5 : 3, home) });
   }
   const capSq = move.enpassant ? sqIdx(fileOf(move.to), rankOf(move.from)) : move.to;
   const capPiece = chess.squares[capSq];
@@ -391,12 +391,17 @@ function planUndoAnimation(moves) {
     pieces.push({ from: move.to, to: move.from });
     if (move.castle) {
       const home = rankOf(move.from);
-      pieces.push(move.castle === 'K'
-        ? { from: sqIdx(5, home), to: sqIdx(7, home) }
-        : { from: sqIdx(3, home), to: sqIdx(0, home) });
+      pieces.push({ from: sqIdx(move.castle === 'K' ? 5 : 3, home), to: castlingRookFrom(move) });
     }
   }
   moveAnim = { start: performance.now(), pieces, captured: null };
+}
+
+// Where the rook stood before a castling move: the engine records it on the
+// move; older records without it can only have been standard-chess corners.
+function castlingRookFrom(move) {
+  if (move.rookFrom != null) return move.rookFrom;
+  return sqIdx(move.castle === 'K' ? 7 : 0, rankOf(move.from));
 }
 
 // Called at the end of render(), once the board DOM reflects the new position.
@@ -523,7 +528,7 @@ function render() {
     turnEl.className = '';
   } else {
     let t = 'Turn: ' + (chess.turn === W ? 'White' : 'Black');
-    if (pvpMode) t += chess.turn === humanColor ? ' — your move' : ' — waiting…';
+    if (pvpMode && !spectating) t += chess.turn === humanColor ? ' — your move' : ' — waiting…';
     if (premove) t += ' · premove ' + algOf(premove.from) + algOf(premove.to);
     turnEl.textContent = t;
     turnEl.className = '';
@@ -641,7 +646,9 @@ function premoveTargets(sq) {
     case 'p': {
       const dir = piece.c === W ? 1 : -1;
       add(f, r + dir);
-      if (r === (piece.c === W ? 1 : 6)) add(f, r + 2 * dir);
+      // A double step from the starting rank — the outermost rank in Pawn Wars.
+      const startRank = chess.isPawnWars ? (piece.c === W ? 0 : 7) : (piece.c === W ? 1 : 6);
+      if (r === startRank) add(f, r + 2 * dir);
       add(f - 1, r + dir);
       add(f + 1, r + dir);
       break;
@@ -654,12 +661,22 @@ function premoveTargets(sq) {
     case 'q': for (const [df, dr] of diag.concat(ortho)) ray(df, dr); break;
     case 'k': {
       for (const [df, dr] of diag.concat(ortho)) add(f + df, r + dr);
+      // Castling, for whichever rights are still held and from wherever the
+      // king stands (Chess960): the king's destination, and the rook itself as
+      // a drop target, since findMove accepts either spelling.
       const home = piece.c === W ? 0 : 7;
-      if (f === 4 && r === home) { add(6, home); add(2, home); }
+      if (r === home) {
+        const rights = piece.c === W ? [['K', 6], ['Q', 2]] : [['k', 6], ['q', 2]];
+        for (const [right, kingFile] of rights) {
+          if (!chess.castling[right]) continue;
+          add(kingFile, home);
+          add(chess.castleRook[right], home);
+        }
+      }
       break;
     }
   }
-  return out;
+  return [...new Set(out)];
 }
 
 function selectSquare(sq) {
@@ -1307,8 +1324,21 @@ function initSpectate(gameId) {
   });
   socket.on('spectators', showSpectators);
   socket.on('friends:changed', () => renderFriendRow());
+  // A spectator can still earn something — "Chatty", say — by talking here.
+  socket.on('achievements:earned', (info) => {
+    if (info && typeof AchievementToast !== 'undefined') AchievementToast.show(info.list);
+  });
   // draw:offered / rematch:offered also reach this room; a spectator has
   // nothing to answer, so they are simply not listened for here.
+}
+
+// The Rematch button is disabled and relabelled while an offer is out; it
+// comes back when the offer is declined, or refused by the server.
+function resetRematchButton() {
+  const b = document.getElementById('rematchBtn');
+  if (!b) return;
+  b.disabled = false;
+  b.textContent = 'Rematch';
 }
 
 function initPvp(gameId) {
@@ -1413,13 +1443,14 @@ function initPvp(gameId) {
   });
   // The server turns down a rematch (or anything else asked from this page)
   // with a reason when the player is in another live game.
-  socket.on('lobby:error', (info) => pvpNotice((info && info.error) || 'Request refused.'));
+  socket.on('lobby:error', (info) => {
+    pvpNotice((info && info.error) || 'Request refused.');
+    hideOffer();
+    resetRematchButton(); // nothing was recorded, so they may try again later
+  });
   socket.on('rematch:declined', () => {
     hideOffer();
-    if (rematchBtn) {
-      rematchBtn.disabled = false;
-      rematchBtn.textContent = 'Rematch';
-    }
+    resetRematchButton();
     pvpNotice('Rematch declined.');
   });
   // Sent to both players once a rematch is agreed — jump into the new game.

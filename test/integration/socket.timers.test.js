@@ -158,6 +158,37 @@ describe("turning up", () => {
     a.close(); b.close();
   });
 
+  test("a restart does not turn a player who never turned up into a forfeit", async () => {
+    const a = await connectSocket(srv.baseUrl, alice.c.cookie());
+    const b = await connectSocket(srv.baseUrl, bob.c.cookie());
+    const { gameId, white } = await quickMatch(a, b, { tc: "10+0" });
+    await emitAck(white, "game:join", { gameId });
+    assert.equal((await emitAck(white, "move:make", { gameId, ...mv("e2", "e4") })).ok, true);
+    // A restart: the room is forgotten. White comes back; black still never does.
+    rooms().clearTimers(rooms().getRoom(gameId));
+    rooms().deleteRoom(gameId);
+    const over = waitFor(white, "game:over");
+    assert.equal((await emitAck(white, "game:join", { gameId })).ok, true);
+    const res = await over;
+    assert.equal(res.result, "*", "aborted, not a forfeit");
+    assert.equal(res.termination, "aborted");
+    a.close(); b.close();
+  });
+
+  test("after a restart, a player who had taken their seat and does not return forfeits", async () => {
+    const { gameId, white, black } = await joinedGame({ tc: "10+0" }); // both seated: the clock ran
+    await play(white, gameId, "a2", "a3");
+    rooms().clearTimers(rooms().getRoom(gameId));
+    rooms().deleteRoom(gameId);
+    black.close();
+    const over = waitFor(white, "game:over");
+    assert.equal((await emitAck(white, "game:join", { gameId })).ok, true);
+    const res = await over;
+    assert.equal(res.result, "1-0");
+    assert.equal(res.termination, "disconnect");
+    white.close();
+  });
+
   test("when only one player turns up, the game is aborted for them too", async () => {
     const a = await connectSocket(srv.baseUrl, alice.c.cookie());
     const b = await connectSocket(srv.baseUrl, bob.c.cookie());

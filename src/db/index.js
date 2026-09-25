@@ -27,7 +27,14 @@ try {
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_nocase ON users (username COLLATE NOCASE)"
   );
 } catch (err) {
-  console.warn("[db] users holds names differing only in case; the case-insensitive index was not created:", err.message);
+  const dupes = db
+    .prepare("SELECT username FROM users GROUP BY username COLLATE NOCASE HAVING COUNT(*) > 1")
+    .all()
+    .map((r) => r.username);
+  console.warn(
+    "[db] users holds names differing only in case, so the case-insensitive index was not created. " +
+    "Rename one of each pair: " + dupes.join(", ")
+  );
 }
 
 // --- migrations ---
@@ -63,6 +70,7 @@ addColumnIfMissing("users", "member_since", "TEXT");
 // Chess variants. Only the starting position differs, so existing games are
 // correctly labelled 'standard' by the default.
 addColumnIfMissing("games", "variant", "TEXT NOT NULL DEFAULT 'standard'");
+addColumnIfMissing("games", "clock_started", "INTEGER NOT NULL DEFAULT 0");
 // Look & feel preferences (board colours, background colour) as a JSON blob.
 addColumnIfMissing("users", "prefs", "TEXT");
 // Puzzle Elo (separate from the game rating) and the daily-puzzle streak.

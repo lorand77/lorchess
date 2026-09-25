@@ -131,6 +131,10 @@ module.exports = {
     WHERE id = ?
   `),
   // Clocks are written on every move so a restart can restore them. Kept
+  // Both players have taken their seats and the clock has run. Read back by
+  // loadRoomFromDb, so a game rebuilt after a restart still knows a no-show
+  // from a player who left.
+  markClockStarted: db.prepare("UPDATE games SET clock_started = 1 WHERE id = ?"),
   // separate from updateGamePosition because AI games are untimed.
   updateGameClocks: db.prepare(
     "UPDATE games SET clock_w_ms = ?, clock_b_ms = ? WHERE id = ?"
@@ -385,6 +389,9 @@ module.exports = {
   // --- achievements (see src/achievements/service.js) ---
   // Insert or raise the tier. The WHERE on the upsert makes a lower or equal
   // tier a no-op, so `changes` tells the caller whether anything was earned.
+  getUserAchievement: db.prepare(
+    "SELECT tier FROM user_achievements WHERE user_id = ? AND key = ?"
+  ),
   awardAchievement: db.prepare(`
     INSERT INTO user_achievements (user_id, key, tier, earned_at, game_id, puzzle_id)
     VALUES (@userId, @key, @tier, COALESCE(@at, datetime('now')), @gameId, @puzzleId)

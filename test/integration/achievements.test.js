@@ -214,6 +214,16 @@ describe("AI games", () => {
   });
 });
 
+describe("awarding", () => {
+  test("a first award is an unlock, a higher tier later an upgrade, and the same tier again is nothing", () => {
+    const me = makeUser("me");
+    assert.equal(achievements.award(me.id, "wins", 1).upgraded, false);
+    assert.equal(achievements.award(me.id, "wins", 2).upgraded, true);
+    assert.equal(achievements.award(me.id, "wins", 2), null);
+    assert.equal(achievements.award(me.id, "games_played", 3).upgraded, false, "landing at Gold first time is still an unlock");
+  });
+});
+
 describe("aggregate achievements", () => {
   test("wins in every time control, both colours, and the tiers", () => {
     const me = makeUser("me");

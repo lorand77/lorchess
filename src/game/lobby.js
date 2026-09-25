@@ -111,6 +111,13 @@ function dropOffersFor(io, userId) {
   for (const other of touched) pushChallenges(io, other);
 }
 
+// Elo moved: keep the cached rating in step, so the player list and any offer
+// made from now on carry the new number without waiting for a reconnect.
+function ratingChanged(userId, rating) {
+  const entry = presence.get(userId);
+  if (entry) entry.rating = rating;
+}
+
 // Any socket belonging to a user (they may have several tabs open).
 function socketFor(userId) {
   const entry = presence.get(userId);
@@ -490,7 +497,13 @@ function nudge(io) {
   nudgeTimer = setTimeout(() => {
     nudgeTimer = null;
     lastNudge = Date.now();
-    broadcastState(io);
+    // A timer, so outside the socket handlers' try/catch: same rule, log and
+    // carry on rather than take the process down over a preview.
+    try {
+      broadcastState(io);
+    } catch (err) {
+      console.error("[lobby] preview broadcast failed:", err);
+    }
   }, wait);
 }
 
@@ -519,4 +532,5 @@ module.exports = {
   refresh,
   nudge,
   notifyUser,
+  ratingChanged,
 };

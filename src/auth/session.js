@@ -1,7 +1,7 @@
 "use strict";
 
 // The session middleware, built once and exported so it can be shared between
-// Express and (in M4) the Socket.IO handshake — one auth mechanism for both.
+// Express and the Socket.IO handshake — one auth mechanism for both.
 
 const session = require("express-session");
 const SqliteStore = require("better-sqlite3-session-store")(session);

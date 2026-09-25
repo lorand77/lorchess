@@ -1,7 +1,8 @@
 "use strict";
 
-// Socket.IO infrastructure + authoritative PvP handlers + robustness (M6) +
-// clocks & Elo (M7).
+// Socket.IO infrastructure and the authoritative PvP handlers: joining,
+// moving, clocks and flags, draws, resignation, rematches, chat, spectating,
+// disconnects and Elo.
 //
 // The handshake reuses the SAME Express session (io.engine.use). The server
 // holds the authoritative Chess state AND the authoritative clocks per game
@@ -170,6 +171,10 @@ function startClocksIfReady(io, room) {
   if (room.started) return;
   if (!room.everJoined.w || !room.everJoined.b) return;
   room.started = true;
+  // Remembered on the games row too: after a restart it is the only record
+  // that both players ever took their seats (see onGraceExpired).
+  room.clockStarted = true;
+  queries.markClockStarted.run(room.gameId);
   room.turnStartedAt = Date.now();
   scheduleFlag(io, room);
   // The player who joined first got `running: false` in their join ack; tell
@@ -210,14 +215,19 @@ function concludeGame(io, room, result, termination) {
   // move while the game is still active, and a resignation should record the
   // time the resigning player had actually burned.
   const clocks = rooms.clockSnapshot(room);
+  // The database first, in one transaction, and only then the room: if the
+  // write fails (the timer wrapper logs it), the room stays live with whatever
+  // timers it had and a later trigger tries again, rather than a game that is
+  // over in memory but still active on disk.
+  const ratings = db.transaction(() => {
+    queries.updateGameClocks.run(clocks.w, clocks.b, room.gameId);
+    if (result === "*") queries.abortGame.run(termination, room.gameId);
+    else queries.finishGame.run(result, termination, room.gameId);
+    // Aborts have no result to rate, and a casual game moves nobody's Elo.
+    return result === "*" || !room.rated ? null : applyElo(room, result);
+  })();
   room.status = result === "*" ? "aborted" : "finished";
   rooms.clearTimers(room);
-  queries.updateGameClocks.run(clocks.w, clocks.b, room.gameId);
-  if (result === "*") queries.abortGame.run(termination, room.gameId);
-  else queries.finishGame.run(result, termination, room.gameId);
-
-  // Aborts have no result to rate, and a casual game moves nobody's Elo.
-  const ratings = result === "*" || !room.rated ? null : applyElo(room, result);
 
   io.to(`game:${room.gameId}`).emit("game:over", {
     result,
@@ -259,6 +269,8 @@ function applyElo(room, result) {
     queries.insertRatingHistory.run(w.id, room.gameId, w.rating, newWhite);
     queries.insertRatingHistory.run(b.id, room.gameId, b.rating, newBlack);
   })();
+  lobby.ratingChanged(w.id, newWhite);
+  lobby.ratingChanged(b.id, newBlack);
   return {
     w: { id: w.id, before: w.rating, after: newWhite, delta: newWhite - w.rating },
     b: { id: b.id, before: b.rating, after: newBlack, delta: newBlack - b.rating },
@@ -315,6 +327,7 @@ function handleGameJoin(io, socket, payload, ack) {
   if (!room) {
     const g = queries.getGameById.get(gameId);
     const damaged = !!g && g.termination === "corrupt-record";
+    if (damaged) lobby.refresh(io); // the "playing" badges must not linger
     return reply(ack, {
       ok: false,
       error: damaged ? "This game's record could not be replayed, so it was aborted." : "Game not found.",
@@ -781,10 +794,11 @@ function onGraceExpired(io, gameId, color) {
   if (room.online[color].size > 0) return; // reconnected just in time
 
   // Nothing to forfeit if no move was played — or if this player never took
-  // their seat in a fresh game: the other side may have moved while waiting,
-  // but a game one player never saw was not played. A room rebuilt after a
-  // restart is different: both players were there before.
-  const neverCame = !room.everJoined[color] && !room.rehydrated;
+  // their seat: the other side may have moved while waiting, but a game one
+  // player never saw was not played. A room rebuilt after a restart has nobody
+  // marked as joined, so there the games row answers instead: the clock only
+  // ever started once both had joined.
+  const neverCame = !room.everJoined[color] && !(room.rehydrated && room.clockStarted);
   if (room.sans.length === 0 || neverCame) concludeGame(io, room, "*", "aborted");
   else concludeGame(io, room, winResult(other(color)), "disconnect");
 }

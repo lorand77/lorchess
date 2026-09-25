@@ -37,6 +37,7 @@ function award(userId, key, tier, ref) {
   if (!def) throw new Error("Unknown achievement: " + key);
   const t = def.tiers ? Math.max(0, Math.min(Number(tier) || 0, def.tiers.length)) : (tier ? 1 : 0);
   if (t < 1) return null;
+  const before = queries.getUserAchievement.get(userId, key);
   const info = queries.awardAchievement.run({
     userId,
     key,
@@ -46,7 +47,8 @@ function award(userId, key, tier, ref) {
     puzzleId: (ref && ref.puzzleId) || null,
   });
   if (!info.changes) return null;
-  return view(def, t);
+  // `upgraded` tells the toast whether a lower tier was already held.
+  return { ...view(def, t), upgraded: !!before };
 }
 
 function view(def, tier) {

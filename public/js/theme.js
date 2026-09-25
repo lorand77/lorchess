@@ -49,6 +49,12 @@ window.Theme = (function () {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ }
   }
 
+  // Drop the cache, on logout: the next person at this browser gets the
+  // defaults, not the previous user's colours and background.
+  function forget() {
+    try { localStorage.removeItem(CACHE_KEY); } catch (e) { /* private mode */ }
+  }
+
   async function load() {
     const res = await fetch("/api/settings", { credentials: "same-origin" });
     if (!res.ok) throw new Error("settings " + res.status);
@@ -64,5 +70,5 @@ window.Theme = (function () {
   } catch (e) { /* no cache */ }
   load().catch(() => { /* not logged in or offline: defaults stay */ });
 
-  return { apply, load, pieceSrc, assetUrl, DEFAULTS, SCHEME_BG, get current() { return current; } };
+  return { apply, load, forget, pieceSrc, assetUrl, DEFAULTS, SCHEME_BG, get current() { return current; } };
 })();

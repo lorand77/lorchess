@@ -1,7 +1,7 @@
 "use strict";
 
 // Records the local AI game to the server. The browser stays authoritative for
-// gameplay (M1 design); this just mirrors each move into the DB for history.
+// gameplay; this just mirrors each move into the DB for history.
 //
 // Persistence is best-effort: network failures are logged, never block play.
 // Writes are serialized through a promise `chain` so moves land in order (so

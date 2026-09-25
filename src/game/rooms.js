@@ -70,6 +70,9 @@ function createRoom(
     handicap: usesStandardSetup(variant || "standard") ? handicapLabel(startFen) : null,
     turnStartedAt: null,
     started: false,
+    // Whether the clock has ever run, i.e. both players took their seats at
+    // some point. Kept on the games row as well, so it survives a restart.
+    clockStarted: false,
     everJoined: { w: false, b: false },
     flagTimer: null,
     // True when this room was rebuilt from the database rather than created
@@ -202,6 +205,7 @@ function loadRoomFromDb(gameId) {
     room.chess.makeMove(mv);
     room.sans.push(m.san);
   }
+  room.clockStarted = !!game.clock_started;
   room.status = game.status;
   room.result = game.result;
   room.termination = game.termination;

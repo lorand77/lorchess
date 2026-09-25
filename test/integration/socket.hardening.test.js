@@ -109,6 +109,41 @@ describe("a rematch", () => {
   });
 });
 
+describe("a rematch whose first offer went stale", () => {
+  test("is dropped for both players when the offerer has meanwhile sat down elsewhere", async () => {
+    const a = await connectAs(alice);
+    const b = await connectAs(bob);
+    const c = await connectAs(carol);
+    const { gameId, white, black } = await quickMatch(a, b, { tc: "10+0" });
+    await emitAck(white, "game:join", { gameId });
+    await emitAck(black, "game:join", { gameId });
+    assert.equal((await emitAck(white, "move:make", { gameId, ...mv("e2", "e4") })).ok, true);
+    const over = waitFor(white, "game:over");
+    black.emit("game:resign", { gameId });
+    await over;
+
+    // Alice offers first, while free; then she starts a game with Carol.
+    const offered = waitFor(b, "rematch:offered");
+    a.emit("rematch:offer", { gameId });
+    await offered;
+    const next = await quickMatch(a, c, { tc: "10+0" });
+    // Bob's answering offer would have paired them: instead both hear why not.
+    const toldA = waitFor(a, "lobby:error");
+    const toldB = waitFor(b, "lobby:error");
+    const quiet = expectNo(b, "game:start", 400);
+    b.emit("rematch:offer", { gameId });
+    assert.match((await toldA).error, /already in another game/);
+    assert.match((await toldB).error, /already in another game/);
+    assert.equal(await quiet, true);
+
+    await emitAck(next.white, "game:join", { gameId: next.gameId });
+    const aborted = waitFor(next.white, "game:over");
+    next.white.emit("game:resign", { gameId: next.gameId });
+    assert.equal((await aborted).result, "*");
+    a.close(); b.close(); c.close();
+  });
+});
+
 describe("a damaged record", () => {
   test("is aborted when it will not replay, instead of blocking its players", async () => {
     const a = await connectAs(alice);

@@ -9,8 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
--- games / moves are defined now (M2) so the schema is complete and stable, but
--- they aren't written to until AI-game persistence lands in M3.
+-- Every game, AI or PvP, with its full move record in `moves`.
 CREATE TABLE IF NOT EXISTS games (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   white_id    INTEGER REFERENCES users(id),
@@ -31,14 +30,17 @@ CREATE TABLE IF NOT EXISTS games (
   increment_ms INTEGER,
   -- Whether the result moves Elo. AI games are always unrated.
   rated        INTEGER NOT NULL DEFAULT 1,
-  -- 'standard' or a variant key ('chess960'). The rules are identical either
-  -- way; what differs is the starting position, which is in start_fen.
+  -- 'standard' or a variant key (see src/shared/variants.js). Chess960 only
+  -- changes the start position, which is in start_fen; Atomic and Pawn Wars
+  -- change the rules the engine plays by (Chess.setVariant).
   variant      TEXT NOT NULL DEFAULT 'standard',
   -- Remaining time per side, written on every move. This is what lets a game
   -- survive a server restart: the position comes from `moves`, the clocks from
   -- here. NULL means "never recorded", i.e. fall back to initial_ms.
   clock_w_ms   INTEGER,
   clock_b_ms   INTEGER,
+  -- 1 once both players have joined and the clock has run (see socket.js).
+  clock_started INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   finished_at TEXT
 );

@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LorChess — Puzzles</title>
 <link rel="stylesheet" href="/css/styles.css">
+<script>
+// Paint with the cached scheme before the first frame; theme.js takes over.
+try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light") document.documentElement.dataset.scheme = "light"; } catch (e) {}
+</script>
 </head>
 <body>
 <div class="game">

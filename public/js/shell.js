@@ -9,8 +9,8 @@
 // the top bar rather than making a second one, so authGuard still finds it by
 // id when its /api/me request comes back.
 //
-// Deliberately NOT used on game.html or replay.html: those are board views, and
-// they keep their own focused header.
+// game.html and replay.html load it too; styles.css narrows the shell around
+// the board there (body.has-shell .game).
 
 (function () {
   const ITEMS = [
@@ -78,6 +78,18 @@
     node.append(el("span", "rail-icon", item.icon), el("span", "rail-label", item.label));
     rail.appendChild(node);
   }
+  // Your own id in the URL is still your own profile. Who you are is only
+  // known once authGuard's request comes back, so the rail corrects itself then.
+  window.addEventListener("user:known", (e) => {
+    if (here !== "/profile.html" || !someoneElses) return;
+    if (new URLSearchParams(location.search).get("id") !== String(e.detail.id)) return;
+    const link = rail.querySelector('a.rail-item[href="/profile.html"]');
+    if (!link) return;
+    const current = el("span", "rail-item current");
+    current.setAttribute("aria-current", "page");
+    current.append(...link.childNodes);
+    link.replaceWith(current);
+  });
 
   const main = el("div", "app-main");
   for (const node of existing) main.appendChild(node);

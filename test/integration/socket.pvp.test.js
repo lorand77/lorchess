@@ -213,6 +213,12 @@ describe("a game", () => {
     assert.equal(game.result, "0-1");
     assert.equal(game.termination, "checkmate");
     assert.ok(game.finished_at);
+    // The lobby's player list carries the new rating straight away, without a reconnect.
+    const entered = waitFor(black, "lobby:state");
+    black.emit("lobby:enter");
+    const lobbyState = await entered;
+    assert.equal(lobbyState.players.find((p) => p.userId === ids.b).rating, 1216);
+    assert.equal(lobbyState.players.find((p) => p.userId === ids.w).rating, 1184);
     const rating = (id) => db().prepare("SELECT rating FROM users WHERE id = ?").get(id).rating;
     assert.equal(rating(ids.w), 1184);
     assert.equal(rating(ids.b), 1216);
