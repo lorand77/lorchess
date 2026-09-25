@@ -25,7 +25,8 @@ const rejoinEl      = document.getElementById("rejoin");
 let searching = false;   // in the quick-match queue
 let myseek = null;       // our own open seek, if any
 let handicapChanges = null; // start-square changes for material odds, or null
-let ratedBeforeHandicap = true; // restored when the handicap is cleared
+let ratedBeforeHandicap = true; // what "Rated" was before a handicap forced it off
+let handicapShown = false;      // whether the form currently reflects a handicap
 let friendIds = new Set();  // to star friends in the players list
 let lastState = { players: [], seeks: [], games: [] };
 let myChallenges = { incoming: [], outgoing: [] };
@@ -139,9 +140,17 @@ function renderHandicap() {
   handicapBtn.textContent = on ? "⚖ Edit handicap…" : "⚖ Handicap…";
   handicapSumEl.textContent = on ? describe(handicapChanges) + " — casual only" : "";
   handicapClear.style.display = on ? "" : "none";
+  // "Rated" is forced off while a handicap is set, and put back to what the
+  // player had when it is cleared — on those two transitions only. This also
+  // runs on every reconnect, and must not re-tick a box the player unticked.
   ratedCheck.disabled = on;
-  if (on) ratedCheck.checked = false;
-  else ratedCheck.checked = ratedBeforeHandicap;
+  if (on && !handicapShown) {
+    ratedBeforeHandicap = ratedCheck.checked;
+    ratedCheck.checked = false;
+  } else if (!on && handicapShown) {
+    ratedCheck.checked = ratedBeforeHandicap;
+  }
+  handicapShown = on;
 
   // Quick Match pairs you with a stranger sight unseen, so odds would be an
   // unpleasant surprise. Handicaps go out as offers instead, where whoever
@@ -157,7 +166,6 @@ function renderHandicap() {
 }
 
 handicapBtn.addEventListener("click", () => {
-  if (!handicapChanges) ratedBeforeHandicap = ratedCheck.checked;
   PositionEditor.open({
     squares: handicapChanges || {},
     onSave: (squares) => {

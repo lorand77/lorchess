@@ -188,3 +188,21 @@ describe("handicap", () => {
     });
   });
 });
+
+describe("handicap mirror", () => {
+  test("moves every change to the other side's square, keeping the type", () => {
+    assert.deepEqual(handicap.mirror({ [sq("d1")]: null }), { [sq("d8")]: null });
+    assert.deepEqual(
+      handicap.mirror({ [sq("b1")]: "r", [sq("g8")]: "q", [sq("f7")]: null }),
+      { [sq("b8")]: "r", [sq("g1")]: "q", [sq("f2")]: null }
+    );
+    for (const sample of SAMPLES) assert.deepEqual(handicap.mirror(handicap.mirror(sample)), sample);
+  });
+
+  test("the mirrored position gives the same odds from the other colour", () => {
+    const mirrored = handicap.mirror({ [sq("d1")]: null });
+    assert.equal(buildFen(mirrored), "rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    assert.equal(handicap.describe(mirrored), "Black −Q");
+    assert.deepEqual(diffFromFen(buildFen(mirrored)), mirrored);
+  });
+});

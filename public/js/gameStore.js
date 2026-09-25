@@ -6,11 +6,17 @@
 // Persistence is best-effort: network failures are logged, never block play.
 // Writes are serialized through a promise `chain` so moves land in order (so
 // games.current_fen ends up reflecting the latest move), and every write waits
-// on `ready` so move POSTs can't outrun the create-game POST.
+// on its game's `ready` so move POSTs can't outrun the create-game POST.
+//
+// Each write captures the game it belongs to when it is QUEUED, not when it
+// runs. Starting a new game right after the old one ended is the normal thing
+// to do, and the old game's final writes may still be in flight then; they must
+// land on the old game, never on the new one.
 
 function createGameStore() {
-  let gameId = null;
-  let ready = Promise.resolve();
+  // The game new writes go to: { id, ready }. Replaced wholesale by newGame()
+  // and resume(), so a queued write's reference keeps pointing at its own game.
+  let game = { id: null, ready: Promise.resolve() };
   let chain = Promise.resolve();
 
   async function post(path, body) {
@@ -24,15 +30,17 @@ function createGameStore() {
     return res.json().catch(() => ({}));
   }
 
-  // Run an action after the game exists, on the serialized write chain.
-  // Resolves with the action's result (the server's JSON reply), or undefined
-  // when the game isn't persisted or the write failed.
+  // Run an action for the current game once it exists, on the serialized write
+  // chain. `fn` receives the game id. Resolves with the action's result (the
+  // server's JSON reply), or undefined when the game isn't persisted or the
+  // write failed.
   function enqueue(fn) {
+    const target = game;
     chain = chain.then(async () => {
-      await ready;
-      if (!gameId) return undefined;
+      await target.ready;
+      if (!target.id) return undefined;
       try {
-        return await fn();
+        return await fn(target.id);
       } catch (err) {
         console.warn("gameStore:", err.message);
         return undefined;
@@ -44,48 +52,49 @@ function createGameStore() {
   return {
     // Create a new server-side game; resolves when the id is known.
     newGame({ humanColor, depth, startFen }) {
-      gameId = null;
-      ready = post("/api/games", {
+      const next = { id: null, ready: null };
+      next.ready = post("/api/games", {
         humanColor,
         depth,
         startFen: startFen || null,
       })
         .then((data) => {
-          gameId = data.gameId;
+          next.id = data.gameId;
         })
         .catch((err) => {
           console.warn("gameStore: game not persisted —", err.message);
-          gameId = null;
+          next.id = null;
         });
-      // Reset the write chain to wait on this new game.
-      chain = ready;
-      return ready;
+      game = next;
+      // Writes for this game queue behind its creation. Whatever the previous
+      // game still had queued carries on, against that game's own id.
+      chain = next.ready;
+      return next.ready;
     },
 
     // Attach to a game that already exists on the server, for resuming an
     // in-progress AI game. Unlike newGame() this creates nothing — it just
     // points subsequent writes at `id`.
     resume(id) {
-      gameId = id;
-      ready = Promise.resolve();
-      chain = ready;
-      return ready;
+      game = { id, ready: Promise.resolve() };
+      chain = game.ready;
+      return game.ready;
     },
 
     recordMove(move) {
-      return enqueue(() => post(`/api/games/${gameId}/moves`, move));
+      return enqueue((id) => post(`/api/games/${id}/moves`, move));
     },
 
     endGame(result, termination) {
-      return enqueue(() => post(`/api/games/${gameId}/end`, { result, termination }));
+      return enqueue((id) => post(`/api/games/${id}/end`, { result, termination }));
     },
 
     truncate(toPly, fen) {
-      return enqueue(() => post(`/api/games/${gameId}/truncate`, { toPly, fen }));
+      return enqueue((id) => post(`/api/games/${id}/truncate`, { toPly, fen }));
     },
 
     currentId() {
-      return gameId;
+      return game.id;
     },
   };
 }

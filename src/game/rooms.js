@@ -9,6 +9,7 @@ const queries = require("../db/queries");
 const config = require("../config");
 const { describeTimeControl } = require("../shared/timeControls");
 const handicap = require("../shared/handicap");
+const { usesStandardSetup } = require("../shared/variants");
 
 const STANDARD_START =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -65,9 +66,11 @@ function createRoom(
     // Unrated games skip the Elo update when they conclude.
     rated: rated == null ? true : !!rated,
     // "White −Q" style summary when the game started from a handicap position,
-    // recovered from start_fen so it survives a restart. null for a normal game.
+    // recovered from start_fen so it survives a restart. null for a normal
+    // game, and for variants that don't start from the standard setup: a
+    // shuffled Chess960 back rank is not a handicap, however it differs.
     variant: variant || "standard",
-    handicap: handicapLabel(startFen),
+    handicap: usesStandardSetup(variant || "standard") ? handicapLabel(startFen) : null,
     turnStartedAt: null,
     started: false,
     everJoined: { w: false, b: false },

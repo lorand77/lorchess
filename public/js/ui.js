@@ -83,9 +83,11 @@ const env = {
   getDepth,
   getPosition:   () => ({
     startFen,
+    // Castling is spelled by the rook square (see uciOf), which the worker's
+    // findMove resolves on any back rank.
     moves: chess.history.map(h => ({
       from: h.move.from,
-      to:   h.move.to,
+      to:   h.move.castle && h.move.rookFrom != null ? h.move.rookFrom : h.move.to,
       promo: h.move.promo || null,
     })),
   }),
@@ -119,6 +121,7 @@ function applyMove(rmove, record, opts) {
   const queued = chess.turn === humanColor ? premove : null;
   if (queued) premove = null;
   render();
+  syncUndoButton();
   if (record) recordApplied(san, move, !!(opts && opts.premove));
   if (queued) playPremove(queued);
 }
@@ -134,11 +137,20 @@ function playPremove(pm) {
   doHumanMove(move, { premove: true });
 }
 
+// The stored spelling of a move. Castling points at the rook, not the king's
+// destination: on a shuffled back rank the king may move one square (or none)
+// when castling, so only the rook square says which move it was. The server
+// and the engine worker spell it the same way, and findMove reads both.
+function uciOf(move) {
+  const to = move.castle && move.rookFrom != null ? move.rookFrom : move.to;
+  return algOf(move.from) + algOf(to) + (move.promo || '');
+}
+
 // Record the move just applied to `chess`, and finalize the game if it ended
 // (AI mode — client is authoritative and drives persistence).
 function recordApplied(san, move, premove) {
   const ply = chess.history.length;
-  const uci = algOf(move.from) + algOf(move.to) + (move.promo || '');
+  const uci = uciOf(move);
   const fenAfter = chess.fen();
   const byColor = opp(chess.turn);   // the mover = side that just moved (turn has flipped)
   gameStore.recordMove({ ply, san, uci, fenAfter, byColor, premove: !!premove });
@@ -782,7 +794,10 @@ function showPromotionDialog() {
 }
 
 function undo() {
-  if (thinking || pvpMode) return;   // no undo in authoritative PvP games
+  // No undo in authoritative PvP games, nor once an AI game is over: its
+  // result has been recorded (and achievements handed out), and the record
+  // must not be rewritten from the board. A new game starts afresh.
+  if (thinking || pvpMode || chess.isGameOver()) return;
   promotionPending = null;
   promoEl.classList.remove('show');
 
@@ -810,6 +825,11 @@ function undo() {
   premove = null;
   render();
   gameStore.truncate(chess.history.length, chess.fen());
+}
+
+// Undo is offered while an AI game is in play, and greyed out once it is over.
+function syncUndoButton() {
+  document.getElementById('undoBtn').disabled = pvpMode || chess.isGameOver();
 }
 
 function setLabels() {
@@ -843,6 +863,7 @@ function refreshGameState() {
   promoEl.classList.remove('show');
   thinking = false;
   render();
+  syncUndoButton();
   moveSource.kickIfEngineTurn();
 }
 
@@ -959,8 +980,9 @@ function resumeAiGame(game) {
     const from = sqFromAlg(m.uci.slice(0, 2));
     const to = sqFromAlg(m.uci.slice(2, 4));
     const promo = m.uci[4] || null;
-    const mv = chess.legalMoves().find(x =>
-      x.from === from && x.to === to && (promo ? x.promo === promo : !x.promo));
+    // findMove takes castling spelled either way: by the rook square (how
+    // moves are stored now) or by the king's destination (older AI games).
+    const mv = chess.findMove(from, to, promo);
     if (!mv) { replayed = false; break; }
     chess.makeMove(mv);
     moveHistory.push(m.san);
@@ -991,6 +1013,7 @@ function resumeAiGame(game) {
   promoEl.classList.remove('show');
   thinking = false;
   render();
+  syncUndoButton();
   // If we quit while the engine was on move, let it move now.
   moveSource.kickIfEngineTurn();
 }

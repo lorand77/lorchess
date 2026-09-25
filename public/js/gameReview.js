@@ -86,6 +86,9 @@ window.GameReview = (function () {
         // The effective depth this position was searched at. LorFish raises it
         // as pieces come off, so this climbs through the game.
         depth: before.depth || null,
+        // ...and the depth behind evalAfter, which formatScore needs to turn a
+        // mate score into a distance.
+        depthAfter: after && after.depth ? after.depth : null,
         accuracy: moveAccuracy(scoreBefore, scoreAfter),
       });
     }
@@ -157,13 +160,17 @@ window.GameReview = (function () {
   }
 
   // Pretty-print a centipawn score the way a chess player expects: "+1.24",
-  // "-0.30", or "M4" / "-M2" for mate.
-  function formatScore(cp, perspective) {
+  // "-0.30", or "M4" / "-M2" for mate, always from White's side. `perspective`
+  // is the side `cp` is expressed for. `depth` is the effective depth the
+  // score was searched at: LorFish scores a mate as 99999 plus the depth left
+  // beneath the mating move, so the plies to mate are the depth minus that
+  // remainder. Mates are counted in moves, as players count them.
+  function formatScore(cp, perspective, depth) {
     if (cp == null) return "—";
     const v = perspective === "b" ? -cp : cp;
     if (Math.abs(v) >= 99000) {
-      const mate = Math.max(1, Math.round((99999 - Math.abs(v)) / 2) || 1);
-      return (v > 0 ? "M" : "-M") + mate;
+      const plies = depth ? Math.max(1, depth - (Math.abs(v) - 99999)) : 0;
+      return (v > 0 ? "M" : "-M") + (plies ? Math.ceil(plies / 2) : "");
     }
     return (v > 0 ? "+" : v < 0 ? "-" : "") + (Math.abs(v) / 100).toFixed(2);
   }

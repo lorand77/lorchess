@@ -122,7 +122,9 @@ sockets, clocks and timers.
   accept nor quick-match, and the moment a match starts both players' other
   offers are withdrawn (`matchmaking.onMatchStarted`). Without that, a stale
   challenge accepted mid-game would drag its owner's page to the new game and
-  forfeit the one they were playing.
+  forfeit the one they were playing. A **rematch** swaps the colours and keeps
+  the terms: an odds game's handicap is mirrored (`handicap.mirror`) so the
+  same player keeps giving the odds, while Chess960 draws a fresh position.
 - **`move:make`** (`handleMove` in `socket.js`): confirm the sender is a
   player in an active room and has joined it (a socket that never sent
   `game:join` has no seat, so the clock would never start against it) →

@@ -61,7 +61,7 @@ async function init() {
   variant = game.variant || "standard";
   chess.setVariant(variant);
   startFen = game.start_fen || STANDARD_START;
-  uciList = game.moves.map((m) => m.uci);
+  uciList = normaliseUci(game.moves.map((m) => m.uci));
   sanList = game.moves.map((m) => m.san);
   // Orient from your side if you played it, else from the side of the player
   // whose profile you came from; otherwise White is at the bottom.
@@ -118,6 +118,26 @@ function findUci(uci) {
   const to = sqOf(uci.slice(2, 4));
   const promo = uci[4] || null;
   return chess.findMove(from, to, promo);
+}
+
+// Older AI games stored castling by the king's destination ("e1g1"); the
+// server and the engine spell it by the rook square ("e1h1"). Replay the game
+// once and re-spell each move, so the review can tell a castle that was the
+// engine's choice from one that wasn't. A move that fails to replay is kept as
+// it was, along with everything after it.
+function normaliseUci(list) {
+  const scratch = new Chess();
+  scratch.setVariant(variant);
+  scratch.loadFen(startFen);
+  const out = [];
+  for (const uci of list) {
+    const m = scratch.findMove(sqOf(uci.slice(0, 2)), sqOf(uci.slice(2, 4)), uci[4] || null);
+    if (!m) break;
+    const to = m.castle && m.rookFrom != null ? m.rookFrom : m.to;
+    out.push(algOf(m.from) + algOf(to) + (m.promo || ""));
+    scratch.makeMove(m);
+  }
+  return out.concat(list.slice(out.length));
 }
 
 function pieceImgSrc(p) {
@@ -427,7 +447,8 @@ function renderMoveVerdict() {
     return;
   }
   const mover = m.mover === "w" ? "White" : "Black";
-  const evalText = GameReview.formatScore(m.evalAfter, "w");
+  // evalAfter is from the mover's side; formatScore turns it to White's.
+  const evalText = GameReview.formatScore(m.evalAfter, m.mover, m.depthAfter);
   let html = `<span class="verdict v-${m.kind}">${escapeHtml(m.label)}</span> ` +
     `<span class="muted">${mover} · eval ${escapeHtml(evalText)}` +
     (m.depth ? ` · depth ${m.depth}` : "") + `</span>`;

@@ -17,6 +17,8 @@ const config = require("../config");
 const db = require("../db/index");
 const { elo } = require("./elo");
 const achievements = require("../achievements/service");
+const handicap = require("../shared/handicap");
+const { usesStandardSetup } = require("../shared/variants");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
 
@@ -649,9 +651,22 @@ function handleRematchOffer(io, socket, payload) {
       rated: !!game.rated,
       // A Chess960 rematch draws a new position rather than repeating the old.
       variant: game.variant || "standard",
+      // An odds game keeps its odds, mirrored to follow the colour swap.
+      startFen: rematchStartFen(game),
     });
   }
   socket.to(`game:${gameId}`).emit("rematch:offered", { username: socket.username });
+}
+
+// The start position for a rematch. Odds are given by a player, not by a
+// colour, so with the colours swapped the same terms mean the handicap mirrored
+// onto the other side. null for an ordinary game, and for variants that don't
+// start from the standard setup (Chess960 draws afresh).
+function rematchStartFen(game) {
+  if (!usesStandardSetup(game.variant || "standard")) return null;
+  const changes = handicap.diffFromFen(game.start_fen);
+  if (!changes || !Object.keys(changes).length) return null;
+  return handicap.buildFen(handicap.mirror(changes));
 }
 
 function handleRematchDecline(io, socket, payload) {

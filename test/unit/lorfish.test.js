@@ -137,6 +137,14 @@ describe("LorFish mates", () => {
     });
   }
 
+  test("a mate scores 99999 plus the depth left beneath the mating move", () => {
+    // The game review turns this back into a distance ("M1", "M2").
+    const one = LorFish.analyse(fromFen("6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1"), 1);
+    assert.equal(one.score, 99999 + one.depth - 1, "mate at ply 1");
+    const two = LorFish.analyse(fromFen("k7/8/2K5/8/8/8/8/6R1 w - - 0 1"), 1);
+    assert.equal(two.score, 99999 + two.depth - 3, "mate at ply 3");
+  });
+
   const MATE_IN_TWO = [
     ["rook: a quiet king move first", "k7/8/2K5/8/8/8/8/6R1 w - - 0 1", "Kb6"],
     ["queen: a quiet king move first", "7k/8/5K2/8/8/8/8/Q7 w - - 0 1", null],

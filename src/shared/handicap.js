@@ -151,6 +151,16 @@ function describe(squares) {
   return parts.join(' · ');
 }
 
+// The same terms for the other side: every change moved to the mirrored
+// square (same file, opposite rank). Colour comes from the square, so the type
+// carries over as it is. A rematch swaps colours, and the player who gave the
+// odds should still be the one giving them.
+function mirror(squares) {
+  const out = {};
+  for (const key of Object.keys(squares || {})) out[Number(key) ^ 56] = squares[key];
+  return out;
+}
+
 // Recover the change map from a stored start position. Returns null when the
 // FEN is not the standard setup with the starting squares rearranged — a
 // Chess960 start, for instance, or any mid-game position.
@@ -192,6 +202,6 @@ if (typeof module !== 'undefined' && module.exports) {
     START_PIECES, PLACEABLE, PIECE_NAMES, WHITE_KING_SQ, BLACK_KING_SQ,
     isStartSquare, isKingSquare, isEditable, isWhiteSquare, isBackRank,
     algOfSq, isWhitePiece, pieceFor,
-    validateSquares, buildFen, describe, diffFromFen,
+    validateSquares, buildFen, describe, diffFromFen, mirror,
   };
 }
