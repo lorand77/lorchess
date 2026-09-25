@@ -252,7 +252,7 @@ and create a cron job to run the backup script daily
 - Set environment variables (Service → Variables)
 ```
 DB_PATH=/data/lorchess.sqlite
-SESSION_SECRET=61aed5dc3364eb1ac591befc7acf6edf4b717e637d9b7ea863b2fb40fe909fe3
+SESSION_SECRET=61aed5dc... (generate a new one)
 NODE_ENV=production
 ```
 
