@@ -39,6 +39,21 @@ async function newGame(body) {
 }
 
 describe("creating games", () => {
+  test("terminal start positions cannot create active AI records", async () => {
+    const before = (await me.get("/api/games")).body;
+    for (const startFen of [
+      "7k/8/8/8/8/8/8/K7 w - - 0 1",
+      "7k/6Q1/5K2/8/8/8/8/8 b - - 0 1",
+      "7k/5K2/6Q1/8/8/8/8/8 b - - 0 1",
+      "7k/7p/8/8/8/8/P7/K7 w - - 100 51",
+    ]) {
+      const res = await me.post("/api/games", { humanColor: "w", startFen });
+      assert.equal(res.status, 400, startFen);
+      assert.match(res.body.error, /already over/);
+    }
+    assert.deepEqual((await me.get("/api/games")).body, before);
+  });
+
   test("a custom start position must be one the rules accept", async () => {
     for (const bad of [
       "not a fen",

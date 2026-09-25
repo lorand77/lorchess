@@ -989,6 +989,9 @@ fenLoadBtn.addEventListener('click', async () => {
   if (!fen) { fenError.textContent = 'Paste a FEN string first.'; return; }
   const unfinished = !chess.isGameOver(); // of the game being left, not the new position
   try {
+    const candidate = new Chess();
+    candidate.loadFen(fen);
+    if (candidate.isGameOver()) throw new Error('That position is already over. Load an unfinished position.');
     chess.loadFen(fen);
   } catch (e) {
     fenError.textContent = e.message;

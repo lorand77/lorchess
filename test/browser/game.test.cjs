@@ -182,3 +182,35 @@ test("premoves resolve rook-target castling and queen promotion through legal mo
     else assert.deepEqual(result.submitted, { castle: spec.castle || null, promo: spec.promo || null, premove: true });
   }
 });
+
+test("loading a terminal FEN preserves the current game and creates no record", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/game.html");
+  const id = await ready(page);
+  await page.locator('#board [data-sq="12"]').click();
+  await page.locator('#board [data-sq="28"]').click();
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking);
+  await page.waitForLoadState("networkidle");
+  const before = await page.evaluate(() => ({ fen: chess.fen(), pgn: moveHistory.slice(), url: location.href }));
+  const count = db().prepare("SELECT COUNT(*) AS n FROM games").get().n;
+  for (const fen of [
+    "7k/8/8/8/8/8/8/K7 w - - 0 1",
+    "7k/6Q1/5K2/8/8/8/8/8 b - - 0 1",
+    "7k/5K2/6Q1/8/8/8/8/8 b - - 0 1",
+    "7k/7p/8/8/8/8/P7/K7 w - - 100 51",
+  ]) {
+    await page.locator("#loadFenBtn").click();
+    await page.locator("#fenText").fill(fen);
+    await page.locator("#fenLoadBtn").click();
+    assert.match(await page.locator("#fenError").innerText(), /already over/);
+    await page.locator("#fenCancelBtn").click();
+    assert.equal(await page.evaluate(() => gameStore.currentId()), id);
+    assert.deepEqual(await page.evaluate(() => ({ fen: chess.fen(), pgn: moveHistory.slice(), url: location.href })), before);
+  }
+  assert.equal(db().prepare("SELECT COUNT(*) AS n FROM games").get().n, count);
+  assert.equal(db().prepare("SELECT status FROM games WHERE id = ?").get(id).status, "active");
+  await page.locator("#resetBtn").click();
+  await page.waitForFunction(old => gameStore.currentId() && gameStore.currentId() !== old, id);
+  await page.waitForLoadState("networkidle");
+  assert.equal(db().prepare("SELECT status FROM games WHERE id = ?").get(id).status, "aborted");
+});

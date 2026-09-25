@@ -64,7 +64,11 @@ router.post("/", (req, res) => {
   // replays the game (review, achievements, history) runs it through loadFen.
   if (fen !== STANDARD_START) {
     try {
-      new Chess().loadFen(fen);
+      const position = new Chess();
+      position.loadFen(fen);
+      if (position.isGameOver()) {
+        return res.status(400).json({ error: "The start position is already over. Choose an unfinished position." });
+      }
     } catch (err) {
       return res.status(400).json({ error: `Invalid start position: ${err.message}` });
     }

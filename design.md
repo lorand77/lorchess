@@ -149,6 +149,9 @@ AI depth is fixed per game. Changing the depth selector starts a new game and
 abandons the previous one, just like changing colour; the controls explain
 this. Worker requests use the game's captured depth, which is also saved for
 resume and strength-dependent achievements.
+Load FEN validates a scratch board before changing the current game. Already
+finished positions (mate, stalemate or a rule draw) are rejected in both the UI
+and creation API, so they cannot leave an unplayable game marked active.
 
 ## Real-time PvP
 
