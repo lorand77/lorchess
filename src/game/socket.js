@@ -45,6 +45,15 @@ const audienceOf = (role) => (role === "s" ? "spectators" : "players");
 const rematches = new Map();
 const winResult = (winnerColor) => (winnerColor === "w" ? "1-0" : "0-1");
 
+// One move's writes as a single transaction: the move row, the position and
+// the clocks (so the game survives a restart). All or nothing, so a failure can
+// be rolled back in memory without a half-recorded move left behind.
+const persistMove = db.transaction((gameId, ply, san, uci, fen, turn, userId, thinkMs, premove, clock) => {
+  queries.insertMoveTimed.run(gameId, ply, san, uci, fen, userId, thinkMs, premove ? 1 : 0);
+  queries.updateGamePosition.run(fen, turn, gameId);
+  queries.updateGameClocks.run(clock.w, clock.b, gameId);
+});
+
 function attachSockets(httpServer) {
   const io = new Server(httpServer);
 
@@ -78,32 +87,47 @@ function attachSockets(httpServer) {
     socket.join(matchmaking.userRoom(socket.userId));
     lobby.connected(io, socket);
 
+    // Socket.IO runs listeners with no try/catch of its own, so an exception
+    // in a handler (better-sqlite3 raises synchronously) would take the whole
+    // process down, and every live game with it. Log it, fail the caller's
+    // acknowledgement if there is one, and carry on.
+    const on = (event, handler) => {
+      socket.on(event, (payload, ack) => {
+        try {
+          handler(payload, ack);
+        } catch (err) {
+          console.error(`[socket] ${event} from ${socket.username} (#${socket.userId}) failed:`, err);
+          reply(ack, { ok: false, error: "Server error." });
+        }
+      });
+    };
+
     // Quick-match queue.
-    socket.on("lobby:join", (payload) => matchmaking.join(io, socket, payload));
-    socket.on("lobby:leave", () => matchmaking.leave(socket));
+    on("lobby:join", (payload) => matchmaking.join(io, socket, payload));
+    on("lobby:leave", () => matchmaking.leave(socket));
 
     // Live lobby: presence, open seeks, direct challenges.
-    socket.on("lobby:enter", () => lobby.enter(io, socket));
-    socket.on("lobby:exit", () => lobby.exit(io, socket));
-    socket.on("seek:create", (p) => lobby.createSeek(io, socket, p));
-    socket.on("seek:cancel", (p) => lobby.cancelSeek(io, socket, p));
-    socket.on("seek:accept", (p) => lobby.acceptSeek(io, socket, p));
-    socket.on("challenge:create", (p) => lobby.createChallenge(io, socket, p));
-    socket.on("challenge:accept", (p) => lobby.acceptChallenge(io, socket, p));
-    socket.on("challenge:decline", (p) => lobby.declineChallenge(io, socket, p));
-    socket.on("challenge:cancel", (p) => lobby.cancelChallenge(io, socket, p));
+    on("lobby:enter", () => lobby.enter(io, socket));
+    on("lobby:exit", () => lobby.exit(io, socket));
+    on("seek:create", (p) => lobby.createSeek(io, socket, p));
+    on("seek:cancel", (p) => lobby.cancelSeek(io, socket, p));
+    on("seek:accept", (p) => lobby.acceptSeek(io, socket, p));
+    on("challenge:create", (p) => lobby.createChallenge(io, socket, p));
+    on("challenge:accept", (p) => lobby.acceptChallenge(io, socket, p));
+    on("challenge:decline", (p) => lobby.declineChallenge(io, socket, p));
+    on("challenge:cancel", (p) => lobby.cancelChallenge(io, socket, p));
 
-    socket.on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
-    socket.on("game:watch", (payload, ack) => handleWatch(io, socket, payload, ack));
-    socket.on("chat:send", (payload, ack) => handleChat(io, socket, payload, ack));
-    socket.on("move:make", (payload, ack) => handleMove(io, socket, payload, ack));
-    socket.on("game:resign", (payload) => handleResign(io, socket, payload));
-    socket.on("draw:offer", (payload) => handleDrawOffer(io, socket, payload));
-    socket.on("draw:respond", (payload) => handleDrawRespond(io, socket, payload));
-    socket.on("rematch:offer", (payload) => handleRematchOffer(io, socket, payload));
-    socket.on("rematch:decline", (payload) => handleRematchDecline(io, socket, payload));
+    on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
+    on("game:watch", (payload, ack) => handleWatch(io, socket, payload, ack));
+    on("chat:send", (payload, ack) => handleChat(io, socket, payload, ack));
+    on("move:make", (payload, ack) => handleMove(io, socket, payload, ack));
+    on("game:resign", (payload) => handleResign(io, socket, payload));
+    on("draw:offer", (payload) => handleDrawOffer(io, socket, payload));
+    on("draw:respond", (payload) => handleDrawRespond(io, socket, payload));
+    on("rematch:offer", (payload) => handleRematchOffer(io, socket, payload));
+    on("rematch:decline", (payload) => handleRematchDecline(io, socket, payload));
 
-    socket.on("disconnect", (reason) => handleDisconnect(io, socket, reason));
+    on("disconnect", (reason) => handleDisconnect(io, socket, reason));
   });
 
   return io;
@@ -457,6 +481,7 @@ function handleMove(io, socket, payload, ack) {
 
   // (3b) Clock: charge the mover for their think time; flag if they're out.
   let thinkMs = null;
+  const clockBefore = { ms: room.clock[color], turnStartedAt: room.turnStartedAt };
   if (room.started) {
     const now = Date.now();
     thinkMs = now - room.turnStartedAt;
@@ -485,10 +510,18 @@ function handleMove(io, socket, payload, ack) {
   // really did arrive on the heels of the opponent's, so a crafted payload
   // can't claim a premove it had time to think about.
   const premove = !!(payload && payload.premove) && (thinkMs == null || thinkMs < PREMOVE_MAX_MS);
-  queries.insertMoveTimed.run(gameId, ply, san, uci, fen, socket.userId, thinkMs, premove ? 1 : 0);
-  queries.updateGamePosition.run(fen, turn, gameId);
-  // Clocks go to the database too, so this game survives a restart.
-  queries.updateGameClocks.run(room.clock.w, room.clock.b, gameId);
+  try {
+    persistMove(gameId, ply, san, uci, fen, turn, socket.userId, thinkMs, premove, room.clock);
+  } catch (err) {
+    // The database refused the move, so the room must not have it either: put
+    // the board and the clock back exactly as they were, then let the
+    // connection handler log the failure and fail the acknowledgement.
+    room.chess.undoMove();
+    room.sans.pop();
+    room.clock[color] = clockBefore.ms;
+    room.turnStartedAt = clockBefore.turnStartedAt;
+    throw err;
+  }
 
   // An outstanding draw offer lapses as soon as a move is played.
   if (room.drawOffer) {

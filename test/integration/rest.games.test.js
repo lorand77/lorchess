@@ -8,6 +8,7 @@ const assert = require("node:assert/strict");
 const { startServer, registerUser } = require("../helpers/server");
 const { Chess } = require("../../src/shared/chess");
 const { moveOf } = require("../helpers/board");
+const { makeUser, recordGame } = require("../helpers/games");
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -151,6 +152,37 @@ describe("recording and finishing a game", () => {
     assert.match(late.body.error, /not active/);
   });
 
+  test("a finished game cannot be ended again or truncated", async () => {
+    const { gameId } = await newGame({ humanColor: "w" });
+    for (const p of FOOLS_MATE) await me.post(`/api/games/${gameId}/moves`, p);
+    assert.equal((await me.post(`/api/games/${gameId}/end`, { result: "0-1", termination: "checkmate" })).status, 200);
+    const again = await me.post(`/api/games/${gameId}/end`, { result: "1-0" });
+    assert.equal(again.status, 409);
+    const cut = await me.post(`/api/games/${gameId}/truncate`, { toPly: 0, fen: START_FEN });
+    assert.equal(cut.status, 409);
+    const g = (await me.get(`/api/games/${gameId}`)).body;
+    assert.equal(g.result, "0-1");
+    assert.equal(g.termination, "checkmate");
+    assert.equal(g.moves.length, 4);
+  });
+
+  test("only the rules engine's own terminations are recorded", async () => {
+    const { gameId } = await newGame({ humanColor: "w" });
+    for (const bad of ["<img src=x onerror=alert(1)>", "resign", "timeout", 42]) {
+      const res = await me.post(`/api/games/${gameId}/end`, { result: "1-0", termination: bad });
+      assert.equal(res.status, 400, String(bad));
+      assert.match(res.body.error, /Invalid termination/);
+    }
+    assert.equal((await me.get(`/api/games/${gameId}`)).body.status, "active", "nothing was recorded");
+    for (const [value, stored] of [["", null], [null, null]]) {
+      const { gameId: id } = await newGame({ humanColor: "w" });
+      assert.equal((await me.post(`/api/games/${id}/end`, { result: "1-0", termination: value })).status, 200);
+      assert.equal((await me.get(`/api/games/${id}`)).body.termination, stored);
+    }
+    assert.equal((await me.post(`/api/games/${gameId}/end`, { result: "1-0", termination: "fifty-move" })).status, 200);
+    assert.equal((await me.get(`/api/games/${gameId}`)).body.termination, "fifty-move");
+  });
+
   test("truncate drops later moves and resets the position", async () => {
     const { gameId } = await newGame({ humanColor: "w" });
     for (const p of FOOLS_MATE) await me.post(`/api/games/${gameId}/moves`, p);
@@ -176,6 +208,27 @@ describe("ownership", () => {
     assert.equal((await other.post(`/api/games/${gameId}/truncate`, { toPly: 0, fen: START_FEN })).status, 403);
     assert.equal((await other.get("/api/games")).body.some((g) => g.id === gameId), false);
     assert.equal((await me.get(`/api/games/${gameId}`)).body.moves.length, 0, "nothing got through");
+  });
+
+  test("a PvP game cannot be edited through this API, even by its players", async () => {
+    // A live PvP game with me as white, written straight into the database.
+    const opp = makeUser("opp");
+    const live = recordGame({ white: user.id, black: opp.id, moves: ["e2e4"] });
+    const next = { ...FOOLS_MATE[1], ply: 2 };
+    assert.equal((await me.post(`/api/games/${live}/moves`, next)).status, 403);
+    assert.equal((await me.post(`/api/games/${live}/end`, { result: "1-0" })).status, 403);
+    assert.equal((await me.post(`/api/games/${live}/truncate`, { toPly: 0, fen: START_FEN })).status, 403);
+    const g = (await me.get(`/api/games/${live}`)).body;
+    assert.equal(g.status, "active");
+    assert.equal(g.moves.length, 1);
+
+    // Nor can a finished rated loss be rewritten into a win.
+    const lost = recordGame({
+      white: user.id, black: opp.id, moves: ["f2f3", "e7e5", "g2g4", "d8h4"],
+      result: "0-1", termination: "checkmate",
+    });
+    assert.equal((await me.post(`/api/games/${lost}/end`, { result: "1-0" })).status, 403);
+    assert.equal((await me.get(`/api/games/${lost}`)).body.result, "0-1");
   });
 
   test("a game that does not exist is a 404", async () => {

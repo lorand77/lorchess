@@ -1,9 +1,10 @@
 "use strict";
 
-// REST persistence for AI games. In v1 the browser is authoritative for its own
-// solo game (it runs the rules and the engine), so the server simply records
-// what the client reports — there's no move validation here. Authoritative
-// server-side validation arrives with PvP over sockets (M5).
+// REST persistence for AI games. The browser is authoritative for its own solo
+// game (it runs the rules and the engine), so the server simply records what
+// the client reports — there's no move validation here. That trust is why the
+// write routes accept AI games only: a PvP game is validated and recorded by
+// the socket handlers, and its record must not be editable from here.
 
 const express = require("express");
 const queries = require("../db/queries");
@@ -20,13 +21,18 @@ const AI_ID = queries.getUserByUsername.get(config.AI_USERNAME).id;
 const STANDARD_START =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const VALID_RESULTS = new Set(["1-0", "0-1", "1/2-1/2"]);
+// The ways the client's rules engine can end a game (terminationReason in
+// ui.js). Anything else is refused: the value is stored and later shown in the
+// game history, so it must never be free text.
+const VALID_TERMINATIONS = new Set(["checkmate", "stalemate", "insufficient", "threefold", "fifty-move"]);
 
 const turnOf = (fen) => (String(fen).split(/\s+/)[1] === "b" ? "b" : "w");
 
 router.use(requireAuth);
 
-// Load a game and ensure the session user is a (human) participant.
-function loadOwnedGame(req, res) {
+// Load a game for one of the write routes below: the session user must be a
+// participant, and the game an AI game. PvP games belong to the socket layer.
+function loadOwnAiGame(req, res) {
   const game = queries.getGameById.get(Number(req.params.id));
   if (!game) {
     res.status(404).json({ error: "No such game." });
@@ -35,6 +41,10 @@ function loadOwnedGame(req, res) {
   const uid = req.session.userId;
   if (game.white_id !== uid && game.black_id !== uid) {
     res.status(403).json({ error: "Not your game." });
+    return null;
+  }
+  if (game.mode !== "ai") {
+    res.status(403).json({ error: "PvP games are played over the socket." });
     return null;
   }
   return game;
@@ -104,7 +114,7 @@ router.get("/:id", (req, res) => {
 
 // POST /api/games/:id/moves — append one move and advance the position.
 router.post("/:id/moves", (req, res) => {
-  const game = loadOwnedGame(req, res);
+  const game = loadOwnAiGame(req, res);
   if (!game) return;
   if (game.status !== "active") {
     return res.status(409).json({ error: "Game is not active." });
@@ -138,13 +148,20 @@ router.post("/:id/moves", (req, res) => {
 
 // POST /api/games/:id/end — finalize a finished game.
 router.post("/:id/end", (req, res) => {
-  const game = loadOwnedGame(req, res);
+  const game = loadOwnAiGame(req, res);
   if (!game) return;
-  const { result, termination } = req.body || {};
+  if (game.status !== "active") {
+    return res.status(409).json({ error: "Game is not active." });
+  }
+  const { result } = req.body || {};
+  const termination = (req.body && req.body.termination) || null;
   if (!VALID_RESULTS.has(result)) {
     return res.status(400).json({ error: "Invalid result." });
   }
-  queries.finishGame.run(result, termination || null, game.id);
+  if (termination !== null && !VALID_TERMINATIONS.has(termination)) {
+    return res.status(400).json({ error: "Invalid termination." });
+  }
+  queries.finishGame.run(result, termination, game.id);
   const earned = achievements.onGameFinished(game.id);
   res.json({ ok: true, achievements: earned[req.session.userId] || [] });
 });
@@ -152,8 +169,11 @@ router.post("/:id/end", (req, res) => {
 // POST /api/games/:id/truncate — undo support: drop moves after `toPly` and
 // reset the stored position to the (client-reported) current one.
 router.post("/:id/truncate", (req, res) => {
-  const game = loadOwnedGame(req, res);
+  const game = loadOwnAiGame(req, res);
   if (!game) return;
+  if (game.status !== "active") {
+    return res.status(409).json({ error: "Game is not active." });
+  }
   const { toPly, fen } = req.body || {};
   if (!Number.isInteger(toPly) || toPly < 0 || typeof fen !== "string") {
     return res.status(400).json({ error: "Invalid truncate payload." });

@@ -74,7 +74,7 @@
     if (g.status === "aborted") return { text: "Aborted", cls: "out-draw" };
     if (g.result === "1/2-1/2") return { text: "Draw", cls: "out-draw" };
     const won = (g.result === "1-0" && asWhite) || (g.result === "0-1" && !asWhite);
-    const term = g.termination ? ` (${g.termination})` : "";
+    const term = g.termination ? ` (${escapeHtml(g.termination)})` : "";
     return { text: (won ? "Win" : "Loss") + term, cls: won ? "out-win" : "out-loss" };
   }
 

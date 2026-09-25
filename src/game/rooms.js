@@ -180,7 +180,15 @@ function loadRoomFromDb(gameId) {
     const to = sqFromAlg(m.uci.slice(2, 4));
     const promo = m.uci[4] || null;
     const mv = room.chess.findMove(from, to, promo);
-    if (mv) room.chess.makeMove(mv);
+    if (!mv) {
+      // A stored move the rules refuse cannot be skipped: the room would sit a
+      // ply behind its own record and the next move would collide with the
+      // stored one. Refuse to rebuild rather than resume a broken game.
+      console.error(`[rooms] game #${gameId}: stored move ${m.uci} at ply ${m.ply} is illegal in ${room.chess.fen()}`);
+      deleteRoom(gameId);
+      return null;
+    }
+    room.chess.makeMove(mv);
     room.sans.push(m.san);
   }
   room.status = game.status;

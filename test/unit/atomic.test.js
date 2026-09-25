@@ -90,6 +90,40 @@ describe("Atomic", () => {
     assert.equal(fromFen(fen).isCheckmate(), false, "under standard rules the king just takes the queen");
   });
 
+  test("castling out of check is illegal", () => {
+    const chess = atomic("4r2k/8/8/8/8/8/8/4K2R w K - 0 1");
+    assert.equal(chess.inCheck(), true);
+    assert.equal(moveOf(chess, "e1g1"), null);
+    assert.equal(moveOf(chess, "e1h1"), null, "nor spelled as king-takes-rook");
+    // Rxh8 blows up the king, which answers the check by ending the game.
+    assert.deepEqual(chess.legalMoves().map(uci).sort(), ["e1d1", "e1d2", "e1f1", "e1f2", "h1h8"]);
+  });
+
+  test("castling through an attacked square is illegal", () => {
+    const chess = atomic("5r1k/8/8/8/8/8/8/4K2R w K - 0 1");
+    assert.equal(chess.inCheck(), false);
+    assert.equal(moveOf(chess, "e1g1"), null, "f1 is covered by the rook");
+    assert.ok(moveOf(chess, "e1d1"), "the king may still step away");
+    assert.ok(moveOf(atomic("7k/8/8/8/8/8/8/4K2R w K - 0 1"), "e1g1"), "with a clear path it castles");
+  });
+
+  test("connected kings are never in check", () => {
+    // Ra8 aims at a1, but Kb2 touches it, so a1 cannot be taken.
+    const chess = atomic("r7/8/8/8/8/8/1k5P/K7 w - - 0 1");
+    assert.equal(chess.inCheck(), false);
+    assert.deepEqual(chess.legalMoves().map(uci).sort(), ["a1a2", "a1b1", "h2h3", "h2h4"]);
+    assert.equal(fromFen("r7/8/8/8/8/8/1k5P/K7 w - - 0 1").inCheck(), true, "under standard rules it is check");
+  });
+
+  test("a king may step next to the enemy king onto an attacked square, and there is no mate while they touch", () => {
+    const chess = atomic("r7/8/8/8/8/8/1k6/K6r w - - 0 1");
+    assert.equal(chess.isCheckmate(), false);
+    assert.equal(chess.isGameOver(), false);
+    assert.equal(chess.result(), "*");
+    // a2 is covered by Ra8 and b1 by Rh1; both stay adjacent to Kb2, so both are safe.
+    assert.deepEqual(chess.legalMoves().map(uci).sort(), ["a1a2", "a1b1"]);
+  });
+
   test("make and undo stay consistent through a search with explosions", () => {
     const fen = "7k/8/3pqr2/4n3/5P2/8/1B6/K7 w - - 0 1";
     const chess = atomic(fen);

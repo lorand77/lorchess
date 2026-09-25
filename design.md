@@ -94,10 +94,14 @@ repetition would be wrong. The same worker streams per-ply evaluations for game
 review (`type: "review"`).
 
 The browser is authoritative for its own AI game. `public/js/gameStore.js`
-mirrors it to the server (`POST /api/games`, `/:id/moves`, `/:id/end`)
-best-effort and in order, so history, stats and achievements see it; nothing
-about play waits on the server. This is also why AI games from a pasted FEN
-earn no game-feat achievements (see below).
+mirrors it to the server (`POST /api/games`, `/:id/moves`, `/:id/end`,
+`/:id/truncate` for undo) best-effort and in order, so history, stats and
+achievements see it; nothing about play waits on the server. This is also why
+AI games from a pasted FEN earn no game-feat achievements (see below). Because
+those routes take the client's word, they accept **active AI games only**: a
+PvP record is written by the socket layer alone, and a finished game of either
+kind is closed to them. The `termination` they store is an allowlist, since it
+is shown in the game history.
 
 ## Real-time PvP
 
@@ -116,9 +120,14 @@ sockets, clocks and timers.
 - **`move:make`** (`handleMove` in `socket.js`): confirm the sender is a
   player in an active room → **turn enforcement** → **legality** against the
   server's own `findMove` (never trust the client) → charge the mover's clock,
-  and flag if it ran out → apply → persist move, position and clocks →
-  broadcast `move:made` to the room (mover included; everyone applies on
-  confirmation) → `game:over`, or re-arm the flag timer for the other side.
+  and flag if it ran out → apply → persist move, position and clocks in one
+  transaction → broadcast `move:made` to the room (mover included; everyone
+  applies on confirmation) → `game:over`, or re-arm the flag timer for the
+  other side. If the write fails, the room is rolled back to the position and
+  clock it had and the mover's ack fails. Every socket handler runs under a
+  try/catch for the same reason: Socket.IO has none of its own, and
+  better-sqlite3 throws synchronously, so an unguarded error would take the
+  process, and every live game, down with it.
 - **Clocks and rating.** Clocks are server-side; clients render snapshots.
   Elo (`elo.js`, K from `config.ELO_K`) moves after rated games, and every
   update writes `rating_history`.

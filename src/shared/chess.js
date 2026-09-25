@@ -472,11 +472,37 @@ class Chess {
     return -1;
   }
 
+  // Atomic: kings on adjacent squares are "connected". Neither can be captured
+  // (the blast would take the capturer's own king too), so no piece gives
+  // check while they touch, whatever else is aimed at them.
+  kingsConnected() {
+    if (!this.isAtomic) return false;
+    const wk = this.findKing(W), bk = this.findKing(B);
+    if (wk === -1 || bk === -1) return false;
+    return Math.abs(fileOf(wk) - fileOf(bk)) <= 1 && Math.abs(rankOf(wk) - rankOf(bk)) <= 1;
+  }
+
   inCheck(c) {
     if (c === undefined) c = this.turn;
     const king = this.findKing(c);
     if (king === -1) return false;
+    if (this.kingsConnected()) return false;
     return this.isAttacked(king, opp(c), this.isAtomic);
+  }
+
+  // Castling may not start from check or pass through an attacked square; the
+  // landing square is covered by the ordinary make/undo test. The king's walk
+  // can be any length, or none, in Chess960, so every square from where it
+  // stands to where it lands is checked.
+  castlingCrossesCheck(m, c) {
+    if (this.inCheck(c)) return true;
+    const home = rankOf(m.from);
+    const lo = Math.min(fileOf(m.from), fileOf(m.to));
+    const hi = Math.max(fileOf(m.from), fileOf(m.to));
+    for (let ff = lo; ff <= hi; ff++) {
+      if (this.isAttacked(sqIdx(ff, home), opp(c), this.isAtomic)) return true;
+    }
+    return false;
   }
 
   legalMoves(forColor) {
@@ -493,6 +519,9 @@ class Chess {
       for (const m of this.pseudoMovesFrom(sq, c)) {
         // Pawn Wars has no king to expose, so every pseudo-legal move is legal.
         if (this.isPawnWars) { moves.push(m); continue; }
+        // No castling out of check or through check, in any variant. Into
+        // check is caught by the make/undo test below.
+        if (m.castle && this.castlingCrossesCheck(m, c)) continue;
         if (this.isAtomic) {
           // A king that captured would blow itself up, so it never may.
           if (p.t === 'k' && (m.capture || m.enpassant)) continue;
@@ -501,25 +530,14 @@ class Chess {
           const theirs = this.findKing(opp(c));
           // Blowing up your own king is never legal, even to take theirs.
           // Taking theirs and keeping yours wins on the spot — check is moot.
+          // With the kings connected nothing can take ours, so a square next
+          // to theirs is safe however many pieces are aimed at it.
           const legal =
-            mine !== -1 && (theirs === -1 || !this.isAttacked(mine, opp(c), true));
+            mine !== -1 &&
+            (theirs === -1 || this.kingsConnected() || !this.isAttacked(mine, opp(c), true));
           this.undoMove();
           if (legal) moves.push(m);
           continue;
-        }
-        if (m.castle) {
-          // Can't castle out of check, through check, or into check. The king's
-          // walk can be any length (or zero) in Chess960, so check every square
-          // from where it stands to where it lands.
-          if (this.inCheck(c)) continue;
-          const home = rankOf(m.from);
-          const lo = Math.min(fileOf(m.from), fileOf(m.to));
-          const hi = Math.max(fileOf(m.from), fileOf(m.to));
-          let crossesCheck = false;
-          for (let ff = lo; ff <= hi; ff++) {
-            if (this.isAttacked(sqIdx(ff, home), opp(c))) { crossesCheck = true; break; }
-          }
-          if (crossesCheck) continue;
         }
         // Validation make/undo — skip repetition tracking for performance.
         this.makeMove(m, false);
