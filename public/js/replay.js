@@ -447,7 +447,7 @@ function renderMoveVerdict() {
   }
   const mover = m.mover === "w" ? "White" : "Black";
   // evalAfter is from the mover's side; formatScore turns it to White's.
-  const evalText = GameReview.formatScore(m.evalAfter, m.mover, m.depthAfter);
+  const evalText = GameReview.formatScore(m.evalAfter, m.mover);
   let html = `<span class="verdict v-${m.kind}">${escapeHtml(m.label)}</span> ` +
     `<span class="muted">${mover} · eval ${escapeHtml(evalText)}` +
     (m.depth ? ` · depth ${m.depth}` : "") + `</span>`;

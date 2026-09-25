@@ -147,12 +147,31 @@ describe("LorFish mates", () => {
     });
   }
 
-  test("a mate scores 99999 plus the depth left beneath the mating move", () => {
+  test("a mate scores 100000 minus the plies to it, wherever the search found it", () => {
     // The game review turns this back into a distance ("M1", "M2").
     const one = LorFish.analyse(fromFen("6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1"), 1);
-    assert.equal(one.score, 99999 + one.depth - 1, "mate at ply 1");
+    assert.equal(one.score, LorFish.MATE - 1, "mate at ply 1");
     const two = LorFish.analyse(fromFen("k7/8/2K5/8/8/8/8/6R1 w - - 0 1"), 1);
-    assert.equal(two.score, 99999 + two.depth - 3, "mate at ply 3");
+    assert.equal(two.score, LorFish.MATE - 3, "mate at ply 3");
+    // Found inside the quiescence search at depth 1: Qe8+ Qf8 Qxf8#.
+    const deep = LorFish.analyse(fromFen("7k/p5pp/2r2q2/2p4Q/8/8/P5PP/3r1R1K w - - 0 30"), 1);
+    assert.equal(deep.score, LorFish.MATE - 3, "still three plies, not the depth it was found at");
+  });
+
+  test("analyse spells a castling move with its rook square", () => {
+    const verdict = LorFish.analyse(fromFen("8/8/3B4/8/8/2N2k1P/8/2B1K2R w K - 0 1"), 1);
+    assert.equal(verdict.san, "O-O#");
+    assert.equal(verdict.move.castle, "K");
+    assert.equal(verdict.move.rookFrom, sq("h1"));
+    assert.equal(verdict.score, LorFish.MATE - 1);
+  });
+
+  test("the search depth is clamped to a sane range", () => {
+    assert.equal(LorFish.clampDepth(Infinity), LorFish.MAX_DEPTH);
+    assert.equal(LorFish.clampDepth("1e9"), LorFish.MAX_DEPTH);
+    assert.equal(LorFish.clampDepth(0), 1);
+    assert.equal(LorFish.clampDepth("2"), 2);
+    assert.equal(LorFish.clampDepth(2.7), 2);
   });
 
   const MATE_IN_TWO = [

@@ -143,6 +143,21 @@ describe("turning up", () => {
     a.close(); b.close();
   });
 
+  test("a player who never turned up cannot lose to moves made while waiting", async () => {
+    const a = await connectSocket(srv.baseUrl, alice.c.cookie());
+    const b = await connectSocket(srv.baseUrl, bob.c.cookie());
+    const { gameId, white } = await quickMatch(a, b, { tc: "10+0" });
+    await emitAck(white, "game:join", { gameId });
+    const over = waitFor(white, "game:over");
+    assert.equal((await emitAck(white, "move:make", { gameId, ...mv("e2", "e4") })).ok, true);
+    const res = await over;
+    assert.equal(res.result, "*", "aborted, not a forfeit");
+    assert.equal(res.termination, "aborted");
+    assert.equal(res.ratings, null);
+    assert.equal(gameRow(gameId).status, "aborted");
+    a.close(); b.close();
+  });
+
   test("when only one player turns up, the game is aborted for them too", async () => {
     const a = await connectSocket(srv.baseUrl, alice.c.cookie());
     const b = await connectSocket(srv.baseUrl, bob.c.cookie());

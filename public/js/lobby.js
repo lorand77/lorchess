@@ -23,6 +23,7 @@ const incomingEl    = document.getElementById("incoming");
 const rejoinEl      = document.getElementById("rejoin");
 
 let searching = false;   // in the quick-match queue
+let awaitingQueue = false; // lobby:join sent, no lobby:waiting back yet
 let myseek = null;       // our own open seek, if any
 let handicapChanges = null; // start-square changes for material odds, or null
 let ratedBeforeHandicap = true; // what "Rated" was before a handicap forced it off
@@ -221,11 +222,13 @@ quickBtn.addEventListener("click", () => {
   const offer = currentOffer();
   socket.emit("lobby:join", { tc: offer.tc, rated: offer.rated, variant: offer.variant });
   searching = true;
+  awaitingQueue = true;
   quickBtn.textContent = "Cancel";
   matchStatusEl.textContent = "searching for an opponent…";
 });
 
 socket.on("lobby:waiting", (info) => {
+  awaitingQueue = false;
   matchStatusEl.textContent =
     "waiting for a " + tcLabel(info && info.tc) + " opponent…";
 });
@@ -262,7 +265,14 @@ socket.on("challenge:declined", (info) => {
   showError(((info && info.username) || "They") + " declined your challenge.");
 });
 
-socket.on("lobby:error", (info) => showError(info && info.error));
+socket.on("lobby:error", (info) => {
+  showError(info && info.error);
+  // A refused lobby:join never entered the queue: nothing to keep searching for.
+  if (awaitingQueue) {
+    awaitingQueue = false;
+    resetSearch();
+  }
+});
 
 // The friends list lives on the profile's Friends tab now. All this page needs is who they
 // are, so it can star them in Players online.

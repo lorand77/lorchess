@@ -26,6 +26,15 @@ describe("mating material", () => {
     assert.equal(has("k7/8/8/8/8/8/8/K5NB w - - 0 1", "w"), true, "knight and bishop");
   });
 
+  test("a lone knight or one-coloured bishops can mate once the opponent has a piece to be mated against", () => {
+    assert.equal(has("kn6/1B6/1K6/8/8/8/8/8 b - - 0 1", "w"), true, "bishop against a knight (Bb7#)");
+    assert.equal(has("kn6/2N5/1K6/8/8/8/8/8 b - - 0 1", "w"), true, "knight against a knight (Nc7#)");
+    assert.equal(has("kb6/1B6/1K6/8/8/8/8/8 b - - 0 1", "w"), true, "bishops of opposite colours (Bb7#)");
+    assert.equal(has("8/8/8/8/8/6N1/5K1p/7k b - - 0 1", "w"), true, "knight against a pawn (Ng3#)");
+    assert.equal(has("k7/8/8/8/8/8/8/K2B1b2 w - - 0 1", "w"), false, "bishops on the same colour cannot help each other");
+    assert.equal(has("k7/8/8/8/8/8/8/K6N w - - 0 1", "w"), false, "a lone knight against a bare king still cannot");
+  });
+
   test("Atomic and Pawn Wars always have a way to win", () => {
     assert.equal(has("k7/8/8/8/8/8/8/K7 w - - 0 1", "w", "atomic"), true);
     assert.equal(has("pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1", "b", "pawnwars"), true);

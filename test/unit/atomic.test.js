@@ -107,6 +107,16 @@ describe("Atomic", () => {
     assert.ok(moveOf(atomic("7k/8/8/8/8/8/8/4K2R w K - 0 1"), "e1g1"), "with a clear path it castles");
   });
 
+  test("castling is judged by the same connected-kings rule", () => {
+    // Ra8 aims at e1, but Kd2 touches it: not check, so castling is on.
+    const touching = atomic("4r3/8/8/8/8/8/3k4/4K2R w K - 0 1");
+    assert.equal(touching.inCheck(), false);
+    assert.ok(touching.legalMoves().some((m) => m.castle), "O-O is offered");
+    // Castling onto a square beside the enemy king is as safe as stepping there.
+    const beside = atomic("8/8/8/8/3b4/8/6k1/5K1R w K - 0 1");
+    assert.ok(beside.legalMoves().some((m) => m.castle), "f1-g1 castling is offered although Bd4 covers g1");
+  });
+
   test("connected kings are never in check", () => {
     // Ra8 aims at a1, but Kb2 touches it, so a1 cannot be taken.
     const chess = atomic("r7/8/8/8/8/8/1k5P/K7 w - - 0 1");

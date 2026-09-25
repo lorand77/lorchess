@@ -191,9 +191,12 @@ function loadRoomFromDb(gameId) {
     if (!mv) {
       // A stored move the rules refuse cannot be skipped: the room would sit a
       // ply behind its own record and the next move would collide with the
-      // stored one. Refuse to rebuild rather than resume a broken game.
+      // stored one. Refuse to rebuild — and abort the game, since left 'active'
+      // it would hold both players to a game nobody can enter (one game at a
+      // time) until the next restart's sweep.
       console.error(`[rooms] game #${gameId}: stored move ${m.uci} at ply ${m.ply} is illegal in ${room.chess.fen()}`);
       deleteRoom(gameId);
+      if (game.status === "active") queries.abortGame.run("corrupt-record", gameId);
       return null;
     }
     room.chess.makeMove(mv);

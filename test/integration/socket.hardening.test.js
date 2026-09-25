@@ -58,10 +58,85 @@ describe("moving", () => {
     await emitAck(white, "game:join", { gameId });
     await emitAck(black, "game:join", { gameId });
     assert.equal((await emitAck(white, "move:make", { gameId, ...mv("e2", "e4") })).ok, true);
+
+    // A seated player's move is good from any of their sockets: a client that
+    // reconnects flushes a buffered move before its connect handler re-joins.
+    const again = await connectAs(black === a ? alice : bob);
+    const relayed = waitFor(white, "move:made");
+    assert.equal((await emitAck(again, "move:make", { gameId, ...mv("e7", "e5") })).ok, true);
+    assert.equal((await relayed).san, "e5");
+    again.close();
+
     // Tidy up so alice and bob are free for the next group.
     const over = waitFor(white, "game:over");
     black.emit("game:resign", { gameId });
     await over;
+    a.close(); b.close();
+  });
+});
+
+describe("a rematch", () => {
+  test("is refused while either player is in another game", async () => {
+    const a = await connectAs(alice);
+    const b = await connectAs(bob);
+    const c = await connectAs(carol);
+    const { gameId, white, black } = await quickMatch(a, b, { tc: "10+0" });
+    await emitAck(white, "game:join", { gameId });
+    await emitAck(black, "game:join", { gameId });
+    assert.equal((await emitAck(white, "move:make", { gameId, ...mv("e2", "e4") })).ok, true);
+    const over = waitFor(white, "game:over");
+    black.emit("game:resign", { gameId });
+    await over;
+
+    // Bob offers a rematch; Alice meanwhile starts a game with Carol.
+    const offered = waitFor(a, "rematch:offered");
+    b.emit("rematch:offer", { gameId });
+    await offered;
+    const next = await quickMatch(a, c, { tc: "10+0" });
+    const refused = waitFor(a, "lobby:error");
+    const quiet = expectNo(b, "game:start", 400);
+    a.emit("rematch:offer", { gameId });
+    assert.match((await refused).error, /current game/);
+    assert.equal(await quiet, true, "no rematch started");
+    assert.equal(rooms.liveGameOf(idOf(alice)), next.gameId, "Alice is still in her game with Carol");
+
+    // Tidy up: nobody has moved in the new game, so resigning aborts it.
+    await emitAck(next.white, "game:join", { gameId: next.gameId });
+    const aborted = waitFor(next.white, "game:over");
+    next.white.emit("game:resign", { gameId: next.gameId });
+    assert.equal((await aborted).result, "*");
+    a.close(); b.close(); c.close();
+  });
+});
+
+describe("a damaged record", () => {
+  test("is aborted when it will not replay, instead of blocking its players", async () => {
+    const a = await connectAs(alice);
+    const b = await connectAs(bob);
+    const { gameId, white, black } = await quickMatch(a, b, { tc: "10+0" });
+    await emitAck(white, "game:join", { gameId });
+    await emitAck(black, "game:join", { gameId });
+    assert.equal((await emitAck(white, "move:make", { gameId, ...mv("e2", "e4") })).ok, true);
+
+    // Corrupt the stored move and forget the room, as a restart would.
+    db().prepare("UPDATE moves SET uci = 'a1a1' WHERE game_id = ?").run(gameId);
+    rooms.clearTimers(rooms.getRoom(gameId));
+    rooms.deleteRoom(gameId);
+
+    const realError = console.error;
+    console.error = () => {};
+    let joined;
+    try {
+      joined = await emitAck(white, "game:join", { gameId });
+    } finally {
+      console.error = realError;
+    }
+    assert.equal(joined.ok, false);
+    assert.match(joined.error, /aborted/);
+    const row = gameRow(gameId);
+    assert.equal(row.status, "aborted");
+    assert.equal(row.termination, "corrupt-record");
+    assert.equal(rooms.liveGameOf(idOf(alice)), null, "both players are free again");
     a.close(); b.close();
   });
 });

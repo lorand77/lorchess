@@ -18,6 +18,18 @@ db.pragma("foreign_keys = ON");
 // Apply the (idempotent) schema.
 db.exec(fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8"));
 
+// Names that differ only in case are one name. Registration checks this too,
+// but only an index closes the race between two simultaneous registrations. An
+// older database may already hold such pairs; then the index cannot be built,
+// registration's own check still stands, and the log says so.
+try {
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_nocase ON users (username COLLATE NOCASE)"
+  );
+} catch (err) {
+  console.warn("[db] users holds names differing only in case; the case-insensitive index was not created:", err.message);
+}
+
 // --- migrations ---
 // schema.sql only ever CREATEs, which is idempotent; adding a column to a table
 // that already exists needs ALTER, which is not. Apply those here instead, so a

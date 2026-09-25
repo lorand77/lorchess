@@ -10,6 +10,9 @@ const rankOf = sq => sq >> 3;
 const algOf = sq => String.fromCharCode(97 + fileOf(sq)) + (rankOf(sq) + 1);
 const opp = c => c === W ? B : W;
 const inBoard = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
+// Two squares a king's step apart (or the same square).
+const squaresTouch = (a, b) =>
+  Math.abs(fileOf(a) - fileOf(b)) <= 1 && Math.abs(rankOf(a) - rankOf(b)) <= 1;
 const PIECE_NAMES = { p:'pawn', n:'knight', b:'bishop', r:'rook', q:'queen', k:'king' };
 
 class Chess {
@@ -500,8 +503,7 @@ class Chess {
   kingsConnected() {
     if (!this.isAtomic) return false;
     const wk = this.findKing(W), bk = this.findKing(B);
-    if (wk === -1 || bk === -1) return false;
-    return Math.abs(fileOf(wk) - fileOf(bk)) <= 1 && Math.abs(rankOf(wk) - rankOf(bk)) <= 1;
+    return wk !== -1 && bk !== -1 && squaresTouch(wk, bk);
   }
 
   inCheck(c) {
@@ -512,17 +514,21 @@ class Chess {
     return this.isAttacked(king, opp(c), this.isAtomic);
   }
 
-  // Castling may not start from check or pass through an attacked square; the
-  // landing square is covered by the ordinary make/undo test. The king's walk
-  // can be any length, or none, in Chess960, so every square from where it
-  // stands to where it lands is checked.
+  // Castling may not start from check or pass through (or land on) an attacked
+  // square. The king's walk can be any length, or none, in Chess960, so every
+  // square from where it stands to where it lands is checked. In Atomic a
+  // square next to the enemy king is never under attack — a capture there
+  // would blow that king up too — the same rule inCheck applies.
   castlingCrossesCheck(m, c) {
     if (this.inCheck(c)) return true;
     const home = rankOf(m.from);
     const lo = Math.min(fileOf(m.from), fileOf(m.to));
     const hi = Math.max(fileOf(m.from), fileOf(m.to));
+    const enemyKing = this.isAtomic ? this.findKing(opp(c)) : -1;
     for (let ff = lo; ff <= hi; ff++) {
-      if (this.isAttacked(sqIdx(ff, home), opp(c), this.isAtomic)) return true;
+      const sq = sqIdx(ff, home);
+      if (enemyKing !== -1 && squaresTouch(sq, enemyKing)) continue;
+      if (this.isAttacked(sq, opp(c), this.isAtomic)) return true;
     }
     return false;
   }
@@ -744,26 +750,41 @@ class Chess {
     return false;
   }
 
-  // Can this side, in principle, still deliver checkmate? False for a bare
-  // king, a king with one knight, or a king with bishops all on one square
-  // colour: no series of legal moves lets those mate. A player who runs out of
-  // time against such a side draws rather than loses, whatever the flagging
-  // side has left. Atomic and Pawn Wars win by other means (an explosion, the
-  // last pawn), so there the answer is always yes.
+  // Could this side still deliver checkmate by any series of legal moves, the
+  // opponent cooperating (FIDE 6.9, as Lichess reads it)? A player who runs
+  // out of time against a side that could not draws rather than loses. A pawn,
+  // rook or queen always can; two knights can with help; a lone knight can only
+  // if the opponent has a piece to be mated against; bishops all on one colour
+  // can only if the opponent has something other than a king and bishops on
+  // that same colour. Atomic and Pawn Wars win by other means (an explosion,
+  // the last pawn), so there the answer is always yes.
   hasMatingMaterial(c) {
     if (this.isAtomic || this.isPawnWars) return true;
     let knights = 0;
-    const bishopColours = new Set();
+    const myBishops = new Set();
+    let theirPieces = 0;
+    let theirOther = 0;                 // anything of theirs that is not a bishop
+    const theirBishops = new Set();
     for (let i = 0; i < 64; i++) {
       const p = this.squares[i];
-      if (!p || p.c !== c || p.t === 'k') continue;
-      if (p.t === 'p' || p.t === 'r' || p.t === 'q') return true;
-      if (p.t === 'n') knights++;
-      else bishopColours.add((fileOf(i) + rankOf(i)) & 1);
+      if (!p || p.t === 'k') continue;
+      const colour = (fileOf(i) + rankOf(i)) & 1;
+      if (p.c === c) {
+        if (p.t === 'p' || p.t === 'r' || p.t === 'q') return true;
+        if (p.t === 'n') knights++;
+        else myBishops.add(colour);
+      } else {
+        theirPieces++;
+        if (p.t === 'b') theirBishops.add(colour);
+        else theirOther++;
+      }
     }
-    if (knights === 0) return bishopColours.size >= 2;
-    if (knights === 1) return bishopColours.size >= 1;
-    return true; // two knights can mate with the defender's help
+    if (knights >= 2) return true;
+    if (knights === 1) return myBishops.size >= 1 || theirPieces > 0;
+    if (myBishops.size === 0) return false;                 // a bare king
+    if (myBishops.size >= 2) return true;                   // bishops of both colours
+    const mine = [...myBishops][0];
+    return theirOther > 0 || [...theirBishops].some((col) => col !== mine);
   }
 
   // Atomic ends the moment a king is destroyed, however that happened.

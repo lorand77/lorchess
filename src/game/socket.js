@@ -71,12 +71,12 @@ function attachSockets(httpServer) {
   // Games left 'active' by the previous run are waiting to be resumed. Give
   // the players a window to reconnect, then abort whatever nobody claimed.
   // unref'd so it never holds the process open by itself.
-  setTimeout(() => {
+  setTimeout(() => safely("restart sweep", () => {
     const aborted = rooms.sweepUnresumed();
     if (!aborted) return;
     console.log(`Aborted ${aborted} game(s) nobody resumed after the restart.`);
     lobby.refresh(io);
-  }, config.RESUME_WINDOW_MS).unref();
+  }), config.RESUME_WINDOW_MS).unref();
 
   io.engine.use(sessionMiddleware);
 
@@ -96,7 +96,7 @@ function attachSockets(httpServer) {
     // One room per user, so "your game is starting" reaches every tab this
     // person has open instead of whichever socket we happened to pick.
     socket.join(matchmaking.userRoom(socket.userId));
-    lobby.connected(io, socket);
+    safely("connection setup", () => lobby.connected(io, socket));
 
     // Socket.IO runs listeners with no try/catch of its own, so an exception
     // in a handler (better-sqlite3 raises synchronously) would take the whole
@@ -147,6 +147,16 @@ function reply(ack, obj) {
   if (typeof ack === "function") ack(obj);
 }
 
+// Timer callbacks and the connection setup run outside the per-event wrapper
+// in attachSockets; the same rule applies to them: log, never crash.
+function safely(label, fn) {
+  try {
+    fn();
+  } catch (err) {
+    console.error(`[socket] ${label} failed:`, err);
+  }
+}
+
 function colorOf(room, userId) {
   if (room.players.w === userId) return "w";
   if (room.players.b === userId) return "b";
@@ -178,7 +188,7 @@ function scheduleFlag(io, room) {
   if (!room.started || room.status !== "active") return;
   const turn = room.chess.turn;
   room.flagTimer = setTimeout(
-    () => onFlag(io, room.gameId, turn),
+    () => safely("flag timer", () => onFlag(io, room.gameId, turn)),
     Math.max(0, room.clock[turn])
   );
 }
@@ -263,7 +273,10 @@ function armAbsence(io, room, color, settleMs) {
   if (room.timers[color] || room.online[color].size > 0) return;
   const gameId = room.gameId;
 
-  room.timers[color] = setTimeout(() => onGraceExpired(io, gameId, color), GRACE_MS);
+  room.timers[color] = setTimeout(
+    () => safely("forfeit timer", () => onGraceExpired(io, gameId, color)),
+    GRACE_MS
+  );
 
   // The notice carries the time the absent player has left when it is shown,
   // not the full grace period, since it may be held back by `settleMs`.
@@ -276,7 +289,7 @@ function armAbsence(io, room, color, settleMs) {
       graceMs: Math.max(0, GRACE_MS - settleMs),
     });
   };
-  if (settleMs > 0) room.notices[color] = setTimeout(announce, settleMs);
+  if (settleMs > 0) room.notices[color] = setTimeout(() => safely("absence notice", announce), settleMs);
   else announce();
 }
 
@@ -299,7 +312,14 @@ function handleGameJoin(io, socket, payload, ack) {
   if (!gameId) return reply(ack, { ok: false, error: "Missing gameId." });
 
   const room = rooms.getRoom(gameId) || rooms.loadRoomFromDb(gameId);
-  if (!room) return reply(ack, { ok: false, error: "Game not found." });
+  if (!room) {
+    const g = queries.getGameById.get(gameId);
+    const damaged = !!g && g.termination === "corrupt-record";
+    return reply(ack, {
+      ok: false,
+      error: damaged ? "This game's record could not be replayed, so it was aborted." : "Game not found.",
+    });
+  }
 
   const color = colorOf(room, socket.userId);
   if (!color) return reply(ack, { ok: false, error: "You are not a player in this game." });
@@ -514,9 +534,12 @@ function handleMove(io, socket, payload, ack) {
 
   const color = colorOf(room, socket.userId);
   if (!color) return reply(ack, { ok: false, error: "You are not a player in this game." });
-  // Moves come from a socket that has joined the game. One that never did has
-  // no seat in the room, so the clock would never start running against it.
-  if (socket.gameId !== gameId) return reply(ack, { ok: false, error: "Join the game first." });
+  // Moves come from a player who has taken their seat (sent game:join at least
+  // once). Judged per player, not per socket: a client reconnecting after a
+  // blip flushes a buffered move before its connect handler re-joins, and that
+  // move is good. A player who never joined has no seat, and the clock would
+  // never start running against them.
+  if (!room.everJoined[color]) return reply(ack, { ok: false, error: "Join the game first." });
 
   // (2) Turn enforcement.
   if (room.chess.turn !== color) return reply(ack, { ok: false, error: "Not your turn." });
@@ -643,6 +666,11 @@ function handleRematchOffer(io, socket, payload) {
   if (!game || game.mode !== "pvp" || game.status === "active") return;
   const uid = socket.userId;
   if (game.white_id !== uid && game.black_id !== uid) return;
+  // One game at a time applies here too: a rematch accepted from another game
+  // would drag its owner out of the one they are playing.
+  if (rooms.liveGameOf(uid)) {
+    return socket.emit("lobby:error", { error: "Finish your current game first." });
+  }
 
   let offers = rematches.get(gameId);
   if (!offers) {
@@ -656,6 +684,15 @@ function handleRematchOffer(io, socket, payload) {
     rematches.delete(gameId);
     const newWhite = offers.get(game.black_id);
     const newBlack = offers.get(game.white_id);
+    // The first offer may be old: its owner could have sat down to another
+    // game since. Then there is no rematch, and both players hear why.
+    const busy = [newWhite, newBlack].find((s) => rooms.liveGameOf(s.userId));
+    if (busy) {
+      const msg = { error: `${busy.username} is already in another game.` };
+      newWhite.emit("lobby:error", msg);
+      newBlack.emit("lobby:error", msg);
+      return;
+    }
     console.log(`[rematch] game #${gameId} -> new game, colours swapped`);
     return matchmaking.startMatch(io, newWhite, newBlack, {
       initialMs: game.initial_ms,
@@ -743,7 +780,12 @@ function onGraceExpired(io, gameId, color) {
   if (!room || room.status !== "active") return;
   if (room.online[color].size > 0) return; // reconnected just in time
 
-  if (room.sans.length === 0) concludeGame(io, room, "*", "aborted");
+  // Nothing to forfeit if no move was played — or if this player never took
+  // their seat in a fresh game: the other side may have moved while waiting,
+  // but a game one player never saw was not played. A room rebuilt after a
+  // restart is different: both players were there before.
+  const neverCame = !room.everJoined[color] && !room.rehydrated;
+  if (room.sans.length === 0 || neverCame) concludeGame(io, room, "*", "aborted");
   else concludeGame(io, room, winResult(other(color)), "disconnect");
 }
 

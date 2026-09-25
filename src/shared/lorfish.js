@@ -257,13 +257,29 @@ const LorFish = {
     return chess.turn === W ? score : -score;
   },
 
+  // A mate's score says how far off it is: MATE minus the plies from the root
+  // position, so a quicker mate scores higher and the review reads the distance
+  // straight back as MATE - |score|, wherever in the search it was found.
+  MATE: 100000,
+  mateScore(chess) {
+    return this.MATE - (chess.history.length - this.rootPly);
+  },
+
+  // Searches deeper than this would not come back in a browser's lifetime; a
+  // depth below 1 would never bottom out (negamax stops at 0 and the root
+  // searches one less). Anything unusable searches at 1.
+  MAX_DEPTH: 8,
+  clampDepth(depth) {
+    return Math.min(this.MAX_DEPTH, Math.max(1, Math.floor(Number(depth)) || 1));
+  },
+
   quiescence(chess, alpha, beta, qdepth) {
     this.nodes++;
     if (qdepth > this.maxQ) this.maxQ = qdepth;
 
     if ((chess.positionCounts.get(chess.positionKey()) || 0) >= 2) return 0;
     const moves = chess.legalMoves();
-    if (moves.length === 0) return chess.inCheck() ? -99999 : 0;
+    if (moves.length === 0) return chess.inCheck() ? -this.mateScore(chess) : 0;
     if (chess.isInsufficientMaterial()) return 0;
 
     const standPat = this.evaluate(chess);
@@ -289,7 +305,7 @@ const LorFish = {
     // it and a losing side can seek it.
     if ((chess.positionCounts.get(chess.positionKey()) || 0) >= 2) return 0;
     const moves = chess.legalMoves();
-    if (moves.length === 0) return chess.inCheck() ? (-99999 - depth) : 0;
+    if (moves.length === 0) return chess.inCheck() ? -this.mateScore(chess) : 0;
     if (chess.isInsufficientMaterial()) return 0;
     // Check extension: at the horizon, give the side in check one more ply
     // so short forcing mates and quiet replies to checks fall in the window.
@@ -319,10 +335,9 @@ const LorFish = {
   searchRoot(chess, depth, opts) {
     const noise = !!(opts && opts.noise);
     this.nodes = 0;
+    this.rootPly = chess.history.length;
     this.maxQ = 0;
-    // Below 1 the search would never bottom out (negamax stops at 0 and the
-    // root searches one less), so anything unusable searches at 1.
-    const effDepth = this.adaptiveDepth(chess, Math.max(1, Math.floor(Number(depth)) || 1));
+    const effDepth = this.adaptiveDepth(chess, this.clampDepth(depth));
     const moves = this.orderMoves(chess, chess.legalMoves());
     const evals = [];
     let best = null;
@@ -367,7 +382,15 @@ const LorFish = {
       score: best.raw,
       depth: effDepth,
       san: best.san,
-      move: { from: best.move.from, to: best.move.to, promo: best.move.promo || null },
+      // Castling carries its rook square, so callers can spell the move the
+      // way the server and the game records do (see Chess.findMove).
+      move: {
+        from: best.move.from,
+        to: best.move.to,
+        promo: best.move.promo || null,
+        castle: best.move.castle || null,
+        rookFrom: best.move.rookFrom != null ? best.move.rookFrom : null,
+      },
     };
   },
 };

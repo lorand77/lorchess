@@ -75,6 +75,8 @@ describe("register", () => {
     const res = await client(srv.baseUrl).post("/api/register", { username: name, password: "hunter22" });
     assert.equal(res.status, 409);
     assert.match(res.body.error, /already taken/);
+    // The same race with a name differing only in case is closed by the index.
+    assert.throws(() => queries.createUser.run(name.toUpperCase(), "x", 1200), /UNIQUE/);
   });
 });
 

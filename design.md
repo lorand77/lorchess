@@ -62,6 +62,10 @@ of keeping lists of their own that would drift the same way.
   `session.userId`. No separate token.
 - Cookie: `httpOnly`, `sameSite: lax`, `secure: "auto"` behind `trust proxy`
   (Caddy terminates TLS), 7 days. Sessions are rows in SQLite.
+- Usernames that differ only in case are one name: registration refuses the
+  second, and a `COLLATE NOCASE` unique index backs that check where the
+  database allows it (an old database with such pairs boots with a warning).
+  Login matches the exact spelling.
 
 ## Database
 
@@ -84,6 +88,12 @@ Design notes:
   and arrange a rematch afterwards. `src/db/retention.js` sweeps them
   `CHAT_RETENTION_DAYS` after the game ends (−1 keeps everything); only the
   per-user tally survives, for the "Chatty" achievement.
+- **Puzzles can be re-imported.** `npm run puzzles:import -- --wipe` clears
+  only puzzles nothing refers to; rows behind attempts, skips, daily picks or
+  badges stay and are refreshed in place.
+- **The daily puzzle counts once it is done,** however it was first attempted:
+  viewing today's puzzle credits the streak if an attempt exists (idempotent per
+  day). Retries never move the rating or the streak.
 
 ## AI games: client-side Web Worker
 
@@ -131,22 +141,26 @@ sockets, clocks and timers.
   the terms: an odds game's handicap is mirrored (`handicap.mirror`) so the
   same player keeps giving the odds, while Chess960 draws a fresh position.
 - **`move:make`** (`handleMove` in `socket.js`): confirm the sender is a
-  player in an active room and has joined it (a socket that never sent
-  `game:join` has no seat, so the clock would never start against it) →
+  player in an active room who has taken their seat (sent `game:join` at least
+  once — judged per player, not per socket, so a move a reconnecting client
+  buffered is still good, while a player who never joined has no seat and the
+  clock would never start against them) →
   **turn enforcement** → **legality** against the
   server's own `findMove` (never trust the client) → charge the mover's clock,
   and flag if it ran out → apply → persist move, position and clocks in one
   transaction → broadcast `move:made` to the room (mover included; everyone
   applies on confirmation) → `game:over`, or re-arm the flag timer for the
   other side. If the write fails, the room is rolled back to the position and
-  clock it had and the mover's ack fails. Every socket handler runs under a
-  try/catch for the same reason: Socket.IO has none of its own, and
+  clock it had and the mover's ack fails. Every socket handler, timer callback
+  and the connection setup run under a try/catch for the same reason: Socket.IO has none of its own, and
   better-sqlite3 throws synchronously, so an unguarded error would take the
   process, and every live game, down with it.
 - **Clocks and rating.** Clocks are server-side; clients render snapshots.
-  A flag loses unless the other side has no mating material (a bare king, a
-  lone minor piece, bishops on one colour: `Chess.hasMatingMaterial`), in which
-  case it is a draw, as over the board. Elo (`elo.js`, K from `config.ELO_K`)
+  A flag loses unless the other side could not have mated by any series of
+  legal moves, even with the flagging side's help (FIDE 6.9 as Lichess reads
+  it, `Chess.hasMatingMaterial`: a bare king never; a lone knight, or bishops
+  all on one colour, only against a bare king or same-coloured bishops), in
+  which case it is a draw. Elo (`elo.js`, K from `config.ELO_K`)
   moves after rated games, and every update writes `rating_history`.
 - **Disconnects.** When a player's last socket drops, a forfeit timer starts
   (`config.DISCONNECT_GRACE_MS`, env `GRACE_MS`, default 45 s) and the opponent
@@ -156,12 +170,15 @@ sockets, clocks and timers.
   never a rated loss. The same timer is armed against both players the moment a
   match is created (a second `matchmaking.onMatchStarted` hook), so a game
   nobody turns up for aborts instead of sitting `active` — which, with one game
-  at a time, would lock both players out.
+  at a time, would lock both players out. A player who never took their seat
+  cannot lose one either, however many moves the other side made while waiting.
+  For the same reason a record that will not replay is aborted
+  (`termination = 'corrupt-record'`) rather than left blocking its players.
 - **Restarts.** Nothing is thrown away at boot. A PvP game left `active` is
   rebuilt from the DB the moment a participant connects (`loadRoomFromDb`).
   A finished game never keeps a room: rejoining one (a reload on the result
   screen) answers with its final state and drops the rebuilt room at once,
-  since only `concludeGame` deletes rooms.
+  since nothing else ever drops a live room.
   `RESUME_WINDOW_MS` (default 10 min) after boot, a sweep aborts the games
   nobody came back for (`termination = 'server-restart'`). AI games keep no
   server state, so a restart never interrupted them.
@@ -174,6 +191,8 @@ sockets, clocks and timers.
 `public/js/ui.js` never calls LorFish or the socket directly. It talks to a
 **move source** (`public/js/moveSource.js`) with one interface:
 `{ kind, canHumanMoveNow(turn), submitMove(move), kickIfEngineTurn(), cancel() }`.
+The AI source also reports a failed search through `env.onEngineError`; the
+page shows the reason with a Retry that calls `kickIfEngineTurn()`.
 Three implementations:
 
 - `createAiMoveSource` — posts the position to the engine worker and applies
@@ -226,7 +245,9 @@ records server-measured think time on PvP moves.
 
 Hooks: `concludeGame` (PvP, pushes `achievements:earned` to each player's
 sockets), `POST /api/games/:id/end` (AI, returned in the reply), the puzzle
-`finish` helper (returned in the reply), `chat:send`, and login. The UI shows
+`finish` helper (returned in the reply), `chat:send`, login, and a visit to
+anyone's Achievements tab (the viewed user's time-based badges are evaluated
+too, so a public tab is never behind its owner's). The UI shows
 unlock toasts (`public/js/achievementToast.js`) on the game, puzzle and lobby
 pages; the profile's Achievements tab (`profile.html#achievements`) lists the
 catalogue, and `?id=<id>` shows someone else's.

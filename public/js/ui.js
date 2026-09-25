@@ -813,6 +813,7 @@ function undo() {
   // result has been recorded (and achievements handed out), and the record
   // must not be rewritten from the board. A new game starts afresh.
   if (thinking || pvpMode || chess.isGameOver()) return;
+  hideEngineError(); // the failure was about a position that is being taken back
   promotionPending = null;
   promoEl.classList.remove('show');
 
@@ -878,6 +879,7 @@ function refreshGameState() {
   promoEl.classList.remove('show');
   thinking = false;
   hideEngineError();
+  hideReviewLink(); // it pointed at the game just left
   render();
   syncUndoButton();
   moveSource.kickIfEngineTurn();
@@ -1409,6 +1411,9 @@ function initPvp(gameId) {
       () => socket.emit('rematch:decline', { gameId })
     );
   });
+  // The server turns down a rematch (or anything else asked from this page)
+  // with a reason when the player is in another live game.
+  socket.on('lobby:error', (info) => pvpNotice((info && info.error) || 'Request refused.'));
   socket.on('rematch:declined', () => {
     hideOffer();
     if (rematchBtn) {
@@ -1642,6 +1647,11 @@ function showRatingChange(ratings) {
 // Offer a LorFish review of the game that just ended. The replay viewer owns
 // the analysis; this is only the way in. Not shown to spectators, who can't
 // fetch the game record.
+function hideReviewLink() {
+  const wrap = document.getElementById('reviewLinkWrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
 function showReviewLink(id) {
   const wrap = document.getElementById('reviewLinkWrap');
   const link = document.getElementById('reviewLink');
