@@ -130,6 +130,16 @@ CREATE TABLE IF NOT EXISTS puzzle_attempts (
   UNIQUE (user_id, puzzle_id)
 );
 
+-- Puzzles a member skipped: let go of without an attempt, so no rating change.
+-- Only here to count skips per UTC day against the daily allowance.
+CREATE TABLE IF NOT EXISTS puzzle_skips (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  puzzle_id  TEXT    NOT NULL REFERENCES puzzles(id),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_puzzle_skips_user ON puzzle_skips (user_id, created_at);
+
 -- The puzzle of the day, one row per UTC date, chosen on first request.
 CREATE TABLE IF NOT EXISTS daily_puzzles (
   date      TEXT PRIMARY KEY,             -- 'YYYY-MM-DD' (UTC)

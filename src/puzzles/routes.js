@@ -9,6 +9,11 @@
 //   GET  /api/puzzles/daily           today's shared puzzle (+ your result if done)
 //   POST /api/puzzles/:id/moves       { moves: [uci, ...] } -> ok | solved | wrong
 //   POST /api/puzzles/:id/giveup      counts as a failed attempt, reveals the solution
+//   POST /api/puzzles/:id/skip        members: drop the held puzzle unrated and get the
+//                                     next one; SKIPS_PER_DAY per UTC day
+//
+// /next, /:id and /:id/skip also carry `held` (this is the puzzle you're held
+// to) and `skip: { member, left, perDay }` for the page's Skip button.
 
 const express = require("express");
 const queries = require("../db/queries");
@@ -42,18 +47,35 @@ function meView(userId) {
 
 router.get("/me", (req, res) => res.json(meView(req.session.userId)));
 
+const isMember = (uid) => {
+  const row = queries.getMembership.get(uid);
+  return !!(row && row.member_since);
+};
+
+function skipView(uid) {
+  const member = isMember(uid);
+  return { member, left: member ? svc.skipsLeft(uid) : 0, perDay: svc.SKIPS_PER_DAY };
+}
+
+// A puzzle from the rated stream, as /next and /:id/skip send it.
+function streamView(uid, pick, rating) {
+  return {
+    puzzle: svc.publicView(pick.puzzle),
+    repeat: pick.repeat,
+    resumed: pick.resumed,
+    held: !pick.repeat,
+    rating,
+    skip: skipView(uid),
+  };
+}
+
 router.get("/next", (req, res) => {
   if (!queries.countPuzzles.get().n) return noPuzzles(res);
   const uid = req.session.userId;
   const user = queries.getPuzzleUser.get(uid);
   const pick = svc.nextForUser(uid, user.puzzle_rating);
   if (!pick) return noPuzzles(res);
-  res.json({
-    puzzle: svc.publicView(pick.puzzle),
-    repeat: pick.repeat,
-    resumed: pick.resumed,
-    rating: user.puzzle_rating,
-  });
+  res.json(streamView(uid, pick, user.puzzle_rating));
 });
 
 router.get("/daily", (req, res) => {
@@ -90,6 +112,8 @@ router.get("/:id", (req, res) => {
     // A puzzle already attempted is replayable but never re-rated.
     repeat: !!attempt,
     rating: user.puzzle_rating,
+    held: svc.isHeld(uid, puzzle.id),
+    skip: skipView(uid),
   };
   if (attempt) out.solved = !!attempt.solved;
   res.json(out);
@@ -133,6 +157,27 @@ router.post("/:id/giveup", (req, res) => {
   const puzzle = loadPuzzle(req, res);
   if (!puzzle) return;
   res.json({ status: "wrong", ...finish(req.session.userId, puzzle, false) });
+});
+
+router.post("/:id/skip", (req, res) => {
+  const puzzle = loadPuzzle(req, res);
+  if (!puzzle) return;
+  const uid = req.session.userId;
+  if (!isMember(uid)) {
+    return res.status(403).json({ error: "Skipping puzzles is a member perk." });
+  }
+  const user = queries.getPuzzleUser.get(uid);
+  const out = svc.skip(uid, puzzle.id, user.puzzle_rating);
+  if (out.error === "not-held") {
+    return res.status(409).json({ error: "Only the puzzle you're on can be skipped." });
+  }
+  if (out.error === "limit") {
+    return res.status(429).json({
+      error: `You've used all ${svc.SKIPS_PER_DAY} skips for today.`, skip: skipView(uid),
+    });
+  }
+  if (!out.next) return noPuzzles(res);
+  res.json(streamView(uid, out.next, user.puzzle_rating));
 });
 
 module.exports = router;

@@ -16,12 +16,17 @@
   const boardEl = $("board"), promoEl = $("promo"), promoOpts = $("promoOptions");
   const headEl = $("puzzleHead"), taskEl = $("taskLine"), statusEl = $("statusLine");
   const resultEl = $("result"), navEl = $("modeNav");
-  const btn = { giveUp: $("giveUpBtn"), retry: $("retryBtn"), solution: $("solutionBtn"), next: $("nextBtn") };
+  const btn = {
+    giveUp: $("giveUpBtn"), skip: $("skipBtn"), skipLocked: $("skipLocked"),
+    retry: $("retryBtn"), solution: $("solutionBtn"), next: $("nextBtn"),
+  };
 
   const chess = new Chess();
   let puzzle = null;      // { id, fen, firstMove, playerColor }
   let dailyInfo = null;   // the /daily payload (streak, done, …)
   let me = { rating: null, streak: 0 };
+  let held = false;       // this is the rated puzzle the server holds you to
+  let skipInfo = null;    // { member, left, perDay } from the server
   let moves = [];         // player's moves so far (UCI)
   let phase = "idle";     // idle | intro | playing | waiting | solved | failed | replay
   let selected = null, legal = [], lastMove = null, wrongSq = null;
@@ -220,7 +225,7 @@
       play(puzzle.firstMove);
       phase = "playing";
       setStatus("Your move.", "");
-      showButtons(["giveUp"]);
+      showButtons(["giveUp", ...skipButtons()]);
       render();
     }, 700);
   }
@@ -261,6 +266,7 @@
   }
 
   function finish(resp, solved) {
+    held = false; // attempted now: retries are unrated and nothing to skip
     showButtons(solved ? ["next"] : ["retry", "solution", "next"]);
     if (daily) {
       btn.next.style.display = "none";
@@ -324,15 +330,47 @@
     }, 600 * (i + 1)));
   }
 
+  // ---- skipping (members) ----
+  // Only the held puzzle can be skipped; the daily and retries can't.
+  function skipButtons() {
+    if (daily || !held || !skipInfo) return [];
+    if (!skipInfo.member) return ["skipLocked"];
+    btn.skip.disabled = skipInfo.left <= 0;
+    btn.skip.textContent = skipInfo.left > 0
+      ? "Skip (" + skipInfo.left + " left today)"
+      : "No skips left today";
+    return ["skip"];
+  }
+
+  btn.skip.addEventListener("click", async () => {
+    if (phase !== "playing" || btn.skip.disabled) return;
+    phase = "waiting";
+    let data;
+    try { data = await api("POST", "/" + puzzle.id + "/skip"); }
+    catch (err) { phase = "playing"; return setStatus(err.message, "bad"); }
+    // Whatever ?id= we arrived with is not the puzzle on screen any more.
+    if (pinnedId) history.replaceState(null, "", "/puzzles.html");
+    resultEl.style.display = "none";
+    showStream(data);
+    later(() => setStatus("Skipped — no rating change. " +
+      (data.skip.left === 1 ? "1 skip" : data.skip.left + " skips") + " left today.", "info"), 750);
+  });
+
   // ---- loading ----
+  function showStream(data) {
+    puzzle = data.puzzle;
+    me.rating = data.rating;
+    held = !!data.held;
+    skipInfo = data.skip || null;
+    renderHead();
+    begin();
+  }
+
   async function loadRated() {
     let data;
     try { data = await api("GET", "/next"); }
     catch (err) { return setStatus(err.message, "bad"); }
-    puzzle = data.puzzle;
-    me.rating = data.rating;
-    renderHead();
-    begin();
+    showStream(data);
     if (data.repeat) later(() => setStatus("You've seen every puzzle near your rating — this one is a repeat (unrated).", "info"), 750);
     // The server holds a rated puzzle until it is finished (see /next).
     else if (data.resumed) later(() => setStatus("Still your puzzle — solve it or give up to get a new one.", "info"), 750);
@@ -343,10 +381,7 @@
     let data;
     try { data = await api("GET", "/" + encodeURIComponent(id)); }
     catch (err) { setStatus(err.message, "bad"); return loadRated(); }
-    puzzle = data.puzzle;
-    me.rating = data.rating;
-    renderHead();
-    begin();
+    showStream(data);
     if (data.repeat) {
       later(() => setStatus("You've already attempted this one — this attempt is unrated.", "info"), 750);
     }

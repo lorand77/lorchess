@@ -646,6 +646,8 @@ button.primary, button.danger { color: #fff; }
 .puzzle-actions .primary { background: #3d6098; }
 .puzzle-actions .primary:hover { background: #4a73b5; }
 .puzzle-actions button:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: default; }
+.skip-locked { align-self: center; font-size: 13px; color: var(--link); text-decoration: none; }
+.skip-locked:hover { text-decoration: underline; }
 .puzzle-result { margin: 10px 0; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
 .puzzle-result .delta.up { color: var(--good); font-weight: bold; }
 .puzzle-result .delta.down { color: var(--bad); font-weight: bold; }

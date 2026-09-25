@@ -205,6 +205,11 @@ module.exports = {
   setPuzzleRating: db.prepare("UPDATE users SET puzzle_rating = ? WHERE id = ?"),
   getCurrentPuzzle: db.prepare("SELECT puzzle_current FROM users WHERE id = ?"),
   setCurrentPuzzle: db.prepare("UPDATE users SET puzzle_current = ? WHERE id = ?"),
+  insertPuzzleSkip: db.prepare("INSERT INTO puzzle_skips (user_id, puzzle_id) VALUES (?, ?)"),
+  // Skips on or after a UTC date ('YYYY-MM-DD' sorts before any time that day).
+  countPuzzleSkipsSince: db.prepare(
+    "SELECT COUNT(*) AS n FROM puzzle_skips WHERE user_id = ? AND created_at >= ?"
+  ),
   setDailyStreak: db.prepare(
     "UPDATE users SET daily_streak = ?, daily_last_date = ? WHERE id = ?"
   ),

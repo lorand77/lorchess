@@ -2,7 +2,7 @@
 
 // Puzzle logic, kept free of HTTP so it's easy to test:
 //   - picking a puzzle near a user's rating (never one they've attempted),
-//     and holding it until they finish it
+//     and holding it until they finish it — or, for members, skip it
 //   - the shared puzzle of the day (same for everyone, chosen once per UTC day)
 //   - verifying a player's moves against the stored solution
 //   - the puzzle Elo update and the daily streak
@@ -133,7 +133,8 @@ function randomInRange(lo, hi) {
 
 // A puzzle near `rating` the user hasn't attempted, widening the window as
 // needed. Falls back to a repeat (flagged) only when everything is used up.
-function pickForUser(userId, rating) {
+// `avoid` is a puzzle id not to hand out (the one just skipped).
+function pickForUser(userId, rating, avoid) {
   let fallback = null;
   for (const w of WINDOWS) {
     const lo = rating - w, hi = rating + w;
@@ -141,6 +142,7 @@ function pickForUser(userId, rating) {
     for (let tries = 0; tries < 12; tries++) {
       const p = randomInRange(lo, hi);
       if (!p) break;
+      if (p.id === avoid) continue;
       if (!queries.getAttempt.get(userId, p.id)) return { puzzle: p, repeat: false };
       fallback = fallback || p;
     }
@@ -155,16 +157,45 @@ function pickForUser(userId, rating) {
 // puzzle was already handed out before. Repeats are unrated, so none is held.
 // The hold is checked against puzzle_attempts rather than cleared on finish,
 // so an attempt made any way at all (e.g. via the pinned /:id route) ends it.
-function nextForUser(userId, rating) {
+function nextForUser(userId, rating, avoid) {
   const row = queries.getCurrentPuzzle.get(userId);
   const held = row && row.puzzle_current ? queries.getPuzzle.get(row.puzzle_current) : null;
   if (held && !queries.getAttempt.get(userId, held.id)) {
     return { puzzle: held, repeat: false, resumed: true };
   }
-  const pick = pickForUser(userId, rating);
+  // With nothing else left, the avoided puzzle beats no puzzle at all.
+  const pick = pickForUser(userId, rating, avoid) || pickForUser(userId, rating);
   if (!pick) return null;
   queries.setCurrentPuzzle.run(pick.repeat ? null : pick.puzzle.id, userId);
   return { ...pick, resumed: false };
+}
+
+// ---- skipping (a member perk; the route checks membership) ----
+
+const SKIPS_PER_DAY = 10;
+
+function skipsLeft(userId, today = todayUtc()) {
+  return Math.max(0, SKIPS_PER_DAY - queries.countPuzzleSkipsSince.get(userId, today).n);
+}
+
+// Whether `puzzleId` is the rated puzzle the user is currently held to.
+function isHeld(userId, puzzleId) {
+  const row = queries.getCurrentPuzzle.get(userId);
+  return !!row && row.puzzle_current === puzzleId && !queries.getAttempt.get(userId, puzzleId);
+}
+
+// Let go of the held puzzle without an attempt — no rating change — using up
+// one of today's skips, and hand out the next one. Only the held puzzle can be
+// skipped: anything else was never holding the user back. Returns
+//   { error: "not-held" | "limit" }  or  { next }  (next as from nextForUser)
+function skip(userId, puzzleId, rating) {
+  return db.transaction(() => {
+    if (!isHeld(userId, puzzleId)) return { error: "not-held" };
+    if (skipsLeft(userId) <= 0) return { error: "limit" };
+    queries.insertPuzzleSkip.run(userId, puzzleId);
+    queries.setCurrentPuzzle.run(null, userId);
+    return { next: nextForUser(userId, rating, puzzleId) };
+  })();
 }
 
 // ---- daily ----
@@ -219,5 +250,5 @@ function bumpStreak(userId, today) {
 module.exports = {
   DAILY_MIN, DAILY_MAX,
   setup, check, publicView, revealView, eloAfter, recordAttempt,
-  pickForUser, nextForUser, dailyFor, todayUtc, addDays, streakOf, bumpStreak,
+  pickForUser, nextForUser, SKIPS_PER_DAY, skipsLeft, isHeld, skip, dailyFor, todayUtc, addDays, streakOf, bumpStreak,
 };
