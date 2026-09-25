@@ -19,6 +19,8 @@ const movesEl = document.getElementById("history");
 
 const params = new URLSearchParams(location.search);
 const gameId = parseInt(params.get("id"), 10);
+// Opened from someone's profile: whose side to take when you didn't play.
+const asId = parseInt(params.get("as"), 10) || null;
 
 const chess = new Chess();
 let uciList = [];
@@ -48,7 +50,7 @@ async function init() {
     ]);
     if (meRes.status === 401) { location.replace("/login.html"); return; }
     if (gRes.status === 404) { fail("Game not found."); return; }
-    if (gRes.status === 403) { fail("That isn't your game."); return; }
+    if (gRes.status === 403) { fail((await gRes.json()).error || "You can't open that game."); return; }
     me = await meRes.json();
     game = await gRes.json();
   } catch (e) {
@@ -61,7 +63,12 @@ async function init() {
   startFen = game.start_fen || STANDARD_START;
   uciList = game.moves.map((m) => m.uci);
   sanList = game.moves.map((m) => m.san);
-  flip = game.white_id !== me.id; // you play the non-white side -> flip
+  // Orient from your side if you played it, else from the side of the player
+  // whose profile you came from; otherwise White is at the bottom.
+  const played = (id) => id === game.white_id || id === game.black_id;
+  const side = played(me.id) ? me.id : played(asId) ? asId : null;
+  flip = side != null && side === game.black_id;
+  if (!played(me.id) && played(asId)) backTo(asId, asId === game.white_id ? game.white_username : game.black_username);
 
   isMember = !!me.member_since;
   whiteName = game.white_username || "White";
@@ -76,6 +83,13 @@ async function init() {
   wireControls();
   wireReview();
   goto(uciList.length); // open at the final position
+}
+
+// Came from someone else's profile: the back link returns to their games.
+function backTo(userId, username) {
+  const a = document.getElementById("backLink");
+  a.href = "/profile.html?id=" + encodeURIComponent(userId) + "#games";
+  a.textContent = "← " + username + "'s games";
 }
 
 function fail(msg) {

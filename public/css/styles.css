@@ -1262,7 +1262,6 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 }
 .profile-tabs a:hover { color: var(--text); }
 .profile-tabs a.current { color: var(--text); font-weight: bold; border-bottom-color: var(--link); }
-.profile-tabs a[hidden] { display: none; }
 .profile-tab { padding-top: 8px; }
 
 /* KPI row: headline numbers, not a chart. */

@@ -70,11 +70,28 @@ router.get("/", (req, res) => {
   res.json(queries.listGamesForUser.all(uid, uid));
 });
 
+// GET /api/games/user/:id — someone else's games, for the Games tab of their
+// profile. LorFish is not a player, so it has no profile and no list.
+router.get("/user/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Bad user id." });
+  if (id === AI_ID || !queries.getUserById.get(id)) {
+    return res.status(404).json({ error: "No such player." });
+  }
+  res.json(queries.listGamesForUser.all(id, id));
+});
+
 // GET /api/games/:id — a single game with both player names and its full
-// move list (san + uci + fen_after per ply) for the replay viewer.
+// move list (san + uci + fen_after per ply) for the replay viewer. Anyone may
+// replay a game that is over; one still in progress is its players' alone —
+// everyone else watches it live, through the spectator room.
 router.get("/:id", (req, res) => {
-  const game = loadOwnedGame(req, res);
-  if (!game) return;
+  const game = queries.getGameById.get(Number(req.params.id));
+  if (!game) return res.status(404).json({ error: "No such game." });
+  const uid = req.session.userId;
+  if (game.status === "active" && game.white_id !== uid && game.black_id !== uid) {
+    return res.status(403).json({ error: "That game is still being played." });
+  }
   const white = queries.getUserById.get(game.white_id);
   const black = queries.getUserById.get(game.black_id);
   res.json({

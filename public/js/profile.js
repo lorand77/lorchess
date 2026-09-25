@@ -1,8 +1,8 @@
 "use strict";
 
 // The profile page: whose it is, then four tabs — Stats, My Games,
-// Achievements, Friends. ?id=<userId> shows someone else's, which has only the
-// two tabs that make sense for a visitor.
+// Achievements, Friends. ?id=<userId> shows someone else's, with the Games and
+// Friends tabs read-only.
 //
 // Each tab's script (stats.js, history.js, achievementsPage.js, friendsPage.js)
 // registers a function in window.profileTabs; this runs it the first time that
@@ -52,7 +52,7 @@
 
     const u = data.user;
     const you = data.you !== false;
-    // Your own id in the URL is still your own profile, with all four tabs.
+    // Your own id in the URL is still your own profile.
     ctx = { data, you, userId: you ? null : u.id };
 
     nameEl.textContent = u.username;
@@ -61,7 +61,6 @@
     metaEl.textContent = "Joined " + fmtDate(u.createdAt);
     if (!you) renderVisitor(u);
 
-    for (const a of tabsEl.querySelectorAll("[data-own]")) a.hidden = !you;
     tabsEl.style.display = "";
     show();
     window.addEventListener("hashchange", show);
@@ -90,8 +89,7 @@
 
   function show() {
     let key = location.hash.slice(1);
-    const link = tabsEl.querySelector(`[data-tab="${CSS.escape(key)}"]`);
-    if (!link || link.hidden) key = "stats";
+    if (!tabsEl.querySelector(`[data-tab="${CSS.escape(key)}"]`)) key = "stats";
 
     for (const a of tabsEl.querySelectorAll("[data-tab]")) {
       const on = a.dataset.tab === key;

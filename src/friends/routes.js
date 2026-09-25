@@ -5,6 +5,7 @@
 // Requesting someone who has already requested you accepts their request.
 //
 //   GET    /api/friends                    -> { friends, incoming, outgoing }
+//   GET    /api/friends/user/:id           -> { friends }  (someone else's; no requests)
 //   POST   /api/friends/requests           { toUserId }
 //   POST   /api/friends/requests/:id/accept
 //   POST   /api/friends/requests/:id/decline
@@ -52,6 +53,17 @@ function changed(...userIds) {
 
 router.get("/", (req, res) => {
   res.json(listFor(req.session.userId));
+});
+
+// Someone else's friends, for the Friends tab of their profile. Only accepted
+// friendships: who has asked whom is between the two of them.
+router.get("/user/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Bad user id." });
+  if (id === AI_ID || !queries.getUserById.get(id)) {
+    return res.status(404).json({ error: "No such player." });
+  }
+  res.json({ friends: listFor(id).friends });
 });
 
 router.post("/requests", (req, res) => {

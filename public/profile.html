@@ -16,12 +16,12 @@
   <p id="profileError" class="check-text"></p>
 
   <!-- Tabs are #stats / #games / #achievements / #friends, so each one can be
-       linked to. My Games and Friends are yours only: a visitor sees two. -->
+       linked to. On someone else's profile, Games and Friends are read-only. -->
   <nav class="profile-tabs" id="profileTabs" role="tablist" style="display:none;">
     <a href="#stats" data-tab="stats" role="tab">📊 Stats</a>
-    <a href="#games" data-tab="games" role="tab" data-own>📜 My Games</a>
+    <a href="#games" data-tab="games" role="tab">📜 <span data-you="My Games" data-them="Games">My Games</span></a>
     <a href="#achievements" data-tab="achievements" role="tab">🏅 Achievements</a>
-    <a href="#friends" data-tab="friends" role="tab" data-own>👥 Friends</a>
+    <a href="#friends" data-tab="friends" role="tab">👥 Friends</a>
   </nav>
 
   <section class="profile-tab" id="tab-stats" role="tabpanel" hidden>
@@ -69,27 +69,31 @@
   </section>
 
   <section class="profile-tab" id="tab-friends" role="tabpanel" hidden>
-    <p class="muted small">
-      Challenge a friend at the time control below. Add friends from the
-      <a class="nav-link" href="/leaderboard.html">leaderboard</a> or after a game.
-    </p>
+    <!-- Your own friends only: requests and challenges. A visitor sees just the
+         list below. -->
+    <div id="friendsOwn" hidden>
+      <p class="muted small">
+        Challenge a friend at the time control below. Add friends from the
+        <a class="nav-link" href="/leaderboard.html">leaderboard</a> or after a game.
+      </p>
 
-    <!-- The same offer controls as the lobby, so a challenge from here carries a
-         time control rather than silently defaulting. -->
-    <div class="offer-form">
-      <label for="tcSelect">Time</label>
-      <select id="tcSelect"></select>
-      <label for="colorSelect">Play as</label>
-      <select id="colorSelect">
-        <option value="random" selected>Random</option>
-        <option value="w">White</option>
-        <option value="b">Black</option>
-      </select>
-      <label class="check"><input type="checkbox" id="ratedCheck" checked> Rated</label>
+      <!-- The same offer controls as the lobby, so a challenge from here carries a
+           time control rather than silently defaulting. -->
+      <div class="offer-form">
+        <label for="tcSelect">Time</label>
+        <select id="tcSelect"></select>
+        <label for="colorSelect">Play as</label>
+        <select id="colorSelect">
+          <option value="random" selected>Random</option>
+          <option value="w">White</option>
+          <option value="b">Black</option>
+        </select>
+        <label class="check"><input type="checkbox" id="ratedCheck" checked> Rated</label>
+      </div>
+
+      <p id="friendsError" class="lobby-error"></p>
+      <div id="friendRequests"></div>
     </div>
-
-    <p id="friendsError" class="lobby-error"></p>
-    <div id="friendRequests"></div>
     <div id="friendList" class="list"></div>
   </section>
 </div>

@@ -167,7 +167,7 @@ describe("recording and finishing a game", () => {
 });
 
 describe("ownership", () => {
-  test("another user cannot read, move in, or end my game", async () => {
+  test("another user cannot read my unfinished game, move in it, or end it", async () => {
     const { gameId } = await newGame({ humanColor: "w" });
     const { c: other } = await registerUser(srv.baseUrl, "intruder");
     assert.equal((await other.get(`/api/games/${gameId}`)).status, 403);

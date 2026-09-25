@@ -5,8 +5,14 @@
 // only supplies two things — a `friends:changed` nudge telling us to refetch,
 // and `lobby:state` for the online / playing badges. The socket opens the
 // first time the tab is shown, not with the page.
+//
+// On someone else's profile it is only their list of friends (no requests,
+// no presence, no challenges), from /api/friends/user/:id.
 
-(window.profileTabs = window.profileTabs || {}).friends = function () {
+(window.profileTabs = window.profileTabs || {}).friends = function ({ you, userId }) {
+  if (!you) return visitorList(userId);
+  document.getElementById("friendsOwn").hidden = false;
+
   const reqsEl    = document.getElementById("friendRequests");
   const listEl    = document.getElementById("friendList");
   const errorEl   = document.getElementById("friendsError");
@@ -164,3 +170,41 @@
 
   refresh();
 };
+
+async function visitorList(userId) {
+  const listEl = document.getElementById("friendList");
+  listEl.textContent = "Loading…";
+  let friends;
+  try {
+    const res = await fetch("/api/friends/user/" + encodeURIComponent(userId), { credentials: "same-origin" });
+    if (res.status === 401) { location.replace("/login.html"); return; }
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    friends = (await res.json()).friends;
+  } catch (e) {
+    listEl.textContent = "Failed to load friends.";
+    return;
+  }
+
+  listEl.innerHTML = "";
+  if (!friends.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted empty";
+    empty.textContent = "No friends yet.";
+    listEl.appendChild(empty);
+    return;
+  }
+  for (const f of friends) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const who = document.createElement("span");
+    who.className = "row-main";
+    who.appendChild(playerLink(f.userId, f.username));
+    if (f.member) who.appendChild(memberBadge());
+    const rating = document.createElement("span");
+    rating.className = "rating";
+    rating.textContent = "(" + f.rating + ")";
+    who.appendChild(rating);
+    row.appendChild(who);
+    listEl.appendChild(row);
+  }
+}
