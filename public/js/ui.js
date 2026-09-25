@@ -924,8 +924,9 @@ async function startNewGame() {
   startTurn = W;
   startFen = null;
   humanColor = colorSelectEl.value === 'b' ? B : W;
-  await persistNewAiGame(null);
+  const ready = persistNewAiGame(null);
   refreshGameState();
+  return ready;
 }
 
 // LorFish failed to produce a move (the worker crashed, or could not replay the
@@ -997,8 +998,9 @@ fenLoadBtn.addEventListener('click', async () => {
   startFen = fen;
   fenPanel.classList.remove('show');
   humanColor = colorSelectEl.value === 'b' ? B : W;
-  await persistNewAiGame(fen);
+  const ready = persistNewAiGame(fen);
   refreshGameState();
+  return ready;
 });
 
 // AI games get their own header, and drop the White/Black name lines: the

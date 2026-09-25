@@ -137,6 +137,9 @@ aborted, so nothing sits "in progress" for ever.
 Once an AI game is created, the page replaces its URL with `?id=<gameId>` so
 refresh resumes that board. New Game, colour changes and Load FEN replace the
 bookmark too; a late response for an earlier board cannot overwrite it.
+The board, PGN and move source reset synchronously before persistence resolves.
+Moves played while creation is pending queue against that game, and completion
+only updates the bookmark; it never resets a board that has already advanced.
 
 ## Real-time PvP
 
