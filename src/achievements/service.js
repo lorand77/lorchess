@@ -327,6 +327,7 @@ function evaluateGame(userId, game, analysis, extra) {
   const ratings = ratingsBefore(game, userId);
   const startSig = (() => {
     const ch = new Chess();
+    ch.setVariant(game.variant || "standard");
     if (analysis.standardStart) ch.reset(); else ch.loadFen(game.start_fen);
     return signature(ch);
   })();
