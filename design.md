@@ -134,6 +134,9 @@ kind is closed to them. The `termination` they store is an allowlist, since it
 is shown in the game history. Starting another game abandons the one on the
 board (`/:id/abandon`): a game nobody moved in is deleted, one with moves is
 aborted, so nothing sits "in progress" for ever.
+Once an AI game is created, the page replaces its URL with `?id=<gameId>` so
+refresh resumes that board. New Game, colour changes and Load FEN replace the
+bookmark too; a late response for an earlier board cannot overwrite it.
 
 ## Real-time PvP
 

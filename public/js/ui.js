@@ -882,6 +882,20 @@ function fillLabel(node, prefix, name, userId, member, suffix) {
 }
 
 // ---- AI mode ----
+async function persistNewAiGame(fen) {
+  // The old game's bookmark stops applying as soon as a new board starts.
+  const url = new URL(location.href);
+  url.searchParams.delete('id');
+  history.replaceState(null, '', url);
+  const id = await gameStore.newGame({ humanColor, depth: getDepth(), startFen: fen });
+  // A later New Game may already own the board when this request completes.
+  if (id && gameStore.currentId() === id) {
+    const current = new URL(location.href);
+    current.searchParams.set('id', id);
+    history.replaceState(null, '', current);
+  }
+}
+
 function refreshGameState() {
   resetSoundState();
   humanColor = colorSelectEl.value === 'b' ? B : W;
@@ -910,7 +924,7 @@ async function startNewGame() {
   startTurn = W;
   startFen = null;
   humanColor = colorSelectEl.value === 'b' ? B : W;
-  await gameStore.newGame({ humanColor, depth: getDepth(), startFen: null });
+  await persistNewAiGame(null);
   refreshGameState();
 }
 
@@ -983,7 +997,7 @@ fenLoadBtn.addEventListener('click', async () => {
   startFen = fen;
   fenPanel.classList.remove('show');
   humanColor = colorSelectEl.value === 'b' ? B : W;
-  await gameStore.newGame({ humanColor, depth: getDepth(), startFen: fen });
+  await persistNewAiGame(fen);
   refreshGameState();
 });
 

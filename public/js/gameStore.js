@@ -60,10 +60,12 @@ function createGameStore() {
       })
         .then((data) => {
           next.id = data.gameId;
+          return next.id;
         })
         .catch((err) => {
           console.warn("gameStore: game not persisted —", err.message);
           next.id = null;
+          return null;
         });
       game = next;
       // Writes for this game queue behind its creation. Whatever the previous
