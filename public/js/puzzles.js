@@ -348,8 +348,6 @@
     let data;
     try { data = await api("POST", "/" + puzzle.id + "/skip"); }
     catch (err) { phase = "playing"; return setStatus(err.message, "bad"); }
-    // Whatever ?id= we arrived with is not the puzzle on screen any more.
-    if (pinnedId) history.replaceState(null, "", "/puzzles.html");
     resultEl.style.display = "none";
     showStream(data);
     later(() => setStatus("Skipped — no rating change. " +
@@ -359,6 +357,11 @@
   // ---- loading ----
   function showStream(data) {
     puzzle = data.puzzle;
+    // Keep refresh and sharing attached to the puzzle now on screen, whether
+    // it came from a pinned link, Next, Skip, or the ordinary rated stream.
+    const url = new URL(location.href);
+    url.searchParams.set("id", puzzle.id);
+    history.replaceState(null, "", url);
     me.rating = data.rating;
     held = !!data.held;
     skipInfo = data.skip || null;

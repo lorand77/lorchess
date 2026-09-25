@@ -111,6 +111,8 @@ Design notes:
 - **The daily puzzle counts once it is done,** however it was first attempted:
   viewing today's puzzle credits the streak if an attempt exists (idempotent per
   day). Retries never move the rating or the streak.
+  The rated trainer updates its puzzle ID in the URL on Next and Skip, so a
+  refresh returns to the displayed puzzle without turning it into an old retry.
 
 ## AI games: client-side Web Worker
 
