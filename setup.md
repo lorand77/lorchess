@@ -142,6 +142,11 @@ only to change it:
 - `CLOCK_MS`, `CLOCK_INC_MS` — the clock assumed for PvP games stored before
   time controls existed (default 600000 and 0). New games take theirs from the
   lobby's time-control list.
+- `LOGIN_MAX_FAILURES`, `REGISTER_MAX`, `AUTH_WINDOW_MS` — failed logins and
+  new accounts allowed per client IP within the window (default 10, 5 and
+  900000, i.e. 15 min); past that, 429 until the window moves on.
+- `HASH_MAX_CONCURRENT` — how many password hashes or checks may run at once
+  (default 2, one per vCPU); more get 503 "server busy" instead of waiting.
 
 ## run the app
 ```

@@ -15,6 +15,12 @@ const path = require("path");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lorchess-test-"));
 process.env.DB_PATH = path.join(dir, "test.sqlite");
 process.env.SESSION_SECRET = "test-secret";
+// Every test registers and logs in from 127.0.0.1, often several users at
+// once, so the auth limits of src/auth/throttle.js would trip all over the
+// suite. Lift them unless the test file set its own before requiring this.
+process.env.LOGIN_MAX_FAILURES ??= "100000";
+process.env.REGISTER_MAX ??= "100000";
+process.env.HASH_MAX_CONCURRENT ??= "100000";
 process.on("exit", () => fs.rmSync(dir, { recursive: true, force: true }));
 
 // The server narrates connections, matches and results through console.log,

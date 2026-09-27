@@ -81,6 +81,17 @@ of keeping lists of their own that would drift the same way.
   second, and a `COLLATE NOCASE` unique index backs that check where the
   database allows it (an old database with such pairs boots with a warning).
   Login matches the exact spelling.
+- **Throttling** (`src/auth/throttle.js`): argon2 is expensive on purpose, so
+  register and login are limited. Per client IP, failed logins (unknown users
+  included) and registrations that reach the hash are counted over a sliding
+  window and answered with 429 past the limit; successful logins and rejected
+  registrations do not count. A global cap on argon2 calls in flight (one per
+  vCPU) answers 503 instead of queueing, which holds even against many IPs.
+  The client IP is `req.ip`, i.e. what Caddy put in `X-Forwarded-For`; that is
+  only trustworthy because port 3000 is not reachable except through Caddy.
+  State is in memory and a restart clears it. No per-account limit: it would
+  let anyone lock a player out by typing their name. Passwords are 6–128
+  characters; a longer one fails login without being verified.
 
 ## Database
 

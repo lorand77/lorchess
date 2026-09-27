@@ -8,11 +8,17 @@ const queries = require("../db/queries");
 const { requireAuth } = require("./middleware");
 const config = require("../config");
 const achievements = require("../achievements/service");
+const { loginFailures, registrations, acquireHashSlot } = require("./throttle");
 
 const router = express.Router();
 
 const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
 const MIN_PASSWORD = 6;
+// No real password is longer; the cap keeps argon2 from being fed megabytes.
+const MAX_PASSWORD = 128;
+
+const TOO_MANY = { error: "Too many attempts. Try again later." };
+const BUSY = { error: "The server is busy. Try again in a moment." };
 
 function disconnectSessionSockets(req, sessionId) {
   req.app.get("io").in(`session:${sessionId}`).disconnectSockets(true);
@@ -35,16 +41,21 @@ function startSession(req, user) {
 
 router.post("/register", async (req, res) => {
   try {
+    if (registrations.blocked(req.ip)) return res.status(429).json(TOO_MANY);
     const { username, password } = req.body || {};
     if (typeof username !== "string" || !USERNAME_RE.test(username)) {
       return res.status(400).json({
         error: "Username must be 3–20 characters: letters, digits, or underscore.",
       });
     }
-    if (typeof password !== "string" || password.length < MIN_PASSWORD) {
+    if (
+      typeof password !== "string" ||
+      password.length < MIN_PASSWORD ||
+      password.length > MAX_PASSWORD
+    ) {
       return res
         .status(400)
-        .json({ error: `Password must be at least ${MIN_PASSWORD} characters.` });
+        .json({ error: `Password must be ${MIN_PASSWORD}–${MAX_PASSWORD} characters.` });
     }
     if (username.toLowerCase() === config.AI_USERNAME.toLowerCase()) {
       return res.status(400).json({ error: "That username is reserved." });
@@ -55,7 +66,15 @@ router.post("/register", async (req, res) => {
       return res.status(409).json({ error: "Username already taken." });
     }
 
-    const hash = await argon2.hash(password);
+    const release = acquireHashSlot();
+    if (!release) return res.status(503).json(BUSY);
+    registrations.hit(req.ip);
+    let hash;
+    try {
+      hash = await argon2.hash(password);
+    } finally {
+      release();
+    }
     const info = queries.createUser.run(username, hash, config.PUZZLE_START_RATING);
     const user = { id: Number(info.lastInsertRowid), username };
     await startSession(req, user);
@@ -73,17 +92,27 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
+    if (loginFailures.blocked(req.ip)) return res.status(429).json(TOO_MANY);
     const { username, password } = req.body || {};
     const user =
       typeof username === "string" ? queries.getUserByUsername.get(username) : null;
+    const candidate = String(password || "");
 
-    // Uniform failure for "no such user" and "wrong password". The reserved AI
-    // account has a NULL hash, so it can never authenticate here.
-    const ok =
-      user && user.password_hash
-        ? await argon2.verify(user.password_hash, String(password || ""))
-        : false;
+    // Uniform failure for "no such user", "wrong password" and a password too
+    // long to be anyone's. The reserved AI account has a NULL hash, so it can
+    // never authenticate here.
+    let ok = false;
+    if (user && user.password_hash && candidate.length <= MAX_PASSWORD) {
+      const release = acquireHashSlot();
+      if (!release) return res.status(503).json(BUSY);
+      try {
+        ok = await argon2.verify(user.password_hash, candidate);
+      } finally {
+        release();
+      }
+    }
     if (!ok) {
+      loginFailures.hit(req.ip);
       return res.status(401).json({ error: "Invalid username or password." });
     }
 

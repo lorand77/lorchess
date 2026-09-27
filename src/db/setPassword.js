@@ -11,7 +11,7 @@
 //   - from stdin (first line) otherwise:  echo "s3cret" | npm run user:password -- alice
 //
 // Hashing matches src/auth/routes.js (argon2 defaults) and enforces the same
-// minimum length, so the account behaves exactly as if registered with it.
+// length limits, so the account behaves exactly as if registered with it.
 // Existing sessions for the user are NOT invalidated; restarting the server
 // with a new SESSION_SECRET logs everyone out if that is needed.
 
@@ -19,7 +19,8 @@ const readline = require("readline");
 const argon2 = require("argon2");
 const config = require("../config");
 
-const MIN_PASSWORD = 6; // keep in sync with src/auth/routes.js
+const MIN_PASSWORD = 6; // keep both in sync with src/auth/routes.js
+const MAX_PASSWORD = 128;
 
 function usage(msg) {
   if (msg) console.error("error:", msg);
@@ -78,8 +79,8 @@ async function main() {
   if (!user) usage(`no such user: ${username}`);
 
   const password = await readPassword();
-  if (password.length < MIN_PASSWORD) {
-    usage(`password must be at least ${MIN_PASSWORD} characters`);
+  if (password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
+    usage(`password must be ${MIN_PASSWORD}–${MAX_PASSWORD} characters`);
   }
 
   const hash = await argon2.hash(password);

@@ -11,6 +11,7 @@ const CONFIG = require.resolve("../../src/config");
 const VARS = [
   "PORT", "SESSION_SECRET", "DB_PATH", "GRACE_MS", "CLOCK_MS", "CLOCK_INC_MS",
   "RESUME_WINDOW_MS", "CHAT_RETENTION_DAYS", "ELO_K",
+  "AUTH_WINDOW_MS", "LOGIN_MAX_FAILURES", "REGISTER_MAX", "HASH_MAX_CONCURRENT",
 ];
 
 function loadConfig(env = {}) {
@@ -43,13 +44,18 @@ describe("config", () => {
     assert.equal(c.CHAT_RETENTION_DAYS, 30);
     assert.equal(c.ELO_K, 32);
     assert.equal(c.PUZZLE_START_RATING, 1200);
+    assert.equal(c.AUTH_WINDOW_MS, 900000);
+    assert.equal(c.LOGIN_MAX_FAILURES, 10);
+    assert.equal(c.REGISTER_MAX, 5);
+    assert.equal(c.HASH_MAX_CONCURRENT, 2);
   });
 
   test("environment overrides are parsed as integers", () => {
     const c = loadConfig({
       PORT: "8080", SESSION_SECRET: "s3cret", DB_PATH: "/tmp/x.sqlite", GRACE_MS: "1000",
       CLOCK_MS: "180000", CLOCK_INC_MS: "2000", RESUME_WINDOW_MS: "60000",
-      CHAT_RETENTION_DAYS: "7", ELO_K: "16",
+      CHAT_RETENTION_DAYS: "7", ELO_K: "16", AUTH_WINDOW_MS: "60000",
+      LOGIN_MAX_FAILURES: "3", REGISTER_MAX: "1", HASH_MAX_CONCURRENT: "4",
     });
     assert.equal(c.PORT, 8080);
     assert.equal(c.SESSION_SECRET, "s3cret");
@@ -60,6 +66,10 @@ describe("config", () => {
     assert.equal(c.RESUME_WINDOW_MS, 60000);
     assert.equal(c.CHAT_RETENTION_DAYS, 7);
     assert.equal(c.ELO_K, 16);
+    assert.equal(c.AUTH_WINDOW_MS, 60000);
+    assert.equal(c.LOGIN_MAX_FAILURES, 3);
+    assert.equal(c.REGISTER_MAX, 1);
+    assert.equal(c.HASH_MAX_CONCURRENT, 4);
   });
 
   test("unparseable numbers fall back to the defaults", () => {
