@@ -37,3 +37,9 @@ Native modules need a rebuild after `npm install`; see `setup.md`.
 - [design.md](design.md): architecture and the reasons behind it
 - [setup.md](setup.md): running and deploying
 - [CLAUDE.md](CLAUDE.md): conventions for working in the repo
+
+## License
+
+MIT, see [LICENSE](LICENSE). The exception is the vendored Stockfish engine in
+`public/js/vendor/stockfish/`, which is GPLv3 (see the `Copying.txt` and
+`README.md` there, including where its source is).

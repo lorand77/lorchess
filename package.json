@@ -2,6 +2,7 @@
   "name": "lorchess",
   "version": "0.5.0",
   "description": "Chess web app — play LorFish (AI) or other users in real time.",
+  "license": "MIT",
   "type": "commonjs",
   "scripts": {
     "start": "node --env-file-if-exists=.env src/server.js",
