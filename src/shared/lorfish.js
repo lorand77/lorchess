@@ -327,10 +327,10 @@ const LorFish = {
     return best;
   },
 
-  // The root search, shared by getBestMove (playing) and analyse (reviewing).
+  // The root search, shared by getBestMove (playing) and analyse (assessing).
   // Every root move is searched with a full window, so the scores that come back
   // are exact values rather than pruning bounds. `noise` adds the tiebreaker
-  // jitter that keeps play varied; review turns it off so the same position
+  // jitter that keeps play varied; analyse turns it off so the same position
   // always yields the same verdict.
   searchRoot(chess, depth, opts) {
     const noise = !!(opts && opts.noise);
@@ -369,12 +369,12 @@ const LorFish = {
     return best ? best.move : null;
   },
 
-  // Deterministic assessment of one position, for game review. `score` is in
+  // Deterministic assessment of one position, used by the test suite and its
+  // puzzle runs (game review moved to Stockfish). `score` is in
   // centipawns from the SIDE TO MOVE's point of view (negamax convention);
   // magnitudes near 99000 are mate. Returns null when there is nothing to
-  // search — the game is already over in this position. Silent: reviewing a
-  // whole game calls this ~80 times and getBestMove's logging would drown the
-  // console.
+  // search — the game is already over in this position. Silent: callers run it
+  // over many positions and getBestMove's logging would drown the console.
   analyse(chess, depth) {
     const { best, effDepth } = this.searchRoot(chess, depth, { noise: false });
     if (!best) return null;

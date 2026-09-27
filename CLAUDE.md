@@ -25,7 +25,9 @@ is in `setup.md`. Read `design.md` before changing anything under `src/game/`,
   `src/game/socket.js` owns every Socket.IO event, `src/game/rooms.js` the
   in-memory PvP state.
 - `src/shared/` — engine and catalogues loaded by browser, Web Worker and Node
-  alike; served at `/js/`. The only place engine code lives.
+  alike; served at `/js/`. The only place LorFish and the rules live.
+- `public/js/vendor/stockfish/` — vendored Stockfish 19 (WebAssembly), used by
+  game review only. Third-party files: replace them, never edit them.
 - `public/*.html` pages with their scripts in `public/js/`; `ui.js` is the game page.
 - `test/unit`, `test/integration` — `node --test`.
 

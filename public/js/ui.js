@@ -1698,7 +1698,7 @@ function showRatingChange(ratings) {
   if (window.currentUser) window.currentUser.rating = mine.after;
 }
 
-// Offer a LorFish review of the game that just ended. The replay viewer owns
+// Offer a Stockfish review of the game that just ended. The replay viewer owns
 // the analysis; this is only the way in. Not shown to spectators, who can't
 // fetch the game record.
 function hideReviewLink() {
@@ -1710,7 +1710,7 @@ function showReviewLink(id) {
   const wrap = document.getElementById('reviewLinkWrap');
   const link = document.getElementById('reviewLink');
   if (!wrap || !link || !id) return;
-  // LorFish can't review a game whose rules it doesn't know, so don't dangle a
+  // The engine can't review a game whose rules it doesn't know, so don't dangle a
   // link that the replay viewer will only refuse.
   if (!isReviewable(chess.variant)) return;
   // authGuard resolved window.currentUser long before any game could end, so
@@ -1720,7 +1720,7 @@ function showReviewLink(id) {
     link.textContent = '🔍 Review this game';
     link.href = '/replay.html?id=' + id + '&review=1';
   } else {
-    link.textContent = '🔒 Review this game with LorFish — members only';
+    link.textContent = '🔒 Review this game with Stockfish — members only';
     link.href = '/membership.html';
   }
   wrap.style.display = '';

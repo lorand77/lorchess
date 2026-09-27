@@ -20,6 +20,7 @@ browser, no build step.
 - **Raw SQL** via prepared statements in `src/db/queries.js`; no ORM.
 - **express-session** + `better-sqlite3-session-store` — one session cookie serves REST and the Socket.IO handshake.
 - **argon2** for password hashing.
+- **Stockfish 19 (WebAssembly)**, vendored in `public/js/vendor/stockfish/`, for game review only; it runs in the browser.
 - **No bundler, no framework.** Static HTML pages with their scripts in `public/js/`.
 
 ## Engine: one file, three runtimes
@@ -133,11 +134,7 @@ freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
 needed.) The worker `importScripts` the engine, receives
 `{ id, startFen, moves, depth }` and **replays the moves** instead of loading the
 current FEN, because `loadFen` and `reset` wipe `positionCounts` and threefold
-repetition would be wrong. The same worker streams per-ply evaluations for game
-review (`type: "review"`).
-Review reports terminal positions explicitly: draws score zero and checkmate
-scores as a loss for the side to move. A missing evaluation is left ungraded,
-so missing data cannot disguise a stalemate blunder as a good move.
+repetition would be wrong.
 
 The browser is authoritative for its own AI game. `public/js/gameStore.js`
 mirrors it to the server (`POST /api/games`, `/:id/moves`, `/:id/end`,
@@ -163,6 +160,55 @@ resume and strength-dependent achievements.
 Load FEN validates a scratch board before changing the current game. Already
 finished positions (mate, stalemate or a rule draw) are rejected in both the UI
 and creation API, so they cannot leave an unplayable game marked active.
+
+## Game review: Stockfish in the browser
+
+LorFish plays, but it is far too weak (roughly 1400–1800) to judge a game.
+Review uses **Stockfish 19**, the "lite single-threaded" WebAssembly build
+from the `stockfish` npm package (nmrugg/stockfish.js), vendored as two files
+under `public/js/vendor/stockfish/` rather than added as a dependency. It runs
+in the member's browser, so reviews cost the server nothing.
+
+- **Why that build.** About 1.8 MB (1.2 MB gzipped) with its small NNUE net
+  built into the `.wasm`. The full-net builds are ~100 MB. The multi-threaded
+  builds need `SharedArrayBuffer`, which means COOP/COEP cross-origin isolation
+  on the page; the single-threaded one needs neither.
+- **Loaded on first use.** `gameReview.js` starts the worker when a review
+  starts, not with the page, so replays that are only looked through download
+  nothing. The browser caches it afterwards. Express already serves `.wasm` as
+  `application/wasm`, which lets the browser compile it as it downloads.
+- **Driven over UCI** by `gameReview.js`, one position at a time:
+  `position startpos|fen <start> moves …` then `go movetime <ms>` (300 ms
+  normally, 800 ms for "Deeper"). The start position plus the moves, never the
+  current FEN, so Stockfish sees the repetition history. `UCI_Chess960` is
+  always on because game records spell castling by the rook square (`e1h1`),
+  standard games included; it is the mode in which Stockfish reads and writes
+  that. Bound (`lowerbound`/`upperbound`) info lines are ignored: a search cut
+  off by time often ends on one, and it is only provisional.
+- **The page's own `Chess` replays alongside**: it knows whose turn it is,
+  turns the engine's best move into SAN, and decides when the game is already
+  over. Finished positions are scored without asking Stockfish: draws (rule
+  draws included) score zero, checkmate a loss for the side to move. A missing
+  evaluation is left ungraded, so missing data cannot disguise a stalemate
+  blunder as a good move.
+- **Verdicts follow Lichess.** A move is judged by the expected score it gives
+  away (win% from centipawns, clamped at ±1000): 5, 10, 15 points make an
+  inaccuracy, mistake, blunder. Forced mates are judged first, on their own:
+  walking into one, or letting one's own slip, is a blunder unless the
+  position was already lost (or still won) by 7 or 10 pawns, which makes it
+  a mistake or an inaccuracy. Clamped, a mate would barely move the expected
+  score from an already bad position. The centipawn loss is still shown. UCI mate
+  scores are converted to LorFish's encoding (100000 minus plies) so one
+  formatter serves both. A mate's search depth is dropped: Stockfish runs
+  straight to depth 245 once it sees one.
+- **Membership is a UI gate only**, as before: the engine files are public
+  static assets, so this is a "please don't", not a "cannot".
+- The tests drive the real engine too: `stockfish-19-lite-single.js` also runs
+  under Node, reading UCI on stdin, so `test/unit/gameReview.test.js` reviews
+  short games against it in a child process.
+
+Only Standard and Chess960 are reviewable (`reviewable` in `variants.js`);
+Stockfish does not know the Atomic or Pawn Wars rules.
 
 ## Real-time PvP
 

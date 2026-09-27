@@ -297,7 +297,7 @@ function fmtDate(s) {
 window.addEventListener("theme:changed", () => { if (typeof renderBoard === "function" && typeof chess !== "undefined") renderBoard(); });
 
 // ---- game review ----
-// LorFish evaluates every position of the game in the engine worker. The result
+// Stockfish evaluates every position of the game in its own worker. The result
 // annotates the move list, summarises each side's play, and — when you step to a
 // move — says what the engine would have played instead.
 
@@ -314,14 +314,15 @@ function wireReview() {
     panel.style.display = "none";
     return;
   }
-  // LorFish only knows standard chess (Chess960 included — same rules, different
-  // start). Reviewing a game whose rules differ would produce confident nonsense.
+  // The review engine only knows standard chess (Chess960 included — same
+  // rules, different start). Reviewing a game whose rules differ would produce
+  // confident nonsense.
   if (!isReviewable(variant)) {
     const start = document.getElementById("reviewStart");
     start.innerHTML = "";
     start.appendChild(Object.assign(document.createElement("span"), {
       className: "muted small",
-      textContent: "LorFish plays standard chess, so it can't review a " +
+      textContent: "Stockfish plays standard chess, so it can't review a " +
         variantLabel(variant) + " game.",
     }));
     return;
@@ -346,7 +347,7 @@ function showReviewUpsell() {
   start.innerHTML = "";
   const note = document.createElement("span");
   note.className = "muted small";
-  note.textContent = "Have LorFish go through this game move by move — a member feature. ";
+  note.textContent = "Have Stockfish go through this game move by move — a member feature. ";
   const link = document.createElement("a");
   link.className = "review-link";
   link.href = "/membership.html";
@@ -360,17 +361,18 @@ function startReview() {
   const progEl = document.getElementById("reviewProgress");
   const textEl = document.getElementById("reviewProgressText");
   const errEl = document.getElementById("reviewError");
-  const depth = parseInt(document.getElementById("reviewDepth").value, 10) || 2;
+  const movetime = parseInt(document.getElementById("reviewTime").value, 10) || 300;
 
   errEl.textContent = "";
   startEl.style.display = "none";
   progEl.style.display = "";
-  textEl.textContent = "Analysing… 0%";
+  // Replaced by the first progress report, once the engine has loaded.
+  textEl.textContent = "Loading engine…";
 
   reviewJob = GameReview.run({
     startFen: startFen === STANDARD_START ? null : startFen,
     uciMoves: uciList,
-    depth,
+    movetime,
     onProgress: ({ done, total }) => {
       textEl.textContent = `Analysing… ${Math.round((done / total) * 100)}% (${done}/${total})`;
     },
@@ -423,12 +425,11 @@ function renderSummary() {
   const d = review.depths;
   const depthNote = !d ? ""
     : d.min === d.max
-      ? `Searched at depth ${d.max}.`
-      : `Searched at depth ${d.min}–${d.max}, going deeper as pieces came off.`;
+      ? `Searched to depth ${d.max}.`
+      : `Searched to depth ${d.min}–${d.max}.`;
   el.innerHTML =
     row(whiteName, review.white) + row(blackName, review.black) +
-    `<p class="review-note">${depthNote} Accuracy is measured against LorFish ` +
-    `(about 1400–1800), so treat it as a guide rather than a verdict.</p>`;
+    `<p class="review-note">${depthNote} Accuracy is measured against Stockfish 19.</p>`;
   el.style.display = "";
 }
 
@@ -452,7 +453,7 @@ function renderMoveVerdict() {
     `<span class="muted">${mover} · eval ${escapeHtml(evalText)}` +
     (m.depth ? ` · depth ${m.depth}` : "") + `</span>`;
   if (m.kind !== "best" && m.best) {
-    html += `<br><span class="muted">LorFish preferred <b>${escapeHtml(m.best.san)}</b>` +
+    html += `<br><span class="muted">Stockfish preferred <b>${escapeHtml(m.best.san)}</b>` +
       (m.loss > 0 ? ` (−${(m.loss / 100).toFixed(2)})` : "") + `</span>`;
   }
   el.innerHTML = html;

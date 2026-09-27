@@ -16,8 +16,8 @@ const VARIANTS = [
     // Does the game open from the ordinary chess setup? A handicap edits that
     // setup, so it only means anything where this is true.
     standardSetup: true,
-    // Can LorFish review it? It only knows the ordinary rules; Chess960 differs
-    // only in the starting position, so that one is fine.
+    // Can the game review (Stockfish) handle it? It only knows the ordinary
+    // rules; Chess960 differs only in the starting position, so that one is fine.
     reviewable: true,
   },
   // Draws a fresh back rank for every game (chess960.js has the generator).
