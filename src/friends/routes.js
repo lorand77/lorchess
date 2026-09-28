@@ -60,7 +60,7 @@ router.get("/", (req, res) => {
 router.get("/user/:id", (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Bad user id." });
-  if (id === AI_ID || !queries.getUserById.get(id)) {
+  if (id === AI_ID || !queries.getActiveUserById.get(id)) {
     return res.status(404).json({ error: "No such player." });
   }
   res.json({ friends: listFor(id).friends });
@@ -74,7 +74,7 @@ router.post("/requests", (req, res) => {
   }
   if (toId === me) return res.status(400).json({ error: "You can't friend yourself." });
   if (toId === AI_ID) return res.status(400).json({ error: "LorFish has no friends." });
-  if (!queries.getUserById.get(toId)) return res.status(404).json({ error: "No such user." });
+  if (!queries.getActiveUserById.get(toId)) return res.status(404).json({ error: "No such user." });
 
   const existing = queries.findFriendship.get({ a: me, b: toId });
   if (existing) {
@@ -111,6 +111,11 @@ router.post("/requests/:id/accept", (req, res) => {
   if (!row) return;
   if (row.status !== "pending" || row.addressee_id !== req.session.userId) {
     return res.status(409).json({ error: "Nothing to accept." });
+  }
+  // A deactivated requester's request is hidden from the list; it can't be
+  // accepted by id either.
+  if (!queries.getActiveUserById.get(row.requester_id)) {
+    return res.status(404).json({ error: "No such request." });
   }
   queries.acceptFriendRequest.run(row.id);
   changed(row.requester_id, row.addressee_id);

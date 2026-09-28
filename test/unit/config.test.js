@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
 
 const CONFIG = require.resolve("../../src/config");
 const VARS = [
-  "PORT", "SESSION_SECRET", "DB_PATH", "GRACE_MS", "CLOCK_MS", "CLOCK_INC_MS",
+  "PORT", "SESSION_SECRET", "DB_PATH", "GRACE_MS", "DEACTIVATION_SWEEP_MS", "CLOCK_MS", "CLOCK_INC_MS",
   "RESUME_WINDOW_MS", "CHAT_RETENTION_DAYS", "ELO_K",
   "AUTH_WINDOW_MS", "LOGIN_MAX_FAILURES", "REGISTER_MAX", "HASH_MAX_CONCURRENT",
 ];
@@ -38,6 +38,7 @@ describe("config", () => {
     assert.equal(c.DB_PATH, path.resolve(__dirname, "../../data/lorchess.sqlite"));
     assert.equal(c.AI_USERNAME, "LorFish");
     assert.equal(c.DISCONNECT_GRACE_MS, 45000);
+    assert.equal(c.DEACTIVATION_SWEEP_MS, 30000);
     assert.equal(c.CLOCK_INITIAL_MS, 600000);
     assert.equal(c.CLOCK_INCREMENT_MS, 0);
     assert.equal(c.RESUME_WINDOW_MS, 600000);
@@ -53,6 +54,7 @@ describe("config", () => {
   test("environment overrides are parsed as integers", () => {
     const c = loadConfig({
       PORT: "8080", SESSION_SECRET: "s3cret", DB_PATH: "/tmp/x.sqlite", GRACE_MS: "1000",
+      DEACTIVATION_SWEEP_MS: "5000",
       CLOCK_MS: "180000", CLOCK_INC_MS: "2000", RESUME_WINDOW_MS: "60000",
       CHAT_RETENTION_DAYS: "7", ELO_K: "16", AUTH_WINDOW_MS: "60000",
       LOGIN_MAX_FAILURES: "3", REGISTER_MAX: "1", HASH_MAX_CONCURRENT: "4",
@@ -61,6 +63,7 @@ describe("config", () => {
     assert.equal(c.SESSION_SECRET, "s3cret");
     assert.equal(c.DB_PATH, "/tmp/x.sqlite");
     assert.equal(c.DISCONNECT_GRACE_MS, 1000);
+    assert.equal(c.DEACTIVATION_SWEEP_MS, 5000);
     assert.equal(c.CLOCK_INITIAL_MS, 180000);
     assert.equal(c.CLOCK_INCREMENT_MS, 2000);
     assert.equal(c.RESUME_WINDOW_MS, 60000);

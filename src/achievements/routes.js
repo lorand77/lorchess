@@ -38,7 +38,7 @@ router.get("/me", (req, res) => {
 router.get("/user/:id", (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Bad user id." });
-  const out = id === AI_ID ? null : listFor(id);
+  const out = id === AI_ID || !queries.getActiveUserById.get(id) ? null : listFor(id);
   if (!out) return res.status(404).json({ error: "No such user." });
   // Time-based badges (an anniversary, say) are earned by the calendar, not by
   // logging in. Evaluate them for the person being looked at too, so their

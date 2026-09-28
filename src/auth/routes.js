@@ -117,6 +117,10 @@ router.post("/login", async (req, res) => {
       loginFailures.hit(req.ip);
       return res.status(401).json({ error: "Invalid username or password." });
     }
+    // Only said to someone who knows the password, so it leaks nothing.
+    if (user.deactivated_at) {
+      return res.status(403).json({ error: "This account has been deactivated." });
+    }
 
     await startSession(req, user);
     try { achievements.onVisit(user.id); } catch (e) { console.error("achievements:", e); }

@@ -228,6 +228,23 @@ Minimum length is 6, matching registration. The reserved `LorFish` account is
 refused. The user's existing sessions stay logged in; if they must be kicked
 out, restart the app with a new `SESSION_SECRET` (logs everyone out).
 
+## deactivating a user
+
+Same place and same rules as above (project dir, app user, safe while running):
+
+```
+npm run user:deactivate -- <username>
+npm run user:reactivate -- <username>
+```
+
+A deactivated user cannot log in (they are told the account is deactivated,
+but only after typing the right password), is left off the leaderboard and
+every friends list, and their profile answers 404. Their sessions are ended at
+once; open tabs are disconnected within 30 s (`DEACTIVATION_SWEEP_MS`), and a
+game they are playing is then forfeited after the usual reconnect grace (or
+aborted if no move was played). Nothing is deleted: past games keep their name,
+the username stays taken, and reactivating restores rating and friends.
+
 ## backing up sqlite database
 
 ```

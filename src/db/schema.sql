@@ -6,7 +6,11 @@ CREATE TABLE IF NOT EXISTS users (
   username      TEXT    NOT NULL UNIQUE,
   password_hash TEXT,                       -- NULL for the reserved AI account
   rating        INTEGER NOT NULL DEFAULT 1200,
-  created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+  -- Set by `npm run user:deactivate`: no login, no leaderboard, no friends
+  -- list, no profile. NULL = active. The row stays so game history keeps its
+  -- names and reactivating restores everything.
+  deactivated_at TEXT
 );
 
 -- Every game, AI or PvP, with its full move record in `moves`.

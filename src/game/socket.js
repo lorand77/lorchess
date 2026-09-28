@@ -74,7 +74,11 @@ function reloadSocketSession(socket, done) {
   if (!session || !session.userId) return done(new Error("unauthorized"));
   session.reload((err) => {
     const current = socket.request.session;
-    if (err || !current.userId || (socket.userId != null && current.userId !== socket.userId)) {
+    if (
+      err || !current.userId ||
+      (socket.userId != null && current.userId !== socket.userId) ||
+      queries.isDeactivated.get(current.userId)
+    ) {
       return done(new Error("unauthorized"));
     }
     done(null, current);
@@ -93,6 +97,17 @@ function attachSockets(httpServer) {
     console.log(`Aborted ${aborted} game(s) nobody resumed after the restart.`);
     lobby.refresh(io);
   }), config.RESUME_WINDOW_MS).unref();
+
+  // `npm run user:deactivate` runs in another process and cannot reach these
+  // sockets. An idle one never sends the event that would re-check it, so it
+  // would keep its owner listed (and challengeable) in the lobby. Sweep them;
+  // the ordinary disconnect path then withdraws seeks and challenges, and a
+  // live game is forfeited once the reconnect grace runs out.
+  setInterval(() => safely("deactivation sweep", () => {
+    for (const socket of io.of("/").sockets.values()) {
+      if (queries.isDeactivated.get(socket.userId)) socket.disconnect(true);
+    }
+  }), config.DEACTIVATION_SWEEP_MS).unref();
 
   io.engine.use(sessionMiddleware);
 

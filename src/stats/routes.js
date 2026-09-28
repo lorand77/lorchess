@@ -117,7 +117,7 @@ router.get("/", (req, res) => res.json({ ...statsFor(req.session.userId), you: t
 router.get("/:id", (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Bad user id." });
-  const out = id === AI_ID ? null : statsFor(id);
+  const out = id === AI_ID || !queries.getActiveUserById.get(id) ? null : statsFor(id);
   if (!out) return res.status(404).json({ error: "No such player." });
   res.json({ ...out, you: id === req.session.userId });
 });

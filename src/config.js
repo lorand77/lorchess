@@ -27,6 +27,10 @@ module.exports = {
   // Grace period a disconnected PvP player has to reconnect before forfeiting.
   DISCONNECT_GRACE_MS: intEnv("GRACE_MS", 45000),
 
+  // How often the server disconnects sockets of accounts deactivated from the
+  // command line (see src/game/socket.js).
+  DEACTIVATION_SWEEP_MS: intEnv("DEACTIVATION_SWEEP_MS", 30000),
+
   // PvP time control (server-authoritative clocks). Default 10+0.
   CLOCK_INITIAL_MS: intEnv("CLOCK_MS", 10 * 60 * 1000),
   CLOCK_INCREMENT_MS: intEnv("CLOCK_INC_MS", 0),

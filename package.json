@@ -12,6 +12,8 @@
     "test:deep": "PERFT_MAX_NODES=all PUZZLES=all node --test \"test/**/*.test.js\"",
     "db:reset": "node --env-file-if-exists=.env src/db/reset.js",
     "user:password": "node --env-file-if-exists=.env src/db/setPassword.js",
+    "user:deactivate": "node --env-file-if-exists=.env src/db/deactivate.js deactivate",
+    "user:reactivate": "node --env-file-if-exists=.env src/db/deactivate.js reactivate",
     "puzzles:import": "node --env-file-if-exists=.env src/db/importPuzzles.js",
     "puzzles:fixture": "node --env-file-if-exists=.env scripts/extractPuzzleFixture.js",
     "achievements:backfill": "node --env-file-if-exists=.env src/achievements/backfill.js",

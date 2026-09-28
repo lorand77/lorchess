@@ -93,6 +93,20 @@ of keeping lists of their own that would drift the same way.
   (Ryan1995). Every refusal gets one generic message so the lists cannot be
   probed, and the lists never reach the browser. Existing accounts are not
   re-checked.
+- **Deactivation** (`users.deactivated_at`, set by `npm run user:deactivate`):
+  a flag, not a deletion, so game history keeps its names, the name stays
+  taken, and reactivation restores everything. It is not `password_hash NULL`,
+  which already means "the AI account". Login refuses it after the password
+  check (so the message leaks nothing to someone without the password);
+  `requireAuth` and the socket session check refuse it too, because a login
+  racing the command can create a session after the command deleted them.
+  The command runs in its own process and cannot reach live sockets, so the
+  server sweeps them every `DEACTIVATION_SWEEP_MS`; the normal disconnect path
+  then clears seeks and challenges and forfeits a live game after the grace.
+  Leaderboard, friends lists and friend requests filter deactivated users in
+  SQL; profiles use `getActiveUserById` and 404. `getUserById` itself is left
+  unfiltered: `/api/me`, the lobby and achievements read it for the user
+  themselves.
 - **Throttling** (`src/auth/throttle.js`): argon2 is expensive on purpose, so
   register and login are limited. Per client IP, failed logins (unknown users
   included) and registrations that reach the hash are counted over a sliding

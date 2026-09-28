@@ -85,6 +85,8 @@ addColumnIfMissing("users", "puzzle_current", "TEXT");
 addColumnIfMissing("moves", "think_ms", "INTEGER");
 // 1 when the move was queued as a premove (see the Clairvoyant achievement).
 addColumnIfMissing("moves", "premove", "INTEGER NOT NULL DEFAULT 0");
+// When the account was deactivated (src/db/deactivate.js); NULL = active.
+addColumnIfMissing("users", "deactivated_at", "TEXT");
 
 // The puzzle rating used to start at 1500. Move anyone who never attempted a
 // puzzle to the current starting value; the column default on an existing

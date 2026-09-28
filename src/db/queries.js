@@ -38,7 +38,7 @@ function leaderboardStatements() {
         LEFT JOIN games g
           ON (g.white_id = u.id OR g.black_id = u.id)
          AND g.mode = 'pvp' AND g.status = 'finished' AND g.rated = 1
-        WHERE u.username <> ?
+        WHERE u.username <> ? AND u.deactivated_at IS NULL
         GROUP BY u.id
         ORDER BY ${expr} ${dir.toUpperCase()},
                  u.rating DESC, games DESC, u.username COLLATE NOCASE ASC
@@ -63,6 +63,20 @@ module.exports = {
   // Safe public view (no hash) — for /api/me and general lookups.
   getUserById: db.prepare(
     "SELECT id, username, rating, created_at, member_since FROM users WHERE id = ?"
+  ),
+  // The same, but only while the account is active: what anyone other than
+  // the user sees (profiles, friend requests). Deactivated users are a 404.
+  getActiveUserById: db.prepare(
+    "SELECT id, username, rating, created_at, member_since FROM users WHERE id = ? AND deactivated_at IS NULL"
+  ),
+  isDeactivated: db.prepare(
+    "SELECT 1 FROM users WHERE id = ? AND deactivated_at IS NOT NULL"
+  ),
+  deactivateUser: db.prepare(
+    "UPDATE users SET deactivated_at = datetime('now') WHERE id = ? AND deactivated_at IS NULL"
+  ),
+  reactivateUser: db.prepare(
+    "UPDATE users SET deactivated_at = NULL WHERE id = ? AND deactivated_at IS NOT NULL"
   ),
   updateRating: db.prepare("UPDATE users SET rating = ? WHERE id = ?"),
   // Ops-only (src/db/setPassword.js); there is no self-service change flow.
@@ -176,6 +190,7 @@ module.exports = {
   `),
   deleteFriendship: db.prepare("DELETE FROM friendships WHERE id = ?"),
   // Everything involving a user, with the OTHER party resolved for display.
+  // Deactivated users drop out; the rows stay, so reactivating restores them.
   listFriendshipsForUser: db.prepare(`
     SELECT f.id, f.status, f.created_at, f.responded_at,
            f.requester_id, f.addressee_id,
@@ -184,7 +199,7 @@ module.exports = {
     FROM friendships f
     JOIN users u ON u.id = CASE WHEN f.requester_id = @me THEN f.addressee_id
                                 ELSE f.requester_id END
-    WHERE f.requester_id = @me OR f.addressee_id = @me
+    WHERE (f.requester_id = @me OR f.addressee_id = @me) AND u.deactivated_at IS NULL
     ORDER BY f.status DESC, u.rating DESC, u.username COLLATE NOCASE
   `),
 

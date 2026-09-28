@@ -98,7 +98,7 @@ router.get("/", (req, res) => {
 router.get("/user/:id", (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Bad user id." });
-  if (id === AI_ID || !queries.getUserById.get(id)) {
+  if (id === AI_ID || !queries.getActiveUserById.get(id)) {
     return res.status(404).json({ error: "No such player." });
   }
   res.json(queries.listGamesForUser.all(id, id));
