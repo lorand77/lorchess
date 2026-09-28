@@ -90,10 +90,12 @@ function client(baseUrl) {
 }
 
 // A username that is unique within the process and valid for /api/register.
+// The suffix is decimal: base-36 letters could spell something that
+// src/auth/usernamePolicy.js refuses, and the test would fail at random.
 let counter = 0;
 function uniqueName(base) {
   counter++;
-  return `${base}_${process.pid.toString(36)}${counter}`.slice(0, 20);
+  return `${base}_${process.pid}${counter}`.slice(0, 20);
 }
 
 // Register a fresh user on a fresh client; returns { c, user }.

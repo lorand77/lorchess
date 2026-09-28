@@ -9,6 +9,7 @@ const { requireAuth } = require("./middleware");
 const config = require("../config");
 const achievements = require("../achievements/service");
 const { loginFailures, registrations, acquireHashSlot } = require("./throttle");
+const { usernameProblem } = require("./usernamePolicy");
 
 const router = express.Router();
 
@@ -57,8 +58,9 @@ router.post("/register", async (req, res) => {
         .status(400)
         .json({ error: `Password must be ${MIN_PASSWORD}–${MAX_PASSWORD} characters.` });
     }
-    if (username.toLowerCase() === config.AI_USERNAME.toLowerCase()) {
-      return res.status(400).json({ error: "That username is reserved." });
+    // One message for every rule, so the lists can't be probed rule by rule.
+    if (usernameProblem(username)) {
+      return res.status(400).json({ error: "That username isn't allowed." });
     }
     // Names that differ only in case would be indistinguishable in every list,
     // so they count as the same name (login still wants the exact spelling).

@@ -32,7 +32,7 @@ describe("register", () => {
     assert.equal("password_hash" in me.body, false, "the hash never leaves the server");
   });
 
-  test("rejects bad usernames, short passwords, the reserved name and duplicates", async () => {
+  test("rejects bad usernames, short passwords, disallowed names and duplicates", async () => {
     const c = client(srv.baseUrl);
     const bad = [
       ["too short", { username: "ab", password: "hunter22" }, /Username must be/],
@@ -41,8 +41,11 @@ describe("register", () => {
       ["not a string", { username: 42, password: "hunter22" }, /Username must be/],
       ["short password", { username: uniqueName("bob"), password: "12345" }, /Password must be/],
       ["missing password", { username: uniqueName("bob") }, /Password must be/],
-      ["reserved name", { username: "LorFish", password: "hunter22" }, /reserved/],
-      ["reserved name, other case", { username: "lorfish", password: "hunter22" }, /reserved/],
+      ["the AI's name", { username: "LorFish", password: "hunter22" }, /isn't allowed/],
+      ["the AI's name, other case", { username: "lorfish", password: "hunter22" }, /isn't allowed/],
+      ["contains lor", { username: "Taylor", password: "hunter22" }, /isn't allowed/],
+      ["staff-looking", { username: "the_admin", password: "hunter22" }, /isn't allowed/],
+      ["profane", { username: "5h1t_happens", password: "hunter22" }, /isn't allowed/],
     ];
     for (const [name, body, message] of bad) {
       const res = await c.post("/api/register", body);

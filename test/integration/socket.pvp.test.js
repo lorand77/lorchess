@@ -132,7 +132,7 @@ describe("a game", () => {
     assert.deepEqual(await emitAck(white, "move:make", { gameId, from: "e2", to: "e4" }), { ok: false, error: "Illegal move." });
     assert.deepEqual(await emitAck(white, "move:make", { gameId }), { ok: false, error: "Illegal move." });
     assert.deepEqual(await emitAck(white, "move:make", {}), { ok: false, error: "Game not found." });
-    const { c } = await registerUser(srv.baseUrl, "mallory");
+    const { c } = await registerUser(srv.baseUrl, "stranger");
     const stranger = await connectSocket(srv.baseUrl, c.cookie());
     assert.deepEqual(await emitAck(stranger, "move:make", { gameId, ...mv("e2", "e4") }), { ok: false, error: "You are not a player in this game." });
     stranger.close();

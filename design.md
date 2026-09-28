@@ -82,6 +82,17 @@ of keeping lists of their own that would drift the same way.
   second, and a `COLLATE NOCASE` unique index backs that check where the
   database allows it (an old database with such pairs boots with a warning).
   Login matches the exact spelling.
+- **Username policy** (`src/auth/usernamePolicy.js`): beyond 3–20 of
+  `[A-Za-z0-9_]`, registration refuses names containing "lor" anywhere (the
+  site's prefix; this knowingly costs Taylor and Lord), names that pass for
+  staff or for a UI label (admin, mod, bot, guest, White…), and English slurs
+  and profanity. Names are compared lowercased, without underscores, with
+  digits read as letters and stretched letters squeezed; short words only
+  count as a whole part of the name (split on `_` and camelCase), so classic
+  and Essex pass. Runs of three or more digits are numbers, not letters
+  (Ryan1995). Every refusal gets one generic message so the lists cannot be
+  probed, and the lists never reach the browser. Existing accounts are not
+  re-checked.
 - **Throttling** (`src/auth/throttle.js`): argon2 is expensive on purpose, so
   register and login are limited. Per client IP, failed logins (unknown users
   included) and registrations that reach the hash are counted over a sliding

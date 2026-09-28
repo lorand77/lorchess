@@ -28,7 +28,7 @@ const FOOLS_MATE = plies(["f2f3", "e7e5", "g2g4", "d8h4"]);
 let srv, me, user;
 before(async () => {
   srv = await startServer();
-  ({ c: me, user } = await registerUser(srv.baseUrl, "player"));
+  ({ c: me, user } = await registerUser(srv.baseUrl, "mover"));
 });
 after(async () => { await srv.close(); });
 

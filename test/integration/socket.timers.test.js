@@ -35,8 +35,8 @@ after(async () => { await srv.close(); });
 // A quick-matched game with both players joined. `fresh` registers two new
 // users so rating assertions can start from 1200.
 async function joinedGame(payload = { tc: "10+0" }, { fresh = false } = {}) {
-  const u1 = fresh ? await registerUser(srv.baseUrl, "p1") : alice;
-  const u2 = fresh ? await registerUser(srv.baseUrl, "p2") : bob;
+  const u1 = fresh ? await registerUser(srv.baseUrl, "first") : alice;
+  const u2 = fresh ? await registerUser(srv.baseUrl, "second") : bob;
   const a = await connectSocket(srv.baseUrl, u1.c.cookie());
   const b = await connectSocket(srv.baseUrl, u2.c.cookie());
   const { gameId, white, black } = await quickMatch(a, b, payload);
