@@ -230,9 +230,10 @@ in the member's browser, so reviews cost the server nothing.
   the position on screen, on the same win% curve the verdicts use, so it
   moves as far as the winning chances do rather than with raw centipawns. A
   forced mate fills it. It is shown, empty, on every game that could be
-  reviewed, so the board does not jump when a review lands, and it takes its
-  18 px out of the board's width instead of widening the page, so the replay
-  still fits wherever the board alone did.
+  reviewed, so the board does not jump when a review lands. It sits right of
+  the board with the number above it, and takes its 18 px out of the board's
+  width instead of widening the page, so the replay still fits wherever the
+  board alone did.
 - **Membership is a UI gate only**, as before: the engine files are public
   static assets, so this is a "please don't", not a "cannot".
 - The tests drive the real engine too: `stockfish-19-lite-single.js` also runs

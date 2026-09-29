@@ -1189,11 +1189,12 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 /* ---- game review (public/js/gameReview.js + replay.js) ---- */
 /* The eval bar is there from page load on any game that can be reviewed,
    empty until the review fills it, so the board never jumps when it lands.
-   It takes its 18px (14px + 4px gap) out of the board's width rather than
-   widening the page, so the replay fits wherever the board alone did. --sq
-   follows the narrower board. White's share fills from White's end: the
-   bottom, or the top when the board is flipped. No number inside: at this
-   width it would not fit, and the move line and tooltip already give it. */
+   It sits right of the board and takes its 18px (14px + 4px gap) out of the
+   board's width rather than widening the page, so the replay fits wherever
+   the board alone did. --sq follows the narrower board. White's share fills
+   from White's end: the bottom, or the top when the board is flipped. The
+   number would not fit inside, so it sits above the bar's top, at the right
+   end of the captured-pieces row, always in the same place. */
 .board-row { display: flex; gap: 4px; }
 .eval-bar { display: none; }
 .game.has-eval .board-row { --sq: calc((var(--board) - 18px) / 8); }
@@ -1211,6 +1212,13 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
   background: #f2f2f2; transition: height 0.25s ease;
 }
 .eval-bar.flipped .eval-fill { bottom: auto; top: 0; }
+.eval-number {
+  position: absolute; top: 5px; right: 0;
+  padding: 2px 6px; border-radius: 4px;
+  background: var(--inset); color: var(--text);
+  font: bold 12px Arial, sans-serif; font-variant-numeric: tabular-nums;
+}
+.eval-number:empty { display: none; }
 .review { margin-top: 16px; }
 .review h3 { margin: 0 0 8px; }
 .review-start { display: flex; gap: 8px; align-items: center; margin: 0; }

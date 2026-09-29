@@ -439,23 +439,28 @@ function renderSummary() {
 // The eval bar beside the board: White's share of the winning chances in the
 // position on screen, filling from White's end whichever way the board faces.
 // It is shown, empty, on every game a review could score, so the board is the
-// same size before and after one. Too narrow for a number; its tooltip has it.
+// same size before and after one. Too narrow for a number, which sits in the
+// same place above it every time, from White's side: "+1.24", "-M3", or the
+// result once someone has been mated.
 function renderEvalBar() {
   const game = boardEl.closest(".game");
   const bar = document.getElementById("evalBar");
+  const number = document.getElementById("evalNumber");
   game.classList.toggle("has-eval", uciList.length > 0 && isReviewable(variant));
   const scores = review && review.scores;
   bar.classList.toggle("pending", !scores);
   if (!scores) {
     bar.title = "Not reviewed yet";
+    number.textContent = "";
     return;
   }
   const score = scores[idx];
   bar.classList.toggle("flipped", flip);
   bar.style.setProperty("--white-share", GameReview.whiteShare(score) + "%");
+  const mated = score != null && Math.abs(score) === GameReview.MATE;
+  number.textContent = mated ? (score > 0 ? "1-0" : "0-1") : GameReview.formatScore(score, "w");
   bar.title = score == null ? "No evaluation"
-    : Math.abs(score) === GameReview.MATE ? "Checkmate"
-      : "Evaluation " + GameReview.formatScore(score, "w");
+    : mated ? "Checkmate" : "Evaluation " + number.textContent;
 }
 
 // What the review says about the move that produced the position on screen.
