@@ -14,7 +14,14 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
 <div class="game">
   <div class="board-wrap">
     <div class="captured" id="capturedTop"></div>
-    <div class="board" id="board"></div>
+    <!-- Eval bar: hidden until a review has scored the positions. -->
+    <div class="board-row" id="boardRow">
+      <div class="eval-bar" id="evalBar" aria-hidden="true">
+        <div class="eval-fill"></div>
+        <span class="eval-label" id="evalLabel"></span>
+      </div>
+      <div class="board" id="board"></div>
+    </div>
     <div class="captured" id="capturedBottom"></div>
   </div>
   <div class="info">

@@ -117,6 +117,28 @@ test("missing evaluations are not fabricated as good moves", async () => {
   assert.equal(result.moves.length, 0);
 });
 
+test("every position's score is kept from White's side for the eval bar", async () => {
+  const scores = review.summarise(
+    [{ turn: "w", score: 30 }, { turn: "b", score: 45 }, null, { turn: "w", score: -MATE }],
+    ["e2e4", "e7e5", "d1h5"],
+  ).scores;
+  assert.deepEqual(Array.from(scores), [30, -45, null, -MATE]);
+  // Black mated at the end of a real review: the last position is White's win.
+  const engine = scriptedEngine(() => ["info depth 5 score mate 1 pv g5g7", "bestmove g5g7"]);
+  const result = await runReview({ startFen: "7k/5K2/8/6Q1/8/8/8/8 w - - 0 1", uciMoves: ["g5g7"], engine });
+  assert.deepEqual(Array.from(result.scores), [MATE - 1, MATE]);
+});
+
+test("the eval bar follows winning chances, and a forced mate fills it", () => {
+  assert.equal(review.whiteShare(0), 50);
+  assert.equal(review.whiteShare(null), 50, "no score leaves it level");
+  assert.ok(review.whiteShare(300) > 70 && review.whiteShare(300) < 90);
+  assert.equal(review.whiteShare(-300), 100 - review.whiteShare(300));
+  assert.ok(review.whiteShare(5000) < 100, "a big material lead is not a mate");
+  assert.equal(review.whiteShare(MATE - 7), 100);
+  assert.equal(review.whiteShare(-(MATE - 7)), 0);
+});
+
 test("a move is judged by the winning chances it gives away", () => {
   const verdict = (before, after) =>
     review.summarise([{ turn: "w", score: before }, { turn: "b", score: -after }], ["e2e4"]).moves[0];

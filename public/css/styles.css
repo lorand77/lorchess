@@ -1187,6 +1187,31 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 }
 
 /* ---- game review (public/js/gameReview.js + replay.js) ---- */
+/* The eval bar takes its width out of the board rather than widening the
+   page, so the replay fits wherever the board alone did. White's share fills
+   from White's end: the bottom, or the top when the board is flipped. */
+.board-row { display: flex; gap: 6px; }
+.eval-bar { display: none; }
+.board-row.has-eval { --sq: calc((var(--board) - 28px) / 8); }
+.board-row.has-eval .board { width: calc(var(--board) - 28px); }
+.board-row.has-eval .eval-bar {
+  display: block; position: relative; flex: 0 0 22px; overflow: hidden;
+  background: #403d39; border: 2px solid #1a1a1a; box-sizing: border-box;
+}
+.eval-fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: var(--white-share, 50%);
+  background: #f2f2f2; transition: height 0.25s ease;
+}
+.eval-bar.flipped .eval-fill { bottom: auto; top: 0; }
+.eval-label {
+  position: absolute; left: 0; right: 0; top: 3px;
+  text-align: center; font-size: 9px; font-weight: bold; color: #e6e6e6;
+  letter-spacing: -0.3px;
+}
+.eval-bar.white-ahead .eval-label { top: auto; bottom: 3px; color: #333; }
+.eval-bar.flipped .eval-label { top: auto; bottom: 3px; }
+.eval-bar.flipped.white-ahead .eval-label { top: 3px; bottom: auto; }
 .review { margin-top: 16px; }
 .review h3 { margin: 0 0 8px; }
 .review-start { display: flex; gap: 8px; align-items: center; margin: 0; }

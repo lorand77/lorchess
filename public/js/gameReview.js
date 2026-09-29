@@ -20,6 +20,9 @@
 //   GameReview.run({ startFen, uciMoves, movetime, onProgress, onDone, onError })
 //     -> { cancel() }
 //
+// onDone gets the summary: per-move verdicts, each side's totals, and `scores`,
+// every position's evaluation from White's side for the replay's eval bar.
+//
 // A note on sign conventions, because they are easy to get wrong: UCI reports
 // each score from the SIDE TO MOVE's point of view. So for move i, `before` is
 // already the mover's perspective, and the score after their move is reported
@@ -150,7 +153,21 @@ window.GameReview = (function () {
       ? { min: Math.min(...depths), max: Math.max(...depths) }
       : null;
 
-    return { moves, white: side("w"), black: side("b"), depths: range };
+    // Every position's score from White's side, for the eval bar: index i is
+    // the position after i plies, null where the engine gave no score.
+    const scores = evals.map((e) =>
+      e && e.score != null ? (e.turn === "b" ? -e.score : e.score) : null);
+
+    return { moves, white: side("w"), black: side("b"), depths: range, scores };
+  }
+
+  // How much of the eval bar is White's (0-100) for a score from White's side:
+  // the same expected-score curve the verdicts use, so the bar moves as far as
+  // the winning chances do. A forced mate fills it; no score leaves it level.
+  function whiteShare(score) {
+    if (score == null) return 50;
+    if (isMate(score)) return score > 0 ? 100 : 0;
+    return winPct(score);
   }
 
   // UCI "score mate N" -> the MATE encoding. N counts moves, positive when the
@@ -336,5 +353,5 @@ window.GameReview = (function () {
     return (v > 0 ? "+" : v < 0 ? "-" : "") + (Math.abs(v) / 100).toFixed(2);
   }
 
-  return { run, summarise, formatScore, classify, parseInfo, mateScore, SYMBOL, LABEL };
+  return { run, summarise, formatScore, whiteShare, MATE, classify, parseInfo, mateScore, SYMBOL, LABEL };
 })();

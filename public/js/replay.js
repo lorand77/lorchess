@@ -112,6 +112,7 @@ function goto(i) {
   renderBoard();
   highlightMoveList();
   renderMoveVerdict();
+  renderEvalBar();
 }
 
 function findUci(uci) {
@@ -385,6 +386,7 @@ function startReview() {
       buildMoveList();   // repaint with the verdict symbols
       renderSummary();
       renderMoveVerdict();
+      renderEvalBar();
       highlightMoveList();
     },
     onError: (err) => {
@@ -432,6 +434,33 @@ function renderSummary() {
     row(whiteName, review.white) + row(blackName, review.black) +
     `<p class="review-note">${depthNote} Accuracy is measured against Stockfish 19.</p>`;
   el.style.display = "";
+}
+
+// The eval bar beside the board: White's share of the winning chances in the
+// position on screen, filling from White's end whichever way the board faces.
+// The number sits at the end of whoever is ahead, as players expect: "1.3",
+// "M4", or the result once someone has been mated.
+function renderEvalBar() {
+  const row = document.getElementById("boardRow");
+  const bar = document.getElementById("evalBar");
+  const label = document.getElementById("evalLabel");
+  if (!review || !review.scores) {
+    row.classList.remove("has-eval");
+    return;
+  }
+  const score = review.scores[idx];
+  const whiteAhead = score == null || score >= 0;
+  row.classList.add("has-eval");
+  bar.classList.toggle("flipped", flip);
+  bar.classList.toggle("white-ahead", whiteAhead);
+  bar.style.setProperty("--white-share", GameReview.whiteShare(score) + "%");
+  const size = score == null ? 0 : Math.abs(score);
+  label.textContent =
+    score == null ? ""
+      : size === GameReview.MATE ? (score > 0 ? "1-0" : "0-1")
+        : size >= 99000 ? GameReview.formatScore(size, "w") // "M4"
+          : (size / 100).toFixed(1);
+  bar.title = score == null ? "No evaluation" : "Evaluation " + GameReview.formatScore(score, "w");
 }
 
 // What the review says about the move that produced the position on screen.
