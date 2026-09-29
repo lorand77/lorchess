@@ -1189,17 +1189,18 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 /* ---- game review (public/js/gameReview.js + replay.js) ---- */
 /* The eval bar is there from page load on any game that can be reviewed,
    empty until the review fills it, so the board never jumps when it lands.
-   It takes its 28px (22px + 6px gap) out of the board's width rather than
+   It takes its 18px (14px + 4px gap) out of the board's width rather than
    widening the page, so the replay fits wherever the board alone did. --sq
    follows the narrower board. White's share fills from White's end: the
-   bottom, or the top when the board is flipped. */
-.board-row { display: flex; gap: 6px; }
+   bottom, or the top when the board is flipped. No number inside: at this
+   width it would not fit, and the move line and tooltip already give it. */
+.board-row { display: flex; gap: 4px; }
 .eval-bar { display: none; }
-.game.has-eval .board-row { --sq: calc((var(--board) - 28px) / 8); }
-.game.has-eval .board { width: calc(var(--board) - 28px); }
+.game.has-eval .board-row { --sq: calc((var(--board) - 18px) / 8); }
+.game.has-eval .board { width: calc(var(--board) - 18px); }
 .game.has-eval .eval-bar {
-  display: block; position: relative; flex: 0 0 22px; overflow: hidden;
-  background: #403d39; border: 2px solid #1a1a1a; box-sizing: border-box;
+  display: block; position: relative; flex: 0 0 14px; overflow: hidden;
+  background: #403d39; border: 1px solid #1a1a1a; box-sizing: border-box;
 }
 /* Not reviewed yet: an empty track, not a level position. */
 .game.has-eval .eval-bar.pending { background: var(--inset); }
@@ -1210,14 +1211,6 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
   background: #f2f2f2; transition: height 0.25s ease;
 }
 .eval-bar.flipped .eval-fill { bottom: auto; top: 0; }
-.eval-label {
-  position: absolute; left: 0; right: 0; top: 3px;
-  text-align: center; font-size: 9px; font-weight: bold; color: #e6e6e6;
-  letter-spacing: -0.3px;
-}
-.eval-bar.white-ahead .eval-label { top: auto; bottom: 3px; color: #333; }
-.eval-bar.flipped .eval-label { top: auto; bottom: 3px; }
-.eval-bar.flipped.white-ahead .eval-label { top: 3px; bottom: auto; }
 .review { margin-top: 16px; }
 .review h3 { margin: 0 0 8px; }
 .review-start { display: flex; gap: 8px; align-items: center; margin: 0; }
