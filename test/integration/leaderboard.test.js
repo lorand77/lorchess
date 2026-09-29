@@ -6,7 +6,7 @@
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { startServer, registerUser } = require("../helpers/server");
-const { makeUser, recordGame } = require("../helpers/games");
+const { makeUser, lorfishId, recordGame } = require("../helpers/games");
 const queries = require("../../src/db/queries");
 
 let srv, me, amy, zed, mia, viewer;
@@ -24,6 +24,16 @@ before(async () => {
   recordGame({ white: zed.id, black: mia.id, result: "0-1", termination: "resignation" });
   recordGame({ white: amy.id, black: zed.id, result: "1-0", termination: "resignation" });
   recordGame({ white: amy.id, black: mia.id, result: "1/2-1/2", termination: "agreement" });
+  // Against LorFish: the viewer wins 2 (once as each colour) and draws 1,
+  // Zed loses 1. Mia's game is unfinished, so it counts for nothing.
+  const ai = (white, black, result, termination) =>
+    recordGame({ white, black, mode: "ai", aiColor: white === lorfishId() ? "w" : "b",
+                 aiDepth: 2, rated: 0, initialMs: null, result, termination });
+  ai(viewer.id, lorfishId(), "1-0", "resignation");
+  ai(lorfishId(), viewer.id, "0-1", "resignation");
+  ai(viewer.id, lorfishId(), "1/2-1/2", "agreement");
+  ai(lorfishId(), zed.id, "1-0", "resignation");
+  ai(mia.id, lorfishId(), null, null);
 });
 after(async () => { await srv.close(); });
 
@@ -73,4 +83,24 @@ test("unknown columns and directions fall back instead of failing", async () => 
   assert.deepEqual(await order("?sort=rating;DROP%20TABLE%20users"), byRating);
   assert.deepEqual(await order("?sort=constructor"), byRating);
   assert.deepEqual(await order("?sort=rating&dir=sideways"), byRating);
+});
+
+test("games against LorFish are a separate record", async () => {
+  const res = await me.get("/api/leaderboard");
+  const row = (u) => res.body.find((r) => r.id === u.id);
+  const record = (r, p) => [r[p + "games"], r[p + "wins"], r[p + "losses"], r[p + "draws"]];
+  assert.deepEqual(record(row(viewer), "ai_"), [3, 2, 0, 1]);
+  assert.deepEqual(record(row(zed), "ai_"), [1, 0, 1, 0]);
+  assert.deepEqual(record(row(mia), "ai_"), [0, 0, 0, 0]);
+  // ...and leave the record against players alone.
+  assert.deepEqual(record(row(viewer), ""), [0, 0, 0, 0]);
+  assert.deepEqual(record(row(zed), ""), [3, 0, 3, 0]);
+  assert.equal(res.body.some((r) => r.id === lorfishId()), false);
+});
+
+test("the LorFish columns sort too", async () => {
+  // Zed and Amy tie on no AI wins; Amy is rated higher.
+  assert.deepEqual(await order("?sort=ai_wins"), n(viewer, amy, zed, mia));
+  assert.deepEqual(await order("?sort=ai_games&dir=asc"), n(amy, mia, zed, viewer));
+  assert.deepEqual(await order("?sort=ai_losses&dir=desc"), n(zed, amy, viewer, mia));
 });

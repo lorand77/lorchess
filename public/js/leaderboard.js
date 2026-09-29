@@ -2,15 +2,21 @@
 
 // Renders GET /api/leaderboard as a ranked table, highlights the current
 // user's row, and puts a friend control (Add / Requested / Accept / Friends)
-// on every other row. Column headings sort the table; the sorting itself is
+// on every other row. The record against other players and the one against
+// LorFish sit side by side under a group heading. Column headings sort the table; the sorting itself is
 // done by the server, which only ever returns the top 100 for the chosen
 // column. Built with DOM nodes, not HTML strings: usernames are user-supplied.
 
-// [heading, sort key sent to the server (null = not sortable), cell class]
+// [heading, sort key sent to the server (null = not sortable), cell class,
+//  group heading above it ("" = none)]
 const COLUMNS = [
-  ["#", null, ""], ["Player", "player", ""], ["Rating", "rating", "num"],
-  ["Puzzles", "puzzles", "num"], ["Games", "games", "num"], ["W", "wins", "num"],
-  ["L", "losses", "num"], ["D", "draws", "num"], ["", null, ""],
+  ["#", null, "", ""], ["Player", "player", "", ""], ["Rating", "rating", "num", ""],
+  ["Puzzles", "puzzles", "num", ""],
+  ["Games", "games", "num", "vs players"], ["W", "wins", "num", "vs players"],
+  ["L", "losses", "num", "vs players"], ["D", "draws", "num", "vs players"],
+  ["Games", "ai_games", "num lb-group-start", "vs LorFish"], ["W", "ai_wins", "num", "vs LorFish"],
+  ["L", "ai_losses", "num", "vs LorFish"], ["D", "ai_draws", "num", "vs LorFish"],
+  ["", null, "", ""],
 ];
 
 (async function () {
@@ -85,6 +91,18 @@ const COLUMNS = [
   function render() {
     const table = el("table", "history-table lb-table");
     const thead = el("thead");
+    // Group headings, each spanning its run of columns.
+    const gr = el("tr", "lb-groups");
+    COLUMNS.forEach(([, , , group], i) => {
+      if (i > 0 && COLUMNS[i - 1][3] === group) {
+        gr.lastChild.colSpan++;
+        return;
+      }
+      const th = el("th", group ? "lb-group" : "", group);
+      if (group) th.scope = "colgroup";
+      gr.appendChild(th);
+    });
+    thead.appendChild(gr);
     const hr = el("tr");
     for (const [label, key, cls] of COLUMNS) {
       const th = el("th", cls);
@@ -124,6 +142,10 @@ const COLUMNS = [
       tr.appendChild(el("td", "num out-win", String(r.wins)));
       tr.appendChild(el("td", "num out-loss", String(r.losses)));
       tr.appendChild(el("td", "num out-draw", String(r.draws)));
+      tr.appendChild(el("td", "num lb-group-start", String(r.ai_games)));
+      tr.appendChild(el("td", "num out-win", String(r.ai_wins)));
+      tr.appendChild(el("td", "num out-loss", String(r.ai_losses)));
+      tr.appendChild(el("td", "num out-draw", String(r.ai_draws)));
 
       const ctl = el("td", "friend-cell");
       ctl.appendChild(Friends.button(r.id, render, { onError: showError }));

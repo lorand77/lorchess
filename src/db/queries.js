@@ -7,10 +7,11 @@
 const db = require("./index");
 
 // Leaderboard: every human account with a W/L/D record over finished rated PvP
-// games (the only games that move Elo). Param is the reserved AI username to
-// exclude. ORDER BY can't be a bound parameter, so there is one statement per
-// sortable column and direction, built from this allowlist — nothing from the
-// request is ever spliced into SQL. Ties fall back to the default ranking.
+// games (the only games that move Elo), and a second one over finished games
+// against LorFish. Param is the reserved AI username to exclude. ORDER BY can't
+// be a bound parameter, so there is one statement per sortable column and
+// direction, built from this allowlist — nothing from the request is ever
+// spliced into SQL. Ties fall back to the default ranking.
 const LEADERBOARD_SORTS = {
   player: "u.username COLLATE NOCASE",
   rating: "u.rating",
@@ -19,7 +20,25 @@ const LEADERBOARD_SORTS = {
   wins: "wins",
   losses: "losses",
   draws: "draws",
+  ai_games: "ai_games",
+  ai_wins: "ai_wins",
+  ai_losses: "ai_losses",
+  ai_draws: "ai_draws",
 };
+
+// Games, wins, losses and draws over the joined games matching `where`, as
+// <prefix>games, <prefix>wins, ... The LEFT JOIN's empty row matches nothing,
+// so a player with no games gets zeros, not NULLs.
+function recordColumns(where, prefix) {
+  const count = (cond, name) =>
+    `SUM(CASE WHEN ${where} AND (${cond}) THEN 1 ELSE 0 END) AS ${prefix}${name}`;
+  return [
+    count("1", "games"),
+    count(`(g.result = '1-0' AND g.white_id = u.id) OR (g.result = '0-1' AND g.black_id = u.id)`, "wins"),
+    count(`(g.result = '0-1' AND g.white_id = u.id) OR (g.result = '1-0' AND g.black_id = u.id)`, "losses"),
+    count(`g.result = '1/2-1/2'`, "draws"),
+  ].join(",\n               ");
+}
 
 function leaderboardStatements() {
   const out = {};
@@ -28,16 +47,13 @@ function leaderboardStatements() {
       out[`${key}:${dir}`] = db.prepare(`
         SELECT u.id, u.username, u.rating, u.puzzle_rating,
                u.member_since IS NOT NULL AS member,
-               COUNT(g.id) AS games,
-               COALESCE(SUM(CASE WHEN (g.result = '1-0' AND g.white_id = u.id)
-                                   OR (g.result = '0-1' AND g.black_id = u.id) THEN 1 ELSE 0 END), 0) AS wins,
-               COALESCE(SUM(CASE WHEN (g.result = '0-1' AND g.white_id = u.id)
-                                   OR (g.result = '1-0' AND g.black_id = u.id) THEN 1 ELSE 0 END), 0) AS losses,
-               COALESCE(SUM(CASE WHEN g.result = '1/2-1/2' THEN 1 ELSE 0 END), 0) AS draws
+               ${recordColumns("g.mode = 'pvp'", "")},
+               ${recordColumns("g.mode = 'ai'", "ai_")}
         FROM users u
         LEFT JOIN games g
           ON (g.white_id = u.id OR g.black_id = u.id)
-         AND g.mode = 'pvp' AND g.status = 'finished' AND g.rated = 1
+         AND g.status = 'finished'
+         AND ((g.mode = 'pvp' AND g.rated = 1) OR g.mode = 'ai')
         WHERE u.username <> ? AND u.deactivated_at IS NULL
         GROUP BY u.id
         ORDER BY ${expr} ${dir.toUpperCase()},

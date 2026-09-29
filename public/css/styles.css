@@ -499,6 +499,10 @@ a.player-link:hover { text-decoration: underline; }
 .lb-table .lb-sort:hover { background: none; color: var(--text-2); }
 .lb-table th.sorted { color: var(--text); }
 .lb-arrow { margin-left: 4px; font-size: 9px; }
+/* "vs players" / "vs LorFish" over their Games/W/L/D columns. */
+.lb-table tr.lb-groups th { padding-bottom: 0; border-bottom: 0; }
+.lb-table th.lb-group { text-align: center; }
+.lb-table .lb-group-start { padding-left: 18px; }
 
 /* ---- friends ---- */
 .friend-ctl { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }

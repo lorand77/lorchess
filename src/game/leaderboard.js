@@ -1,7 +1,8 @@
 "use strict";
 
 // GET /api/leaderboard?sort=<column>&dir=<asc|desc> — human accounts with
-// their record in finished rated PvP games, top 100 by the chosen column.
+// their record in finished rated PvP games and, separately, in finished games
+// against LorFish, top 100 by the chosen column.
 // Sorting happens in SQL (see queries.leaderboard), not in the browser, so the
 // top 100 by puzzle rating really are the top 100, not a re-sort of the top 100
 // by game rating. Unknown values fall back to the default: rating, descending.
