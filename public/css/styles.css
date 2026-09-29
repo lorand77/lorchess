@@ -481,6 +481,9 @@ a.player-link:hover { text-decoration: underline; }
 .rejoin-box div + div { margin-top: 6px; }
 
 /* ---- leaderboard ---- */
+/* Thirteen columns (two records side by side) need more than the 760px the
+   other list pages get; narrower screens keep a margin and scroll the table. */
+.history-page.lb-page { width: 1000px; max-width: calc(100% - 32px); }
 .nav-links { display: flex; gap: 18px; flex-wrap: wrap; }
 .lb-table td.num, .lb-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .lb-table td.rank { color: var(--text-muted); width: 2.5em; }
