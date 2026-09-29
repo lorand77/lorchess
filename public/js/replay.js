@@ -438,19 +438,21 @@ function renderSummary() {
 
 // The eval bar beside the board: White's share of the winning chances in the
 // position on screen, filling from White's end whichever way the board faces.
+// It lives in the gutter; the stylesheet only shrinks the board where the
+// gutter is too narrow for it.
 // The number sits at the end of whoever is ahead, as players expect: "1.3",
 // "M4", or the result once someone has been mated.
 function renderEvalBar() {
-  const row = document.getElementById("boardRow");
+  const game = boardEl.closest(".game");
   const bar = document.getElementById("evalBar");
   const label = document.getElementById("evalLabel");
   if (!review || !review.scores) {
-    row.classList.remove("has-eval");
+    game.classList.remove("has-eval");
     return;
   }
   const score = review.scores[idx];
   const whiteAhead = score == null || score >= 0;
-  row.classList.add("has-eval");
+  game.classList.add("has-eval");
   bar.classList.toggle("flipped", flip);
   bar.classList.toggle("white-ahead", whiteAhead);
   bar.style.setProperty("--white-share", GameReview.whiteShare(score) + "%");

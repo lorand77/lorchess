@@ -1187,16 +1187,32 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 }
 
 /* ---- game review (public/js/gameReview.js + replay.js) ---- */
-/* The eval bar takes its width out of the board rather than widening the
-   page, so the replay fits wherever the board alone did. White's share fills
-   from White's end: the bottom, or the top when the board is flipped. */
-.board-row { display: flex; gap: 6px; }
+/* The eval bar hangs in the gutter left of the board (22px + 6px gap), and
+   the board wrap moves over by that much so the pair stays centred. The board
+   keeps its full size wherever the page has 28px to spare; where it hasn't,
+   --board shrinks by only what is missing. --sq is recomputed alongside it,
+   because the one on :root was worked out from the root's --board. White's
+   share fills from White's end: the bottom, or the top when flipped. */
+.board-row { position: relative; }
 .eval-bar { display: none; }
-.board-row.has-eval { --sq: calc((var(--board) - 28px) / 8); }
-.board-row.has-eval .board { width: calc(var(--board) - 28px); }
-.board-row.has-eval .eval-bar {
-  display: block; position: relative; flex: 0 0 22px; overflow: hidden;
+.game.has-eval .board-wrap { margin-left: 28px; }
+.game.has-eval .eval-bar {
+  display: block; position: absolute; top: 0; bottom: 0; right: calc(100% + 6px);
+  width: 22px; overflow: hidden;
   background: #403d39; border: 2px solid #1a1a1a; box-sizing: border-box;
+}
+/* Board, bar, 24px gap and the 280px panel inside the 20px padding. */
+body.has-shell .game.has-eval {
+  --board: min(640px, calc(100vw - var(--rail-w) - 372px));
+  --sq: calc(var(--board) / 8);
+}
+/* Stacked: board and bar inside the padding. */
+@media (max-width: 1180px) {
+  body.has-shell .game.has-eval { --board: min(640px, calc(100vw - var(--rail-w) - 68px)); }
+}
+/* No rail: the pair takes the board's usual footprint. */
+@media (max-width: 700px) {
+  body.has-shell .game.has-eval { --board: min(640px, calc(100vw - 58px)); }
 }
 .eval-fill {
   position: absolute; left: 0; right: 0; bottom: 0;

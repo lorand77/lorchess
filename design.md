@@ -229,8 +229,10 @@ in the member's browser, so reviews cost the server nothing.
 - **The eval bar** beside the replay board shows White's expected score in
   the position on screen, on the same win% curve the verdicts use, so it
   moves as far as the winning chances do rather than with raw centipawns. A
-  forced mate fills it. It takes its 28 px out of the board's width instead of
-  widening the page, so the replay still fits wherever the board alone did.
+  forced mate fills it. It hangs in the gutter left of the board, so the board
+  keeps its full size; only where the page lacks those 28 px (narrower than
+  about 1210 px, or on phones) does the board shrink, and only by what is
+  missing.
 - **Membership is a UI gate only**, as before: the engine files are public
   static assets, so this is a "please don't", not a "cannot".
 - The tests drive the real engine too: `stockfish-19-lite-single.js` also runs
