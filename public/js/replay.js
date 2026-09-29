@@ -7,6 +7,8 @@
 
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const CAPTURE_ORDER = ["p", "n", "b", "r", "q"];
+// Stockfish's thinking time per position when reviewing a game.
+const REVIEW_MOVETIME = 300;
 
 const boardEl = document.getElementById("board");
 const capTopEl = document.getElementById("capturedTop");
@@ -361,7 +363,6 @@ function startReview() {
   const progEl = document.getElementById("reviewProgress");
   const textEl = document.getElementById("reviewProgressText");
   const errEl = document.getElementById("reviewError");
-  const movetime = parseInt(document.getElementById("reviewTime").value, 10) || 300;
 
   errEl.textContent = "";
   startEl.style.display = "none";
@@ -372,7 +373,7 @@ function startReview() {
   reviewJob = GameReview.run({
     startFen: startFen === STANDARD_START ? null : startFen,
     uciMoves: uciList,
-    movetime,
+    movetime: REVIEW_MOVETIME,
     onProgress: ({ done, total }) => {
       textEl.textContent = `Analysing… ${Math.round((done / total) * 100)}% (${done}/${total})`;
     },

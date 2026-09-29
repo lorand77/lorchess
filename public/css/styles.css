@@ -1189,10 +1189,6 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 .review-start button { margin: 0; }
 .review-start .primary { background: #3d6098; }
 .review-start .primary:hover { background: #4a73b5; }
-.review-start select {
-  background: var(--inset); color: #e6e6e6; border: 1px solid var(--field-border);
-  border-radius: 4px; padding: 6px;
-}
 .review-progress { display: flex; gap: 8px; align-items: center; margin: 0; font-size: 13px; }
 .review-progress button { margin: 0; padding: 4px 10px; font-size: 12px; }
 
@@ -1388,7 +1384,6 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 [data-scheme="light"] .out-draw { color: #6b6b6b; }
 [data-scheme="light"] .mv:hover { background: #e6e6e6; }
 [data-scheme="light"] .offer-form select,
-[data-scheme="light"] .review-start select { background: #fff; color: var(--text); }
 [data-scheme="light"] .rail-item:not(.current):hover { background: #e6e6e6; }
 [data-scheme="light"] .lb-table tr.me td { background: #dce7f6; }
 [data-scheme="light"] .chat-w .chat-who { color: var(--text); }

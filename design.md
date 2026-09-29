@@ -203,8 +203,8 @@ in the member's browser, so reviews cost the server nothing.
   nothing. The browser caches it afterwards. Express already serves `.wasm` as
   `application/wasm`, which lets the browser compile it as it downloads.
 - **Driven over UCI** by `gameReview.js`, one position at a time:
-  `position startpos|fen <start> moves …` then `go movetime <ms>` (300 ms
-  normally, 800 ms for "Deeper"). The start position plus the moves, never the
+  `position startpos|fen <start> moves …` then `go movetime 300`; there is one
+  setting, not a choice of depths. The start position plus the moves, never the
   current FEN, so Stockfish sees the repetition history. `UCI_Chess960` is
   always on because game records spell castling by the rook square (`e1h1`),
   standard games included; it is the mode in which Stockfish reads and writes

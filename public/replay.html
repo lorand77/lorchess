@@ -30,10 +30,6 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
       <h3>Game review</h3>
       <p class="review-start" id="reviewStart">
         <button id="reviewBtn" class="primary">Review with Stockfish</button>
-        <select id="reviewTime" title="Thinking time per position">
-          <option value="300" selected>Normal</option>
-          <option value="800">Deeper (slower)</option>
-        </select>
       </p>
       <p class="review-progress" id="reviewProgress" style="display:none;">
         <span id="reviewProgressText">Analysing…</span>
