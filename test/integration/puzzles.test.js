@@ -63,7 +63,8 @@ describe("solutions", () => {
 
   test("the public view never carries the solution; the reveal does", () => {
     const pub = puzzles.publicView(two);
-    assert.deepEqual(Object.keys(pub).sort(), ["fen", "firstMove", "id", "playerColor", "setupFen"]);
+    assert.deepEqual(Object.keys(pub).sort(), ["fen", "firstMove", "id", "playerColor", "setupFen", "themes"]);
+    assert.deepEqual(pub.themes, two.themes.split(" "), "themes are shown before solving");
     assert.equal(pub.setupFen, puzzles.setup(two).chess.fen());
     const reveal = puzzles.revealView(two);
     assert.deepEqual(reveal.solution, two.moves.split(" ").slice(1));

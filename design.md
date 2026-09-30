@@ -174,6 +174,9 @@ Design notes:
   The rated stream never hands out a daily, and lets go of a held puzzle that
   has since been picked as one. "Ever a daily" rather than "today's" also
   keeps a daily finished just after midnight UTC unrated.
+- **Themes are a hint, shown before solving.** `publicView` carries a puzzle's
+  Lichess themes and the page lists them under the task line; only the
+  solution stays on the server until the attempt is over.
   The rated trainer updates its puzzle ID in the URL on Next and Skip, so a
   refresh returns to the displayed puzzle without turning it into an old retry.
 

@@ -15,6 +15,7 @@
   const $ = (id) => document.getElementById(id);
   const boardEl = $("board"), promoEl = $("promo"), promoOpts = $("promoOptions");
   const headEl = $("puzzleHead"), taskEl = $("taskLine"), statusEl = $("statusLine");
+  const themeEl = $("themeLine");
   const resultEl = $("result"), navEl = $("modeNav");
   const btn = {
     giveUp: $("giveUpBtn"), skip: $("skipBtn"), skipLocked: $("skipLocked"),
@@ -22,7 +23,7 @@
   };
 
   const chess = new Chess();
-  let puzzle = null;      // { id, fen, firstMove, playerColor }
+  let puzzle = null;      // { id, fen, firstMove, playerColor, themes }
   let dailyInfo = null;   // the /daily payload (streak, done, …)
   let me = { rating: null, streak: 0 };
   let held = false;       // this is the rated puzzle the server holds you to
@@ -185,11 +186,14 @@
   function showButtons(list) {
     for (const k of Object.keys(btn)) btn[k].style.display = list.includes(k) ? "" : "none";
   }
+  // The task line, and the puzzle's themes under it as a hint.
   function setTask() {
     taskEl.innerHTML = "";
+    themeEl.innerHTML = "";
     if (!puzzle) return;
     taskEl.appendChild(el("span", "dot " + puzzle.playerColor));
     taskEl.appendChild(document.createTextNode("Find the best move for " + colorName(puzzle.playerColor) + "."));
+    for (const th of puzzle.themes || []) themeEl.appendChild(el("span", "tag", th));
   }
 
   function renderHead() {
@@ -298,11 +302,6 @@
     resultEl.appendChild(line);
     if (daily && typeof resp.streak === "number") {
       resultEl.appendChild(el("div", "streak", "🔥 Daily streak: " + resp.streak + (resp.streak === 1 ? " day" : " days")));
-    }
-    if (resp.themes && resp.themes.length) {
-      const t = el("div", "themes");
-      for (const th of resp.themes) t.appendChild(el("span", "tag", th));
-      resultEl.appendChild(t);
     }
     if (resp.gameUrl) {
       const p = el("div");

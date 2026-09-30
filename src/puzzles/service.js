@@ -53,12 +53,18 @@ function setup(puzzle) {
   return { chess, firstMove: all[0], solution: all.slice(1), playerColor: chess.turn };
 }
 
+const themesOf = (puzzle) => (puzzle.themes || "").split(" ").filter(Boolean);
+
 // The puzzle as sent to a client: never includes the solution. `setupFen` is
 // the position AFTER the opponent's setup move — what the solver is looking at —
-// so a preview can be drawn without replaying moves itself.
+// so a preview can be drawn without replaying moves itself. The themes go along
+// too: the page shows them up front, as a hint.
 function publicView(puzzle) {
   const { chess, firstMove, playerColor } = setup(puzzle);
-  return { id: puzzle.id, fen: puzzle.fen, firstMove, playerColor, setupFen: chess.fen() };
+  return {
+    id: puzzle.id, fen: puzzle.fen, firstMove, playerColor, setupFen: chess.fen(),
+    themes: themesOf(puzzle),
+  };
 }
 
 // What a client may see once the puzzle is over.
@@ -66,7 +72,7 @@ function revealView(puzzle) {
   return {
     solution: setup(puzzle).solution,
     puzzleRating: puzzle.rating,
-    themes: (puzzle.themes || "").split(" ").filter(Boolean),
+    themes: themesOf(puzzle),
     gameUrl: puzzle.game_url || null,
   };
 }
