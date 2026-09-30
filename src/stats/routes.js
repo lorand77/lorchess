@@ -90,7 +90,9 @@ function buildPuzzles(userId) {
     solved,
     failed: rows.length - solved,
     successRate: rows.length ? (solved / rows.length) * 100 : null,
-    history: rows.map((r) => ({ at: r.created_at, value: r.rating_after, solved: !!r.solved })),
+    // Daily puzzles count as attempts but never moved the rating.
+    history: rows.filter((r) => r.rated)
+      .map((r) => ({ at: r.created_at, value: r.rating_after, solved: !!r.solved })),
   };
 }
 

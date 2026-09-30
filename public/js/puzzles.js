@@ -2,7 +2,7 @@
 
 // Puzzle trainer. Two modes on one page:
 //   /puzzles.html         rated stream, picked near your puzzle rating
-//   /puzzles.html?daily   the shared puzzle of the day (+ streak)
+//   /puzzles.html?daily   the shared puzzle of the day (+ streak), unrated
 // The server keeps the solution; we send the moves played so far and it tells
 // us whether we're still on track, replying with the opponent's answer.
 
@@ -198,7 +198,7 @@
       headEl.appendChild(el("span", "big", dailyInfo ? dailyInfo.date : ""));
       const s = dailyInfo ? dailyInfo.streak : me.streak;
       headEl.appendChild(el("span", "streak", s > 0 ? "🔥 " + s + "-day streak" : "No streak yet"));
-      headEl.appendChild(el("span", "muted small", "Puzzle rating " + me.rating));
+      headEl.appendChild(el("span", "muted small", "Unrated"));
     } else {
       headEl.appendChild(el("span", "muted small", "Your puzzle rating"));
       headEl.appendChild(el("span", "big", String(me.rating)));
@@ -291,7 +291,9 @@
       line.appendChild(el("span", "delta " + (d >= 0 ? "up" : "down"), (d >= 0 ? "+" : "") + d));
       line.appendChild(document.createTextNode(")"));
     } else {
-      line.appendChild(el("span", "muted", "Not rated: you had already attempted this one."));
+      line.appendChild(el("span", "muted", resp.daily
+        ? "Not rated: daily puzzles never are."
+        : "Not rated: you had already attempted this one."));
     }
     resultEl.appendChild(line);
     if (daily && typeof resp.streak === "number") {
@@ -385,7 +387,9 @@
     try { data = await api("GET", "/" + encodeURIComponent(id)); }
     catch (err) { setStatus(err.message, "bad"); return loadRated(); }
     showStream(data);
-    if (data.repeat) {
+    if (data.daily) {
+      later(() => setStatus("This one has been a daily puzzle — it is unrated.", "info"), 750);
+    } else if (data.repeat) {
       later(() => setStatus("You've already attempted this one — this attempt is unrated.", "info"), 750);
     }
   }

@@ -286,14 +286,17 @@ module.exports = {
     "SELECT * FROM puzzle_attempts WHERE user_id = ? AND puzzle_id = ?"
   ),
   insertAttempt: db.prepare(`
-    INSERT INTO puzzle_attempts (user_id, puzzle_id, solved, rating_before, rating_after)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO puzzle_attempts (user_id, puzzle_id, solved, rating_before, rating_after, rated)
+    VALUES (?, ?, ?, ?, ?, ?)
   `),
   attemptStats: db.prepare(`
-    SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved
+    SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved,
+           COALESCE(SUM(rated), 0) AS rated
     FROM puzzle_attempts WHERE user_id = ?
   `),
   getDaily: db.prepare("SELECT puzzle_id FROM daily_puzzles WHERE date = ?"),
+  // Whether a puzzle has been the daily on any date.
+  isDailyPuzzle: db.prepare("SELECT 1 FROM daily_puzzles WHERE puzzle_id = ? LIMIT 1"),
   insertDaily: db.prepare("INSERT OR IGNORE INTO daily_puzzles (date, puzzle_id) VALUES (?, ?)"),
 
   // --- customization (see src/settings/routes.js) ---
@@ -376,9 +379,9 @@ module.exports = {
     SELECT game_id, rating_before, rating_after, created_at
     FROM rating_history WHERE user_id = ? ORDER BY id
   `),
-  // Puzzle rating after each attempt, for the puzzle chart.
+  // Every first attempt; the puzzle chart plots the rated ones.
   statsPuzzleHistory: db.prepare(`
-    SELECT rating_after, solved, created_at
+    SELECT rating_after, solved, rated, created_at
     FROM puzzle_attempts WHERE user_id = ? ORDER BY id
   `),
 

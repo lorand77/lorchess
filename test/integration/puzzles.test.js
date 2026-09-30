@@ -108,12 +108,12 @@ describe("rating", () => {
     const me = makeUser("me");
     const p = queries.getPuzzle.get(TWO_MATES.id);
     assert.equal(ratingOf(me.id), 1200);
-    assert.deepEqual(puzzles.recordAttempt(me.id, p, true), { before: 1200, after: 1234, delta: 34 });
+    assert.deepEqual(puzzles.recordAttempt(me.id, p, true), { rated: true, before: 1200, after: 1234, delta: 34 });
     assert.equal(ratingOf(me.id), 1234);
-    assert.deepEqual(queries.attemptStats.get(me.id), { attempts: 1, solved: 1 });
+    assert.deepEqual(queries.attemptStats.get(me.id), { attempts: 1, solved: 1, rated: 1 });
     assert.equal(puzzles.recordAttempt(me.id, p, false), null, "a retry changes nothing");
     assert.equal(ratingOf(me.id), 1234);
-    assert.deepEqual(queries.attemptStats.get(me.id), { attempts: 1, solved: 1 });
+    assert.deepEqual(queries.attemptStats.get(me.id), { attempts: 1, solved: 1, rated: 1 });
     const other = queries.getPuzzle.get(ONE.id);
     const fail = puzzles.recordAttempt(me.id, other, false);
     assert.ok(fail.delta < 0, `failing lowers the rating: ${fail.delta}`);

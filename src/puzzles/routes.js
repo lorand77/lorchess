@@ -5,14 +5,17 @@
 //
 //   GET  /api/puzzles/next            a puzzle near your rating — the same one
 //                                     until you solve it or give up (resumed: true)
-//   GET  /api/puzzles/daily           today's shared puzzle (+ your result if done)
+//   GET  /api/puzzles/daily           today's shared puzzle (+ your result if done);
+//                                     unrated, like every puzzle that has been a daily
 //   POST /api/puzzles/:id/moves       { moves: [uci, ...] } -> ok | solved | wrong
 //   POST /api/puzzles/:id/giveup      counts as a failed attempt, reveals the solution
 //   POST /api/puzzles/:id/skip        members: drop the held puzzle unrated and get the
 //                                     next one; SKIPS_PER_DAY per UTC day
 //
 // /next, /:id and /:id/skip also carry `held` (this is the puzzle you're held
-// to) and `skip: { member, left, perDay }` for the page's Skip button.
+// to) and `skip: { member, left, perDay }` for the page's Skip button. /:id and
+// the finishing replies say `daily: true` for a puzzle that has been a daily,
+// which is why their `rating` is null.
 
 const express = require("express");
 const queries = require("../db/queries");
@@ -97,6 +100,7 @@ router.get("/:id", (req, res) => {
     puzzle: svc.publicView(puzzle),
     // A puzzle already attempted is replayable but never re-rated.
     repeat: !!attempt,
+    daily: svc.isDaily(puzzle.id),
     rating: user.puzzle_rating,
     held: svc.isHeld(uid, puzzle.id),
     skip: skipView(uid),
@@ -112,22 +116,26 @@ function loadPuzzle(req, res) {
   return p || null;
 }
 
-// Wrap up a finished attempt: rate it (first time only), bump the streak if
-// it's today's daily, and reveal the solution.
+// Wrap up a finished attempt: record it (first time only; rated unless it's a
+// daily puzzle), bump the streak if it's today's daily, and reveal the solution.
 function finish(uid, puzzle, solved) {
-  const rating = svc.recordAttempt(uid, puzzle, solved);
+  const first = svc.recordAttempt(uid, puzzle, solved);
   const today = svc.todayUtc();
-  const daily = queries.getDaily.get(today);
-  const isDaily = !!daily && daily.puzzle_id === puzzle.id;
-  const out = { rating, ...svc.revealView(puzzle) };
-  // Retries are unrated and count for nothing — not for the streak either;
-  // only a first attempt can earn. A retry just reports the streak as it is.
-  if (isDaily) {
-    out.streak = rating
+  const todays = queries.getDaily.get(today);
+  const isToday = !!todays && todays.puzzle_id === puzzle.id;
+  const out = {
+    rating: first && first.rated ? first : null,
+    daily: svc.isDaily(puzzle.id),
+    ...svc.revealView(puzzle),
+  };
+  // Retries count for nothing — not for the streak either; only a first
+  // attempt can earn. A retry just reports the streak as it is.
+  if (isToday) {
+    out.streak = first
       ? svc.bumpStreak(uid, today)
       : svc.streakOf(queries.getPuzzleUser.get(uid), today);
   }
-  out.achievements = rating ? achievements.onPuzzleFinished(uid, puzzle) : [];
+  out.achievements = first ? achievements.onPuzzleFinished(uid, puzzle) : [];
   return out;
 }
 

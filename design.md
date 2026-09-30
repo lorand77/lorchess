@@ -167,6 +167,13 @@ Design notes:
 - **The daily puzzle counts once it is done,** however it was first attempted:
   viewing today's puzzle credits the streak if an attempt exists (idempotent per
   day). Retries never move the rating or the streak.
+- **Daily puzzles are unrated,** today's and any earlier day's: everyone gets
+  the same board and the solution gets around. The first attempt is still
+  recorded (`puzzle_attempts.rated = 0`, rating unchanged) so "done", the
+  streak and the puzzle badges work; the K factor and the rating chart skip it.
+  The rated stream never hands out a daily, and lets go of a held puzzle that
+  has since been picked as one. "Ever a daily" rather than "today's" also
+  keeps a daily finished just after midnight UTC unrated.
   The rated trainer updates its puzzle ID in the URL on Next and Skip, so a
   refresh returns to the displayed puzzle without turning it into an old retry.
 

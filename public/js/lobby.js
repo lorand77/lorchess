@@ -495,7 +495,7 @@ async function loadDailyCard() {
       return;
     }
     document.getElementById("dailyMeta").textContent =
-      (p.playerColor === "w" ? "White" : "Black") + " to move";
+      (p.playerColor === "w" ? "White" : "Black") + " to move · unrated";
     document.getElementById("dailyStreak").textContent =
       d.streak > 0 ? "🔥 " + d.streak + "-day streak" : "No streak yet";
 

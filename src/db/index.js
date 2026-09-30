@@ -80,6 +80,9 @@ addColumnIfMissing("users", "daily_last_date", "TEXT");
 // The rated puzzle /api/puzzles/next last handed out. It stays the user's
 // puzzle until it has an attempt, so leaving the page is not a free skip.
 addColumnIfMissing("users", "puzzle_current", "TEXT");
+// 0 on a first attempt at a daily puzzle: recorded (done, streak, badges) but
+// unrated. Older rows were all rated.
+addColumnIfMissing("puzzle_attempts", "rated", "INTEGER NOT NULL DEFAULT 1");
 // Time the mover spent on a PvP move, in ms (NULL for AI games and for moves
 // recorded before this column existed). Achievements read it.
 addColumnIfMissing("moves", "think_ms", "INTEGER");

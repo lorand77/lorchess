@@ -123,15 +123,16 @@ CREATE TABLE IF NOT EXISTS puzzles (
 );
 CREATE INDEX IF NOT EXISTS idx_puzzles_rating ON puzzles (rating);
 
--- One row per user per puzzle: the first, rating-affecting attempt. Retries
--- are allowed but never recorded again.
+-- One row per user per puzzle: the first attempt, which is the rating-affecting
+-- one unless the puzzle is a daily. Retries are allowed but never recorded again.
 CREATE TABLE IF NOT EXISTS puzzle_attempts (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id       INTEGER NOT NULL REFERENCES users(id),
   puzzle_id     TEXT    NOT NULL REFERENCES puzzles(id),
   solved        INTEGER NOT NULL,         -- 1 solved, 0 failed / gave up
   rating_before INTEGER NOT NULL,
-  rating_after  INTEGER NOT NULL,
+  rating_after  INTEGER NOT NULL,         -- = rating_before when unrated
+  rated         INTEGER NOT NULL DEFAULT 1, -- 0: a daily puzzle, rating untouched
   created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE (user_id, puzzle_id)
 );
@@ -147,10 +148,13 @@ CREATE TABLE IF NOT EXISTS puzzle_skips (
 CREATE INDEX IF NOT EXISTS idx_puzzle_skips_user ON puzzle_skips (user_id, created_at);
 
 -- The puzzle of the day, one row per UTC date, chosen on first request.
+-- A puzzle that has ever been a daily is unrated everywhere (see
+-- src/puzzles/service.js), hence the lookup by puzzle.
 CREATE TABLE IF NOT EXISTS daily_puzzles (
   date      TEXT PRIMARY KEY,             -- 'YYYY-MM-DD' (UTC)
   puzzle_id TEXT NOT NULL REFERENCES puzzles(id)
 );
+CREATE INDEX IF NOT EXISTS idx_daily_puzzles_puzzle ON daily_puzzles (puzzle_id);
 
 -- Achievements. One row per user per achievement; tiered achievements keep
 -- only the highest tier reached (earned_at is when that tier was reached).
