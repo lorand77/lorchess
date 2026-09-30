@@ -78,6 +78,15 @@
     node.append(el("span", "rail-icon", item.icon), el("span", "rail-label", item.label));
     rail.appendChild(node);
   }
+  // Terms and privacy, pinned to the bottom of the rail. The pages themselves
+  // carry no shell: they must be readable before anyone has an account.
+  const legal = el("div", "rail-legal");
+  for (const [href, label] of [["/terms.html", "Terms"], ["/privacy.html", "Privacy"]]) {
+    const a = el("a", null, label);
+    a.href = href;
+    legal.appendChild(a);
+  }
+  rail.appendChild(legal);
   // Your own id in the URL is still your own profile. Who you are is only
   // known once authGuard's request comes back, so the rail corrects itself then.
   window.addEventListener("user:known", (e) => {

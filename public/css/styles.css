@@ -259,6 +259,26 @@ select {
 .auth-actions .primary:hover { background: #4a73b5; }
 .auth-error { color: var(--bad); font-size: 13px; min-height: 18px; margin-top: 12px; }
 .auth-msg { color: var(--good); font-size: 13px; min-height: 18px; margin-top: 12px; }
+.auth-legal { margin: 8px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.auth-legal a { color: var(--link); }
+
+/* --- terms.html, privacy.html: plain readable text, no shell --- */
+.legal-page {
+  max-width: 680px;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.legal-page h1 { margin: 8px 0 4px; color: var(--text); font-size: 26px; }
+.legal-page h2 { margin: 28px 0 8px; color: var(--text); font-size: 18px; }
+.legal-page li { margin-bottom: 6px; }
+.legal-page strong { color: var(--text); }
+.legal-page a { color: var(--link); }
+.legal-updated { margin: 0 0 20px; color: var(--text-muted); font-size: 13px; }
+.legal-back a, .legal-links a { text-decoration: none; }
+.legal-links { margin-top: 32px; }
 
 /* user bar on the game/lobby pages */
 .userbar { display: flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 13px; }
@@ -1120,6 +1140,9 @@ body.has-shell .topbar {
 .app-rail .rail-item { display: flex; align-items: center; gap: 9px; }
 .rail-icon { width: 18px; text-align: center; flex: 0 0 18px; }
 .rail-label { min-width: 0; }
+.rail-legal { margin-top: auto; padding: 12px 12px 0; display: flex; gap: 12px; font-size: 12px; }
+.rail-legal a { color: var(--text-muted); text-decoration: none; }
+.rail-legal a:hover { color: var(--text-2); }
 
 .app-main {
   margin-left: var(--rail-w);
@@ -1159,6 +1182,7 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
   }
   .app-rail .rail-item { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
   .app-rail .rail-item.current { border-left: none; border-bottom-color: var(--link); }
+  .rail-legal { margin: 0 0 0 auto; padding: 0 6px; align-items: center; white-space: nowrap; }
   .app-main { margin-left: 0; padding-top: 0; }
 }
 

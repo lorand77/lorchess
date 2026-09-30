@@ -119,6 +119,25 @@ of keeping lists of their own that would drift the same way.
   let anyone lock a player out by typing their name. Passwords are 6–128
   characters; a longer one fails login without being verified.
 
+## Terms and privacy
+
+`public/terms.html` and `public/privacy.html` are plain static pages without
+`shell.js` or `authGuard.js`, because people must be able to read them before
+they have an account; `test/integration/static.legal.test.js` keeps them public.
+They are linked from the login card ("By registering you agree to …") and from
+the bottom of the nav rail. Acceptance is implied by registering and is not
+recorded. A checkbox plus a `terms_version` column would be the next step, if
+the terms ever need to be enforced against someone.
+
+The privacy policy states facts that the code and operations decide. If one of
+these changes, update the page and its date in the same commit:
+chat is swept after `CHAT_RETENTION_DAYS` (30); sessions last 7 days
+(`src/auth/session.js`); IPs live only in the throttle's memory for
+`AUTH_WINDOW_MS` (15 min); Caddy keeps no access log; uploaded images and
+colours are served only to their owner; nothing is visible when signed out;
+there is no analytics; backups go to Backblaze B2 and are kept for at most 90
+days (`scripts/backup.sh` deletes them after 30).
+
 ## Database
 
 `src/db/schema.sql` only ever `CREATE`s, which is idempotent. Adding a column to
