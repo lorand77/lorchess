@@ -107,6 +107,16 @@ of keeping lists of their own that would drift the same way.
   SQL; profiles use `getActiveUserById` and 404. `getUserById` itself is left
   unfiltered: `/api/me`, the lobby and achievements read it for the user
   themselves.
+- **Deletion** (`npm run user:delete`, `src/db/deleteUser.js`) is built on
+  deactivation. The `users` row cannot go, because PvP games, moves and the
+  opponents' rating history point at it. So it stays, renamed `deleted-<id>`
+  (a name registration can never produce), stripped of password, preferences
+  and membership, and deactivated. Everything that is only the user's is
+  deleted in one transaction, games against LorFish included; used promo codes
+  keep `redeemed_by`, or they would become valid again. The old name is free
+  to register again. The command refuses while a PvP game is live, shows
+  counts, and wants the username typed back. It turns on `secure_delete` and
+  checkpoints the WAL afterwards, so the content does not linger in the file.
 - **Throttling** (`src/auth/throttle.js`): argon2 is expensive on purpose, so
   register and login are limited. Per client IP, failed logins (unknown users
   included) and registrations that reach the hash are counted over a sliding

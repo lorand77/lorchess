@@ -94,6 +94,53 @@ module.exports = {
   reactivateUser: db.prepare(
     "UPDATE users SET deactivated_at = NULL WHERE id = ? AND deactivated_at IS NOT NULL"
   ),
+
+  // --- account deletion (src/db/deleteUser.js) ---
+  // What deleting the account touches, shown before the confirmation prompt.
+  deletionSummary: db.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM games WHERE mode = 'pvp' AND (white_id = @id OR black_id = @id)) AS pvpGames,
+      (SELECT COUNT(*) FROM games WHERE mode = 'ai' AND (white_id = @id OR black_id = @id)) AS aiGames,
+      (SELECT COUNT(*) FROM chat_messages WHERE user_id = @id) AS chat,
+      (SELECT COUNT(*) FROM friendships WHERE requester_id = @id OR addressee_id = @id) AS friendships,
+      (SELECT COUNT(*) FROM user_assets WHERE user_id = @id) AS images,
+      (SELECT COUNT(*) FROM puzzle_attempts WHERE user_id = @id)
+        + (SELECT COUNT(*) FROM puzzle_skips WHERE user_id = @id) AS puzzles,
+      (SELECT COUNT(*) FROM user_achievements WHERE user_id = @id) AS achievements,
+      (SELECT COUNT(*) FROM rating_history WHERE user_id = @id) AS ratingChanges
+  `),
+  // Run in this order, in one transaction, each with { id }. Rows that belong to
+  // the user go first; then their games against LorFish, which are in nobody
+  // else's history. Anything else pointing at those games is unlinked rather
+  // than left to fail the foreign key.
+  deleteAccountRows: [
+    "DELETE FROM chat_messages WHERE user_id = @id",
+    "DELETE FROM friendships WHERE requester_id = @id OR addressee_id = @id",
+    "DELETE FROM user_assets WHERE user_id = @id",
+    "DELETE FROM puzzle_attempts WHERE user_id = @id",
+    "DELETE FROM puzzle_skips WHERE user_id = @id",
+    "DELETE FROM user_achievements WHERE user_id = @id",
+    "DELETE FROM rating_history WHERE user_id = @id",
+    ...[
+      "DELETE FROM chat_messages WHERE game_id IN",
+      "DELETE FROM moves WHERE game_id IN",
+      "UPDATE user_achievements SET game_id = NULL WHERE game_id IN",
+      "UPDATE rating_history SET game_id = NULL WHERE game_id IN",
+      "DELETE FROM games WHERE id IN",
+    ].map((head) => `${head} (SELECT id FROM games WHERE mode = 'ai' AND (white_id = @id OR black_id = @id))`),
+  ].map((sql) => db.prepare(sql)),
+  // The row itself stays, because PvP games, their moves and the opponents'
+  // rating history point at it. It keeps only the ratings, which say nothing
+  // about anyone once the name is gone. Registration allows only [A-Za-z0-9_],
+  // so nobody can ever register a `deleted-<id>` name.
+  scrubDeletedUser: db.prepare(`
+    UPDATE users
+       SET username = 'deleted-' || id, password_hash = NULL, prefs = NULL,
+           member_since = NULL, chat_count = 0, puzzle_current = NULL,
+           daily_streak = 0, daily_last_date = NULL,
+           deactivated_at = COALESCE(deactivated_at, datetime('now'))
+     WHERE id = @id
+  `),
   updateRating: db.prepare("UPDATE users SET rating = ? WHERE id = ?"),
   // Ops-only (src/db/setPassword.js); there is no self-service change flow.
   updatePassword: db.prepare("UPDATE users SET password_hash = ? WHERE id = ?"),

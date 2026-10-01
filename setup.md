@@ -245,6 +245,27 @@ game they are playing is then forfeited after the usual reconnect grace (or
 aborted if no move was played). Nothing is deleted: past games keep their name,
 the username stays taken, and reactivating restores rating and friends.
 
+## deleting a user
+
+For a deletion request (the privacy policy promises one by email). Same place
+and rules as above. There is no undo:
+
+```
+npm run user:delete -- <username>
+```
+
+It prints what will be kept and deleted and asks you to type the username back.
+The account becomes `deleted-<id>`. It can't log in and appears nowhere; its PvP
+games stay in the opponents' histories under that name. Its chat, friends,
+images, puzzle history, achievements, rating history, sessions and games
+against LorFish are deleted, and the old username can be registered again.
+If the user is in a live game it refuses: deactivate them first, then delete
+once the game has been forfeited. Copies in B2 backups expire with the backups.
+
+Before deleting, make sure the request really comes from the account's owner.
+There is no email on file, so ask them to prove it from inside the account,
+for example by changing their board colours to a value you name.
+
 ## backing up sqlite database
 
 ```
