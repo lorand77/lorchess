@@ -6,8 +6,8 @@
 <title>LorChess — Privacy Policy</title>
 <link rel="stylesheet" href="/css/styles.css">
 <script>
-// Paint with the cached scheme before the first frame. No shell or authGuard:
-// this page must be readable before anyone has an account.
+// Paint with the cached scheme before the first frame; theme.js takes over.
+// No shell or authGuard: this page must be readable before anyone has an account.
 try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light") document.documentElement.dataset.scheme = "light"; } catch (e) {}
 </script>
 </head>
@@ -96,5 +96,6 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
 
   <p class="legal-links"><a href="/terms.html">Terms of Service</a></p>
 </main>
+<script src="/js/theme.js"></script>
 </body>
 </html>

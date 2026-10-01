@@ -263,10 +263,16 @@ select {
 .auth-legal a { color: var(--link); }
 
 /* --- terms.html, privacy.html: plain readable text, no shell --- */
+/* A card, like the app's panels, so the text stays readable over any custom
+   page colour or background image. */
 .legal-page {
-  max-width: 680px;
+  max-width: 720px;
   width: 100%;
   box-sizing: border-box;
+  padding: 20px 32px 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   color: var(--text-2);
   font-size: 15px;
   line-height: 1.6;
@@ -279,6 +285,9 @@ select {
 .legal-updated { margin: 0 0 20px; color: var(--text-muted); font-size: 13px; }
 .legal-back a, .legal-links a { text-decoration: none; }
 .legal-links { margin-top: 32px; }
+@media (max-width: 700px) {
+  .legal-page { padding: 14px 18px 20px; }
+}
 
 /* user bar on the game/lobby pages */
 .userbar { display: flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 13px; }
