@@ -157,6 +157,8 @@
       attemptMove(from, to);
     },
   });
+  // Right-button arrows and circles, for working the puzzle out.
+  BoardArrows.attach(boardEl);
 
   function askPromotion(cands) {
     pendingPromo = cands;

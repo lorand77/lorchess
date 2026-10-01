@@ -754,6 +754,10 @@ BoardDrag.attach(boardEl, {
   },
 });
 
+// Right-button arrows and circles (Lichess / chess.com style). Local to this
+// page; the opponent never sees them.
+BoardArrows.attach(boardEl);
+
 function onSquareClick(sq) {
   if (promotionPending || gameIsOver()) return;
   if (!canMoveNow() && !canPremove()) return;

@@ -18,6 +18,9 @@ const metaEl = document.getElementById("replayMeta");
 const statusEl = document.getElementById("replayStatus");
 const movesEl = document.getElementById("history");
 
+// Right-button arrows and circles, cleared as the replay steps on.
+BoardArrows.attach(boardEl);
+
 const params = new URLSearchParams(location.search);
 const gameId = parseInt(params.get("id"), 10);
 // Opened from someone's profile: whose side to take when you didn't play.
@@ -157,6 +160,7 @@ function renderBoard() {
       const sq = sqIdx(f, r);
       const div = document.createElement("div");
       div.className = "square " + ((r + f) % 2 === 0 ? "dark" : "light");
+      div.dataset.sq = sq; // boardArrows.js finds squares by this
       if (lastMove && (lastMove.from === sq || lastMove.to === sq)) div.classList.add("last-move");
       const piece = chess.squares[sq];
       if (inCheck && piece && piece.t === "k" && piece.c === chess.turn) div.classList.add("check");

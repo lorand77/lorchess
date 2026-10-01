@@ -380,6 +380,18 @@ Undo is disabled in PvP. `game.html` picks the source from the URL:
 `?watch=<id>` spectates, `?id=<id>` plays a PvP game, and no parameter starts
 (or resumes) an AI game.
 
+**Drawings on the board** (`public/js/boardArrows.js`) work like Lichess:
+right-drag for an arrow, right-click for a circle, and Shift/Ctrl, Alt or both
+for red, blue or yellow. They are on the game, replay and puzzle boards. They
+are scratch notes that stay in the page: the server never sees them, so an
+opponent cannot either. Every page re-renders its board with `innerHTML = ''`,
+so the SVG overlay cannot just sit inside it. A `MutationObserver` re-appends
+it after each render, and that is also where a change in piece placement is
+noticed and the drawings are cleared. A left click on the board clears them
+too. Shapes are stored as square numbers and placed by measuring the squares,
+so flipping needs nothing extra. The only requirement on a host board is the
+one `boardDrag.js` already has: `.square[data-sq]`.
+
 ## Trickiest parts
 
 - **Blocking engine** → must run in a Web Worker; the old paint hacks existed only because it blocks.
