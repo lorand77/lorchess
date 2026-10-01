@@ -1,8 +1,8 @@
 "use strict";
 
 // Per-user look & feel. Colours are a small JSON blob on the users row;
-// uploaded images (page background, individual piece slots) are BLOBs in
-// user_assets and served back only to their owner.
+// uploaded images (page background, light and dark squares, individual piece
+// slots) are BLOBs in user_assets and served back only to their owner.
 //
 //   GET    /api/settings                 -> { scheme, light, dark, bgColor, assets: { kind: version } }
 //   PUT    /api/settings                 { scheme?, light?, dark?, bgColor? }
@@ -25,8 +25,12 @@ const SCHEMES = new Set(["dark", "light"]);
 const HEX = /^#[0-9a-f]{6}$/i;
 
 const PIECE_KINDS = ["w", "b"].flatMap((c) => ["K", "Q", "R", "B", "N", "P"].map((t) => c + t));
-const KINDS = new Set(["bg", ...PIECE_KINDS]);
-const MAX_BYTES = { bg: 3 * 1024 * 1024, piece: 512 * 1024 };
+// One image fills every light square, the other every dark one.
+const SQUARE_KINDS = ["sqLight", "sqDark"];
+const KINDS = new Set(["bg", ...SQUARE_KINDS, ...PIECE_KINDS]);
+const MAX_BYTES = { bg: 3 * 1024 * 1024, square: 1024 * 1024, piece: 512 * 1024 };
+const maxBytesFor = (kind) =>
+  kind === "bg" ? MAX_BYTES.bg : SQUARE_KINDS.includes(kind) ? MAX_BYTES.square : MAX_BYTES.piece;
 const RAW_LIMIT = "3mb";
 
 function readPrefs(userId) {
@@ -106,7 +110,7 @@ router.put("/assets/:kind", express.raw({ type: () => true, limit: RAW_LIMIT }),
   if (!Buffer.isBuffer(buf) || buf.length === 0) {
     return res.status(400).json({ error: "No image data received." });
   }
-  const max = kind === "bg" ? MAX_BYTES.bg : MAX_BYTES.piece;
+  const max = maxBytesFor(kind);
   if (buf.length > max) {
     return res.status(413).json({ error: `Image too large (max ${Math.round(max / 1024)} KB).` });
   }

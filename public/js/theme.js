@@ -1,7 +1,8 @@
 "use strict";
 
 // Applies the user's look & feel on every page: light or dark scheme, board
-// colours, page background (colour or uploaded image), and custom piece images. Settings
+// colours and square images, page background (colour or uploaded image), and
+// custom piece images. Settings
 // come from GET /api/settings; a copy is cached in localStorage so the page
 // paints with the right colours before the fetch returns.
 //
@@ -42,6 +43,11 @@ window.Theme = (function () {
     st.setProperty("--page-bg", current.bgColor);
     const bg = assetUrl("bg");
     st.setProperty("--page-bg-image", bg ? 'url("' + bg + '")' : "none");
+    // Square images lie over the square colours, which show while they load.
+    for (const [kind, prop] of [["sqLight", "--sq-light-image"], ["sqDark", "--sq-dark-image"]]) {
+      const url = assetUrl(kind);
+      st.setProperty(prop, url ? 'url("' + url + '")' : "none");
+    }
     window.dispatchEvent(new CustomEvent("theme:changed", { detail: current }));
   }
 

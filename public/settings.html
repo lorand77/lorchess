@@ -38,7 +38,7 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
       </section>
 
       <section class="panel">
-        <h2>Board colours</h2>
+        <h2>Board</h2>
         <div class="color-row">
           <label for="lightColor">Light squares</label>
           <input type="color" id="lightColor">
@@ -50,6 +50,19 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
           <code id="darkHex"></code>
         </div>
         <div class="presets" id="boardPresets"></div>
+        <div class="file-row">
+          <label for="sqLightFile">Light square image</label>
+          <input type="file" id="sqLightFile" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+          <img id="sqLightThumb" class="bg-thumb square-thumb" alt="" style="display:none;">
+          <button type="button" id="sqLightRemove" style="display:none;">Remove image</button>
+        </div>
+        <div class="file-row">
+          <label for="sqDarkFile">Dark square image</label>
+          <input type="file" id="sqDarkFile" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+          <img id="sqDarkThumb" class="bg-thumb square-thumb" alt="" style="display:none;">
+          <button type="button" id="sqDarkRemove" style="display:none;">Remove image</button>
+        </div>
+        <p class="muted small">Optional, up to 1 MB each: the image fills every light or dark square, cropped to a square. The colours above show while images load and colour the coordinates.</p>
       </section>
 
       <section class="panel">

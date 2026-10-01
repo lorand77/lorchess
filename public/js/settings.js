@@ -185,15 +185,22 @@
     }
   }
 
-  const bgFile = $("bgFile");
-  const bgThumb = $("bgThumb");
-  const bgRemove = $("bgRemove");
-  bgFile.addEventListener("change", () => {
-    const f = bgFile.files && bgFile.files[0];
-    bgFile.value = "";
-    if (f) afterAssetChange(upload("bg", f), "Background image uploaded.");
-  });
-  bgRemove.addEventListener("click", () => afterAssetChange(api("DELETE", "/assets/bg"), "Background image removed."));
+  // Single-image slots, each a row of <kind>File, <kind>Thumb and <kind>Remove.
+  const IMAGE_SLOTS = [
+    ["bg", "Background image"],
+    ["sqLight", "Light square image"],
+    ["sqDark", "Dark square image"],
+  ];
+  for (const [kind, name] of IMAGE_SLOTS) {
+    const file = $(kind + "File");
+    file.addEventListener("change", () => {
+      const f = file.files && file.files[0];
+      file.value = "";
+      if (f) afterAssetChange(upload(kind, f), name + " uploaded.");
+    });
+    $(kind + "Remove").addEventListener("click", () =>
+      afterAssetChange(api("DELETE", "/assets/" + kind), name + " removed."));
+  }
 
   const grid = $("pieceGrid");
   function renderPieces() {
@@ -246,7 +253,7 @@
   });
 
   $("resetAllBtn").addEventListener("click", () => {
-    if (!confirm("Reset colours, background, and pieces to the defaults?")) return;
+    if (!confirm("Reset colours, board and background images, and pieces to the defaults?")) return;
     afterAssetChange(api("POST", "/reset"), "Everything reset.").then(() => {
       draft = pick(saved);
       previewDraft();
@@ -254,10 +261,12 @@
   });
 
   function renderAssets() {
-    const bg = Theme.assetUrl("bg");
-    bgThumb.style.display = bg ? "" : "none";
-    bgRemove.style.display = bg ? "" : "none";
-    if (bg) bgThumb.src = bg;
+    for (const [kind] of IMAGE_SLOTS) {
+      const url = Theme.assetUrl(kind);
+      const thumb = $(kind + "Thumb");
+      thumb.style.display = $(kind + "Remove").style.display = url ? "" : "none";
+      if (url) thumb.src = url;
+    }
     renderPieces();
     renderPreview();
   }

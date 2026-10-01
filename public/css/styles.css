@@ -110,8 +110,10 @@ body {
   justify-content: center;
   cursor: pointer;
 }
-.square.light { background: var(--sq-light, #f0d9b5); }
-.square.dark  { background: var(--sq-dark, #b58863); }
+/* An uploaded square image (theme.js) lies over the colour, which shows while
+   it loads and still colours the coordinates. Highlights below replace both. */
+.square.light { background: var(--sq-light-image, none) center / cover, var(--sq-light, #f0d9b5); }
+.square.dark  { background: var(--sq-dark-image, none) center / cover, var(--sq-dark, #b58863); }
 /* Coordinates take the opposite square colour so they read on either. */
 .square.light .coord { color: var(--sq-dark, #b58863); }
 .square.dark  .coord { color: var(--sq-light, #f0d9b5); }
@@ -659,7 +661,9 @@ a.player-link:hover { text-decoration: underline; }
 .piece-slot .clear:hover { background: #884444; }
 .file-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
 .file-row input[type="file"] { font-size: 12px; color: var(--text-2); max-width: 100%; }
+.file-row label { font-size: 13px; color: var(--text-2); min-width: 110px; }
 .bg-thumb { width: 96px; height: 54px; object-fit: cover; border-radius: 4px; border: 1px solid var(--field-border); }
+.bg-thumb.square-thumb { width: 40px; height: 40px; }
 .settings-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .settings-actions .primary { background: #3d6098; }
 .settings-actions .primary:hover { background: #4a73b5; }
@@ -1054,8 +1058,8 @@ img.drag-piece {
   align-items: center;
   justify-content: center;
 }
-.mini-square.light { background: var(--sq-light, #f0d9b5); }
-.mini-square.dark  { background: var(--sq-dark, #b58863); }
+.mini-square.light { background: var(--sq-light-image, none) center / cover, var(--sq-light, #f0d9b5); }
+.mini-square.dark  { background: var(--sq-dark-image, none) center / cover, var(--sq-dark, #b58863); }
 .mini-square.last-move { background: #bacaa4; }
 .mini-square img { width: 82%; height: 82%; display: block; }
 
