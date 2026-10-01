@@ -440,7 +440,7 @@ select {
 }
 .offer-form select {
   background: var(--inset);
-  color: #e6e6e6;
+  color: var(--text);
   border: 1px solid var(--field-border);
   border-radius: 4px;
   padding: 5px 6px;
