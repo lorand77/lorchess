@@ -40,6 +40,12 @@ Native modules need a rebuild after `npm install`; see `setup.md`.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The exception is the vendored Stockfish engine in
-`public/js/vendor/stockfish/`, which is GPLv3 (see the `Copying.txt` and
-`README.md` there, including where its source is).
+MIT, see [LICENSE](LICENSE). Two exceptions:
+
+- The vendored Stockfish engine in `public/js/vendor/stockfish/` is GPLv3
+  (see the `Copying.txt` and `README.md` there, including where its source is).
+- The npm dependency `better-sqlite3-session-store` is GPL-3.0-only. It is
+  not in this repository, but the server loads it, so anyone who distributes
+  the app with its dependencies (a Docker image, a bundled release) must do
+  so under the GPLv3, including its source. Running the app on your own
+  server is not distribution.
