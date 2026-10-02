@@ -10,6 +10,7 @@
     "test": "node --test \"test/**/*.test.js\"",
     "test:watch": "node --test --watch \"test/**/*.test.js\"",
     "test:deep": "PERFT_MAX_NODES=all PUZZLES=all node --test \"test/**/*.test.js\"",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"test/**\" --test-coverage-lines=96 --test-coverage-branches=89 --test-coverage-functions=95 \"test/**/*.test.js\"",
     "db:reset": "node --env-file-if-exists=.env src/db/reset.js",
     "user:password": "node --env-file-if-exists=.env src/db/setPassword.js",
     "user:deactivate": "node --env-file-if-exists=.env src/db/deactivate.js deactivate",

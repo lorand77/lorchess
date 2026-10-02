@@ -11,6 +11,9 @@ is in `setup.md`. Read `design.md` before changing anything under `src/game/`,
 - `npm test` — whole suite, about 20 s. Run it before calling any change done.
 - `npm run test:deep` — full perft and puzzle sets; slow. `TEST_LOG=1` shows
   the server's logs, which the tests silence by default.
+- `npm run test:coverage` — the suite with Node's built-in coverage report;
+  fails if lines, branches or functions drop below 96 / 89 / 95 %. Files no
+  test loads (`src/server.js`, CLI scripts, `public/js/`) are not listed.
 - `npm run dev` — http://localhost:3000 with `--watch`; loads `.env` if present.
   Every env-driven constant is declared in `src/config.js`.
 - `npm run db:reset` deletes the local database and `npm run puzzles:import`
