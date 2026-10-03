@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<!--
+  LorChess onboarding slides. A presentation of docs/onboarding.md, which is
+  the full written plan; change that first and bring the slides along.
+  One self-contained file, no libraries, so it opens from disk in any browser.
+  Keys: arrows / Space / Page Up/Down move, Home/End jump, F toggles full
+  screen. The slide number is kept in the URL (#5). Print (landscape, no
+  margins, background graphics on) gives a PDF with one slide per page.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Onboarding</title>
+<style>
+  :root {
+    --scale: 1;
+    --ink: #2b2723;
+    --muted: #6f665d;
+    --paper: #fbf8f3;
+    --light: #f0d9b5;
+    --dark: #b58863;
+    --night: #312e2b;
+    --green: #6b8e4e;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "DejaVu Sans Mono", monospace;
+  }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #1f1d1b;
+    overflow: hidden;
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+  }
+  .deck {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1280px;
+    height: 720px;
+    transform: translate(-50%, -50%) scale(var(--scale));
+    background: var(--paper);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 52px 80px 70px;
+    font-size: 25px;
+    line-height: 1.4;
+  }
+  .slide.active { display: flex; }
+
+  .kicker {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dark);
+    margin-bottom: 6px;
+  }
+  h1, h2 { margin: 0 0 26px; line-height: 1.15; }
+  h1 { font-size: 68px; }
+  h2 { font-size: 44px; }
+  h3 { font-size: 27px; margin: 0 0 10px; color: var(--dark); }
+  p { margin: 0 0 16px; }
+  ul { margin: 0; padding-left: 1.1em; }
+  li { margin: 0 0 12px; }
+  li::marker { color: var(--dark); }
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: rgba(181, 136, 99, 0.16);
+    border-radius: 5px;
+    padding: 1px 6px;
+  }
+  strong { color: #1a1714; }
+  .muted { color: var(--muted); }
+  .small { font-size: 21px; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 56px; }
+  .cols3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  .card {
+    background: #fff;
+    border: 1px solid #e6dccd;
+    border-left: 6px solid var(--dark);
+    border-radius: 10px;
+    padding: 18px 22px;
+    font-size: 22px;
+  }
+  .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+
+  .callout {
+    margin-top: auto;
+    background: var(--light);
+    border-radius: 10px;
+    padding: 14px 22px;
+    font-size: 22px;
+  }
+  .callout::before { content: "💬 "; }
+  .warn {
+    margin-top: auto;
+    background: #f6e0d8;
+    border-left: 6px solid #b4533a;
+    border-radius: 10px;
+    padding: 14px 22px;
+    font-size: 22px;
+  }
+
+  table { border-collapse: collapse; width: 100%; font-size: 21px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 14px; }
+  th {
+    background: var(--night);
+    color: var(--light);
+    font-weight: 600;
+  }
+  tr:nth-child(even) td { background: rgba(240, 217, 181, 0.45); }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+
+  pre.diagram {
+    font-family: var(--mono);
+    font-size: 21px;
+    line-height: 1.45;
+    background: var(--night);
+    color: var(--light);
+    border-radius: 12px;
+    padding: 24px 30px;
+    margin: 0 0 22px;
+  }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 0; margin-bottom: 26px; }
+  .flow span {
+    background: var(--light);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 22px;
+  }
+  .flow span.key { background: var(--dark); color: #fff; }
+  .flow i { font-style: normal; color: var(--dark); padding: 0 10px; font-weight: 700; }
+
+  ol.chain { margin: 0; padding-left: 1.4em; font-size: 22px; }
+  ol.chain li { margin-bottom: 8px; }
+
+  /* Title and part dividers */
+  .slide.title, .slide.divider {
+    background: var(--night);
+    color: var(--light);
+    justify-content: center;
+  }
+  .slide.title h1, .slide.divider h1 { color: #fff; }
+  .slide.title .kicker, .slide.divider .kicker { color: var(--dark); }
+  .slide.divider p { font-size: 28px; color: #d8cbb8; }
+  .board {
+    position: absolute;
+    right: 80px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    grid-template-columns: repeat(4, 70px);
+  }
+  .board div { width: 70px; height: 70px; display: grid; place-items: center; font-size: 50px; }
+  .board div:nth-child(8n+1), .board div:nth-child(8n+3),
+  .board div:nth-child(8n+6), .board div:nth-child(8n+8) { background: var(--light); color: var(--night); }
+  .board div:nth-child(8n+2), .board div:nth-child(8n+4),
+  .board div:nth-child(8n+5), .board div:nth-child(8n+7) { background: var(--dark); color: var(--night); }
+
+  /* Chrome: progress bar, counter, buttons */
+  .progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 6px;
+    background: var(--dark);
+    transition: width 0.2s;
+    z-index: 2;
+  }
+  .nav {
+    position: absolute;
+    right: 24px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    color: var(--muted);
+    z-index: 2;
+  }
+  .nav button {
+    font: inherit;
+    font-size: 18px;
+    width: 34px;
+    height: 30px;
+    border: 1px solid #d8cbb8;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .label {
+    position: absolute;
+    left: 80px;
+    bottom: 20px;
+    font-size: 15px;
+    color: var(--muted);
+    z-index: 2;
+  }
+
+  @page { size: 1280px 720px; margin: 0; }
+  @media print {
+    html, body { background: none; overflow: visible; height: auto; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .deck { position: static; transform: none; box-shadow: none; width: auto; height: auto; overflow: visible; }
+    .slide { display: flex !important; position: relative; width: 1280px; height: 720px; break-after: page; }
+    .progress, .nav, .label { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- ======================================================= Title -->
+<section class="slide title">
+  <div class="kicker">Onboarding</div>
+  <h1>LorChess</h1>
+  <p style="font-size: 32px; max-width: 720px;">From the big picture, to the code, to production.</p>
+  <p class="small" style="color: #d8cbb8; margin-top: 30px;">
+    Part 1 · The big picture<br>
+    Part 2 · Tech and code<br>
+    Part 3 · Production
+  </p>
+  <div class="board">
+    <div>♜</div><div>♞</div><div>♝</div><div>♛</div>
+    <div>♟</div><div>♟</div><div>♟</div><div>♟</div>
+    <div></div><div></div><div></div><div></div>
+    <div>♙</div><div>♙</div><div>♙</div><div>♙</div>
+    <div>♖</div><div>♘</div><div>♗</div><div>♕</div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Before session 1</div>
+  <h2>Your homework</h2>
+  <ul>
+    <li>Set up the dev environment: the DEV half of <code>docs/setup.md</code> (WSL2, Docker, dev container, Node 24)</li>
+    <li>Run <code>npm install</code>, the native rebuild, <code>npm start</code> and <code>npm test</code>. <strong>All green is the first goal.</strong></li>
+    <li>Read <code>README.md</code>, skim <code>docs/design.md</code>. Full understanding is not expected yet.</li>
+    <li>Play the app: a game against LorFish, a PvP game in two browsers, a puzzle, a game review</li>
+  </ul>
+  <div class="callout">marks a point we talk through live. The full written plan is <code>docs/onboarding.md</code>.</div>
+</section>
+
+<!-- ======================================================= Part 1 -->
+<section class="slide divider">
+  <div class="kicker">Part 1</div>
+  <h1>The big picture</h1>
+  <p>What it is, how it fits together, and why it is built this way.</p>
+</section>
+
+<section class="slide">
+  <div class="kicker">1 · The product</div>
+  <h2>What LorChess is</h2>
+  <div class="cols3">
+    <div class="card"><h3>Play</h3>Against <strong>LorFish</strong>, our engine, or other people in real time. Server clocks, Elo, spectating, chat.</div>
+    <div class="card"><h3>Variants</h3>Standard chess, Chess960, Atomic and Pawn Wars. Odds games with handicaps.</div>
+    <div class="card"><h3>Train</h3>Daily and rated puzzles, game review with Stockfish.</div>
+    <div class="card"><h3>Social</h3>Friends, leaderboard, profiles, achievements.</div>
+    <div class="card"><h3>Membership</h3>Promo codes unlock member features such as game review.</div>
+    <div class="card"><h3>Live</h3><code>lorchess.lorand77.dev</code></div>
+  </div>
+  <div class="callout">Who uses it, how many, and what matters to them. Production means real users, real games in progress and real personal data: mistakes are visible.</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">2 · The system</div>
+  <h2>One request, end to end</h2>
+<pre class="diagram">Browser ──DNS (name.com)──► EC2 public IP
+        ──HTTPS :443──► Caddy (TLS, reverse proxy)
+        ──HTTP :3000──► Node process (pm2)
+                         ├─ Express: static pages + REST /api/*
+                         ├─ Socket.IO: live games, lobby, chat
+                         └─ better-sqlite3 ──► data/lorchess.sqlite (+WAL)
+nightly cron ──► backup.sh ──► Backblaze B2</pre>
+  <p class="small muted">One server, one process, one database file. No build step, no framework, no bundler.</p>
+</section>
+
+<section class="slide">
+  <div class="kicker">2 · The system</div>
+  <h2>Where code runs, where state lives</h2>
+  <div class="cols">
+    <div>
+      <h3>Code runs in three places</h3>
+      <ul>
+        <li><strong>The server:</strong> Node</li>
+        <li><strong>The browser page:</strong> the UI</li>
+        <li><strong>A browser Web Worker:</strong> LorFish and Stockfish</li>
+      </ul>
+      <p class="small muted">The chess rules engine runs in all three.</p>
+    </div>
+    <div>
+      <h3>State lives in three places</h3>
+      <ul>
+        <li><strong>SQLite:</strong> users, sessions, games, moves</li>
+        <li><strong>Server memory:</strong> live rooms, matchmaking, lobby, throttle counters</li>
+        <li><strong>The browser:</strong> its own AI games</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">2 · The system</div>
+  <h2>Repo map</h2>
+  <div class="cols">
+    <table>
+      <tr><td><code>src/</code></td><td>the server</td></tr>
+      <tr><td><code>src/shared/</code></td><td>shared with the browser: rules, engine, catalogues</td></tr>
+      <tr><td><code>public/</code></td><td>HTML pages and browser code</td></tr>
+      <tr><td><code>test/</code></td><td>unit and integration tests</td></tr>
+      <tr><td><code>scripts/</code></td><td>ops scripts (backup)</td></tr>
+    </table>
+    <table>
+      <tr><td><code>docs/design.md</code></td><td><strong>why</strong></td></tr>
+      <tr><td><code>docs/setup.md</code></td><td><strong>how to run</strong> and deploy</td></tr>
+      <tr><td><code>docs/CLAUDE.md</code></td><td><strong>rules</strong> for working in the repo</td></tr>
+      <tr><td><code>docs/licenses.md</code></td><td>third-party licenses</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">3 · Decisions and trade-offs</div>
+  <h2>How it is built, and the price</h2>
+  <table>
+    <tr><th>Decision</th><th>Buys</th><th>Costs</th></tr>
+    <tr><td>One monolith, one process</td><td>Simple to reason about, deploy and debug</td><td>In-memory state only works with exactly one process; two would need shared state (e.g. a Socket.IO Redis adapter)</td></tr>
+    <tr><td>SQLite, not Postgres</td><td>No database server to run; backup is one file; synchronous and fast</td><td>One writer; the data is tied to one machine's disk. The schema could still move to Postgres.</td></tr>
+    <tr><td>No framework, bundler or build</td><td>What is in git is what runs; nothing to upgrade; small attack surface</td><td>More manual DOM code</td></tr>
+  </table>
+</section>
+
+<section class="slide">
+  <div class="kicker">3 · Decisions and trade-offs</div>
+  <h2>How it is built, and the price (2)</h2>
+  <table>
+    <tr><th>Decision</th><th>Buys</th><th>Costs</th></tr>
+    <tr><td>~7 dependencies, on purpose</td><td>Little supply-chain risk and upgrade work</td><td>Node built-ins first; sometimes more code of our own</td></tr>
+    <tr><td>Server decides PvP;<br>browser decides AI games</td><td>No cheating in PvP; AI games cost the server nothing</td><td>AI-game records are trusted less (e.g. no achievements from a pasted FEN)</td></tr>
+    <tr><td>Heavy compute in the browser</td><td>LorFish and Stockfish cost the server nothing; the server stays small</td><td>Depends on the player's device</td></tr>
+  </table>
+  <div class="callout">If users grow 10×, what breaks first, and what would you change? Which decisions were deliberate from day one, and which were learned the hard way?</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">4 · Idea to production</div>
+  <h2>How a change ships</h2>
+  <div class="flow">
+    <span>Idea</span><i>→</i><span>branch</span><i>→</i><span>code + tests</span><i>→</i><span class="key">npm test</span><i>→</i><span>review</span><i>→</i><span>merge to main</span><i>→</i><span>git pull on server</span><i>→</i><span class="key">pm2 restart</span>
+  </div>
+  <div class="cols">
+    <div>
+      <h3>What we do not have</h3>
+      <ul>
+        <li>No CI</li>
+        <li>No staging environment</li>
+        <li>No automated deploy</li>
+      </ul>
+    </div>
+    <div>
+      <h3>So the discipline is manual</h3>
+      <ul>
+        <li>Tests run locally, every time</li>
+        <li>Deploys are deliberate</li>
+        <li>Dev container and server run the same Ubuntu 26.04</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================= Part 2 -->
+<section class="slide divider">
+  <div class="kicker">Part 2</div>
+  <h1>Tech and code</h1>
+  <p>Node, Express, SQLite, Socket.IO, the shared engine, the front end, security, tests.</p>
+</section>
+
+<section class="slide">
+  <div class="kicker">5 · Node essentials</div>
+  <h2>One thread, an event loop</h2>
+  <ul>
+    <li>Blocking code freezes <strong>everything</strong>: that is why LorFish runs in a Web Worker</li>
+    <li>better-sqlite3 throws synchronously: an unguarded socket handler would take the process and every live game down, so <strong>every handler has a try/catch</strong></li>
+    <li>CommonJS <code>require</code> and the module cache: the database path is fixed when <code>src/db/index.js</code> first loads</li>
+    <li>npm, the lockfile, native modules and why they need a rebuild</li>
+    <li>Built-ins replace packages: <code>--env-file</code>, <code>--watch</code>, <code>node --test</code></li>
+  </ul>
+</section>
+
+<section class="slide">
+  <div class="kicker">6 · HTTP and Express</div>
+  <h2>The middleware chain: <code>src/app.js</code></h2>
+  <div class="cols">
+    <ol class="chain">
+      <li><code>trust proxy</code>: one hop (Caddy)</li>
+      <li><code>express.json()</code></li>
+      <li>session middleware</li>
+      <li>routers at <code>/api/&lt;area&gt;</code></li>
+      <li><code>/js</code> ← <code>src/shared/</code></li>
+      <li>redirects for old pages</li>
+      <li>static files from <code>public/</code></li>
+    </ol>
+    <div class="card">
+      <h3>Trace: POST /api/login</h3>
+      <p>throttle → argon2 verify → <code>session.regenerate</code> (anti-fixation) → <code>userId</code> stored → cookie set; the session is a row in SQLite.</p>
+      <p class="small muted">Then <code>src/server.js</code> just listens; tests boot <code>app.js</code> on a random port.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">7 · Data</div>
+  <h2>SQLite with better-sqlite3</h2>
+  <ul>
+    <li>WAL mode: the <code>-wal</code> and <code>-shm</code> files belong to the database</li>
+    <li>All SQL is prepared statements in <code>src/db/queries.js</code>: no ORM, no SQL injection</li>
+    <li>Transactions: a move, the position and both clocks are written together</li>
+    <li><strong>Gotcha:</strong> <code>schema.sql</code> only CREATEs. A new column on an existing table needs <code>addColumnIfMissing</code>.</li>
+    <li>Modelling: the AI side is a real user; deactivation is a flag; deletion renames the account</li>
+  </ul>
+  <div class="callout">Exercise: open the local database with <code>sqlite3</code> and query it.</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">8 · Real-time</div>
+  <h2>Socket.IO and <code>handleMove</code></h2>
+  <p class="small muted">Rooms, acks and reconnects. One session cookie serves REST and the socket handshake.</p>
+  <div class="flow">
+    <span>has a seat?</span><i>→</i><span>your turn?</span><i>→</i><span class="key">legal on the server?</span><i>→</i><span>charge clock</span><i>→</i><span>apply</span><i>→</i><span>persist (1 transaction)</span><i>→</i><span>broadcast</span><i>→</i><span>game over or re-arm timer</span>
+  </div>
+  <p>If the write fails, the room rolls back and the mover's ack fails.</p>
+  <div class="warn"><strong>Never trust the client.</strong> Legality, turn, clocks, time control, variant, handicap and the premove flag are all decided or re-checked on the server.</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">9 · The shared engine</div>
+  <h2>One file, three runtimes</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li><code>src/shared/chess.js</code>: the rules</li>
+        <li><code>src/shared/lorfish.js</code>: our engine</li>
+        <li>Loaded as a browser <code>&lt;script&gt;</code>, by a Worker's <code>importScripts</code>, and by Node's <code>require</code>: the <strong>UMD tail</strong> makes that work</li>
+      </ul>
+    </div>
+    <div>
+      <ul>
+        <li>Catalogues are <strong>allowlists</strong>: time controls, variants, handicaps, achievements</li>
+        <li>Positions are rebuilt by <strong>replaying moves</strong>, never by loading a FEN (repetition, Chess960 castling)</li>
+        <li>Stockfish: vendored WASM, game review only, <strong>never edited</strong></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">10 · The front end</div>
+  <h2>Plain JavaScript, one page at a time</h2>
+  <ul>
+    <li>One HTML page, one script in <code>public/js/</code></li>
+    <li><code>ui.js</code> never calls the engine or the socket: it talks to a <strong>move source</strong> (AI, remote, spectator)</li>
+    <li>Every move goes through one path: <code>env.applyMove</code></li>
+    <li><code>authGuard.js</code> is a convenience redirect, <strong>not security</strong></li>
+    <li>DevTools: Network, WebSocket frames, Console</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <div class="kicker">11 · Security</div>
+  <h2>Defence in layers</h2>
+  <div class="cols">
+    <ul>
+      <li><strong>argon2:</strong> slow on purpose</li>
+      <li><strong>Throttle:</strong> per IP, plus a global cap on hashes in flight</li>
+      <li><strong>Cookie:</strong> <code>httpOnly</code>, <code>sameSite</code>, <code>secure</code> via <code>trust proxy</code></li>
+    </ul>
+    <ul>
+      <li><strong>Username policy:</strong> one generic message, so the lists cannot be probed</li>
+      <li><strong>Privacy page:</strong> its promises are tied to code and config, and change in the same commit</li>
+    </ul>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">12 · Testing</div>
+  <h2><code>node --test</code></h2>
+  <ul>
+    <li><strong>Unit:</strong> pure modules such as the rules, Elo and the catalogues</li>
+    <li><strong>Integration:</strong> the real app on a random port with a throwaway database (<code>test/helpers/server.js</code>)</li>
+    <li><code>npm test</code> about 20 s · <code>test:deep</code> full perft and puzzles · <code>TEST_LOG=1</code> shows server logs</li>
+    <li><code>test:coverage</code> fails below 98 / 91 / 97 % (lines / branches / functions)</li>
+  </ul>
+  <div class="callout">Exercise: write one integration test for an existing endpoint.</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">13 · Conventions</div>
+  <h2>How we write code here</h2>
+  <ul>
+    <li>CommonJS, <code>"use strict"</code>, double quotes, semicolons</li>
+    <li>Every module opens with a comment saying what it does and why</li>
+    <li><strong>No new dependencies</strong> without asking</li>
+    <li>Short, imperative commit subjects</li>
+    <li>A design change updates <code>docs/design.md</code> in the same commit</li>
+    <li>AI tools are welcome; <strong>you own what you commit</strong></li>
+  </ul>
+</section>
+
+<!-- ======================================================= Part 3 -->
+<section class="slide divider">
+  <div class="kicker">Part 3</div>
+  <h1>Production</h1>
+  <p>Where it runs, why there, and how we keep it alive.</p>
+</section>
+
+<section class="slide">
+  <div class="kicker">14 · Hosting choices</div>
+  <h2>What this app needs from a host</h2>
+  <p class="small muted">One long-running process, long-lived WebSockets, a local disk for SQLite.</p>
+  <table>
+    <tr><th>Option</th><th>Fit</th><th>Why</th></tr>
+    <tr><td>Serverless (Lambda, Vercel)</td><td>❌</td><td>No long-lived WebSockets, no local disk, no in-memory rooms</td></tr>
+    <tr><td>PaaS (Railway, Render)</td><td>⚠️</td><td>Works with a persistent volume, but less control. <strong>LorChess ran on Railway before.</strong></td></tr>
+    <tr><td>Containers / Kubernetes</td><td>❌</td><td>Far too much machinery for one process</td></tr>
+    <tr><td>VPS / IaaS (EC2, Hetzner)</td><td>✅</td><td>One process, a local disk, full control</td></tr>
+  </table>
+  <div class="callout">Why we left Railway for EC2 in summer 2026, and why AWS rather than Lightsail or Hetzner.</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">14 · Hosting choices</div>
+  <h2>EC2 t4g.small, Ubuntu 26.04 LTS</h2>
+  <table>
+    <tr><th>Resource</th><th>Size</th><th>Where it shows</th></tr>
+    <tr><td>CPU</td><td>2 vCPU, ARM (Graviton)</td><td><code>HASH_MAX_CONCURRENT=2</code>. ARM is cheaper per vCPU; native modules must be <strong>compiled on the server</strong>, never copied from a laptop.</td></tr>
+    <tr><td>RAM</td><td>2 GB</td><td>Node, Caddy and in-memory rooms</td></tr>
+    <tr><td>Disk</td><td>8 GB</td><td>Database, ~300 MB puzzle import, 7 days of backups, logs, OS updates. <strong>The resource to watch.</strong></td></tr>
+  </table>
+  <ul class="small" style="margin-top: 22px;">
+    <li><strong>Ubuntu LTS:</strong> long security support, <code>apt</code>, the most documentation, same OS as the dev container</li>
+    <li><strong>Node from NodeSource:</strong> Ubuntu's own package lags; NodeSource gives exactly Node 24 LTS</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <div class="kicker">15 · Anatomy of the server</div>
+  <h2>Users and files</h2>
+  <div class="cols">
+    <div>
+      <h3>Access</h3>
+      <ul>
+        <li>SSH with a key as <code>ubuntu</code> (has sudo)</li>
+        <li>Work as <code>lorchess</code> (no sudo)</li>
+        <li>A compromised app gets one user's files, <strong>not the machine</strong></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Filesystem</h3>
+      <ul class="small">
+        <li><code>/home/lorchess/lorchess</code>: the git checkout</li>
+        <li><code>data/</code>: database + <code>-wal</code>, <code>-shm</code></li>
+        <li><code>/home/lorchess/backups/</code>: local backups</li>
+        <li><code>.env</code>: <code>chmod 600</code></li>
+        <li><code>/etc/caddy/Caddyfile</code>: the proxy</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">15 · Anatomy of the server</div>
+  <h2>Processes and network</h2>
+  <div class="cols">
+    <div>
+      <h3>Who runs what</h3>
+      <ul>
+        <li><strong>systemd</strong> runs Caddy</li>
+        <li><strong>pm2</strong> runs Node: restarts on crash, keeps logs, starts after reboot</li>
+        <li><strong>cron</strong> runs <code>backup.sh</code> at 03:00</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Network</h3>
+      <ul>
+        <li>DNS A record at name.com → instance IP</li>
+        <li>Open: <strong>22, 80, 443</strong>. Port <strong>3000 stays closed</strong>: the throttle trusts <code>X-Forwarded-For</code> only because Caddy is the sole way in.</li>
+        <li>Caddy gets and renews Let's Encrypt certificates (port 80)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout">Is the IP an Elastic IP? If not, a stop and start changes it and DNS breaks.</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">16 · Running it</div>
+  <h2>Config and secrets</h2>
+  <ul>
+    <li><code>.env</code> holds only <code>SESSION_SECRET</code> and <code>NODE_ENV=production</code></li>
+    <li>Everything else has a default in <code>src/config.js</code></li>
+    <li>Rotating <code>SESSION_SECRET</code> logs <strong>everyone</strong> out</li>
+    <li><code>NODE_ENV=production</code> hides stack traces from responses</li>
+  </ul>
+  <div class="warn">Never commit the secret, and never paste it into chat or AI tools.</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">16 · Running it</div>
+  <h2>What a deploy does</h2>
+  <div class="flow">
+    <span>git pull</span><i>→</i><span>npm install</span><i>→</i><span class="key">pm2 restart lorchess</span>
+  </div>
+  <ul>
+    <li><strong>Every socket drops.</strong> Live PvP games are rebuilt from the database when players return; those not resumed within 10 min are aborted. <strong>Deploy at quiet times.</strong></li>
+    <li><strong>Schema changes run at boot</strong> through <code>addColumnIfMissing</code>: add-only, so rollback is safe</li>
+    <li><strong>Rollback:</strong> <code>git checkout &lt;previous&gt;</code>, then <code>pm2 restart</code></li>
+    <li>If native module versions change, a rebuild may be needed</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <div class="kicker">16 · Running it</div>
+  <h2>Admin commands</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li><code>user:password</code></li>
+        <li><code>user:deactivate</code> / <code>user:reactivate</code></li>
+        <li><code>user:delete</code>: <strong>verify the owner first</strong> ("change your board colours to a value I name")</li>
+        <li><code>promo:new</code></li>
+      </ul>
+      <p class="small muted">Safe while the app runs. Run as <code>lorchess</code> in the project directory, so <code>.env</code> is picked up.</p>
+    </div>
+    <div class="warn" style="margin-top: 0; align-self: start;">
+      <strong>Never against production:</strong> <code>db:reset</code>.<br><br>
+      <code>puzzles:import</code> downloads ~300 MB: only after asking.
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">17 · Data safety</div>
+  <h2>Backups</h2>
+  <div class="flow">
+    <span>cron 03:00</span><i>→</i><span class="key">VACUUM INTO</span><i>→</i><span>local copy (7 days)</span><i>→</i><span>rclone → B2 (30 days)</span>
+  </div>
+  <ul>
+    <li><code>VACUUM INTO</code> gives a consistent copy while the app keeps writing. Why is <code>cp</code> of a live WAL database wrong?</li>
+    <li><strong>Data we can lose:</strong> up to about 24 hours</li>
+    <li><strong>Time to recover:</strong> however long a restore takes</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <div class="kicker">17 · Data safety</div>
+  <h2>Restore, and privacy</h2>
+  <div class="flow">
+    <span>pm2 stop</span><i>→</i><span>copy backup over the database</span><i>→</i><span>delete -wal and -shm</span><i>→</i><span>pm2 start</span>
+  </div>
+  <div class="cols">
+    <div class="card">
+      <h3>Restore drill</h3>
+      Restore last night's B2 backup into <strong>your dev environment</strong> and check it works. A backup is only known to work once a restore has been tested.
+    </div>
+    <div class="card">
+      <h3>Privacy</h3>
+      Backups hold personal data. The policy promises at most 90 days; deleted users leave backups by expiry. Caddy keeps no access log.
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">18 · Keeping it healthy</div>
+  <h2>Logs, monitoring, updates</h2>
+  <div class="cols3">
+    <div class="card">
+      <h3>Logs</h3>
+      <code>pm2 logs</code><br><code>pm2 monit</code>
+      <p class="small muted" style="margin-top: 10px;">💬 Log rotation? On 8 GB, logs never rotated will fill the disk.</p>
+    </div>
+    <div class="card">
+      <h3>Monitoring</h3>
+      Disk: <code>df -h</code><br>The backup log
+      <p class="small muted" style="margin-top: 10px;">💬 Who finds out the site is down, and how? An uptime check is cheap.</p>
+    </div>
+    <div class="card">
+      <h3>Updates</h3>
+      Ubuntu security patches, Node versions, npm packages (7-day release age, Socket scanner)
+      <p class="small muted" style="margin-top: 10px;">💬 unattended-upgrades?</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">18 · Keeping it healthy</div>
+  <h2>What happens, and what do we do?</h2>
+  <div class="cols3">
+    <div class="card">The Node process crashes</div>
+    <div class="card">A bad deploy goes out</div>
+    <div class="card">The disk fills up</div>
+    <div class="card">The certificate fails to renew</div>
+    <div class="card"><code>SESSION_SECRET</code> leaks</div>
+    <div class="card">Someone hammers the login endpoint</div>
+  </div>
+  <div class="card" style="margin-top: 24px; border-left-color: #b4533a;">
+    <strong>The instance dies completely:</strong> rebuild from <code>docs/setup.md</code> plus a B2 restore. That is why <code>setup.md</code> must stay accurate.
+  </div>
+  <p class="small muted" style="margin-top: auto;">Incident habit: reproduce locally → logs and stack trace → failing test → fix → deploy → a short note.</p>
+</section>
+
+<section class="slide">
+  <div class="kicker">19 · Access and responsibilities</div>
+  <h2>Growing into production</h2>
+  <div class="flow">
+    <span>shadow a deploy</span><i>→</i><span>deploy while supervised</span><i>→</i><span class="key">deploy alone</span>
+  </div>
+  <p>The same steps for the admin commands and the restore drill.</p>
+  <div class="callout">Which access, and when: GitHub (push to <code>main</code>?), SSH to production, the AWS console, B2, name.com.</div>
+</section>
+
+<!-- ======================================================= Wrap-up -->
+<section class="slide">
+  <div class="kicker">Plan</div>
+  <h2>Three weeks</h2>
+  <div class="cols3">
+    <div class="card"><h3>Week 1</h3>Part 1 (sections 1–4), Node and Express (5–6).<br><br>Exercise: a small REST change.</div>
+    <div class="card"><h3>Week 2</h3>Sections 7–13.<br><br>A first real ticket.</div>
+    <div class="card"><h3>Week 3</h3>Part 3 (sections 14–19).<br><br>Restore drill, shadowed deploy, failure scenarios.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Plan</div>
+  <h2>Good first tasks</h2>
+  <ul>
+    <li>Add a stats field from the API through to the profile page</li>
+    <li>Cover a branch the coverage report shows as untested</li>
+    <li>Add an achievement: catalogue, service, toast, backfill</li>
+    <li>Ops: write the missing runbook items from section 18 (log rotation, an uptime check)</li>
+  </ul>
+</section>
+
+<section class="slide title">
+  <div class="kicker">Questions?</div>
+  <h1>Welcome aboard ♞</h1>
+  <p class="small" style="color: #d8cbb8;">
+    <code>docs/onboarding.md</code> · <code>docs/design.md</code> · <code>docs/setup.md</code> · <code>docs/CLAUDE.md</code>
+  </p>
+</section>
+
+<div class="label">LorChess · Onboarding</div>
+<div class="nav">
+  <button type="button" id="prev" aria-label="Previous slide">‹</button>
+  <span id="counter"></span>
+  <button type="button" id="next" aria-label="Next slide">›</button>
+</div>
+<div class="progress" id="progress"></div>
+
+</div>
+
+<script>
+  "use strict";
+
+  (function () {
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    const counter = document.getElementById("counter");
+    const progress = document.getElementById("progress");
+    let current = 0;
+
+    function show(n) {
+      current = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle("active", i === current));
+      counter.textContent = (current + 1) + " / " + slides.length;
+      progress.style.width = ((current + 1) / slides.length) * 100 + "%";
+      history.replaceState(null, "", "#" + (current + 1));
+    }
+
+    // The deck is laid out at 1280×720 and scaled to fit the window.
+    function fit() {
+      const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+      document.documentElement.style.setProperty("--scale", scale);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key)) show(current + 1);
+      else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(e.key)) show(current - 1);
+      else if (e.key === "Home") show(0);
+      else if (e.key === "End") show(slides.length - 1);
+      else if (e.key === "f" || e.key === "F") {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+      } else return;
+      e.preventDefault();
+    });
+    document.getElementById("prev").addEventListener("click", () => show(current - 1));
+    document.getElementById("next").addEventListener("click", () => show(current + 1));
+    window.addEventListener("resize", fit);
+    window.addEventListener("hashchange", () => show(parseInt(location.hash.slice(1), 10) - 1 || 0));
+
+    fit();
+    show(parseInt(location.hash.slice(1), 10) - 1 || 0);
+  })();
+</script>
+</body>
+</html>
