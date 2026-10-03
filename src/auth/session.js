@@ -3,7 +3,7 @@
 // The session middleware, built once and exported so it can be shared between
 // Express and the Socket.IO handshake — one auth mechanism for both.
 // The store comes from better-sqlite3-session-store, which is GPL-3.0-only
-// (see "License" in README.md); keep it a dependency, never copy its code here.
+// (see docs/licenses.md); keep it a dependency, never copy its code here.
 
 const session = require("express-session");
 const SqliteStore = require("better-sqlite3-session-store")(session);

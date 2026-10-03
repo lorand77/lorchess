@@ -37,21 +37,10 @@ Native modules need a rebuild after `npm install`; see `docs/setup.md`.
 - [docs/design.md](docs/design.md): architecture and the reasons behind it
 - [docs/setup.md](docs/setup.md): running and deploying
 - [docs/CLAUDE.md](docs/CLAUDE.md): conventions for working in the repo
+- [docs/licenses.md](docs/licenses.md): third-party licenses
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Exceptions:
-
-- The vendored Stockfish engine in `public/js/vendor/stockfish/` is GPLv3
-  (see the `Copying.txt` and `README.md` there, including where its source is).
-- The npm dependency `better-sqlite3-session-store` is GPL-3.0-only. It is
-  not in this repository, but the server loads it, so anyone who distributes
-  the app with its dependencies (a Docker image, a bundled release) must do
-  so under the GPLv3, including its source. Running the app on your own
-  server is not distribution.
-- The chess piece images `public/assets/*_1x_ns.png` are "JohnPablok's
-  improved Cburnett chess set" by JohnPablok, based on the pieces by Colin M.
-  L. Burnett, from
-  [OpenGameArt](https://opengameart.org/content/chess-pieces-and-board-squares),
-  licensed [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
-  They are used unmodified; edited versions must stay CC BY-SA.
+MIT, see [LICENSE](LICENSE). The vendored Stockfish engine, the
+`better-sqlite3-session-store` dependency and the chess piece images are under
+other licenses: see [docs/licenses.md](docs/licenses.md).
