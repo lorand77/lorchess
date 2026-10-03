@@ -3,7 +3,7 @@
 What the code does and, more importantly, why. This describes the **current
 state**, not a plan: when a decision changes, change it here in the same
 commit. How to run and deploy is in `setup.md`; conventions for working in the
-repo are in `CLAUDE.md`.
+repo are in `docs/CLAUDE.md`.
 
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in

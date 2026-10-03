@@ -36,7 +36,7 @@ Native modules need a rebuild after `npm install`; see `docs/setup.md`.
 
 - [docs/design.md](docs/design.md): architecture and the reasons behind it
 - [docs/setup.md](docs/setup.md): running and deploying
-- [CLAUDE.md](CLAUDE.md): conventions for working in the repo
+- [docs/CLAUDE.md](docs/CLAUDE.md): conventions for working in the repo
 
 ## License
 

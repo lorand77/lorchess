@@ -56,7 +56,7 @@ nightly cron ──► backup.sh ──► Backblaze B2
 - **Repo map.** `src/` is the server, `src/shared/` is shared with the browser,
   `public/` holds pages and browser code, `test/` the tests and `scripts/` the
   ops scripts. The docs split into [design.md](design.md) (why),
-  [setup.md](setup.md) (how to run) and [CLAUDE.md](../CLAUDE.md) (rules).
+  [setup.md](setup.md) (how to run) and [CLAUDE.md](CLAUDE.md) (rules).
 
 ## 3. The architecture decisions and their trade-offs
 
@@ -155,7 +155,7 @@ revisiting:
 
 ## 13. Conventions
 
-- The [CLAUDE.md](../CLAUDE.md) rules, commit style, updating `design.md` in the
+- The [CLAUDE.md](CLAUDE.md) rules, commit style, updating `design.md` in the
   same commit, and using AI tools responsibly.
 
 ---
