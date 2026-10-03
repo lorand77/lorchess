@@ -11,7 +11,7 @@ Vendored, unmodified, from the npm package `stockfish@19.0.0`
 The "lite single-threaded" build: small NNUE net built into the `.wasm`, and no
 `SharedArrayBuffer`, so no cross-origin isolation headers are needed.
 `Copying.txt` is the package's licence (GPLv3). Why and how it is used:
-the "Game review" section of `design.md`.
+the "Game review" section of `docs/design.md`.
 
 Source: the npm package holds only the built files, so the GPL source offer
 points at the git tag instead, pinned to its commit

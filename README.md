@@ -30,12 +30,12 @@ npm run dev    # http://localhost:3000
 npm test
 ```
 
-Native modules need a rebuild after `npm install`; see `setup.md`.
+Native modules need a rebuild after `npm install`; see `docs/setup.md`.
 
 ## Docs
 
-- [design.md](design.md): architecture and the reasons behind it
-- [setup.md](setup.md): running and deploying
+- [docs/design.md](docs/design.md): architecture and the reasons behind it
+- [docs/setup.md](docs/setup.md): running and deploying
 - [CLAUDE.md](CLAUDE.md): conventions for working in the repo
 
 ## License

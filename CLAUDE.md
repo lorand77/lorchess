@@ -2,9 +2,9 @@
 
 Chess web app: Node 24, Express 5, Socket.IO and better-sqlite3 on the server;
 vanilla JS in the browser. No bundler, no framework, no build step.
-The reasoning behind the architecture is in `design.md`; running and deploying
-is in `setup.md`. Read `design.md` before changing anything under `src/game/`,
-`src/shared/` or `public/js/ui.js`.
+The reasoning behind the architecture is in `docs/design.md`; running and
+deploying is in `docs/setup.md`. Read `docs/design.md` before changing anything
+under `src/game/`, `src/shared/` or `public/js/ui.js`.
 
 ## Commands
 
@@ -43,7 +43,7 @@ is in `setup.md`. Read `design.md` before changing anything under `src/game/`,
 - Never trust the client. Legality, turn, clocks, time control, variant,
   handicap and the premove flag are decided or re-checked on the server.
 - Commit subjects are short and imperative; a `feat:`/`fix:` prefix is optional.
-- When a design decision changes, update `design.md` in the same commit.
+- When a design decision changes, update `docs/design.md` in the same commit.
 
 ## Gotchas
 
@@ -57,4 +57,4 @@ is in `setup.md`. Read `design.md` before changing anything under `src/game/`,
 - Time controls, variants and achievements are allowlists in `src/shared/`.
   Add entries there, not in ad-hoc lists elsewhere.
 - Native modules need a rebuild after `npm install` because `ignore-scripts` is
-  on globally: see "run the app" in `setup.md`.
+  on globally: see "run the app" in `docs/setup.md`.
