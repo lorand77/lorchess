@@ -44,3 +44,4 @@ Native modules need a rebuild after `npm install`; see `docs/setup.md`.
 MIT, see [LICENSE](LICENSE). The vendored Stockfish engine, the
 `better-sqlite3-session-store` dependency and the chess piece images are under
 other licenses: see [docs/licenses.md](docs/licenses.md).
+
