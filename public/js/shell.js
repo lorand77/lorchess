@@ -16,10 +16,10 @@
   const ITEMS = [
     { href: "/lobby.html",        icon: "▶",  label: "Play" },
     { href: "/puzzles.html",      icon: "🧩", label: "Puzzles" },
-    { href: "/analysis.html",     icon: "🔬", label: "Analysis Board" },
     { href: "/profile.html",      icon: "👤", label: "My Profile" },
     { href: "/settings.html",     icon: "🎨", label: "Customize" },
     { href: "/leaderboard.html",  icon: "🏆", label: "Leaderboard" },
+    { href: "/analysis.html",     icon: "📈", label: "Analysis Board" },
     { href: "/membership.html",   icon: "💎", label: "Membership" },
   ];
 
