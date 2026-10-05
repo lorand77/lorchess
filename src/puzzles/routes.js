@@ -7,8 +7,13 @@
 //                                     until you solve it or give up (resumed: true)
 //   GET  /api/puzzles/daily           today's shared puzzle (+ your result if done);
 //                                     unrated, like every puzzle that has been a daily
-//   POST /api/puzzles/:id/moves       { moves: [uci, ...] } -> ok | solved | wrong
+//   POST /api/puzzles/:id/moves       { moves: [uci, ...] } -> ok | solved | miss | wrong
 //   POST /api/puzzles/:id/giveup      counts as a failed attempt, reveals the solution
+//
+// A daily puzzle allows svc.DAILY_TRIES wrong moves: until they run out a wrong
+// move answers `miss` with `triesLeft` and reveals nothing, and the client takes
+// it back. /daily and /:id say `triesLeft` while that applies (null otherwise).
+// Only a solved daily extends the streak.
 //   POST /api/puzzles/:id/skip        members: drop the held puzzle unrated and get the
 //                                     next one; SKIPS_PER_DAY per UTC day
 //
@@ -70,19 +75,22 @@ router.get("/daily", (req, res) => {
   if (!puzzle) return noPuzzles(res);
   const user = queries.getPuzzleUser.get(uid);
   const attempt = queries.getAttempt.get(uid, puzzle.id);
-  // Today's puzzle may have been attempted before it was today's, through the
-  // rated stream. It is done either way, and done counts for the streak — so
-  // credit it here, or "done" and the streak would disagree. Idempotent per day.
-  const streak = attempt ? svc.bumpStreak(uid, today) : svc.streakOf(user, today);
+  // Today's puzzle may have been solved before it was today's, through the
+  // rated stream. It is done either way, and a solve counts for the streak — so
+  // credit it here, or "solved" and the streak would disagree. Idempotent per day.
+  const streak = attempt && attempt.solved
+    ? svc.bumpStreak(uid, today)
+    : svc.currentStreak(uid, today);
   const out = {
     date: today,
     puzzle: svc.publicView(puzzle),
     done: !!attempt,
     solved: attempt ? !!attempt.solved : null,
+    triesLeft: svc.triesLeft(uid, puzzle.id),
     streak,
     rating: user.puzzle_rating,
   };
-  if (attempt) Object.assign(out, svc.revealView(puzzle));
+  if (attempt) Object.assign(out, svc.revealView(puzzle), { misses: attempt.misses });
   res.json(out);
 });
 
@@ -101,6 +109,7 @@ router.get("/:id", (req, res) => {
     // A puzzle already attempted is replayable but never re-rated.
     repeat: !!attempt,
     daily: svc.isDaily(puzzle.id),
+    triesLeft: svc.triesLeft(uid, puzzle.id),
     rating: user.puzzle_rating,
     held: svc.isHeld(uid, puzzle.id),
     skip: skipView(uid),
@@ -117,8 +126,10 @@ function loadPuzzle(req, res) {
 }
 
 // Wrap up a finished attempt: record it (first time only; rated unless it's a
-// daily puzzle), bump the streak if it's today's daily, and reveal the solution.
+// daily puzzle), bump the streak if it solved today's daily, and reveal the
+// solution.
 function finish(uid, puzzle, solved) {
+  const misses = svc.missesOf(uid, puzzle.id);
   const first = svc.recordAttempt(uid, puzzle, solved);
   const today = svc.todayUtc();
   const todays = queries.getDaily.get(today);
@@ -128,12 +139,13 @@ function finish(uid, puzzle, solved) {
     daily: svc.isDaily(puzzle.id),
     ...svc.revealView(puzzle),
   };
+  if (first) out.misses = misses;
   // Retries count for nothing — not for the streak either; only a first
-  // attempt can earn. A retry just reports the streak as it is.
+  // attempt that solves it can earn. Anything else reports the streak as it is.
   if (isToday) {
-    out.streak = first
+    out.streak = first && solved
       ? svc.bumpStreak(uid, today)
-      : svc.streakOf(queries.getPuzzleUser.get(uid), today);
+      : svc.currentStreak(uid, today);
   }
   out.achievements = first ? achievements.onPuzzleFinished(uid, puzzle) : [];
   return out;
@@ -149,6 +161,11 @@ router.post("/:id/moves", (req, res) => {
   const uid = req.session.userId;
   const result = svc.check(puzzle, moves);
   if (result.status === "ok") return res.json({ status: "ok", reply: result.reply });
+  // A daily with tries to spare: count the miss and keep the solution back.
+  if (result.status === "wrong" && svc.triesLeft(uid, puzzle.id) !== null) {
+    const triesLeft = svc.miss(uid, puzzle.id);
+    if (triesLeft > 0) return res.json({ status: "miss", triesLeft });
+  }
   res.json({ status: result.status, ...finish(uid, puzzle, result.status === "solved") });
 });
 

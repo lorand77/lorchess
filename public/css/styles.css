@@ -694,6 +694,8 @@ button.primary, button.danger { color: #fff; }
 .puzzle-task .dot.w { background: #f0f0f0; }
 .puzzle-task .dot.b { background: #222; }
 .puzzle-status { min-height: 20px; font-size: 14px; }
+.puzzle-tries { margin: 4px 0; font-size: 13px; color: var(--text-2); }
+.puzzle-tries:empty { display: none; }
 .puzzle-status.ok { color: var(--good); }
 .puzzle-status.bad { color: var(--bad); }
 .puzzle-status.info { color: var(--warn); }

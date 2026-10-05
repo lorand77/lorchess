@@ -33,7 +33,7 @@ describe("the puzzle of the day", () => {
     const puzzle = insert({ ...ONE, id: "daily_seen", rating: 1500 });
     queries.insertDaily.run(today, puzzle.id);
     // Yesterday, say, it came up in the rated stream and was solved.
-    queries.insertAttempt.run(user.id, puzzle.id, 1, 1200, 1216, 1);
+    queries.insertAttempt.run(user.id, puzzle.id, 1, 1200, 1216, 1, 0);
 
     // A retry (giving up here) is unrated and does not touch the streak.
     const retry = await me.post(`/api/puzzles/${puzzle.id}/giveup`);

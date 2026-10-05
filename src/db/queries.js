@@ -105,7 +105,8 @@ module.exports = {
       (SELECT COUNT(*) FROM friendships WHERE requester_id = @id OR addressee_id = @id) AS friendships,
       (SELECT COUNT(*) FROM user_assets WHERE user_id = @id) AS images,
       (SELECT COUNT(*) FROM puzzle_attempts WHERE user_id = @id)
-        + (SELECT COUNT(*) FROM puzzle_skips WHERE user_id = @id) AS puzzles,
+        + (SELECT COUNT(*) FROM puzzle_skips WHERE user_id = @id)
+        + (SELECT COUNT(*) FROM puzzle_misses WHERE user_id = @id) AS puzzles,
       (SELECT COUNT(*) FROM user_achievements WHERE user_id = @id) AS achievements,
       (SELECT COUNT(*) FROM rating_history WHERE user_id = @id) AS ratingChanges
   `),
@@ -119,6 +120,7 @@ module.exports = {
     "DELETE FROM user_assets WHERE user_id = @id",
     "DELETE FROM puzzle_attempts WHERE user_id = @id",
     "DELETE FROM puzzle_skips WHERE user_id = @id",
+    "DELETE FROM puzzle_misses WHERE user_id = @id",
     "DELETE FROM user_achievements WHERE user_id = @id",
     "DELETE FROM rating_history WHERE user_id = @id",
     ...[
@@ -290,14 +292,15 @@ module.exports = {
       (id, fen, moves, rating, rating_deviation, popularity, nb_plays, themes, game_url, opening_tags)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
-  // Clearing the table before a re-import. Attempts, skips, daily picks and
-  // badges all point at puzzle rows (foreign keys are on), so only the puzzles
-  // nothing refers to can go; the rest are refreshed in place by insertPuzzle's
-  // INSERT OR REPLACE.
+  // Clearing the table before a re-import. Attempts, skips, misses, daily picks
+  // and badges all point at puzzle rows (foreign keys are on), so only the
+  // puzzles nothing refers to can go; the rest are refreshed in place by
+  // insertPuzzle's INSERT OR REPLACE.
   wipeUnreferencedPuzzles: db.prepare(`
     DELETE FROM puzzles WHERE id NOT IN (
       SELECT puzzle_id FROM puzzle_attempts
       UNION SELECT puzzle_id FROM puzzle_skips
+      UNION SELECT puzzle_id FROM puzzle_misses
       UNION SELECT puzzle_id FROM daily_puzzles
       UNION SELECT puzzle_id FROM user_achievements WHERE puzzle_id IS NOT NULL
     )
@@ -306,6 +309,7 @@ module.exports = {
     SELECT COUNT(*) AS n FROM puzzles WHERE id IN (
       SELECT puzzle_id FROM puzzle_attempts
       UNION SELECT puzzle_id FROM puzzle_skips
+      UNION SELECT puzzle_id FROM puzzle_misses
       UNION SELECT puzzle_id FROM daily_puzzles
       UNION SELECT puzzle_id FROM user_achievements WHERE puzzle_id IS NOT NULL
     )
@@ -333,9 +337,17 @@ module.exports = {
     "SELECT * FROM puzzle_attempts WHERE user_id = ? AND puzzle_id = ?"
   ),
   insertAttempt: db.prepare(`
-    INSERT INTO puzzle_attempts (user_id, puzzle_id, solved, rating_before, rating_after, rated)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO puzzle_attempts (user_id, puzzle_id, solved, rating_before, rating_after, rated, misses)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
+  getPuzzleMisses: db.prepare(
+    "SELECT misses FROM puzzle_misses WHERE user_id = ? AND puzzle_id = ?"
+  ),
+  addPuzzleMiss: db.prepare(`
+    INSERT INTO puzzle_misses (user_id, puzzle_id, misses) VALUES (?, ?, 1)
+    ON CONFLICT (user_id, puzzle_id) DO UPDATE SET misses = misses + 1
+  `),
+  deletePuzzleMisses: db.prepare("DELETE FROM puzzle_misses WHERE user_id = ? AND puzzle_id = ?"),
   attemptStats: db.prepare(`
     SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved,
            COALESCE(SUM(rated), 0) AS rated

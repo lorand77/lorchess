@@ -133,8 +133,20 @@ CREATE TABLE IF NOT EXISTS puzzle_attempts (
   rating_before INTEGER NOT NULL,
   rating_after  INTEGER NOT NULL,         -- = rating_before when unrated
   rated         INTEGER NOT NULL DEFAULT 1, -- 0: a daily puzzle, rating untouched
+  misses        INTEGER NOT NULL DEFAULT 0, -- wrong moves first (daily puzzles allow some)
   created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE (user_id, puzzle_id)
+);
+
+-- Wrong moves on a daily puzzle whose first attempt is still going: a daily
+-- allows a few before it counts as failed, and the count lives here so that a
+-- reload cannot hand out fresh tries. The row goes when the attempt is
+-- recorded, which keeps the final count in puzzle_attempts.misses.
+CREATE TABLE IF NOT EXISTS puzzle_misses (
+  user_id   INTEGER NOT NULL REFERENCES users(id),
+  puzzle_id TEXT    NOT NULL REFERENCES puzzles(id),
+  misses    INTEGER NOT NULL,
+  PRIMARY KEY (user_id, puzzle_id)
 );
 
 -- Puzzles a member skipped: let go of without an attempt, so no rating change.

@@ -5,8 +5,9 @@
 //     and holding it until they finish it — or, for members, skip it
 //   - the shared puzzle of the day (same for everyone, chosen once per UTC day),
 //     which is unrated — then and for good, and kept out of the rated stream
-//   - verifying a player's moves against the stored solution
-//   - the puzzle Elo update and the daily streak
+//   - verifying a player's moves against the stored solution, and the few
+//     wrong moves a daily puzzle allows before it counts as failed
+//   - the puzzle Elo update and the daily streak, which only a solve extends
 
 const db = require("../db/index");
 const queries = require("../db/queries");
@@ -18,6 +19,8 @@ const DAILY_MAX = 2000;
 const K_NEW = 40;
 const K_SETTLED = 20;
 const SETTLED_AFTER = 30;
+// Wrong moves a daily puzzle allows in all: the fifth ends the attempt.
+const DAILY_TRIES = 5;
 // Successive search windows around the user's rating when picking a puzzle.
 const WINDOWS = [100, 200, 400, 800, 4000];
 
@@ -117,7 +120,7 @@ function eloAfter(userRating, puzzleRating, solved, attemptsSoFar) {
 
 // Record the first attempt at a puzzle and, unless it is a daily puzzle, move
 // the rating. Returns { rated, before, after, delta }; later attempts (retries)
-// return null and change nothing.
+// return null and change nothing. The wrong moves counted so far go with it.
 function recordAttempt(userId, puzzle, solved) {
   if (queries.getAttempt.get(userId, puzzle.id)) return null;
   return db.transaction(() => {
@@ -127,10 +130,37 @@ function recordAttempt(userId, puzzle, solved) {
     const after = rated
       ? eloAfter(before, puzzle.rating, solved, queries.attemptStats.get(userId).rated)
       : before;
-    queries.insertAttempt.run(userId, puzzle.id, solved ? 1 : 0, before, after, rated ? 1 : 0);
+    const misses = missesOf(userId, puzzle.id);
+    queries.insertAttempt.run(userId, puzzle.id, solved ? 1 : 0, before, after, rated ? 1 : 0, misses);
+    queries.deletePuzzleMisses.run(userId, puzzle.id);
     if (rated) queries.setPuzzleRating.run(after, userId);
     return { rated, before, after, delta: after - before };
   })();
+}
+
+// ---- tries ----
+// A daily puzzle gives DAILY_TRIES wrong moves before the attempt is over;
+// each one is taken back and the player goes on from where they were. Only
+// the first attempt has tries: a retry is unrecorded and ends at the first
+// wrong move, and rated puzzles always do, since their rating is about getting
+// it right first time. The server counts, so a reload cannot reset them.
+
+function missesOf(userId, puzzleId) {
+  const row = queries.getPuzzleMisses.get(userId, puzzleId);
+  return row ? row.misses : 0;
+}
+
+// Tries left on this puzzle, or null when a wrong move simply ends it.
+function triesLeft(userId, puzzleId) {
+  if (!isDaily(puzzleId) || queries.getAttempt.get(userId, puzzleId)) return null;
+  return DAILY_TRIES - missesOf(userId, puzzleId);
+}
+
+// Count a wrong move. Returns the tries left after it; at 0 the attempt is
+// over and the caller records it as failed.
+function miss(userId, puzzleId) {
+  queries.addPuzzleMiss.run(userId, puzzleId);
+  return Math.max(0, DAILY_TRIES - missesOf(userId, puzzleId));
 }
 
 // ---- picking ----
@@ -256,7 +286,20 @@ function streakOf(user, today) {
   return 0; // a day was skipped
 }
 
-// Called when the user finishes today's daily puzzle (solved or not).
+// The streak as the user sees it today. Failing today's daily ends it at once:
+// the day can no longer be solved, so there is no point showing a number that
+// will be gone tomorrow. A day already credited (under the old rule, before
+// only solving counted) keeps its streak.
+function currentStreak(userId, today) {
+  const user = queries.getPuzzleUser.get(userId);
+  const daily = queries.getDaily.get(today);
+  const attempt = daily && queries.getAttempt.get(userId, daily.puzzle_id);
+  if (attempt && !attempt.solved && user.daily_last_date !== today) return 0;
+  return streakOf(user, today);
+}
+
+// Called when the user solves today's daily puzzle. Only a solve extends the
+// streak; failing or giving up leaves it to break tomorrow.
 function bumpStreak(userId, today) {
   const user = queries.getPuzzleUser.get(userId);
   if (user.daily_last_date === today) return user.daily_streak; // already counted
@@ -268,5 +311,7 @@ function bumpStreak(userId, today) {
 module.exports = {
   DAILY_MIN, DAILY_MAX,
   setup, check, publicView, revealView, eloAfter, recordAttempt,
-  pickForUser, nextForUser, SKIPS_PER_DAY, skipsLeft, isHeld, skip, isDaily, dailyFor, todayUtc, addDays, streakOf, bumpStreak,
+  DAILY_TRIES, missesOf, triesLeft, miss,
+  pickForUser, nextForUser, SKIPS_PER_DAY, skipsLeft, isHeld, skip, isDaily, dailyFor, todayUtc, addDays,
+  streakOf, currentStreak, bumpStreak,
 };

@@ -495,7 +495,8 @@ async function loadDailyCard() {
       return;
     }
     document.getElementById("dailyMeta").textContent =
-      (p.playerColor === "w" ? "White" : "Black") + " to move · unrated";
+      (p.playerColor === "w" ? "White" : "Black") + " to move · unrated" +
+      (!d.done && d.triesLeft != null ? " · " + d.triesLeft + (d.triesLeft === 1 ? " try" : " tries") : "");
     document.getElementById("dailyStreak").textContent =
       d.streak > 0 ? "🔥 " + d.streak + "-day streak" : "No streak yet";
 

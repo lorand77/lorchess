@@ -174,9 +174,23 @@ Design notes:
 - **Puzzles can be re-imported.** `npm run puzzles:import -- --wipe` clears
   only puzzles nothing refers to; rows behind attempts, skips, daily picks or
   badges stay and are refreshed in place.
-- **The daily puzzle counts once it is done,** however it was first attempted:
-  viewing today's puzzle credits the streak if an attempt exists (idempotent per
-  day). Retries never move the rating or the streak.
+- **Only a solved daily extends the streak.** It once counted any finished
+  attempt, so giving up without a move kept a streak going. Failing today's
+  daily ends the streak at once: `/daily` reports 0 instead of a number that
+  would be gone tomorrow. A solve however it was first made counts: viewing
+  today's puzzle credits the streak if a solved attempt exists (idempotent per
+  day). Retries never move the rating or the streak. Streaks built under the
+  old rule were left as they were.
+- **A daily allows five tries** (`DAILY_TRIES`), to make solve-only fair. A
+  wrong move answers `miss` with the tries left and reveals nothing, and the
+  page takes the move back so the player goes on from there; the fifth fails
+  the attempt. The server counts them in `puzzle_misses`, or a reload would
+  hand out fresh ones, and moves the count to `puzzle_attempts.misses` when
+  the attempt is recorded. Tries apply to the first attempt at any puzzle that
+  has been a daily; rated puzzles and retries still end at the first wrong
+  move, since a rated puzzle's rating is about getting it right first time.
+  Giving up ends the attempt whatever is left, after a confirmation on the
+  daily page.
 - **Daily puzzles are unrated,** today's and any earlier day's: everyone gets
   the same board and the solution gets around. The first attempt is still
   recorded (`puzzle_attempts.rated = 0`, rating unchanged) so "done", the

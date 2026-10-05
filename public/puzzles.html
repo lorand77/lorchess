@@ -28,6 +28,8 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
     <div class="puzzle-head" id="puzzleHead"></div>
     <p class="puzzle-task" id="taskLine"></p>
     <div class="puzzle-themes" id="themeLine"></div>
+    <!-- Daily puzzles only: wrong moves left before the attempt fails. -->
+    <p class="puzzle-tries" id="triesLine"></p>
     <p class="puzzle-status" id="statusLine"></p>
     <div class="puzzle-actions">
       <button id="giveUpBtn" style="display:none;">Give up</button>

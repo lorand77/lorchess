@@ -49,8 +49,9 @@ async function populated() {
   queries.insertChat.run(ai, a, "w", "talking to LorFish");
   queries.createFriendRequest.run(b, a);
   db.prepare("INSERT INTO user_assets (user_id, kind, mime, data, updated_at) VALUES (?, 'bg', 'image/png', x'00', datetime('now'))").run(a);
-  queries.insertAttempt.run(a, "del01", 1, 1500, 1510, 1);
+  queries.insertAttempt.run(a, "del01", 1, 1500, 1510, 1, 0);
   queries.insertPuzzleSkip.run(a, "del01");
+  queries.addPuzzleMiss.run(a, "del01");
   for (const [userId, gameId] of [[a, ai], [b, pvp]]) {
     queries.awardAchievement.run({ userId, key: "first_win", tier: 1, at: null, gameId, puzzleId: null });
   }
@@ -108,7 +109,7 @@ describe("after confirmation", () => {
   test("deletes everything else about her, games against LorFish included", () => {
     assert.equal(count("games WHERE id = ?", f.ai), 0);
     assert.equal(count("moves WHERE game_id = ?", f.ai), 0);
-    for (const table of ["chat_messages", "user_assets", "puzzle_attempts", "puzzle_skips", "user_achievements", "rating_history"]) {
+    for (const table of ["chat_messages", "user_assets", "puzzle_attempts", "puzzle_skips", "puzzle_misses", "user_achievements", "rating_history"]) {
       assert.equal(count(`${table} WHERE user_id = ?`, f.a), 0, table);
     }
     assert.equal(count("friendships WHERE requester_id = ? OR addressee_id = ?", f.a, f.a), 0);

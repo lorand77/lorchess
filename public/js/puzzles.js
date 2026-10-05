@@ -5,6 +5,8 @@
 //   /puzzles.html?daily   the shared puzzle of the day (+ streak), unrated
 // The server keeps the solution; we send the moves played so far and it tells
 // us whether we're still on track, replying with the opponent's answer.
+// A daily puzzle allows a few wrong moves: the server answers "miss" with the
+// tries left, and the move is taken back. Only solving it extends the streak.
 
 (function () {
   const params = new URLSearchParams(location.search);
@@ -15,7 +17,7 @@
   const $ = (id) => document.getElementById(id);
   const boardEl = $("board"), promoEl = $("promo"), promoOpts = $("promoOptions");
   const headEl = $("puzzleHead"), taskEl = $("taskLine"), statusEl = $("statusLine");
-  const themeEl = $("themeLine");
+  const themeEl = $("themeLine"), triesEl = $("triesLine");
   const resultEl = $("result"), navEl = $("modeNav");
   const btn = {
     giveUp: $("giveUpBtn"), skip: $("skipBtn"), skipLocked: $("skipLocked"),
@@ -28,6 +30,7 @@
   let me = { rating: null, streak: 0 };
   let held = false;       // this is the rated puzzle the server holds you to
   let skipInfo = null;    // { member, left, perDay } from the server
+  let triesLeft = null;   // daily puzzles: wrong moves left; null: one is fatal
   let moves = [];         // player's moves so far (UCI)
   let phase = "idle";     // idle | intro | playing | waiting | solved | failed | replay
   let selected = null, legal = [], lastMove = null, wrongSq = null;
@@ -181,6 +184,11 @@
   }
 
   // ---- flow ----
+  function renderTries() {
+    triesEl.textContent = triesLeft == null ? ""
+      : triesLeft === 1 ? "Last try — a wrong move fails the puzzle."
+      : triesLeft + " tries left: a wrong move is taken back and costs one.";
+  }
   function setStatus(text, cls) {
     statusEl.textContent = text || "";
     statusEl.className = "puzzle-status " + (cls || "");
@@ -224,6 +232,7 @@
     resultEl.style.display = "none";
     phase = "intro";
     setTask();
+    renderTries();
     setStatus(colorName(puzzle.playerColor === "w" ? "b" : "w") + " just played…", "info");
     showButtons([]);
     render();
@@ -237,6 +246,7 @@
   }
 
   async function submit(move) {
+    const before = lastMove;
     chess.makeMove(move);
     lastMove = move;
     moves.push(uciOf(move));
@@ -258,6 +268,18 @@
         setStatus("Your move.", "");
         render();
       }, 450);
+    } else if (resp.status === "miss") {
+      // Show the wrong move for a moment, then take it back.
+      triesLeft = resp.triesLeft;
+      renderTries();
+      wrongSq = move.to;
+      setStatus("That's not it — try again.", "bad");
+      later(() => {
+        chess.undoMove(); moves.pop();
+        lastMove = before; wrongSq = null;
+        phase = "playing";
+        render();
+      }, 600);
     } else if (resp.status === "solved") {
       phase = "solved";
       setStatus("Solved! ✓", "ok");
@@ -265,7 +287,7 @@
     } else {
       phase = "failed";
       wrongSq = move.to;
-      setStatus("That's not it.", "bad");
+      setStatus(triesLeft != null ? "That's not it — out of tries." : "That's not it.", "bad");
       finish(resp, false);
     }
     render();
@@ -273,6 +295,8 @@
 
   function finish(resp, solved) {
     held = false; // attempted now: retries are unrated and nothing to skip
+    triesLeft = null; // and end at their first wrong move
+    renderTries();
     showButtons(solved ? ["next"] : ["retry", "solution", "next"]);
     if (daily) {
       btn.next.style.display = "none";
@@ -290,7 +314,9 @@
     resultEl.innerHTML = "";
     resultEl.style.display = "";
     const line = el("div");
-    line.appendChild(document.createTextNode((solved ? "Solved. " : "Failed. ") + "Puzzle rating " + resp.puzzleRating + ". "));
+    const outcome = !solved ? "Failed. "
+      : resp.misses ? "Solved on try " + (resp.misses + 1) + ". " : "Solved. ";
+    line.appendChild(document.createTextNode(outcome + "Puzzle rating " + resp.puzzleRating + ". "));
     if (resp.rating) {
       const d = resp.rating.delta;
       line.appendChild(document.createTextNode("Your rating " + resp.rating.before + " → " + resp.rating.after + " ("));
@@ -303,7 +329,9 @@
     }
     resultEl.appendChild(line);
     if (daily && typeof resp.streak === "number") {
-      resultEl.appendChild(el("div", "streak", "🔥 Daily streak: " + resp.streak + (resp.streak === 1 ? " day" : " days")));
+      resultEl.appendChild(el("div", "streak", resp.streak > 0
+        ? "🔥 Daily streak: " + resp.streak + (resp.streak === 1 ? " day" : " days")
+        : "No streak today: only a solved daily puzzle counts."));
     }
     if (resp.gameUrl) {
       const p = el("div");
@@ -368,6 +396,7 @@
     me.rating = data.rating;
     held = !!data.held;
     skipInfo = data.skip || null;
+    triesLeft = data.triesLeft ?? null;
     renderHead();
     begin();
   }
@@ -402,6 +431,7 @@
     dailyInfo = data;
     puzzle = data.puzzle;
     me.rating = data.rating; me.streak = data.streak;
+    triesLeft = data.triesLeft ?? null;
     renderHead();
     if (!data.done) return begin();
     // Already done today: show the outcome and let them replay it unrated.
@@ -420,6 +450,8 @@
 
   btn.giveUp.addEventListener("click", async () => {
     if (phase !== "playing") return;
+    if (daily && triesLeft != null &&
+        !confirm("Give up today's puzzle? Only a solved daily puzzle counts for your streak.")) return;
     phase = "waiting";
     try {
       const resp = await api("POST", "/" + puzzle.id + "/giveup");
