@@ -1327,6 +1327,28 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 .member-perks li { margin: 4px 0; }
 .review-start.review-locked { flex-wrap: wrap; gap: 6px; }
 
+/* ---- analysis board (public/js/analysis.js) ---- */
+/* The eval bar and number are the replay's; the engine's line sits in a box
+   of fixed height so the panel below it doesn't jump as the line grows. */
+.analysis .muted { color: var(--text-muted); }
+.analysis-engine {
+  margin-top: 8px; padding: 8px 10px;
+  background: var(--surface-2); border-radius: 6px;
+}
+.analysis-engine-head { display: flex; justify-content: space-between; align-items: center; }
+.analysis-toggle { display: flex; gap: 6px; align-items: center; font-weight: bold; cursor: pointer; }
+.analysis-line {
+  margin: 6px 0 0; font-size: 13px; line-height: 1.4;
+  height: 3.6em; overflow: hidden;
+}
+.analysis-engine .check-text:empty { display: none; }
+.analysis-fen {
+  width: 100%; box-sizing: border-box; margin-top: 4px;
+  background: var(--sunken); color: var(--text);
+  border: 1px solid var(--field-border-strong); border-radius: 4px;
+  padding: 6px; font: 12px monospace;
+}
+
 /* ---- player profile (public/js/profile.js and its tabs) ---- */
 .profile-page { width: 760px; max-width: 100%; margin: 24px auto 0; }
 .profile-page h1 { margin: 0 0 4px; }

@@ -30,7 +30,7 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
 - `src/shared/` — engine and catalogues loaded by browser, Web Worker and Node
   alike; served at `/js/`. The only place LorFish and the rules live.
 - `public/js/vendor/stockfish/` — vendored Stockfish 19 (WebAssembly), used by
-  game review only. Third-party files: replace them, never edit them.
+  game review and the analysis board. Third-party files: replace them, never edit them.
 - `public/*.html` pages with their scripts in `public/js/`; `ui.js` is the game page.
 - `test/unit`, `test/integration` — `node --test`.
 

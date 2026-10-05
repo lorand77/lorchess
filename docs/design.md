@@ -8,9 +8,9 @@ repo are in `docs/CLAUDE.md`.
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
 standard chess, Chess960, Atomic or Pawn Wars. Around the games: puzzles,
-achievements, friends, a leaderboard, spectating, in-game chat and a
-promo-code membership. Node.js + SQLite on the server, vanilla JS in the
-browser, no build step.
+an analysis board, achievements, friends, a leaderboard, spectating, in-game
+chat and a promo-code membership. Node.js + SQLite on the server, vanilla JS
+in the browser, no build step.
 
 ## Tech stack
 
@@ -20,7 +20,7 @@ browser, no build step.
 - **Raw SQL** via prepared statements in `src/db/queries.js`; no ORM.
 - **express-session** + `better-sqlite3-session-store` — one session cookie serves REST and the Socket.IO handshake.
 - **argon2** for password hashing.
-- **Stockfish 19 (WebAssembly)**, vendored in `public/js/vendor/stockfish/`, for game review only; it runs in the browser.
+- **Stockfish 19 (WebAssembly)**, vendored in `public/js/vendor/stockfish/`, for game review and the analysis board; it runs in the browser.
 - **No bundler, no framework.** Static HTML pages with their scripts in `public/js/`.
 
 ## Engine: one file, three runtimes
@@ -281,6 +281,35 @@ in the member's browser, so reviews cost the server nothing.
 
 Only Standard and Chess960 are reviewable (`reviewable` in `variants.js`);
 Stockfish does not know the Atomic or Pawn Wars rules.
+
+## Analysis board
+
+`analysis.html` is a free board: either side moves, nothing is saved, and the
+server is never asked about a move. The page's own `Chess` decides legality,
+and Stockfish evaluates whatever position is on the board. The bar, the number
+above it and the score formatting are the replay's.
+
+- **Open to everyone**, unlike game review. It is the same engine, but a board
+  you set up by hand is not a review of your games, and a free analysis board
+  is what players expect from a chess site.
+- **One line, not a tree.** Stepping back and playing a different move
+  replaces the moves after it; playing the move that was already next keeps
+  them. Variations would need a move tree and a way to show it, and nobody has
+  asked for them yet.
+- **The URL is the state**: `?fen=<start>&moves=e2e4,e7e5`, castling spelled
+  by the rook square as in game records. A refresh or a shared link reopens the
+  same board, and another page can link into it.
+- **Live search** (`public/js/liveEval.js`) uses the review's engine settings
+  and parsing but searches one position until it changes. UCI makes the change
+  the tricky part: after `stop` the engine still sends the old search's last
+  info lines and exactly one `bestmove`, and until that arrives every line
+  belongs to the old position. So nothing is reported meanwhile, the next
+  search waits for that `bestmove`, and positions asked for in between replace
+  one another. Each search stops at depth 22 or after 15 s, so a page left open
+  does not keep a core busy. Finished positions are scored without asking
+  Stockfish, as in the review.
+- Standard rules only. A Chess960 FEN loads; Atomic and Pawn Wars positions
+  would get standard-chess answers, so there is no variant picker.
 
 ## Real-time PvP
 

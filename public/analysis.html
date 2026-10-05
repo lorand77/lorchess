@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Analysis board</title>
+<link rel="stylesheet" href="/css/styles.css">
+<script>
+// Paint with the cached scheme before the first frame; theme.js takes over.
+try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light") document.documentElement.dataset.scheme = "light"; } catch (e) {}
+</script>
+</head>
+<body>
+<div class="game has-eval analysis">
+  <div class="board-wrap">
+    <!-- The captured-pieces rows of the other boards, kept empty here so the
+         board sits where it does there and the number has its place. -->
+    <div class="captured"></div>
+    <!-- Stockfish's evaluation of the position on the board, from White's side. -->
+    <span class="eval-number" id="evalNumber"></span>
+    <div class="board-row">
+      <div class="board" id="board"></div>
+      <div class="eval-bar pending" id="evalBar" aria-hidden="true">
+        <div class="eval-fill"></div>
+      </div>
+    </div>
+    <div class="captured"></div>
+    <div class="promo" id="promo">
+      <div class="promo-box">
+        <div>Choose Promotion:</div>
+        <div class="options" id="promoOptions"></div>
+      </div>
+    </div>
+  </div>
+  <div class="info">
+    <div class="userbar" id="userbar"></div>
+    <h2>Analysis board</h2>
+    <p id="positionStatus" class="muted"></p>
+
+    <section class="analysis-engine">
+      <div class="analysis-engine-head">
+        <label class="analysis-toggle">
+          <input type="checkbox" id="engineToggle" checked> Stockfish 19
+        </label>
+        <span class="muted small" id="engineDepth"></span>
+      </div>
+      <p class="analysis-line" id="engineLine"></p>
+      <p class="check-text small" id="engineError"></p>
+    </section>
+
+    <h3>Moves</h3>
+    <div id="history"></div>
+    <p id="analysisControls">
+      <button id="firstBtn" title="Start (Home)">⏮</button>
+      <button id="prevBtn" title="Previous (←)">◀</button>
+      <button id="nextBtn" title="Next (→)">▶</button>
+      <button id="lastBtn" title="End (End)">⏭</button>
+      <button id="flipBtn" title="Flip board (F)">⇅</button>
+    </p>
+    <p>
+      <button id="resetBtn">New board</button>
+      <button id="loadFenBtn">Load FEN</button>
+    </p>
+    <label class="muted small" for="fenOut">FEN of this position</label>
+    <input id="fenOut" class="analysis-fen" type="text" readonly spellcheck="false">
+    <p class="muted" style="font-size:12px;">Move either side by clicking or dragging. Playing a different move from an earlier position replaces the moves after it.</p>
+  </div>
+</div>
+
+<div id="fenPanel" class="fen-modal" role="dialog" aria-modal="true" aria-labelledby="fenTitle">
+  <div class="fen-modal-box">
+    <h3 id="fenTitle">Load FEN</h3>
+    <textarea id="fenText" rows="3"
+      placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"></textarea>
+    <p>
+      <button id="fenLoadBtn">Load</button>
+      <button id="fenCancelBtn">Cancel</button>
+    </p>
+    <div id="fenError" class="fen-error"></div>
+  </div>
+</div>
+
+<script src="/js/shell.js"></script>
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/chess.js"></script>
+<script src="/js/boardDrag.js"></script>
+<script src="/js/boardArrows.js"></script>
+<script src="/js/gameReview.js"></script>
+<script src="/js/liveEval.js"></script>
+<script src="/js/analysis.js"></script>
+</body>
+</html>

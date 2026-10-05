@@ -6,14 +6,13 @@
 // which speaks the same text lines as the browser's Web Worker.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { Chess } = require("../../src/shared/chess");
+const { stockfishProcess } = require("../helpers/stockfish");
 
 const PUBLIC_JS = path.join(__dirname, "../../public/js");
-const STOCKFISH = path.join(PUBLIC_JS, "vendor/stockfish/stockfish-19-lite-single.js");
 const reviewContext = { window: {}, Chess, setTimeout, clearTimeout };
 vm.runInNewContext(fs.readFileSync(path.join(PUBLIC_JS, "gameReview.js"), "utf8"), reviewContext);
 const review = reviewContext.window.GameReview;
@@ -39,23 +38,6 @@ function scriptedEngine(answer) {
     },
     terminate() { engine.terminated = true; },
   };
-  return engine;
-}
-
-// The real Stockfish, as a child process: one UCI line per message each way.
-function stockfishProcess() {
-  const child = spawn(process.execPath, [STOCKFISH], { stdio: ["pipe", "pipe", "ignore"] });
-  const engine = {
-    postMessage: (cmd) => child.stdin.write(cmd + "\n"),
-    terminate: () => child.kill(),
-  };
-  let buffered = "";
-  child.stdout.setEncoding("utf8");
-  child.stdout.on("data", (chunk) => {
-    const lines = (buffered + chunk).split("\n");
-    buffered = lines.pop();
-    for (const line of lines) if (line.trim()) engine.onmessage({ data: line });
-  });
   return engine;
 }
 
