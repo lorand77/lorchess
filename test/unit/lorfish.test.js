@@ -295,6 +295,68 @@ describe("LorFish lone-king endgames", () => {
   });
 });
 
+describe("LorFish temperature", () => {
+  const pick = (chess, depth, temperature, seed) =>
+    LorFish.searchRoot(chess, depth, { noise: true, temperature, rng: seeded(seed) }).best;
+
+  test("weights each move by exp(-loss / T)", () => {
+    // Losses 0 and 100 at T=100: weights 1 and 1/e, so the worse move is drawn
+    // when the roll lands past 1 / (1 + 1/e), about 0.7311.
+    const evals = [{ raw: 0 }, { raw: -100 }];
+    assert.equal(LorFish.sample(evals, 100, () => 0.73), evals[0]);
+    assert.equal(LorFish.sample(evals, 100, () => 0.7322), evals[1]);
+    assert.equal(LorFish.sample(evals, 100, () => 1), evals[1], "a roll of 1 still lands on a move");
+  });
+
+  test("the same seed replays the same move and the board is left as it was", (t) => {
+    silence(t);
+    const rnd = seeded(3);
+    for (let i = 0; i < 12; i++) {
+      const chess = randomPosition(rnd, 6 + Math.floor(rnd() * 16));
+      if (chess.legalMoves().length === 0) continue;
+      const fen = chess.fen();
+      const first = pick(chess, 1, 80, i);
+      assert.ok(isLegal(chess, first.move), fen);
+      assert.equal(pick(chess, 1, 80, i).san, first.san, fen);
+      assert.ok(isLegal(chess, LorFish.getBestMove(chess, 1, { temperature: 80 })), fen);
+      assert.equal(chess.fen(), fen);
+    }
+  });
+
+  test("replaces the jitter rather than adding to it", () => {
+    const { evals } = LorFish.searchRoot(new Chess(), 1, { noise: true, temperature: 50, rng: seeded(1) });
+    for (const e of evals) assert.equal(e.v, e.raw, e.san);
+  });
+
+  test("a cold temperature plays a top-scoring move", () => {
+    const rnd = seeded(11);
+    for (let i = 0; i < 12; i++) {
+      const chess = randomPosition(rnd, 6 + Math.floor(rnd() * 16));
+      if (chess.legalMoves().length === 0) continue;
+      const { evals, best } = LorFish.searchRoot(chess, 1, { temperature: 0.01, rng: seeded(i) });
+      assert.equal(best.raw, Math.max(...evals.map((e) => e.raw)), chess.fen());
+    }
+  });
+
+  test("a hotter temperature spreads the choice over more moves", () => {
+    const distinct = (temperature) =>
+      new Set(Array.from({ length: 40 }, (_, seed) => pick(new Chess(), 1, temperature, seed).san)).size;
+    // At depth 1 the start position's top four moves (d4 e4 Nf3 Nc3) sit
+    // within 10 centipawns of each other, out of twenty spread over 51.
+    const cold = distinct(5);
+    const hot = distinct(200);
+    assert.ok(cold <= 4, `T=5 played ${cold} different moves`);
+    assert.ok(hot >= 12, `T=200 played ${hot} different moves`);
+  });
+
+  test("still takes a free queen and a mate it sees", () => {
+    for (let seed = 0; seed < 30; seed++) {
+      assert.equal(pick(fromFen("k7/8/8/3q4/8/8/8/K2R4 w - - 0 1"), 1, 50, seed).san, "Rxd5", `seed ${seed}`);
+      assert.match(pick(fromFen("6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1"), 1, 500, seed).san, /#$/, `seed ${seed}`);
+    }
+  });
+});
+
 describe("LorFish move ordering", () => {
   test("captures first by victim value, then promotions, then quiet moves", () => {
     const chess = fromFen("k7/7P/8/1p1q4/2P5/8/8/K2R4 w - - 0 1");

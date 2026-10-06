@@ -331,9 +331,14 @@ const LorFish = {
   // Every root move is searched with a full window, so the scores that come back
   // are exact values rather than pruning bounds. `noise` adds the tiebreaker
   // jitter that keeps play varied; analyse turns it off so the same position
-  // always yields the same verdict.
+  // always yields the same verdict. `temperature` (centipawns) replaces the
+  // jitter with sample() below, for the weaker levels. `rng` stands in for
+  // Math.random so tests and calibration runs can be replayed.
   searchRoot(chess, depth, opts) {
-    const noise = !!(opts && opts.noise);
+    const o = opts || {};
+    const rng = o.rng || Math.random;
+    const hot = o.temperature > 0;
+    const noise = !!o.noise && !hot;
     this.nodes = 0;
     this.rootPly = chess.history.length;
     this.maxQ = 0;
@@ -348,24 +353,44 @@ const LorFish = {
       const raw = -this.negamax(chess, effDepth - 1, -Infinity, Infinity);
       chess.undoMove();
       // Skip the jitter on mate scores so the fastest mate is always chosen.
-      const jitter = (noise && raw < 99000) ? Math.floor(Math.random() * 21) - 10 : 0;
+      const jitter = (noise && raw < 99000) ? Math.floor(rng() * 21) - 10 : 0;
       const v = raw + jitter;
       if (!best || v > best.v) best = { move: m, san, raw, v };
       evals.push({ move: m, san, raw, v });
     }
+    if (hot && evals.length) best = this.sample(evals, o.temperature, rng);
     return { evals, best, effDepth };
   },
 
-  getBestMove(chess, depth) {
+  // Weaker play: every root move is a candidate, weighted exp(-loss / T) where
+  // loss is how far its score falls short of the best. A move T centipawns
+  // worse is e (about 2.7) times less likely than the best one, so small slips
+  // are common and big blunders rare. Mate scores are left as they are, so a
+  // mate the search sees is always taken and one it sees coming always dodged;
+  // at these levels the depth decides which mates get missed.
+  sample(evals, temperature, rng) {
+    let top = -Infinity;
+    for (const e of evals) if (e.raw > top) top = e.raw;
+    const weights = evals.map(e => Math.exp((e.raw - top) / temperature));
+    let r = rng() * weights.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < evals.length; i++) {
+      r -= weights[i];
+      if (r < 0) return evals[i];
+    }
+    return evals[evals.length - 1];  // rounding left r at exactly 0
+  },
+
+  getBestMove(chess, depth, opts) {
     const t0 = performance.now();
-    const { evals, best, effDepth } = this.searchRoot(chess, depth, { noise: true });
+    const { evals, best, effDepth } = this.searchRoot(chess, depth, Object.assign({ noise: true }, opts));
     const dt = ((performance.now() - t0) / 1000).toFixed(3);
     const sorted = evals.slice().sort((a, b) => b.v - a.v);
     const side = chess.turn === W ? 'White' : 'Black';
     const depthStr = effDepth === depth ? `depth=${depth}` : `depth=${depth} → ${effDepth}`;
-    console.log(`LorFish evals (${side} to move, ${depthStr}):`);
+    const hotStr = opts && opts.temperature > 0 ? `, T=${opts.temperature}` : '';
+    console.log(`LorFish evals (${side} to move, ${depthStr}${hotStr}):`);
     for (const e of sorted) console.log(`  ${e.san.padEnd(8)} ${e.v}  [raw=${e.raw}]`);
-    console.log(`nodes=${this.nodes} time=${dt}s maxQ=${this.maxQ}`);
+    console.log(`played=${best ? best.san : '-'} nodes=${this.nodes} time=${dt}s maxQ=${this.maxQ}`);
     return best ? best.move : null;
   },
 

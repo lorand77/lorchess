@@ -31,6 +31,17 @@ squares, and the Atomic and Pawn Wars rule sets. `src/shared/lorfish.js` is
 **LorFish**, a synchronous search engine ported from a sunfish-derived Python
 original (roughly 1400–1800 strength). It depends tightly on `chess.js`.
 
+Weaker play comes from choosing, not from a broken search. The root already
+scores every move exactly, so a `temperature` option picks among them at random,
+weighted by exp(−loss / T): small slips are common, dropped pieces rare, and a
+mate the search sees is never passed up. Depth sets what the bot can see at all;
+at depth 1 it never notices an opponent's quiet threat, the classic beginner
+miss. `scripts/lorfishLevels.js` measures settings against each other in
+self-play (`match`) and breaks down the mistakes each one makes (`profile`).
+Measured with it, taking depth 2 as 1400: plain depth 1 is about 1110, depth 1
+at T=10 about 1020 and depth 1 at T=60 about 560–625. These numbers are only as
+good as the 1400 anchor, which is itself an estimate.
+
 Dead-material detection follows the variant: in Atomic, opposing bishops on
 the same square colour can explode a king and must not trigger the standard
 bishop-ending draw. The Atomic material cases follow the
