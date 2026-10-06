@@ -77,7 +77,14 @@ async function init() {
   isMember = !!me.member_since;
   whiteName = game.white_username || "White";
   blackName = game.black_username || "Black";
-  titleEl.textContent = game.mode === "ai" ? "vs LorFish" : "PvP game";
+  // An AI game says which LorFish it was: in the title, and on LorFish's row
+  // of the review summary.
+  const strength = game.mode === "ai" ? lorfishStrength(game) : null;
+  if (strength) {
+    if (game.ai_color === "w") whiteName += ` (${strength.short})`;
+    else blackName += ` (${strength.short})`;
+  }
+  titleEl.textContent = game.mode !== "ai" ? "PvP game" : strength ? `vs LorFish · ${strength.full}` : "vs LorFish";
   metaEl.textContent =
     `White: ${game.white_username}  ·  Black: ${game.black_username}  ·  ${fmtDate(game.created_at)}`;
   statusEl.textContent = outcomeText(game);
@@ -87,6 +94,17 @@ async function init() {
   wireControls();
   wireReview();
   goto(uciList.length); // open at the final position
+}
+
+// The level an AI game was played at (src/shared/aiLevels.js), long and short:
+// "Casual (~1000)" and "Casual". Games from before levels have only a depth,
+// and one whose depth matched no level is shown by that depth. Null if neither.
+function lorfishStrength(game) {
+  if (AI_LEVELS_BY_KEY.has(game.ai_level)) {
+    return { full: aiLevelLabel(game.ai_level), short: AI_LEVELS_BY_KEY.get(game.ai_level).label };
+  }
+  if (game.ai_depth) return { full: `depth ${game.ai_depth}`, short: `depth ${game.ai_depth}` };
+  return null;
 }
 
 // Came from someone else's profile: the back link returns to their games.
