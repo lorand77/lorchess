@@ -127,7 +127,7 @@ function startMatch(io, white, black, opts) {
   const rated = !opts || opts.rated !== false;
 
   const info = queries.createGame.run(
-    white.userId, black.userId, "pvp", null, null, start, start, "w",
+    white.userId, black.userId, "pvp", null, null, null, start, start, "w",
     initialMs, incrementMs, rated ? 1 : 0, variant
   );
   const gameId = Number(info.lastInsertRowid);

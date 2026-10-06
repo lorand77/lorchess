@@ -41,13 +41,13 @@ function uciOf(m) {
 // checkmate or stalemate is verified against the final position, so a fixture
 // that does not do what it claims fails loudly.
 function recordGame({
-  white, black, mode = "pvp", aiColor = null, aiDepth = null, start = STANDARD_START,
+  white, black, mode = "pvp", aiColor = null, aiDepth = null, aiLevel = null, start = STANDARD_START,
   moves = [], result = null, termination = null, initialMs = 600000, incrementMs = 0,
   rated = 1, variant = "standard", thinkMs = null, premove = false, clocks = null,
 }) {
   const q = queries();
   const info = q.createGame.run(
-    white, black, mode, aiColor, aiDepth, start, start, "w", initialMs, incrementMs, rated, variant
+    white, black, mode, aiColor, aiDepth, aiLevel, start, start, "w", initialMs, incrementMs, rated, variant
   );
   const gameId = Number(info.lastInsertRowid);
 

@@ -54,9 +54,9 @@ const ACHIEVEMENTS = [
   { key: "well_rounded", name: "Well Rounded", icon: "🧭", group: "formats",
     desc: "Win a game in every time control." },
   { key: "beat_fish_2", name: "Fish Food", icon: "🐟", group: "formats",
-    desc: "Beat LorFish at depth 2." },
+    desc: "Beat LorFish at Intermediate." },
   { key: "fish_slayer", name: "Fish Slayer", icon: "🔱", group: "formats",
-    desc: "Beat LorFish at depth 4, its strongest setting." },
+    desc: "Beat LorFish at Advanced, its strongest level." },
   { key: "giving_odds", name: "Giving Odds", icon: "⚖️", group: "formats",
     tiers: [1, 2, 3, 4],
     tierDescs: [

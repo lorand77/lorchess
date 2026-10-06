@@ -11,6 +11,7 @@ const db = require("../../src/db/index");
 const queries = require("../../src/db/queries");
 const achievements = require("../../src/achievements/service");
 const handicap = require("../../src/shared/handicap");
+const { aiLevelOf } = require("../../src/shared/aiLevels");
 const { STANDARD_START, makeUser, lorfishId, recordGame } = require("../helpers/games");
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -207,32 +208,46 @@ describe("game feats", () => {
 });
 
 describe("AI games", () => {
-  const foolsMateAsBlack = (aiDepth) => ({
-    mode: "ai", aiColor: "w", aiDepth, white: lorfishId(), initialMs: null, incrementMs: null, rated: 0,
+  const foolsMateAsBlack = (aiLevel) => ({
+    mode: "ai", aiColor: "w", aiLevel, aiDepth: aiLevelOf(aiLevel).depth,
+    white: lorfishId(), initialMs: null, incrementMs: null, rated: 0,
     moves: ["f2f3", "e7e5", "g2g4", "d8h4"], result: "0-1", termination: "checkmate",
   });
 
-  test("beating LorFish at depth 2 and at depth 4", () => {
+  test("beating LorFish at Intermediate and at Advanced", () => {
     const me = makeUser("h");
-    const g2 = recordGame({ ...foolsMateAsBlack(2), black: me.id });
+    const g2 = recordGame({ ...foolsMateAsBlack("intermediate"), black: me.id });
     const first = keysOf(achievements.onGameFinished(g2), me.id);
     assert.ok(has(first, "beat_fish_2", "fools_mate") && lacks(first, "fish_slayer"), first);
-    const g4 = recordGame({ ...foolsMateAsBlack(4), black: me.id });
+    const g4 = recordGame({ ...foolsMateAsBlack("advanced"), black: me.id });
     const second = keysOf(achievements.onGameFinished(g4), me.id);
     assert.ok(has(second, "fish_slayer"), second);
     assert.ok(lacks(second, "fools_mate", "beat_fish_2"), "already earned, so not reported again");
   });
 
+  test("beating the weaker levels, or a game from before levels with no level, earns neither", () => {
+    const me = makeUser("h");
+    const games = [
+      { ...foolsMateAsBlack("beginner"), black: me.id },
+      { ...foolsMateAsBlack("casual"), black: me.id },
+      { ...foolsMateAsBlack(null), aiDepth: 3, black: me.id }, // the old picker's depth 3
+    ];
+    for (const game of games) {
+      const keys = keysOf(achievements.onGameFinished(recordGame(game)), me.id);
+      assert.ok(lacks(keys, "beat_fish_2", "fish_slayer"), `${game.aiLevel}: ${keys}`);
+    }
+  });
+
   test("the AI itself earns nothing", () => {
     const me = makeUser("h");
-    const earned = achievements.onGameFinished(recordGame({ ...foolsMateAsBlack(2), black: me.id }));
+    const earned = achievements.onGameFinished(recordGame({ ...foolsMateAsBlack("intermediate"), black: me.id }));
     assert.deepEqual(Object.keys(earned).map(Number), [me.id]);
   });
 
   test("a pasted position in an AI game earns no feats, only stats", () => {
     const me = makeUser("h");
     const gameId = recordGame({
-      mode: "ai", aiColor: "b", aiDepth: 2, white: me.id, black: lorfishId(), rated: 0, initialMs: null,
+      mode: "ai", aiColor: "b", aiDepth: 2, aiLevel: "intermediate", white: me.id, black: lorfishId(), rated: 0, initialMs: null,
       start: "6rk/6pp/8/4N3/8/8/8/K7 w - - 0 1", moves: ["e5f7"], result: "1-0", termination: "checkmate",
     });
     const keys = keysOf(achievements.onGameFinished(gameId), me.id);

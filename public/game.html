@@ -41,13 +41,11 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
       </div>
     </div>
 
-    <!-- AI-only controls; hidden in PvP (the server fixes color, no depth/undo). -->
+    <!-- AI-only controls; hidden in PvP (the server fixes color, no level/undo). -->
     <div id="aiControls">
-      <p>Depth:
-        <select id="depth">
-          <option value="2" selected>2 (~1400)</option>
-          <option value="4">4 (~1800)</option>
-        </select>
+      <p>Level:
+        <!-- Filled from src/shared/aiLevels.js by ui.js. -->
+        <select id="level"></select>
       </p>
       <p>You play as:
         <select id="humanColor">
@@ -55,7 +53,7 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
           <option value="b">Black</option>
         </select>
       </p>
-      <p class="muted small">Changing depth or colour starts a new game.</p>
+      <p class="muted small">Changing level or colour starts a new game.</p>
     </div>
 
     <!-- Player names; hidden in AI games, where "You play as" already says it. -->
@@ -132,6 +130,7 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
 <script src="/js/theme.js"></script>
 <script src="/js/chess.js"></script>
 <script src="/js/variants.js"></script>
+<script src="/js/aiLevels.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/net.js"></script>
 <script src="/js/friends.js"></script>

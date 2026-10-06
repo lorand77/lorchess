@@ -40,7 +40,10 @@ miss. `scripts/lorfishLevels.js` measures settings against each other in
 self-play (`match`) and breaks down the mistakes each one makes (`profile`).
 Measured with it, taking depth 2 as 1400: plain depth 1 is about 1110, depth 1
 at T=10 about 1020 and depth 1 at T=60 about 560–625. These numbers are only as
-good as the 1400 anchor, which is itself an estimate.
+good as the 1400 anchor, which is itself an estimate. They became the playing
+levels in `src/shared/aiLevels.js`: Beginner (~600, depth 1 at T=60), Casual
+(~1000, depth 1 at T=10), Intermediate (~1400, depth 2) and Advanced (~1800,
+depth 4; that rating is the old guess and has not been measured).
 
 Dead-material detection follows the variant: in Atomic, opposing bishops on
 the same square colour can explode a king and must not trigger the standard
@@ -221,7 +224,7 @@ LorFish's search is synchronous and blocks whatever thread runs it. It runs in
 `public/js/engineWorker.js`, so the page never freezes. (The original UI hid the
 freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
 needed.) The worker `importScripts` the engine, receives
-`{ id, startFen, moves, depth }` and **replays the moves** instead of loading the
+`{ id, startFen, moves, depth, temperature }` and **replays the moves** instead of loading the
 current FEN, because `loadFen` and `reset` wipe `positionCounts` and threefold
 repetition would be wrong.
 
@@ -242,10 +245,17 @@ bookmark too; a late response for an earlier board cannot overwrite it.
 The board, PGN and move source reset synchronously before persistence resolves.
 Moves played while creation is pending queue against that game, and completion
 only updates the bookmark; it never resets a board that has already advanced.
-AI depth is fixed per game. Changing the depth selector starts a new game and
-abandons the previous one, just like changing colour; the controls explain
-this. Worker requests use the game's captured depth, which is also saved for
-resume and strength-dependent achievements.
+The AI level is fixed per game. Changing the level selector starts a new game
+and abandons the previous one, just like changing colour; the controls explain
+this. Worker requests use the game's captured level, which is also saved for
+resume and strength-dependent achievements. The levels are an allowlist in
+`src/shared/aiLevels.js`: the picker is built from it, and `POST /api/games`
+resolves the client's key against it and stores the depth that level searches,
+never a depth the client sent. Games from before levels stored only a depth;
+the migration gives depth 2 and 4 their levels, and a request carrying a bare
+depth (a page loaded before the change) is read the same way. Only
+Intermediate and Advanced count for the beat-LorFish achievements: the weaker
+two would make them free.
 Load FEN validates a scratch board before changing the current game. Already
 finished positions (mate, stalemate or a rule draw) are rejected in both the UI
 and creation API, so they cannot leave an unplayable game marked active.

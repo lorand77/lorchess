@@ -4,12 +4,13 @@
 // Web Worker keeps the UI responsive — no more setTimeout paint hacks or
 // "scanner" sound to mask a freeze, because the freeze no longer happens.
 //
-// Pick a move — { id, startFen, moves, depth }
+// Pick a move — { id, startFen, moves, depth, temperature }
 //   startFen : starting position FEN, or null for the standard start
 //   moves    : [{from,to,promo}] applied since startFen, replayed here so
 //              positionCounts / threefold repetition is rebuilt correctly
 //              (loadFen and reset both wipe it).
-//   depth    : search depth.
+//   depth, temperature : the game's level (src/shared/aiLevels.js); a
+//              temperature of 0 is the plain search with its tiebreak jitter.
 // Reply: { id, move|null, error? }  move = {from,to,promo}
 //
 // Game review used to run here too; it is Stockfish's job now (gameReview.js).
@@ -17,7 +18,7 @@
 importScripts("/js/chess.js", "/js/lorfish.js");
 
 self.onmessage = (e) => {
-  const { id, startFen, moves, depth } = e.data || {};
+  const { id, startFen, moves, depth, temperature } = e.data || {};
   try {
     const chess = new Chess();
     if (startFen) chess.loadFen(startFen);
@@ -32,7 +33,7 @@ self.onmessage = (e) => {
       chess.makeMove(match);
     }
 
-    const move = LorFish.getBestMove(chess, depth);
+    const move = LorFish.getBestMove(chess, depth, { temperature });
     self.postMessage({
       id,
       // Castling spelled by the rook square: on a shuffled back rank the king's

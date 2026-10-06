@@ -2,7 +2,7 @@
 
 const chess = new Chess();
 let humanColor = W;
-let aiDepth = 2; // Fixed for the current game, including every worker request.
+let aiLevel = DEFAULT_AI_LEVEL; // Fixed for the current game, including every worker request.
 let selected = null;
 let legalFromSelected = [];
 let lastMove = null;
@@ -48,7 +48,7 @@ const historyEl     = document.getElementById('history');
 const promoEl       = document.getElementById('promo');
 const promoOpts     = document.getElementById('promoOptions');
 const colorSelectEl = document.getElementById('humanColor');
-const depthSelectEl = document.getElementById('depth');
+const levelSelectEl = document.getElementById('level');
 const whiteLabelEl  = document.getElementById('whiteLabel');
 const blackLabelEl  = document.getElementById('blackLabel');
 const capturedTopEl    = document.getElementById('capturedTop');
@@ -66,8 +66,15 @@ function setThinking(v) {
   render();
 }
 
-function getDepth() {
-  return aiDepth;
+// The picker lists the levels in aiLevels.js, so a new level needs no change here.
+for (const level of AI_LEVELS) {
+  const selected = level.key === DEFAULT_AI_LEVEL;
+  levelSelectEl.add(new Option(aiLevelLabel(level.key), level.key, selected, selected));
+}
+
+// The current game's level: its key, depth and temperature.
+function getLevel() {
+  return aiLevelOf(aiLevel);
 }
 
 function gameIsOver() {
@@ -83,7 +90,7 @@ const env = {
   getHumanColor: () => humanColor,
   getTurn:       () => chess.turn,
   isGameOver:    () => chess.isGameOver(),
-  getDepth,
+  getLevel,
   getPosition:   () => ({
     startFen,
     // Castling is spelled by the rook square (see uciOf), which the worker's
@@ -892,7 +899,7 @@ async function persistNewAiGame(fen) {
   const url = new URL(location.href);
   url.searchParams.delete('id');
   history.replaceState(null, '', url);
-  const id = await gameStore.newGame({ humanColor, depth: getDepth(), startFen: fen });
+  const id = await gameStore.newGame({ humanColor, level: aiLevel, startFen: fen });
   // A later New Game may already own the board when this request completes.
   if (id && gameStore.currentId() === id) {
     const current = new URL(location.href);
@@ -929,7 +936,7 @@ async function startNewGame() {
   startTurn = W;
   startFen = null;
   humanColor = colorSelectEl.value === 'b' ? B : W;
-  aiDepth = Number(depthSelectEl.value);
+  aiLevel = levelSelectEl.value;
   const ready = persistNewAiGame(null);
   refreshGameState();
   return ready;
@@ -977,7 +984,7 @@ document.getElementById('engineRetry').addEventListener('click', () => {
 });
 document.getElementById('resetBtn').addEventListener('click', startNewGame);
 colorSelectEl.addEventListener('change', startNewGame);
-depthSelectEl.addEventListener('change', startNewGame);
+levelSelectEl.addEventListener('change', startNewGame);
 
 loadFenBtn.addEventListener('click', () => {
   fenText.value = '';
@@ -1008,7 +1015,7 @@ fenLoadBtn.addEventListener('click', async () => {
   startFen = fen;
   fenPanel.classList.remove('show');
   humanColor = colorSelectEl.value === 'b' ? B : W;
-  aiDepth = Number(depthSelectEl.value);
+  aiLevel = levelSelectEl.value;
   const ready = persistNewAiGame(fen);
   refreshGameState();
   return ready;
@@ -1042,11 +1049,10 @@ function resumeAiGame(game) {
   humanColor = game.ai_color === 'w' ? B : W;
   colorSelectEl.value = humanColor === B ? 'b' : 'w';
 
-  // Restore the search depth, but only if the picker actually offers it.
-  if ([...depthSelectEl.options].some(o => o.value === String(game.ai_depth))) {
-    depthSelectEl.value = String(game.ai_depth);
-  }
-  aiDepth = Number(depthSelectEl.value);
+  // Restore the level, if the game has one: a game from before levels whose
+  // depth matched none keeps whatever the picker shows.
+  if (AI_LEVELS_BY_KEY.has(game.ai_level)) levelSelectEl.value = game.ai_level;
+  aiLevel = levelSelectEl.value;
 
   if (game.start_fen && game.start_fen !== STANDARD_START) {
     chess.loadFen(game.start_fen);

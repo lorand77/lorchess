@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
 const config = require("../config");
+const { aiLevelForDepth } = require("../shared/aiLevels");
 
 // Ensure the data/ directory exists before opening the file.
 fs.mkdirSync(path.dirname(config.DB_PATH), { recursive: true });
@@ -92,6 +93,17 @@ addColumnIfMissing("moves", "think_ms", "INTEGER");
 addColumnIfMissing("moves", "premove", "INTEGER NOT NULL DEFAULT 0");
 // When the account was deactivated (src/db/deactivate.js); NULL = active.
 addColumnIfMissing("users", "deactivated_at", "TEXT");
+// The LorFish level an AI game was played at (src/shared/aiLevels.js). Older
+// games stored only a depth; give them the level that depth stood for, so the
+// strength achievements keep counting them. A depth no level matches stays NULL.
+if (addColumnIfMissing("games", "ai_level", "TEXT")) {
+  const setLevel = db.prepare("UPDATE games SET ai_level = ? WHERE mode = 'ai' AND ai_depth = ?");
+  for (const { ai_depth } of db.prepare("SELECT DISTINCT ai_depth FROM games WHERE mode = 'ai'").all()) {
+    const level = aiLevelForDepth(ai_depth);
+    if (level) setLevel.run(level, ai_depth);
+  }
+  console.log("[db] migrated: set games.ai_level from ai_depth");
+}
 
 // The puzzle rating used to start at 1500. Move anyone who never attempted a
 // puzzle to the current starting value; the column default on an existing

@@ -22,8 +22,6 @@ const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
 const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
 
 const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-// Depth of LorFish's strongest setting (see the <select id="depth"> in game.html).
-const MAX_AI_DEPTH = 4;
 
 const other = (c) => (c === "w" ? "b" : "w");
 const sqFromAlg = (a) => sqIdx(a.charCodeAt(0) - 97, parseInt(a[1], 10) - 1);
@@ -284,8 +282,9 @@ const GAME_CHECKS = {
   mate_castle: (c) => c.mated && !!c.last.castle,
 
   // formats
-  beat_fish_2: (c) => c.won && c.game.mode === "ai" && c.game.ai_depth === 2,
-  fish_slayer: (c) => c.won && c.game.mode === "ai" && c.game.ai_depth >= MAX_AI_DEPTH,
+  // LorFish levels by key (src/shared/aiLevels.js); the weaker two earn nothing.
+  beat_fish_2: (c) => c.won && c.game.mode === "ai" && c.game.ai_level === "intermediate",
+  fish_slayer: (c) => c.won && c.game.mode === "ai" && c.game.ai_level === "advanced",
   giving_odds: (c) => (c.won ? oddsTier(c.a.changes, c.me) : 0),
   handicap_hustler: (c) => c.won && c.game.mode === "pvp" && oddsTier(c.a.changes, c.me) === 4,
   iron_man: (c) => c.plies >= 199,

@@ -71,7 +71,7 @@ describe("creating games", () => {
   });
 
   test("an AI game for the chosen colour", async () => {
-    const created = await newGame({ humanColor: "b", depth: 2 });
+    const created = await newGame({ humanColor: "b", level: "intermediate" });
     assert.deepEqual(created, { gameId: created.gameId, humanColor: "b", aiColor: "w", turn: "w" });
     const res = await me.get(`/api/games/${created.gameId}`);
     assert.equal(res.status, 200);
@@ -79,6 +79,7 @@ describe("creating games", () => {
     assert.equal(g.status, "active");
     assert.equal(g.mode, "ai");
     assert.equal(g.ai_color, "w");
+    assert.equal(g.ai_level, "intermediate");
     assert.equal(g.ai_depth, 2);
     assert.equal(g.start_fen, START_FEN);
     assert.equal(g.current_fen, START_FEN);
@@ -91,25 +92,49 @@ describe("creating games", () => {
     assert.deepEqual(g.moves, []);
   });
 
-  test("defaults to white at depth 2, and honours a custom start position", async () => {
+  test("defaults to white at Intermediate, and honours a custom start position", async () => {
     const plain = await newGame({});
     assert.equal(plain.humanColor, "w");
     assert.equal(plain.aiColor, "b");
-    assert.equal((await me.get(`/api/games/${plain.gameId}`)).body.ai_depth, 2);
+    const stored = (await me.get(`/api/games/${plain.gameId}`)).body;
+    assert.equal(stored.ai_level, "intermediate");
+    assert.equal(stored.ai_depth, 2);
 
     const fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
-    const custom = await newGame({ humanColor: "w", depth: "4", startFen: `  ${fen}  ` });
+    const custom = await newGame({ humanColor: "w", level: "advanced", startFen: `  ${fen}  ` });
     assert.equal(custom.turn, "b");
     const g = (await me.get(`/api/games/${custom.gameId}`)).body;
     assert.equal(g.start_fen, fen);
+    assert.equal(g.ai_level, "advanced");
     assert.equal(g.ai_depth, 4);
     assert.equal(g.turn, "b");
+  });
+
+  // [level, depth sent] -> [level stored, depth stored]
+  const strength = async (body) => {
+    const g = (await me.get(`/api/games/${(await newGame(body)).gameId}`)).body;
+    return [g.ai_level, g.ai_depth];
+  };
+
+  test("the level is checked against the allowlist and sets the depth", async () => {
+    assert.deepEqual(await strength({ level: "beginner" }), ["beginner", 1]);
+    assert.deepEqual(await strength({ level: "casual", depth: 4 }), ["casual", 1], "a depth alongside is ignored");
+    assert.deepEqual(await strength({ level: "expert", depth: 4 }), ["intermediate", 2], "unknown plays the default");
+    assert.deepEqual(await strength({ level: "__proto__" }), ["intermediate", 2]);
+    assert.deepEqual(await strength({ level: { key: "advanced" } }), ["intermediate", 2]);
+  });
+
+  test("a bare depth, from a page loaded before levels, gets the level it stood for", async () => {
+    assert.deepEqual(await strength({ depth: 4 }), ["advanced", 4]);
+    assert.deepEqual(await strength({ depth: "2" }), ["intermediate", 2]);
+    assert.deepEqual(await strength({ depth: 3 }), ["intermediate", 2], "no level had depth 3");
+    assert.deepEqual(await strength({ depth: 99 }), ["advanced", 4], "never deeper than the strongest level");
   });
 });
 
 describe("recording and finishing a game", () => {
   test("moves are stored with SAN, UCI and FEN, then the result is finalised", async () => {
-    const { gameId } = await newGame({ humanColor: "b", depth: 2 });
+    const { gameId } = await newGame({ humanColor: "b", level: "intermediate" });
     for (const p of FOOLS_MATE) {
       const res = await me.post(`/api/games/${gameId}/moves`, p);
       assert.equal(res.status, 201, p.san);

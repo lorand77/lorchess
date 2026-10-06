@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS games (
   mode        TEXT    NOT NULL CHECK (mode IN ('ai', 'pvp')),
   ai_color    TEXT    CHECK (ai_color IN ('w', 'b')),
   ai_depth    INTEGER,
+  -- The LorFish level ('beginner' ... 'advanced', see src/shared/aiLevels.js).
+  -- ai_depth is the depth that level searches. NULL on PvP games, and on AI
+  -- games from before levels whose depth matched none.
+  ai_level    TEXT,
   status      TEXT    NOT NULL DEFAULT 'active'
                       CHECK (status IN ('active', 'finished', 'aborted')),
   result      TEXT,                         -- '1-0' | '0-1' | '1/2-1/2' | NULL

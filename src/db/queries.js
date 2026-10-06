@@ -175,10 +175,10 @@ module.exports = {
 
   // --- games ---
   createGame: db.prepare(`
-    INSERT INTO games (white_id, black_id, mode, ai_color, ai_depth,
+    INSERT INTO games (white_id, black_id, mode, ai_color, ai_depth, ai_level,
                        start_fen, current_fen, turn,
                        initial_ms, increment_ms, rated, variant)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
   getGameById: db.prepare("SELECT * FROM games WHERE id = ?"),
   // A user's games, newest first (they may be on either side), with both

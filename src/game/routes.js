@@ -10,6 +10,7 @@ const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
 const { Chess, STANDARD_START } = require("../shared/chess");
+const { aiLevelOf, aiLevelForDepth } = require("../shared/aiLevels");
 const config = require("../config");
 const achievements = require("../achievements/service");
 
@@ -51,7 +52,7 @@ function loadOwnAiGame(req, res) {
 
 // POST /api/games — create a new AI game for the current user.
 router.post("/", (req, res) => {
-  const { humanColor, depth, startFen } = req.body || {};
+  const { humanColor, level: levelKey, depth, startFen } = req.body || {};
   const human = humanColor === "b" ? "b" : "w";
   const aiColor = human === "w" ? "b" : "w";
   const uid = req.session.userId;
@@ -73,10 +74,13 @@ router.post("/", (req, res) => {
       return res.status(400).json({ error: `Invalid start position: ${err.message}` });
     }
   }
-  const aiDepth = parseInt(depth, 10) || 2;
+  // The level comes from the allowlist and the depth from the level, never
+  // from the client. A bare depth is what a page loaded before levels existed
+  // sends; it gets the level that depth stood for.
+  const level = aiLevelOf(levelKey != null ? levelKey : aiLevelForDepth(depth));
 
   const info = queries.createGame.run(
-    whiteId, blackId, "ai", aiColor, aiDepth, fen, fen, turnOf(fen),
+    whiteId, blackId, "ai", aiColor, level.depth, level.key, fen, fen, turnOf(fen),
     null, null, 0, "standard"   // untimed, unrated
   );
   res.status(201).json({
