@@ -37,6 +37,7 @@ describe("AI level catalogue", () => {
   });
 
   test("labels carry the rating", () => {
+    assert.equal(aiLevelLabel("novice"), "Novice (~300)");
     assert.equal(aiLevelLabel("beginner"), "Beginner (~700)");
     assert.equal(aiLevelLabel("advanced"), "Advanced (~1800)");
     assert.equal(aiLevelLabel("nonsense"), "Intermediate (~1500)");

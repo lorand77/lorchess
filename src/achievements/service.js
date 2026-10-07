@@ -282,7 +282,7 @@ const GAME_CHECKS = {
   mate_castle: (c) => c.mated && !!c.last.castle,
 
   // formats
-  // LorFish levels by key (src/shared/aiLevels.js); the weaker two earn nothing.
+  // LorFish levels by key (src/shared/aiLevels.js); the weaker three earn nothing.
   beat_fish_2: (c) => c.won && c.game.mode === "ai" && c.game.ai_level === "intermediate",
   fish_slayer: (c) => c.won && c.game.mode === "ai" && c.game.ai_level === "advanced",
   giving_odds: (c) => (c.won ? oddsTier(c.a.changes, c.me) : 0),

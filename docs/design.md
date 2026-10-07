@@ -46,9 +46,13 @@ Self-play first rated the levels by taking depth 2 as 1400. Against Stockfish
 closer together than that: depth 1 at T=60 about 940, depth 1 at T=10 about
 1170, depth 2 about 1550 and depth 4 about 1810. Beginner then moved to T=120,
 which self-play puts about 300 below T=60, roughly 200 on Stockfish's scale.
+Novice, depth 1 at T=300, sits too far below Stockfish's floor of 1320 to
+measure against it, so it was chained in self-play (T=120 to T=180 to T=300,
+50 games a link): about 680 below Beginner, roughly 400 on Stockfish's scale.
 The playing levels in `src/shared/aiLevels.js` carry these rounded to 100s:
-Beginner (~700, depth 1 at T=120), Casual (~1200, depth 1 at T=10),
-Intermediate (~1500, depth 2) and Advanced (~1800, depth 4). The samples are
+Novice (~300, depth 1 at T=300), Beginner (~700, depth 1 at T=120), Casual
+(~1200, depth 1 at T=10), Intermediate (~1500, depth 2) and Advanced (~1800,
+depth 4). The samples are
 small (±150 or so), the ratings are on Stockfish's engine scale rather than a
 human one, and the lite build probably plays below its `UCI_Elo`, which would
 make these read high.
