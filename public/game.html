@@ -41,19 +41,12 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
       </div>
     </div>
 
-    <!-- AI-only controls; hidden in PvP (the server fixes color, no level/undo). -->
+    <!-- AI-only; hidden in PvP. Level and colour are picked in the lobby and
+         fixed for the game, so this only reports them (filled by ui.js). -->
     <div id="aiControls">
-      <p>Level:
-        <!-- Filled from src/shared/aiLevels.js by ui.js. -->
-        <select id="level"></select>
-      </p>
-      <p>You play as:
-        <select id="humanColor">
-          <option value="w" selected>White</option>
-          <option value="b">Black</option>
-        </select>
-      </p>
-      <p class="muted small">Changing level or colour starts a new game.</p>
+      <p>Level: <strong id="aiLevelText"></strong></p>
+      <p>You play as: <strong id="humanColorText"></strong></p>
+      <p class="muted small">To change these, start a new game from the <a class="nav-link" href="/lobby.html#aiPanel">lobby</a>.</p>
     </div>
 
     <!-- Player names; hidden in AI games, where "You play as" already says it. -->

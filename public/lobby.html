@@ -50,13 +50,25 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
     </section>
 
     <!-- Single player gets its own panel: none of the options above apply to
-         it (AI games are untimed, unrated, and set up on the game page). -->
-    <section class="panel ai-panel">
-      <a class="mode-link primary" href="/game.html?mode=ai">LorFish AI</a>
+         it (AI games are untimed and unrated). Level and colour are chosen
+         here and travel in the URL; the game page cannot change them. -->
+    <section class="panel ai-panel" id="aiPanel">
       <div class="ai-panel-text">
         <h2>Play the computer</h2>
-        <p class="small">Untimed and unrated — pick the strength when you start.</p>
+        <p class="small">Untimed and unrated.</p>
       </div>
+      <form class="offer-form ai-form" action="/game.html" method="get">
+        <input type="hidden" name="mode" value="ai">
+        <label for="aiLevelSelect">Level</label>
+        <!-- Filled in from /js/aiLevels.js, the list the server resolves against. -->
+        <select id="aiLevelSelect" name="level"></select>
+        <label for="aiColorSelect">Play as</label>
+        <select id="aiColorSelect" name="color">
+          <option value="w" selected>White</option>
+          <option value="b">Black</option>
+        </select>
+        <button type="submit" id="aiPlayBtn" class="mode-link primary">Play LorFish</button>
+      </form>
     </section>
 
     <section class="panel">
@@ -109,6 +121,7 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
 <script src="/js/timeControls.js"></script>
 <script src="/js/variants.js"></script>
 <script src="/js/handicap.js"></script>
+<script src="/js/aiLevels.js"></script>
 <script src="/js/positionEditor.js"></script>
 <script src="/js/miniBoard.js"></script>
 <script src="/js/net.js"></script>

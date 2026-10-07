@@ -2,7 +2,9 @@
 
 const chess = new Chess();
 let humanColor = W;
-let aiLevel = DEFAULT_AI_LEVEL; // Fixed for the current game, including every worker request.
+// AI games: chosen in the lobby (or restored from the saved game) and fixed for
+// the game, including every worker request. New Game and Load FEN keep both.
+let aiLevel = DEFAULT_AI_LEVEL;
 let selected = null;
 let legalFromSelected = [];
 let lastMove = null;
@@ -47,8 +49,6 @@ const statusEl      = document.getElementById('status');
 const historyEl     = document.getElementById('history');
 const promoEl       = document.getElementById('promo');
 const promoOpts     = document.getElementById('promoOptions');
-const colorSelectEl = document.getElementById('humanColor');
-const levelSelectEl = document.getElementById('level');
 const whiteLabelEl  = document.getElementById('whiteLabel');
 const blackLabelEl  = document.getElementById('blackLabel');
 const capturedTopEl    = document.getElementById('capturedTop');
@@ -64,12 +64,6 @@ function setThinking(v) {
   thinking = v;
   if (v) hideEngineError(); // a new request supersedes an old failure
   render();
-}
-
-// The picker lists the levels in aiLevels.js, so a new level needs no change here.
-for (const level of AI_LEVELS) {
-  const selected = level.key === DEFAULT_AI_LEVEL;
-  levelSelectEl.add(new Option(aiLevelLabel(level.key), level.key, selected, selected));
 }
 
 // The current game's level: its key, depth and temperature.
@@ -895,9 +889,13 @@ function fillLabel(node, prefix, name, userId, member, suffix) {
 
 // ---- AI mode ----
 async function persistNewAiGame(fen) {
-  // The old game's bookmark stops applying as soon as a new board starts.
+  // The old game's bookmark stops applying as soon as a new board starts. Until
+  // the new one has an id, the URL still says how to set it up again.
   const url = new URL(location.href);
   url.searchParams.delete('id');
+  url.searchParams.set('mode', 'ai');
+  url.searchParams.set('level', aiLevel);
+  url.searchParams.set('color', humanColor === B ? 'b' : 'w');
   history.replaceState(null, '', url);
   const id = await gameStore.newGame({ humanColor, level: aiLevel, startFen: fen });
   // A later New Game may already own the board when this request completes.
@@ -910,7 +908,6 @@ async function persistNewAiGame(fen) {
 
 function refreshGameState() {
   resetSoundState();
-  humanColor = colorSelectEl.value === 'b' ? B : W;
   whiteName = humanColor === W ? 'Human' : 'LorFish';
   blackName = humanColor === W ? 'LorFish' : 'Human';
   setLabels();
@@ -935,8 +932,6 @@ async function startNewGame() {
   startFullmove = 1;
   startTurn = W;
   startFen = null;
-  humanColor = colorSelectEl.value === 'b' ? B : W;
-  aiLevel = levelSelectEl.value;
   const ready = persistNewAiGame(null);
   refreshGameState();
   return ready;
@@ -956,9 +951,9 @@ function hideEngineError() {
   if (el) el.hidden = true;
 }
 
-// Walking away from a game that is still going (New Game, a colour change,
-// Load FEN): tell the server, so it does not sit "in progress" for ever. A
-// finished game was already recorded by recordApplied.
+// Walking away from a game that is still going (New Game or Load FEN): tell
+// the server, so it does not sit "in progress" for ever. A finished game was
+// already recorded by recordApplied.
 function abandonCurrentGame() {
   if (!chess.isGameOver()) gameStore.abandon();
 }
@@ -983,8 +978,6 @@ document.getElementById('engineRetry').addEventListener('click', () => {
   moveSource.kickIfEngineTurn();
 });
 document.getElementById('resetBtn').addEventListener('click', startNewGame);
-colorSelectEl.addEventListener('change', startNewGame);
-levelSelectEl.addEventListener('change', startNewGame);
 
 loadFenBtn.addEventListener('click', () => {
   fenText.value = '';
@@ -1014,22 +1007,28 @@ fenLoadBtn.addEventListener('click', async () => {
   startTurn = chess.turn;
   startFen = fen;
   fenPanel.classList.remove('show');
-  humanColor = colorSelectEl.value === 'b' ? B : W;
-  aiLevel = levelSelectEl.value;
   const ready = persistNewAiGame(fen);
   refreshGameState();
   return ready;
 });
 
 // AI games get their own header, and drop the White/Black name lines: the
-// "You play as" picker already says who is who.
+// "You play as" line already says who is who. Call once humanColor and
+// aiLevel are settled; nothing on the page changes them afterwards.
 function showAiLayout() {
   document.getElementById('gameTitle').textContent = 'LorFish AI';
   whiteLabelEl.style.display = 'none';
   blackLabelEl.style.display = 'none';
+  document.getElementById('aiLevelText').textContent = aiLevelLabel(aiLevel);
+  document.getElementById('humanColorText').textContent = humanColor === B ? 'Black' : 'White';
 }
 
-function initAi() {
+// A fresh game, set up by the lobby's ?level=&color=. Anything missing or
+// unrecognised plays the defaults, White at the default level, the way
+// resolveAiLevel treats an unknown level.
+function initAi(params) {
+  humanColor = params.get('color') === 'b' ? B : W;
+  aiLevel = resolveAiLevel(params.get('level'));
   showAiLayout();
   moveSource = createAiMoveSource(env);
   startNewGame();
@@ -1041,18 +1040,16 @@ const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 // Restore an unfinished AI game from its stored move list and hand the board
 // back to the player. The engine picks up from wherever the game left off.
 function resumeAiGame(game) {
+  // The human plays whichever side the AI doesn't.
+  humanColor = game.ai_color === 'w' ? B : W;
+
+  // Restore the level, if the game has one: a game from before levels whose
+  // depth matched none plays the default.
+  if (AI_LEVELS_BY_KEY.has(game.ai_level)) aiLevel = game.ai_level;
+
   showAiLayout();
   resetSoundState();
   moveSource = createAiMoveSource(env);
-
-  // The human plays whichever side the AI doesn't.
-  humanColor = game.ai_color === 'w' ? B : W;
-  colorSelectEl.value = humanColor === B ? 'b' : 'w';
-
-  // Restore the level, if the game has one: a game from before levels whose
-  // depth matched none keeps whatever the picker shows.
-  if (AI_LEVELS_BY_KEY.has(game.ai_level)) levelSelectEl.value = game.ai_level;
-  aiLevel = levelSelectEl.value;
 
   if (game.start_fen && game.start_fen !== STANDARD_START) {
     chess.loadFen(game.start_fen);
@@ -1770,4 +1767,4 @@ const _gameId = parseInt(_params.get('id'), 10);
 const _watchId = parseInt(_params.get('watch'), 10);
 if (Number.isInteger(_watchId)) initSpectate(_watchId);
 else if (Number.isInteger(_gameId)) openGame(_gameId);
-else initAi();
+else initAi(_params);

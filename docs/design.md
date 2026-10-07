@@ -248,16 +248,21 @@ is shown in the game history. Starting another game abandons the one on the
 board (`/:id/abandon`): a game nobody moved in is deleted, one with moves is
 aborted, so nothing sits "in progress" for ever.
 Once an AI game is created, the page replaces its URL with `?id=<gameId>` so
-refresh resumes that board. New Game, colour changes and Load FEN replace the
-bookmark too; a late response for an earlier board cannot overwrite it.
+refresh resumes that board. New Game and Load FEN replace the bookmark too; a
+late response for an earlier board cannot overwrite it.
 The board, PGN and move source reset synchronously before persistence resolves.
 Moves played while creation is pending queue against that game, and completion
 only updates the bookmark; it never resets a board that has already advanced.
-The AI level is fixed per game. Changing the level selector starts a new game
-and abandons the previous one, just like changing colour; the controls explain
-this. Worker requests use the game's captured level, which is also saved for
+The AI level and the player's colour are fixed per game, and chosen before it:
+the lobby's LorFish panel is a plain GET form to
+`game.html?mode=ai&level=<key>&color=w|b`. The game page only shows them; New
+Game and Load FEN keep both, and changing either means going back to the lobby.
+Missing or unknown values play
+White at the default level. Until a new game has an id, its URL carries the
+level and colour, so a refresh in that window sets up the same game again.
+Worker requests use the game's captured level, which is also saved for
 resume and strength-dependent achievements. The levels are an allowlist in
-`src/shared/aiLevels.js`: the picker is built from it, and `POST /api/games`
+`src/shared/aiLevels.js`: the lobby's picker is built from it, and `POST /api/games`
 resolves the client's key against it and stores the depth that level searches,
 never a depth the client sent. Games from before levels stored only a depth;
 the migration gives depth 2 and 4 their levels, and a request carrying a bare

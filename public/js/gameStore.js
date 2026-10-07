@@ -95,8 +95,8 @@ function createGameStore() {
       return enqueue((id) => post(`/api/games/${id}/truncate`, { toPly, fen }));
     },
 
-    // Walk away from the game on the board without finishing it (New Game, a
-    // colour change, Load FEN). Queued against the game that is current NOW,
+    // Walk away from the game on the board without finishing it (New Game or
+    // Load FEN). Queued against the game that is current NOW,
     // so it is safe to call right before newGame().
     abandon() {
       return enqueue((id) => post(`/api/games/${id}/abandon`, {}));

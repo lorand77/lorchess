@@ -99,6 +99,15 @@ const currentOffer = () => ({
   handicap: handicapChanges ? { squares: handicapChanges } : null,
 });
 
+// LorFish's levels come from src/shared/aiLevels.js, the list the server
+// resolves against. The form is a plain GET to game.html, which reads level
+// and colour from the URL and offers no way to change them mid-game.
+const aiLevelSelect = document.getElementById("aiLevelSelect");
+for (const level of AI_LEVELS) {
+  const selected = level.key === DEFAULT_AI_LEVEL;
+  aiLevelSelect.add(new Option(aiLevelLabel(level.key), level.key, selected, selected));
+}
+
 // A handicap is defined as removals from the standard setup, so the two can't
 // be combined. Whichever you pick second disables the other.
 // The picker comes from the shared catalogue, so a new variant appears here the
@@ -420,8 +429,10 @@ function renderPlayers() {
   if (players.length <= 1) {
     const hint = el("p", "muted empty");
     hint.appendChild(document.createTextNode("Nobody else is here yet — post a challenge and it'll be waiting, or "));
+    // To the panel, not into a game: level and colour are picked there.
     const ai = el("a", "nav-link", "play LorFish AI");
-    ai.href = "/game.html?mode=ai";
+    ai.href = "#aiPanel";
+    ai.addEventListener("click", () => document.getElementById("aiPlayBtn").focus());
     hint.appendChild(ai);
     hint.appendChild(document.createTextNode("."));
     playerListEl.appendChild(hint);

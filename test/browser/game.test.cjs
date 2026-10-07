@@ -26,14 +26,15 @@ test("refresh resumes the displayed AI game after each way of starting one", asy
   assert.equal(await ready(page), id);
   assert.equal(await page.evaluate(() => chess.history.length), 2);
 
-  for (const action of [
-    () => page.locator("#resetBtn").click(),
-    () => page.locator("#humanColor").selectOption("b"),
-    async () => {
+  // New Game and Load FEN keep the level and colour the game was set up with.
+  for (const [action, settings] of [
+    [() => page.locator("#resetBtn").click(), { humanColor: "w", aiLevel: "intermediate" }],
+    [() => page.goto(srv.baseUrl + "/game.html?mode=ai&level=advanced&color=b"), { humanColor: "b", aiLevel: "advanced" }],
+    [async () => {
       await page.locator("#loadFenBtn").click();
       await page.locator("#fenText").fill("7k/7p/8/8/8/8/P7/K7 b - - 0 1");
       await page.locator("#fenLoadBtn").click();
-    },
+    }, { humanColor: "b", aiLevel: "advanced" }],
   ]) {
     await action();
     await page.waitForFunction(old => gameStore.currentId() && gameStore.currentId() !== old && !thinking, id);
@@ -44,6 +45,7 @@ test("refresh resumes the displayed AI game after each way of starting one", asy
     await page.reload();
     assert.equal(await ready(page), id);
     assert.equal(await page.evaluate(() => chess.fen()), fen);
+    assert.deepEqual(await page.evaluate(() => ({ humanColor, aiLevel })), settings);
     assert.equal(db().prepare("SELECT status FROM games WHERE id = ?").get(id).status, "active");
   }
 });
@@ -110,7 +112,7 @@ test("an earlier creation response cannot reset a newer board or its URL", async
   assert.deepEqual(await page.evaluate(() => ({ fen: chess.fen(), pgn: moveHistory.slice() })), state);
 });
 
-test("changing level starts a game whose worker and saved strength agree", async (t) => {
+test("the lobby's level and colour set a game that cannot change them", async (t) => {
   const { page } = await signedInPage(browser, srv.baseUrl, t);
   await page.addInitScript(() => {
     window.requested = [];
@@ -120,31 +122,36 @@ test("changing level starts a game whose worker and saved strength agree", async
       return post.call(this, data, ...args);
     };
   });
-  await page.goto(srv.baseUrl + "/game.html");
-  let id = await ready(page);
-  for (const [level, depth, temperature] of [["advanced", 4, 0], ["beginner", 1, 120]]) {
-    await page.locator('#board [data-sq="12"]').click();
-    await page.locator('#board [data-sq="28"]').click();
-    await page.waitForFunction(() => chess.history.length === 2 && !thinking);
-    await page.locator("#level").selectOption(level);
-    await page.waitForFunction(old => gameStore.currentId() && gameStore.currentId() !== old, id);
-    const previous = id;
-    id = await ready(page);
+  // Black's reply leaves e7e5 legal whatever LorFish opened with.
+  const cases = [
+    { level: "advanced", color: "w", depth: 4, temperature: 0, label: "Advanced (~1800)", move: [12, 28] },
+    { level: "beginner", color: "b", depth: 1, temperature: 120, label: "Beginner (~700)", move: [52, 36] },
+  ];
+  for (const { level, color, depth, temperature, label, move } of cases) {
+    await page.goto(srv.baseUrl + "/lobby.html");
+    await page.locator("#aiLevelSelect").selectOption(level);
+    await page.locator("#aiColorSelect").selectOption(color);
+    await page.locator("#aiPlayBtn").click();
+    await page.waitForURL(/\/game\.html\?/);
+    const id = await ready(page);
+    const url = new URL(page.url()).searchParams;
+    assert.deepEqual([url.get("level"), url.get("color"), url.get("id")], [level, color, String(id)]);
+    assert.deepEqual({ ...db().prepare("SELECT ai_level, ai_depth, ai_color FROM games WHERE id = ?").get(id) },
+      { ai_level: level, ai_depth: depth, ai_color: color === "w" ? "b" : "w" });
+    // The page reports the settings and offers nothing to change them with.
+    assert.equal(await page.locator("#aiControls select").count(), 0);
+    assert.equal(await page.locator("#aiLevelText").textContent(), label);
+    assert.equal(await page.locator("#humanColorText").textContent(), color === "w" ? "White" : "Black");
+
     await page.waitForLoadState("networkidle");
-    assert.equal(db().prepare("SELECT status FROM games WHERE id = ?").get(previous).status, "aborted");
-    assert.deepEqual({ ...db().prepare("SELECT ai_level, ai_depth FROM games WHERE id = ?").get(id) },
-      { ai_level: level, ai_depth: depth });
-    assert.equal(await page.evaluate(() => chess.history.length), 0);
     await page.reload();
     assert.equal(await ready(page), id);
-    assert.equal(await page.locator("#level").inputValue(), level);
-    await page.locator('#board [data-sq="12"]').click();
-    await page.locator('#board [data-sq="28"]').click();
-    await page.waitForFunction(() => chess.history.length === 2 && !thinking);
+    assert.equal(await page.locator("#aiLevelText").textContent(), label);
+    const plies = await page.evaluate(() => chess.history.length);
+    await page.locator(`#board [data-sq="${move[0]}"]`).click();
+    await page.locator(`#board [data-sq="${move[1]}"]`).click();
+    await page.waitForFunction(n => chess.history.length === n + 2 && !thinking, plies);
     assert.deepEqual(await page.evaluate(() => window.requested), [{ depth, temperature }]);
-    // Restore the starting board so the next loop can test another change.
-    await page.locator("#undoBtn").click();
-    await page.waitForFunction(() => chess.history.length === 0);
   }
 });
 

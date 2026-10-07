@@ -999,16 +999,19 @@ img.drag-piece {
 }
 .mode-link:hover { background: var(--btn-soft-hover); }
 
-/* The small "Play the computer" panel under Play: button left, text beside it. */
+/* The small "Play the computer" panel under Play: text left, its options and
+   start button beside it, wrapping under the text on narrow screens. */
 .ai-panel {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
 }
 .ai-panel h2 { margin-bottom: 2px; }
 .ai-panel p { margin: 0; color: var(--text-muted); }
 .ai-panel .mode-link { white-space: nowrap; }
+.ai-form button { margin: 0 0 0 4px; }
 .mode-link.primary { background: #3d6098; color: #fff; }
 .mode-link.primary:hover { background: #4a73b5; }
 
