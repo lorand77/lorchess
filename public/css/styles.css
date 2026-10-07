@@ -999,8 +999,8 @@ img.drag-piece {
 }
 .mode-link:hover { background: var(--btn-soft-hover); }
 
-/* The small "Play the computer" panel under Play: text left, its options and
-   start button beside it, wrapping under the text on narrow screens. */
+/* The small "Play the computer" panel under Play: start button and its options
+   left, text at the far end, wrapping under them on narrow screens. */
 .ai-panel {
   display: flex;
   align-items: center;
@@ -1009,9 +1009,10 @@ img.drag-piece {
   flex-wrap: wrap;
 }
 .ai-panel h2 { margin-bottom: 2px; }
+.ai-panel-text { text-align: right; }
 .ai-panel p { margin: 0; color: var(--text-muted); }
 .ai-panel .mode-link { white-space: nowrap; }
-.ai-form button { margin: 0 0 0 4px; }
+.ai-form button { margin: 0 4px 0 0; }
 .mode-link.primary { background: #3d6098; color: #fff; }
 .mode-link.primary:hover { background: #4a73b5; }
 
