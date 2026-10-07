@@ -38,6 +38,9 @@ mate the search sees is never passed up. Depth sets what the bot can see at all;
 at depth 1 it never notices an opponent's quiet threat, the classic beginner
 miss. `scripts/lorfishLevels.js` measures settings against each other in
 self-play (`match`) and breaks down the mistakes each one makes (`profile`).
+`match` also takes `sf<elo>`, the vendored Stockfish with `UCI_LimitStrength`
+at that `UCI_Elo` (1320 at the lowest), as an anchor from outside LorFish:
+self-play exaggerates the gaps between settings that share one evaluation.
 Measured with it, taking depth 2 as 1400: plain depth 1 is about 1110, depth 1
 at T=10 about 1020 and depth 1 at T=60 about 560–625. These numbers are only as
 good as the 1400 anchor, which is itself an estimate. They became the playing

@@ -4,12 +4,18 @@
 // playing levels. A tool for choosing the levels, not part of the app.
 //
 //   node scripts/lorfishLevels.js match d2 d1 [--games 400]
+//   node scripts/lorfishLevels.js match d2 sf1600 [--games 20] [--movetime 100]
 //   node scripts/lorfishLevels.js profile d1 d1t25 d2t50 [--positions 300] [--judge 3]
 //   common options: [--workers N] [--seed 1]
 //
 // A level is d<depth>, optionally followed by t<temperature>: "d2" is today's
 // depth-2 bot with its ±10 jitter, "d1t120" searches depth 1 and picks by
 // temperature 120 (see LorFish.sample).
+//
+// sf<elo> is the vendored Stockfish 19 with UCI_LimitStrength at that UCI_Elo
+// (1320 to 3190), thinking --movetime ms a move: an outside anchor, since
+// self-play can only measure LorFish against itself. It plays in match only,
+// and its own randomness is not seeded, so its games do not replay exactly.
 //
 // match: the first level plays the second, every opening twice with colours
 // swapped, and the first level's score is turned into an Elo gap. A gap of
@@ -23,9 +29,11 @@
 // Every run is seeded and can be repeated exactly.
 
 const os = require("os");
+const path = require("path");
+const { spawn } = require("child_process");
 const { parseArgs } = require("util");
 const { Worker, isMainThread, parentPort } = require("worker_threads");
-const { Chess } = require("../src/shared/chess");
+const { Chess, algOf } = require("../src/shared/chess");
 const { LorFish } = require("../src/shared/lorfish");
 const { seeded } = require("../test/helpers/random");
 
@@ -35,9 +43,17 @@ const MAX_PLIES = 300;
 const OPENING_PLIES = 8;
 const SETUP_LEVEL = "d1t80";
 
+const STOCKFISH = path.join(__dirname, "../public/js/vendor/stockfish/stockfish-19-lite-single.js");
+
 function parseLevel(spec) {
+  const sf = /^sf(\d+)$/.exec(spec);
+  if (sf) {
+    const elo = Number(sf[1]);
+    if (elo < 1320 || elo > 3190) throw new Error(`bad level "${spec}": UCI_Elo runs from 1320 to 3190`);
+    return { spec, stockfish: elo };
+  }
   const m = /^d(\d+)(?:t(\d+(?:\.\d+)?))?$/.exec(spec);
-  if (!m) throw new Error(`bad level "${spec}": expected d<depth> or d<depth>t<temperature>`);
+  if (!m) throw new Error(`bad level "${spec}": expected d<depth>, d<depth>t<temperature> or sf<elo>`);
   return { spec, depth: Number(m[1]), temperature: m[2] ? Number(m[2]) : 0 };
 }
 
@@ -76,15 +92,79 @@ function hasMateInOne(chess) {
 
 // --- work done in the workers ---
 
-function playGame({ seed, index, a, b }) {
+// Each worker keeps one Stockfish child process for all its games, as
+// test/helpers/stockfish.js runs it: UCI over stdin and stdout.
+let stockfish = null;
+
+function startStockfish() {
+  const child = spawn(process.execPath, [STOCKFISH], { stdio: ["pipe", "pipe", "ignore"] });
+  let buffered = "";
+  let waiting = null;
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    const lines = (buffered + chunk).split("\n");
+    buffered = lines.pop();
+    for (const line of lines) {
+      if (waiting && line.startsWith(waiting.prefix)) {
+        const { resolve } = waiting;
+        waiting = null;
+        resolve(line.trim());
+      }
+    }
+  });
+  // Send a command and wait for the first line that starts with `prefix`.
+  const ask = (cmd, prefix) => new Promise((resolve) => {
+    waiting = { prefix, resolve };
+    child.stdin.write(cmd + "\n");
+  });
+  return { child, ask, send: (cmd) => child.stdin.write(cmd + "\n") };
+}
+
+async function newStockfishGame(elo) {
+  if (!stockfish) {
+    stockfish = startStockfish();
+    await stockfish.ask("uci", "uciok");
+    stockfish.send("setoption name Hash value 16");
+    stockfish.send("setoption name UCI_LimitStrength value true");
+  }
+  stockfish.send(`setoption name UCI_Elo value ${elo}`);
+  stockfish.send("ucinewgame");
+  await stockfish.ask("isready", "readyok");
+}
+
+// Standard games only, so castling is the king's move ("e1g1"), which is
+// what Stockfish writes outside UCI_Chess960 and what findMove accepts.
+const uci = (m) => algOf(m.from) + algOf(m.to) + (m.promo || "");
+
+async function stockfishMove(chess, startFen, moves, movetime) {
+  const line = await stockfish.ask(`position fen ${startFen}${moves.length ? " moves " + moves.join(" ") : ""}\ngo movetime ${movetime}`, "bestmove");
+  const reply = line.split(/\s+/)[1];
+  const m = chess.findMove(
+    (reply.charCodeAt(0) - 97) + (Number(reply[1]) - 1) * 8,
+    (reply.charCodeAt(2) - 97) + (Number(reply[3]) - 1) * 8,
+    reply[4] || null,
+  );
+  if (!m) throw new Error(`Stockfish played ${reply}, not legal in ${chess.fen()}`);
+  return m;
+}
+
+async function playGame({ seed, index, a, b, movetime }) {
   const t0 = Date.now();
   // Games 2k and 2k+1 share an opening; the first level is White in the even one.
   let chess = setup(rngFor(seed, 1, index >> 1), OPENING_PLIES);
   for (let retry = 1; !chess; retry++) chess = setup(rngFor(seed, 1, (index >> 1) + retry * 1e6), OPENING_PLIES);
   const aWhite = index % 2 === 0;
   const rng = rngFor(seed, 2, index);
+  // Stockfish gets the position after the opening plus every move since, so
+  // it sees repetitions coming.
+  const startFen = chess.fen();
+  const moves = [];
+  for (const level of [a, b]) if (level.stockfish) await newStockfishGame(level.stockfish);
   while (!chess.isGameOver() && chess.history.length < MAX_PLIES) {
-    chess.makeMove(choose(chess, (chess.turn === "w") === aWhite ? a : b, rng));
+    const level = (chess.turn === "w") === aWhite ? a : b;
+    const m = level.stockfish ? await stockfishMove(chess, startFen, moves, movetime) : choose(chess, level, rng);
+    moves.push(uci(m));
+    chess.makeMove(m);
   }
   const result = chess.result();
   const white = result === "1-0" ? 1 : result === "0-1" ? 0 : 0.5;
@@ -122,8 +202,12 @@ function profilePosition({ seed, index, levels, judge }) {
 }
 
 if (!isMainThread) {
-  parentPort.on("message", (job) => {
-    parentPort.postMessage(job.kind === "game" ? playGame(job) : profilePosition(job));
+  parentPort.on("message", async (job) => {
+    if (job.kind === "quit") {
+      if (stockfish) stockfish.child.kill();
+      process.exit(0);
+    }
+    parentPort.postMessage(job.kind === "game" ? await playGame(job) : profilePosition(job));
   });
   return;
 }
@@ -139,8 +223,8 @@ function runPool(jobs, workers, onResult) {
       w.on("error", reject);
       w.on("message", (r) => {
         onResult(r, ++done);
-        if (next < jobs.length) w.postMessage(jobs[next++]);
-        else w.terminate();
+        // "quit" rather than terminate(), so the worker can stop its Stockfish.
+        w.postMessage(next < jobs.length ? jobs[next++] : { kind: "quit" });
         if (done === jobs.length) resolve();
       });
       w.postMessage(jobs[next++]);
@@ -157,10 +241,14 @@ async function match(specs, opts) {
   if (specs.length !== 2) throw new Error("match takes two levels");
   const [a, b] = specs.map(parseLevel);
   const games = Math.max(2, opts.games + (opts.games % 2));
-  const jobs = Array.from({ length: games }, (_, index) => ({ kind: "game", seed: opts.seed, index, a, b }));
+  if (a.stockfish && b.stockfish) throw new Error("match needs at least one LorFish level");
+  const jobs = Array.from({ length: games }, (_, index) => ({
+    kind: "game", seed: opts.seed, index, a, b, movetime: opts.movetime,
+  }));
   const results = [];
   const t0 = Date.now();
-  console.log(`${a.spec} vs ${b.spec}: ${games} games on ${opts.workers} workers, seed ${opts.seed}`);
+  const sf = a.stockfish || b.stockfish ? `, Stockfish ${opts.movetime} ms a move` : "";
+  console.log(`${a.spec} vs ${b.spec}: ${games} games on ${opts.workers} workers, seed ${opts.seed}${sf}`);
   await runPool(jobs, opts.workers, (r, done) => {
     results.push(r);
     progress(done, games);
@@ -184,6 +272,7 @@ async function match(specs, opts) {
 async function profile(specs, opts) {
   if (!specs.length) throw new Error("profile takes at least one level");
   const levels = specs.map(parseLevel);
+  if (levels.some((l) => l.stockfish)) throw new Error("profile takes LorFish levels only");
   const jobs = Array.from({ length: opts.positions }, (_, index) => ({
     kind: "profile", seed: opts.seed, index, levels, judge: opts.judge,
   }));
@@ -221,6 +310,7 @@ async function main() {
       games: { type: "string", default: "400" },
       positions: { type: "string", default: "300" },
       judge: { type: "string", default: "3" },
+      movetime: { type: "string", default: "100" },
       workers: { type: "string", default: String(Math.max(1, os.availableParallelism() - 1)) },
       seed: { type: "string", default: "1" },
     },
