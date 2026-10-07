@@ -41,12 +41,17 @@ self-play (`match`) and breaks down the mistakes each one makes (`profile`).
 `match` also takes `sf<elo>`, the vendored Stockfish with `UCI_LimitStrength`
 at that `UCI_Elo` (1320 at the lowest), as an anchor from outside LorFish:
 self-play exaggerates the gaps between settings that share one evaluation.
-Measured with it, taking depth 2 as 1400: plain depth 1 is about 1110, depth 1
-at T=10 about 1020 and depth 1 at T=60 about 560–625. These numbers are only as
-good as the 1400 anchor, which is itself an estimate. They became the playing
-levels in `src/shared/aiLevels.js`: Beginner (~600, depth 1 at T=60), Casual
-(~1000, depth 1 at T=10), Intermediate (~1400, depth 2) and Advanced (~1800,
-depth 4; that rating is the old guess and has not been measured).
+Self-play first rated the levels by taking depth 2 as 1400. Against Stockfish
+(Oct 2026, 20 games a level, 10 for depth 4, 100 ms a move) the levels came out
+closer together than that: depth 1 at T=60 about 940, depth 1 at T=10 about
+1170, depth 2 about 1550 and depth 4 about 1810. Beginner then moved to T=120,
+which self-play puts about 300 below T=60, roughly 200 on Stockfish's scale.
+The playing levels in `src/shared/aiLevels.js` carry these rounded to 100s:
+Beginner (~700, depth 1 at T=120), Casual (~1200, depth 1 at T=10),
+Intermediate (~1500, depth 2) and Advanced (~1800, depth 4). The samples are
+small (±150 or so), the ratings are on Stockfish's engine scale rather than a
+human one, and the lite build probably plays below its `UCI_Elo`, which would
+make these read high.
 
 Dead-material detection follows the variant: in Atomic, opposing bishops on
 the same square colour can explode a king and must not trigger the standard

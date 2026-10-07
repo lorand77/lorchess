@@ -36,7 +36,7 @@ test("the title and the review summary name LorFish's level", async (t) => {
   db().prepare("UPDATE users SET member_since = datetime('now') WHERE id = ?").run(account.user.id);
   await page.goto(`${srv.baseUrl}/replay.html?id=${id}`);
   await page.waitForFunction(() => document.getElementById("replayTitle").textContent !== "Replay");
-  assert.equal(await page.locator("#replayTitle").textContent(), "vs LorFish · Casual (~1000)");
+  assert.equal(await page.locator("#replayTitle").textContent(), "vs LorFish · Casual (~1200)");
 
   await page.locator("#reviewBtn").click();
   await page.locator("#reviewSummary .review-name").first().waitFor({ timeout: 60000 });

@@ -122,7 +122,7 @@ test("changing level starts a game whose worker and saved strength agree", async
   });
   await page.goto(srv.baseUrl + "/game.html");
   let id = await ready(page);
-  for (const [level, depth, temperature] of [["advanced", 4, 0], ["beginner", 1, 60]]) {
+  for (const [level, depth, temperature] of [["advanced", 4, 0], ["beginner", 1, 120]]) {
     await page.locator('#board [data-sq="12"]').click();
     await page.locator('#board [data-sq="28"]').click();
     await page.waitForFunction(() => chess.history.length === 2 && !thinking);
