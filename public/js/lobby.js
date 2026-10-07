@@ -108,6 +108,20 @@ for (const level of AI_LEVELS) {
   aiLevelSelect.add(new Option(aiLevelLabel(level.key), level.key, selected, selected));
 }
 
+// The picker starts at the level of the user's last AI game, read from their
+// game list (see checkActiveGame), so the choice follows them across devices.
+// Only once per page load, and never over a level they have already picked.
+let aiLevelSettled = false;
+aiLevelSelect.addEventListener("change", () => { aiLevelSettled = true; });
+
+function restoreAiLevel(games) {
+  if (aiLevelSettled) return;
+  aiLevelSettled = true;
+  // Newest first; games from before levels may have none, so skip those.
+  const last = games.find((g) => g.mode === "ai" && AI_LEVELS_BY_KEY.has(g.ai_level));
+  if (last) aiLevelSelect.value = last.ai_level;
+}
+
 // A handicap is defined as removals from the standard setup, so the two can't
 // be combined. Whichever you pick second disables the other.
 // The picker comes from the shared catalogue, so a new variant appears here the
@@ -556,7 +570,8 @@ socket.on("game:start", (info) => {
 // Fetched on load, and again only when something that could change the answer
 // happens: my own "playing" flag flips, the set of live games changes, or the
 // tab comes back into view. Not on every broadcast — those arrive up to once a
-// second while any game is being played.
+// second while any game is being played. The first answer also sets the
+// LorFish level picker (restoreAiLevel).
 
 async function checkActiveGame() {
   try {
@@ -569,6 +584,7 @@ async function checkActiveGame() {
     const activePvp = games.find((g) => g.status === "active" && g.mode === "pvp" && mine(g));
     // An AI game row is created as soon as game.html opens, so only offer to
     // resume ones that actually have moves in them.
+    restoreAiLevel(games);
     const activeAi = games.find(
       (g) => g.status === "active" && g.mode === "ai" && mine(g) && g.move_count > 0
     );

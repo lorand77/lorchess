@@ -257,7 +257,9 @@ The AI level and the player's colour are fixed per game, and chosen before it:
 the lobby's LorFish panel is a plain GET form to
 `game.html?mode=ai&level=<key>&color=w|b`. The game page only shows them; New
 Game and Load FEN keep both, and changing either means going back to the lobby.
-Missing or unknown values play
+The lobby's level picker starts at the level of the user's newest AI game,
+found in the game list it already fetches for "Resume", so it needs no stored
+preference and follows the user between devices. Missing or unknown values play
 White at the default level. Until a new game has an id, its URL carries the
 level and colour, so a refresh in that window sets up the same game again.
 Worker requests use the game's captured level, which is also saved for

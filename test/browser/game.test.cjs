@@ -127,8 +127,12 @@ test("the lobby's level and colour set a game that cannot change them", async (t
     { level: "advanced", color: "w", depth: 4, temperature: 0, label: "Advanced (~1800)", move: [12, 28] },
     { level: "beginner", color: "b", depth: 1, temperature: 120, label: "Beginner (~700)", move: [52, 36] },
   ];
+  let lastLevel = "intermediate";
   for (const { level, color, depth, temperature, label, move } of cases) {
+    // The picker starts at the level of the previous game (the default at first).
     await page.goto(srv.baseUrl + "/lobby.html");
+    await page.waitForFunction(l => document.getElementById("aiLevelSelect").value === l, lastLevel);
+    lastLevel = level;
     await page.locator("#aiLevelSelect").selectOption(level);
     await page.locator("#aiColorSelect").selectOption(color);
     await page.locator("#aiPlayBtn").click();
@@ -153,6 +157,8 @@ test("the lobby's level and colour set a game that cannot change them", async (t
     await page.waitForFunction(n => chess.history.length === n + 2 && !thinking, plies);
     assert.deepEqual(await page.evaluate(() => window.requested), [{ depth, temperature }]);
   }
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.waitForFunction(l => document.getElementById("aiLevelSelect").value === l, lastLevel);
 });
 
 test("premoves resolve rook-target castling and queen promotion through legal moves", async (t) => {
