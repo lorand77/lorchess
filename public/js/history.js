@@ -1,7 +1,8 @@
 "use strict";
 
-// The profile's Games tab: the profile owner's games, with the result from
-// their side and a link into the replay viewer. On your own profile an
+// The profile's Games tab: the profile owner's games, with the variant, the
+// result from their side and a link into the replay viewer. AI games name the
+// LorFish level and its rating (src/shared/aiLevels.js). On your own profile an
 // unfinished game offers Resume; on someone else's, a live PvP game offers
 // Watch (an AI game runs in its player's browser, so there is nothing to watch).
 
@@ -38,21 +39,24 @@
   const table = document.createElement("table");
   table.className = "history-table";
   table.innerHTML =
-    `<thead><tr><th>Date</th><th>Mode</th><th>${you ? "You" : "As"}</th><th>Opponent</th><th>Result</th><th></th></tr></thead>`;
+    `<thead><tr><th>Date</th><th>Mode</th><th>Variant</th><th>${you ? "You" : "As"}</th><th>Opponent</th><th>Result</th><th></th></tr></thead>`;
   const tbody = document.createElement("tbody");
 
   for (const g of games) {
     const asWhite = g.white_id === user.id;
     const opp = asWhite ? g.black_username : g.white_username;
     const oppId = Number(asWhite ? g.black_id : g.white_id);
-    const oppCell = g.mode === "pvp" && oppId
+    let oppCell = g.mode === "pvp" && oppId
       ? playerLink(oppId, opp || "?").outerHTML
       : escapeHtml(opp || "?");
+    const strength = g.mode === "ai" ? aiStrength(g) : null;
+    if (strength) oppCell += ` <span class="muted small">${escapeHtml(strength)}</span>`;
     const res = outcome(g, asWhite);
     const tr = document.createElement("tr");
     tr.innerHTML =
       `<td>${fmtDate(g.created_at)}</td>` +
       `<td>${g.mode === "ai" ? "vs AI" : "PvP"}</td>` +
+      `<td>${escapeHtml(variantLabel(g.variant))}</td>` +
       `<td>${asWhite ? "White" : "Black"}</td>` +
       `<td>${oppCell}</td>` +
       `<td class="${res.cls}">${res.text}</td>` +
@@ -72,6 +76,14 @@
     if (you) return `<a class="replay-link" href="/game.html?id=${g.id}">Resume →</a>`;
     if (g.mode === "pvp") return `<a class="replay-link" href="/game.html?watch=${g.id}">Watch →</a>`;
     return "";
+  }
+
+  // "Casual (~1300)". Games from before levels have only a depth, shown as
+  // that; null if neither, as on the replay page.
+  function aiStrength(g) {
+    if (AI_LEVELS_BY_KEY.has(g.ai_level)) return aiLevelLabel(g.ai_level);
+    if (g.ai_depth) return `depth ${g.ai_depth}`;
+    return null;
   }
 
   function outcome(g, asWhite) {

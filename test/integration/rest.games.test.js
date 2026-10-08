@@ -169,6 +169,9 @@ describe("recording and finishing a game", () => {
     assert.equal(row.move_count, 4);
     assert.equal(row.white_username, "LorFish");
     assert.equal(row.black_username, user.username);
+    // The profile's Games tab shows these.
+    assert.equal(row.ai_level, g.ai_level);
+    assert.equal(row.variant, "standard");
   });
 
   test("rejects malformed moves and duplicate plies", async () => {
