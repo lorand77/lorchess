@@ -36,7 +36,7 @@ scores every move exactly, so a `temperature` option picks among them at random,
 weighted by exp(−loss / T): small slips are common, dropped pieces rare, and a
 mate the search sees is never passed up. Depth sets what the bot can see at all;
 at depth 1 it never notices an opponent's quiet threat, the classic beginner
-miss. `scripts/lorfishLevels.js` plays settings against each other (`match`),
+miss. `tools/lorfish/levels.js` plays settings against each other (`match`),
 breaks down the mistakes each one makes (`profile`), and rates the levels
 (`tournament`, then `fit`). The settings were chosen with small `match` runs;
 the ratings come from one larger run.
@@ -50,10 +50,11 @@ lower than 1320, so below it `sf1320r<pct>` plays a random legal move pct% of
 the time: stepping stones with no rating of their own, linking a chain sf1320 –
 Casual – r10 – Beginner – r35 – Novice. Games start from openings by a hot
 depth-1 bot that full-strength Stockfish scores within ±50 cp
-(`scripts/lorfishOpenings.txt`), each played twice with colours swapped, the
-same ones for every pairing. `scripts/eloFit.js` fits every rating at once by
-maximum likelihood, with intervals from resampling the openings. The plans
-and every game are in `scripts/ratings/`.
+(`tools/lorfish/openings.txt`), each played twice with colours swapped, the
+same ones for every pairing. `tools/lorfish/eloFit.js` fits every rating at
+once by maximum likelihood, with intervals from resampling the openings. The
+full report, the plans and every game are in
+[`experiments/2026-10-ai-ratings/`](../experiments/2026-10-ai-ratings/README.md).
 
 The run (Oct 2026, 7,740 games, Stockfish 100 ms a move) gave, with 95%
 intervals: Novice 383 (338–428), Beginner 822 (785–858), Casual 1323
@@ -65,7 +66,7 @@ Intermediate (~1600, depth 2) and Advanced (~2000, depth 4). The ratings are
 on Stockfish's engine scale rather than a human one, and the lite build
 probably plays below its `UCI_Elo`, which would make them read high. The
 intervals grow down the chain, and they leave out how far Stockfish's own
-labels are off. Games still going at 300 plies count as draws; 104 did, 62 of
+labels are off. Games still going at 300 plies count as draws; 104 did, 67 of
 them Novice's, and dropping them puts Novice at 364 and moves no other level
 more than 4.
 

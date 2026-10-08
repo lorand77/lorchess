@@ -54,8 +54,9 @@ nightly cron ──► backup.sh ──► Backblaze B2
   Server memory holds live rooms, matchmaking queues, the lobby and throttle
   counters. The browser runs its own AI games.
 - **Repo map.** `src/` is the server, `src/shared/` is shared with the browser,
-  `public/` holds pages and browser code, `test/` the tests and `scripts/` the
-  ops scripts. The docs split into [design.md](design.md) (why),
+  `public/` holds pages and browser code, `test/` the tests, `scripts/` the
+  ops scripts, `tools/` developer tools such as LorFish's rating harness and
+  `experiments/` dated experiment reports with their data. The docs split into [design.md](design.md) (why),
   [setup.md](setup.md) (how to run) and [CLAUDE.md](CLAUDE.md) (rules).
 
 ## 3. The architecture decisions and their trade-offs

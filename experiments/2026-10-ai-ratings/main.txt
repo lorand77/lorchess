@@ -2,8 +2,8 @@
 # every game a LorFish level against Stockfish, each level's opponents within
 # about 300 Elo of it. --seed 2 keeps it from replaying the pilot's games, and
 # the fit takes both files:
-#   node scripts/lorfishLevels.js tournament scripts/ratings/main.txt --seed 2
-#   node scripts/lorfishLevels.js fit scripts/ratings/pilot.jsonl scripts/ratings/main.jsonl
+#   node tools/lorfish/levels.js tournament experiments/2026-10-ai-ratings/main.txt --seed 2
+#   node tools/lorfish/levels.js fit experiments/2026-10-ai-ratings/pilot.jsonl experiments/2026-10-ai-ratings/main.jsonl
 # Nothing else should run meanwhile: Stockfish thinks for a fixed time a move,
 # so a busy machine makes it weaker.
 

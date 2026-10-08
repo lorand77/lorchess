@@ -1,12 +1,12 @@
 "use strict";
 
-// The rating fit behind scripts/lorfishLevels.js fit: given games between
+// The rating fit behind tools/lorfish/levels.js fit: given games between
 // players and a few pinned ratings, it should hand back the ratings the games
 // were played at, and intervals that cover them.
 
 const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
-const { expectedScore, fitRatings, bootstrapIntervals } = require("../../scripts/eloFit");
+const { expectedScore, fitRatings, bootstrapIntervals } = require("../../tools/lorfish/eloFit");
 const { seeded } = require("../helpers/random");
 
 // What n games score on average between players of these ratings.

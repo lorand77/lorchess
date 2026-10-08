@@ -4,12 +4,12 @@
 // ratings on the playing levels. A tool for choosing the levels, not part of
 // the app.
 //
-//   node scripts/lorfishLevels.js openings [--count 500] [--within 50]
-//   node scripts/lorfishLevels.js match d2 d1 [--games 400]
-//   node scripts/lorfishLevels.js match casual sf1320 [--games 20] [--movetime 100]
-//   node scripts/lorfishLevels.js tournament plan.txt [--out plan.jsonl]
-//   node scripts/lorfishLevels.js fit plan.jsonl [more.jsonl...] [--samples 1000]
-//   node scripts/lorfishLevels.js profile d1 d1t25 d2t50 [--positions 300] [--judge 3]
+//   node tools/lorfish/levels.js openings [--count 500] [--within 50]
+//   node tools/lorfish/levels.js match d2 d1 [--games 400]
+//   node tools/lorfish/levels.js match casual sf1320 [--games 20] [--movetime 100]
+//   node tools/lorfish/levels.js tournament plan.txt [--out plan.jsonl]
+//   node tools/lorfish/levels.js fit plan.jsonl [more.jsonl...] [--samples 1000]
+//   node tools/lorfish/levels.js profile d1 d1t25 d2t50 [--positions 300] [--judge 3]
 //   common options: [--workers N] [--seed 1] [--openings FILE]
 //
 // A level is a key from src/shared/aiLevels.js ("casual"), or d<depth>,
@@ -57,10 +57,10 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { parseArgs } = require("util");
 const { Worker, isMainThread, parentPort } = require("worker_threads");
-const { Chess, algOf } = require("../src/shared/chess");
-const { LorFish } = require("../src/shared/lorfish");
-const { AI_LEVELS_BY_KEY } = require("../src/shared/aiLevels");
-const { seeded } = require("../test/helpers/random");
+const { Chess, algOf } = require("../../src/shared/chess");
+const { LorFish } = require("../../src/shared/lorfish");
+const { AI_LEVELS_BY_KEY } = require("../../src/shared/aiLevels");
+const { seeded } = require("../../test/helpers/random");
 const { fitRatings, bootstrapIntervals } = require("./eloFit");
 
 const MAX_PLIES = 300;
@@ -70,9 +70,9 @@ const OPENING_PLIES = 8;
 const SETUP_LEVEL = "d1t80";
 // How deep full-strength Stockfish looks to call an opening level.
 const OPENING_DEPTH = 16;
-const OPENINGS_FILE = path.join(__dirname, "lorfishOpenings.txt");
+const OPENINGS_FILE = path.join(__dirname, "openings.txt");
 
-const STOCKFISH = path.join(__dirname, "../public/js/vendor/stockfish/stockfish-19-lite-single.js");
+const STOCKFISH = path.join(__dirname, "../../public/js/vendor/stockfish/stockfish-19-lite-single.js");
 
 function parseLevel(spec) {
   const ai = AI_LEVELS_BY_KEY.get(spec);
@@ -357,10 +357,10 @@ async function makeOpenings(opts) {
   }
   const kept = [...distinct.values()].slice(0, opts.count);
   const header = [
-    `# Openings for scripts/lorfishLevels.js match and tournament, one a line in UCI`,
+    `# Openings for tools/lorfish/levels.js match and tournament, one a line in UCI`,
     `# moves: ${OPENING_PLIES} plies by ${SETUP_LEVEL}, kept when full-strength Stockfish at depth`,
     `# ${OPENING_DEPTH} scores them within ${opts.within} centipawns. Written by`,
-    `#   node scripts/lorfishLevels.js openings --count ${opts.count} --within ${opts.within} --seed ${opts.seed}`,
+    `#   node tools/lorfish/levels.js openings --count ${opts.count} --within ${opts.within} --seed ${opts.seed}`,
   ];
   fs.writeFileSync(opts.openings, [...header, ...kept, ""].join("\n"));
   console.log(`${level.length} of ${candidates} candidates level, ${distinct.size} different; wrote ${kept.length} to ${opts.openings}`);
@@ -576,7 +576,7 @@ async function main() {
   else if (command === "tournament") await tournament(args, opts);
   else if (command === "fit") fit(args, opts);
   else if (command === "profile") await profile(args, opts);
-  else throw new Error("usage: lorfishLevels.js openings | match <a> <b> | tournament <plan> | fit <results>... | profile <level>... (see the comment at the top)");
+  else throw new Error("usage: levels.js openings | match <a> <b> | tournament <plan> | fit <results>... | profile <level>... (see the comment at the top)");
 }
 
 main().catch((err) => {

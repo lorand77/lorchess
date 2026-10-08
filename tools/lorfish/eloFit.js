@@ -4,7 +4,7 @@
 // likelihood under the Elo model: a player rated d above another is expected
 // to score 1 / (1 + 10^(-d/400)) a game. Elo only measures differences, so some
 // players are pinned at known ratings (Stockfish's UCI_Elo levels, for
-// scripts/lorfishLevels.js) and the rest are fitted around them. Every game
+// tools/lorfish/levels.js) and the rest are fitted around them. Every game
 // counts at once, so a player rated only through a chain of others still gets
 // a rating, and an interval wide enough to show it.
 //
