@@ -460,7 +460,10 @@ page shows the reason with a Retry that calls `kickIfEngineTurn()`.
 Three implementations:
 
 - `createAiMoveSource` — posts the position to the engine worker and applies
-  the reply.
+  the reply, no sooner than 1 s after the request: shallow levels answer in
+  milliseconds, which reads as a glitch. A slower search is not delayed further.
+  The page shows LorFish thinking until the move lands, and `cancel()` drops a
+  held move along with the request.
 - `createRemoteMoveSource` — emits `move:make`, applies `move:made` from the
   server. `canHumanMoveNow` also checks that it is your colour and no move is
   awaiting confirmation (the server enforces regardless). Socket listeners are

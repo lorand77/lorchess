@@ -17,11 +17,18 @@
 //   opts.premove marks a move the human queued before the opponent replied.
 
 // ---- AI: LorFish in a Web Worker ----
+// LorFish answers a shallow search in a few milliseconds, which reads as a
+// glitch rather than a reply. A move that came back sooner than this is held
+// until it has been this long since the request; a slower search is not delayed.
+const MIN_ENGINE_REPLY_MS = 1000;
+
 function createAiMoveSource(env) {
   let worker = null;
-  let busy = false;
+  let busy = false; // the worker is searching
   let reqId = 0;
   let activeReq = 0;
+  let requestedAt = 0;
+  let replyTimer = null; // a finished move waiting out MIN_ENGINE_REPLY_MS
 
   // The worker is single-threaded and its search is synchronous, so the only
   // way to stop a search is to terminate the worker. One is kept warm between
@@ -33,9 +40,21 @@ function createAiMoveSource(env) {
       const data = e.data || {};
       if (data.id !== activeReq) return; // stale reply from an abandoned game
       busy = false;
-      env.setThinking(false);
-      if (data.error) return fail(data.error);
-      if (data.move) env.applyMove(data.move, true);
+      if (data.error) {
+        env.setThinking(false);
+        return fail(data.error);
+      }
+      // The page still shows LorFish thinking, so neither undo nor a move of
+      // the player's own gets in before the held move lands.
+      const deliver = () => {
+        replyTimer = null;
+        if (data.id !== activeReq) return;
+        env.setThinking(false);
+        if (data.move) env.applyMove(data.move, true);
+      };
+      const wait = MIN_ENGINE_REPLY_MS - (Date.now() - requestedAt);
+      if (wait > 0) replyTimer = setTimeout(deliver, wait);
+      else deliver();
     };
     w.onerror = (err) => {
       const wasBusy = busy;
@@ -57,11 +76,18 @@ function createAiMoveSource(env) {
     if (env.onEngineError) env.onEngineError(String(message));
   }
 
+  function dropHeldReply() {
+    clearTimeout(replyTimer);
+    replyTimer = null;
+  }
+
   function requestEngineMove() {
+    dropHeldReply();
     if (!worker) worker = spawn();
     busy = true;
     env.setThinking(true);
     activeReq = ++reqId;
+    requestedAt = Date.now();
     const pos = env.getPosition();
     const level = env.getLevel();
     worker.postMessage({
@@ -90,6 +116,7 @@ function createAiMoveSource(env) {
     },
     cancel() {
       activeReq = ++reqId;
+      dropHeldReply();
       // A search still running would hold the next game's first request behind
       // it, for as long as the abandoned position takes; drop the worker instead.
       if (busy && worker) {
