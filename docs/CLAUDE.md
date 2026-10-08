@@ -33,6 +33,12 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
   game review and the analysis board. Third-party files: replace them, never edit them.
 - `public/*.html` pages with their scripts in `public/js/`; `ui.js` is the game page.
 - `test/unit`, `test/integration` — `node --test`.
+- `scripts/` — ops scripts (backups, the puzzle fixture). `tools/lorfish/` —
+  LorFish's rating harness (`levels.js`, `eloFit.js`, the opening set), run by
+  hand and never loaded by the app.
+- `experiments/<yyyy-mm>-<topic>/` — one folder per experiment: the plans, every
+  raw result and a `README.md` report. A record of what was run: add a new
+  folder for a rerun rather than editing an old one.
 
 ## Conventions
 

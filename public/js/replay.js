@@ -97,7 +97,7 @@ async function init() {
 }
 
 // The level an AI game was played at (src/shared/aiLevels.js), long and short:
-// "Casual (~1200)" and "Casual". Games from before levels have only a depth,
+// "Casual (~1300)" and "Casual". Games from before levels have only a depth,
 // and one whose depth matched no level is shown by that depth. Null if neither.
 function lorfishStrength(game) {
   if (AI_LEVELS_BY_KEY.has(game.ai_level)) {
