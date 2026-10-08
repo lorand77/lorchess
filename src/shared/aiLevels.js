@@ -11,11 +11,11 @@
 // Casual share a depth, so a game stores the level, not just the depth.
 
 const AI_LEVELS = [
-  { key: 'novice',       label: 'Novice',       elo: 300,  depth: 1, temperature: 300 },
-  { key: 'beginner',     label: 'Beginner',     elo: 700,  depth: 1, temperature: 120 },
-  { key: 'casual',       label: 'Casual',       elo: 1200, depth: 1, temperature: 10 },
-  { key: 'intermediate', label: 'Intermediate', elo: 1500, depth: 2, temperature: 0 },
-  { key: 'advanced',     label: 'Advanced',     elo: 1800, depth: 4, temperature: 0 },
+  { key: 'novice',       label: 'Novice',       elo: 400,  depth: 1, temperature: 300 },
+  { key: 'beginner',     label: 'Beginner',     elo: 800,  depth: 1, temperature: 120 },
+  { key: 'casual',       label: 'Casual',       elo: 1300, depth: 1, temperature: 10 },
+  { key: 'intermediate', label: 'Intermediate', elo: 1600, depth: 2, temperature: 0 },
+  { key: 'advanced',     label: 'Advanced',     elo: 2000, depth: 4, temperature: 0 },
 ];
 
 const DEFAULT_AI_LEVEL = 'intermediate';

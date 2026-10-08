@@ -36,26 +36,38 @@ scores every move exactly, so a `temperature` option picks among them at random,
 weighted by exp(−loss / T): small slips are common, dropped pieces rare, and a
 mate the search sees is never passed up. Depth sets what the bot can see at all;
 at depth 1 it never notices an opponent's quiet threat, the classic beginner
-miss. `scripts/lorfishLevels.js` measures settings against each other in
-self-play (`match`) and breaks down the mistakes each one makes (`profile`).
-`match` also takes `sf<elo>`, the vendored Stockfish with `UCI_LimitStrength`
-at that `UCI_Elo` (1320 at the lowest), as an anchor from outside LorFish:
-self-play exaggerates the gaps between settings that share one evaluation.
-Self-play first rated the levels by taking depth 2 as 1400. Against Stockfish
-(Oct 2026, 20 games a level, 10 for depth 4, 100 ms a move) the levels came out
-closer together than that: depth 1 at T=60 about 940, depth 1 at T=10 about
-1170, depth 2 about 1550 and depth 4 about 1810. Beginner then moved to T=120,
-which self-play puts about 300 below T=60, roughly 200 on Stockfish's scale.
-Novice, depth 1 at T=300, sits too far below Stockfish's floor of 1320 to
-measure against it, so it was chained in self-play (T=120 to T=180 to T=300,
-50 games a link): about 680 below Beginner, roughly 400 on Stockfish's scale.
-The playing levels in `src/shared/aiLevels.js` carry these rounded to 100s:
-Novice (~300, depth 1 at T=300), Beginner (~700, depth 1 at T=120), Casual
-(~1200, depth 1 at T=10), Intermediate (~1500, depth 2) and Advanced (~1800,
-depth 4). The samples are
-small (±150 or so), the ratings are on Stockfish's engine scale rather than a
-human one, and the lite build probably plays below its `UCI_Elo`, which would
-make these read high.
+miss. `scripts/lorfishLevels.js` plays settings against each other (`match`),
+breaks down the mistakes each one makes (`profile`), and rates the levels
+(`tournament`, then `fit`). The settings were chosen with small `match` runs;
+the ratings come from one larger run.
+
+Every rated game is a LorFish level against the vendored Stockfish, never two
+LorFish settings or two Stockfish settings: players that share one evaluation
+exaggerate the gaps between them (self-play, taking depth 2 as 1400, first
+spread the levels far wider than Stockfish does). `sf<elo>` is Stockfish with
+`UCI_LimitStrength` at that `UCI_Elo`, pinned at its label. Stockfish goes no
+lower than 1320, so below it `sf1320r<pct>` plays a random legal move pct% of
+the time: stepping stones with no rating of their own, linking a chain sf1320 –
+Casual – r10 – Beginner – r35 – Novice. Games start from openings by a hot
+depth-1 bot that full-strength Stockfish scores within ±50 cp
+(`scripts/lorfishOpenings.txt`), each played twice with colours swapped, the
+same ones for every pairing. `scripts/eloFit.js` fits every rating at once by
+maximum likelihood, with intervals from resampling the openings. The plans
+and every game are in `scripts/ratings/`.
+
+The run (Oct 2026, 7,740 games, Stockfish 100 ms a move) gave, with 95%
+intervals: Novice 383 (338–428), Beginner 822 (785–858), Casual 1323
+(1305–1343), Intermediate 1626 (1592–1662) and Advanced 1971 (1919–2026):
+each 80–170 above what earlier runs of 20 games a level gave. The playing levels in
+`src/shared/aiLevels.js` carry these rounded to 100s: Novice (~400, depth 1 at
+T=300), Beginner (~800, depth 1 at T=120), Casual (~1300, depth 1 at T=10),
+Intermediate (~1600, depth 2) and Advanced (~2000, depth 4). The ratings are
+on Stockfish's engine scale rather than a human one, and the lite build
+probably plays below its `UCI_Elo`, which would make them read high. The
+intervals grow down the chain, and they leave out how far Stockfish's own
+labels are off. Games still going at 300 plies count as draws; 104 did, 62 of
+them Novice's, and dropping them puts Novice at 364 and moves no other level
+more than 4.
 
 Dead-material detection follows the variant: in Atomic, opposing bishops on
 the same square colour can explode a king and must not trigger the standard
@@ -281,7 +293,7 @@ and creation API, so they cannot leave an unplayable game marked active.
 
 ## Game review: Stockfish in the browser
 
-LorFish plays, but it is far too weak (roughly 1400–1800) to judge a game.
+LorFish plays, but it is far too weak (about 2000 at its strongest) to judge a game.
 Review uses **Stockfish 19**, the "lite single-threaded" WebAssembly build
 from the `stockfish` npm package (nmrugg/stockfish.js), vendored as two files
 under `public/js/vendor/stockfish/` rather than added as a dependency. It runs

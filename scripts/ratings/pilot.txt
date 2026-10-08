@@ -1,0 +1,26 @@
+# Stage 1 of the rating run: place the random-move Stockfish levels and Advanced
+# before the main run picks its opponents. node scripts/lorfishLevels.js tournament
+# scripts/ratings/pilot.txt, then fit scripts/ratings/pilot.jsonl.
+
+# Pinned anchor for the low end.
+casual    sf1320      40
+
+# Stockfish at 1320 playing a random legal move 10-70% of the time.
+casual    sf1320r10   40
+casual    sf1320r20   40
+casual    sf1320r35   40
+casual    sf1320r50   40
+casual    sf1320r70   40
+beginner  sf1320r10   40
+beginner  sf1320r20   40
+beginner  sf1320r35   40
+beginner  sf1320r50   40
+beginner  sf1320r70   40
+novice    sf1320r10   40
+novice    sf1320r20   40
+novice    sf1320r35   40
+novice    sf1320r50   40
+novice    sf1320r70   40
+
+# Advanced won 7 of 8 against sf1800.
+advanced  sf2100      28
