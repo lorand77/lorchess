@@ -999,13 +999,13 @@ img.drag-piece {
 }
 .mode-link:hover { background: var(--btn-soft-hover); }
 
-/* The small "Play the computer" panel under Play: start button, its options,
-   then the text right after them, wrapping underneath on narrow screens. */
+/* The small "Play the computer" panel under Play: the heading, then the start
+   button and its options underneath. */
 .ai-panel {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
 }
 .ai-panel h2 { margin-bottom: 2px; }
 .ai-panel p { margin: 0; color: var(--text-muted); }

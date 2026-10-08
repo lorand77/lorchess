@@ -53,6 +53,10 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
          it (AI games are untimed and unrated). Level and colour are chosen
          here and travel in the URL; the game page cannot change them. -->
     <section class="panel ai-panel" id="aiPanel">
+      <div class="ai-panel-text">
+        <h2>Play the computer</h2>
+        <p class="small">Untimed and unrated.</p>
+      </div>
       <form class="offer-form ai-form" action="/game.html" method="get">
         <input type="hidden" name="mode" value="ai">
         <button type="submit" id="aiPlayBtn" class="mode-link primary">Play LorFish</button>
@@ -65,10 +69,6 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
         <!-- Filled in from /js/aiLevels.js, the list the server resolves against. -->
         <select id="aiLevelSelect" name="level"></select>
       </form>
-      <div class="ai-panel-text">
-        <h2>Play the computer</h2>
-        <p class="small">Untimed and unrated.</p>
-      </div>
     </section>
 
     <section class="panel">
