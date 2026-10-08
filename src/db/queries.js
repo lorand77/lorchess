@@ -426,7 +426,7 @@ module.exports = {
   // own totals from these rather than running a query per statistic, and needs
   // the ordered list for the performance chart anyway.
   statsGames: db.prepare(`
-    SELECT id, white_id, black_id, mode, result, rated, finished_at
+    SELECT id, white_id, black_id, mode, ai_level, result, rated, finished_at
     FROM games
     WHERE status = 'finished' AND (white_id = ? OR black_id = ?)
     ORDER BY COALESCE(finished_at, created_at), id

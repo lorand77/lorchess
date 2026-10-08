@@ -13,6 +13,7 @@ const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
 const config = require("../config");
+const { AI_LEVELS } = require("../shared/aiLevels");
 
 const router = express.Router();
 router.use(requireAuth);
@@ -36,6 +37,9 @@ function buildStats(userId) {
 
   const modes = { pvp: emptyRecord(), ai: emptyRecord() };
   const colours = { w: emptyRecord(), b: emptyRecord() };
+  // Games against LorFish per level; "" collects games stored without one
+  // (from before levels, at a depth that matched none).
+  const levels = new Map();
 
   for (const g of rows) {
     const asWhite = g.white_id === userId;
@@ -55,11 +59,23 @@ function buildStats(userId) {
     };
     bump(modes[mode]);
     if (mode === "pvp") bump(colours[asWhite ? "w" : "b"]);
+    else {
+      const key = g.ai_level || "";
+      if (!levels.has(key)) levels.set(key, emptyRecord());
+      bump(levels.get(key));
+    }
   }
+
+  // Weakest level first, as the lobby lists them; only levels played.
+  const order = [...AI_LEVELS.map((l) => l.key), ""];
+  const aiByLevel = [...levels]
+    .sort(([a], [b]) => order.indexOf(a) - order.indexOf(b))
+    .map(([key, rec]) => ({ level: key || null, ...withRate(rec) }));
 
   return {
     pvp: withRate(modes.pvp),
     ai: withRate(modes.ai),
+    aiByLevel,
     white: withRate(colours.w),
     black: withRate(colours.b),
   };

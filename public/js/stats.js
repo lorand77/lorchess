@@ -1,7 +1,8 @@
 "use strict";
 
 // The profile's Stats tab: the headline numbers as stat tiles, the record as
-// one part-to-whole bar, and two lines over time. profile.js has already
+// one part-to-whole bar, two lines over time, and the record against LorFish
+// level by level. profile.js has already
 // fetched the data (it needs the user for the page header) and passes it in.
 
 (window.profileTabs = window.profileTabs || {}).stats = function ({ data: d, you }) {
@@ -87,5 +88,16 @@
     tile(as, String(ai.losses), "Lost", "bad");
     tile(as, String(ai.draws), "Drawn");
     tile(as, pct(ai.winRate), "Win rate");
+
+    // Per level, labelled from the same catalogue as the lobby's picker.
+    const levelRows = document.getElementById("aiLevelRows");
+    for (const r of d.games.aiByLevel || []) {
+      const label = AI_LEVELS_BY_KEY.has(r.level) ? aiLevelLabel(r.level) : "Older games";
+      const tr = el("tr");
+      for (const v of [label, r.played, r.wins, r.losses, r.draws, pct(r.winRate)]) {
+        tr.appendChild(el("td", null, String(v)));
+      }
+      levelRows.appendChild(tr);
+    }
   }
 };
