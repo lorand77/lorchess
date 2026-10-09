@@ -14,6 +14,7 @@
 
 const queries = require("./queries");
 const config = require("../config");
+const log = require("../log");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -32,13 +33,10 @@ function startChatRetention() {
     try {
       const removed = sweepOldChat();
       if (removed > 0) {
-        console.log(
-          `[chat] removed ${removed} message(s) from games finished over ` +
-          `${config.CHAT_RETENTION_DAYS} days ago`
-        );
+        log.info("chat.retention", { removed, days: config.CHAT_RETENTION_DAYS });
       }
     } catch (err) {
-      console.error("[chat] retention sweep failed:", err.message);
+      log.error("chat.retention_failed", { err });
     }
   };
   run();

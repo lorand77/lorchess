@@ -7,6 +7,7 @@ const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 const { startServer, registerUser, connectSocket, quickMatch, emitAck, waitFor, db } = require("../helpers/server");
+const { captureLogs } = require("../helpers/logs");
 
 test("a finished Pawn Wars game awards both players live and survives backfill", async (t) => {
   const srv = await startServer();
@@ -19,12 +20,12 @@ test("a finished Pawn Wars game awards both players live and survives backfill",
   assert.equal((await emitAck(white, "game:join", { gameId })).ok, true);
   assert.equal((await emitAck(black, "game:join", { gameId })).ok, true);
   assert.deepEqual(await emitAck(white, "move:make", { gameId, from: 0, to: 8 }), { ok: true });
-  const errors = [];
-  t.mock.method(console, "error", (...args) => errors.push(args));
+  const logs = captureLogs();
+  t.after(() => logs.restore());
   const over = waitFor(white, "game:over");
   black.emit("game:resign", { gameId });
   assert.equal((await over).result, "1-0");
-  assert.deepEqual(errors, []);
+  assert.deepEqual(logs.lines.filter((l) => l.level === "error"), []);
   const row = db().prepare("SELECT * FROM games WHERE id = ?").get(gameId);
   const keys = (id) => db().prepare("SELECT key FROM user_achievements WHERE user_id = ?").all(id).map(r => r.key);
   assert.ok(keys(row.white_id).includes("wins"));

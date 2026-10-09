@@ -47,7 +47,7 @@ router.get("/user/:id", (req, res) => {
     svc.onVisit(id);
     out.earned = queries.listAchievements.all(id);
   } catch (e) {
-    console.error("achievements:", e);
+    req.log.error("achievements.visit_failed", { user: id, err: e });
   }
   res.json(out);
 });

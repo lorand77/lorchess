@@ -9,6 +9,7 @@ const assert = require("node:assert/strict");
 const {
   startServer, registerUser, connectSocket, emitAck, waitFor, quickMatch, db,
 } = require("../helpers/server");
+const { captureLogs } = require("../helpers/logs");
 const { sq } = require("../helpers/board");
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -39,20 +40,21 @@ describe("a database write that fails mid-move", () => {
       "INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user) VALUES (?, 1, 'a3', 'a2a3', 'x', ?)"
     ).run(gameId, white === a ? alice.user.id : bob.user.id);
 
-    // The failure is logged as an error; keep it out of the test report.
-    const errors = [];
-    const realError = console.error;
-    console.error = (...args) => errors.push(args);
+    // The failure is logged once, as an error, with the event that failed.
+    const logs = captureLogs();
     let reply;
     try {
       reply = await emitAck(white, "move:make", { gameId, ...mv("e2", "e4") });
     } finally {
-      console.error = realError;
+      logs.restore();
     }
     assert.equal(reply.ok, false);
     assert.match(reply.error, /Server error/);
+    const errors = logs.lines.filter((l) => l.level === "error");
     assert.equal(errors.length, 1, "the failure was logged once");
-    assert.match(String(errors[0][1]), /UNIQUE/);
+    assert.equal(errors[0].event, "socket.handler_failed");
+    assert.equal(errors[0].fields.event, "move:make");
+    assert.match(errors[0].fields.err, /UNIQUE/);
 
     // The room rolled back: same position, no move, white still to play, and
     // white's clock still running from the same full allowance.

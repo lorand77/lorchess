@@ -9,6 +9,7 @@
 // (rooms.js); it never trusts the client for legality, turn, or time.
 
 const { Server } = require("socket.io");
+const log = require("../log");
 const sessionMiddleware = require("../auth/session");
 const matchmaking = require("./matchmaking");
 const lobby = require("./lobby");
@@ -94,7 +95,7 @@ function attachSockets(httpServer) {
   setTimeout(() => safely("restart sweep", () => {
     const aborted = rooms.sweepUnresumed();
     if (!aborted) return;
-    console.log(`Aborted ${aborted} game(s) nobody resumed after the restart.`);
+    log.info("game.restart_sweep", { aborted });
     lobby.refresh(io);
   }), config.RESUME_WINDOW_MS).unref();
 
@@ -116,6 +117,7 @@ function attachSockets(httpServer) {
       if (err) return next(err);
       socket.userId = session.userId;
       socket.username = session.username;
+      socket.log = log.child({ user: session.userId, name: session.username });
       next();
     });
   });
@@ -130,7 +132,7 @@ function attachSockets(httpServer) {
         next();
       });
     });
-    console.log(`[socket] connected: ${socket.username} (#${socket.userId})`);
+    socket.log.info("socket.connect");
     socket.emit("welcome", { userId: socket.userId, username: socket.username });
     // One room per user, so "your game is starting" reaches every tab this
     // person has open instead of whichever socket we happened to pick.
@@ -146,7 +148,7 @@ function attachSockets(httpServer) {
         try {
           handler(payload, ack);
         } catch (err) {
-          console.error(`[socket] ${event} from ${socket.username} (#${socket.userId}) failed:`, err);
+          socket.log.error("socket.handler_failed", { event, err });
           reply(ack, { ok: false, error: "Server error." });
         }
       });
@@ -192,7 +194,7 @@ function safely(label, fn) {
   try {
     fn();
   } catch (err) {
-    console.error(`[socket] ${label} failed:`, err);
+    log.error("socket.task_failed", { task: label, err });
   }
 }
 
@@ -276,7 +278,7 @@ function concludeGame(io, room, result, termination) {
   if (result !== "*") notifyAchievements(room, { resignReactionMs: room.resignReactionMs });
   rooms.deleteRoom(room.gameId);
   lobby.refresh(io); // both players are free again
-  console.log(`[game] #${room.gameId} over: ${result} (${termination})`);
+  log.info("game.over", { game: room.gameId, result, termination });
 }
 
 // Evaluate achievements for both players now that the game is in the database,
@@ -286,7 +288,7 @@ function notifyAchievements(room, extra) {
   try {
     earned = achievements.onGameFinished(room.gameId, extra);
   } catch (err) {
-    console.error(`[achievements] game #${room.gameId}:`, err);
+    log.error("achievements.game_failed", { game: room.gameId, err });
     return;
   }
   for (const [userId, list] of Object.entries(earned)) {
@@ -755,8 +757,7 @@ function handleRematchOffer(io, socket, payload) {
       newBlack.emit("lobby:error", msg);
       return;
     }
-    console.log(`[rematch] game #${gameId} -> new game, colours swapped`);
-    return matchmaking.startMatch(io, newWhite, newBlack, {
+    const newGameId = matchmaking.startMatch(io, newWhite, newBlack, {
       initialMs: game.initial_ms,
       incrementMs: game.increment_ms,
       rated: !!game.rated,
@@ -765,6 +766,8 @@ function handleRematchOffer(io, socket, payload) {
       // An odds game keeps its odds, mirrored to follow the colour swap.
       startFen: rematchStartFen(game),
     });
+    log.info("game.rematch", { game: gameId, new_game: newGameId });
+    return newGameId;
   }
   socket.to(`game:${gameId}`).emit("rematch:offered", { username: socket.username });
 }
@@ -822,7 +825,7 @@ function handleDisconnect(io, socket, reason) {
   lobby.onDisconnect(io, socket);
   clearRematchOffers(socket);
   leaveWatching(io, socket);
-  console.log(`[socket] disconnected: ${socket.username} (${reason})`);
+  socket.log.info("socket.disconnect", { reason });
 
   const gameId = socket.gameId;
   if (gameId == null) return;

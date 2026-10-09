@@ -11,6 +11,7 @@
 // "just find me a game" path.
 
 const queries = require("../db/queries");
+const log = require("../log");
 const rooms = require("./rooms");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
 const chess960 = require("../shared/chess960");
@@ -156,10 +157,16 @@ function startMatch(io, white, black, opts) {
   io.to(userRoom(black.userId)).emit("game:start", {
     gameId, color: "b", opponent: { username: white.username },
   });
-  console.log(
-    `[match] game #${gameId}: ${white.username}(w) vs ${black.username}(b) ` +
-    `${initialMs / 60000}+${incrementMs / 1000}${rated ? " rated" : " casual"}`
-  );
+  log.info("game.start", {
+    game: gameId,
+    white: white.userId,
+    white_name: white.username,
+    black: black.userId,
+    black_name: black.username,
+    tc: `${initialMs / 60000}+${incrementMs / 1000}`,
+    rated,
+    variant,
+  });
   return gameId;
 }
 

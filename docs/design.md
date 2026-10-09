@@ -197,13 +197,14 @@ the only record, so it is written for that reader: someone on the server with
 `less` and `grep`, days later, reconstructing what happened.
 
 - **One module, `src/log.js`, no dependency.** Server code logs through it and
-  never calls `console.*` directly. The CLI scripts in `src/db/` and
-  `scripts/` are exempt: their `console.log` is a tool talking to the person
-  running it, not a log.
+  never calls `console.*` directly. Exempt: the CLI scripts in `src/db/`,
+  `src/achievements/backfill.js` and `scripts/`, whose `console.log` is a
+  tool talking to the person running it, and LorFish's opt-in debug output in
+  `src/shared/lorfish.js`, which also runs in the browser.
 - **Format: logfmt, one line per event, all to stdout.**
   ```
   2026-10-09T21:14:03.120Z INFO  game.over game=318 result=0-1 termination=resign
-  2026-10-09T21:14:05.004Z ERROR socket.handler_failed user=7 name=bob event=move err="TypeError: Cannot read properties of undefined"
+  2026-10-09T21:14:05.004Z ERROR socket.handler_failed user=7 name=bob event=move:make err="TypeError: Cannot read properties of undefined"
       at applyMove (src/game/socket.js:412:9)
   ```
   Time (UTC, ISO), level, event name, then `key=value` fields; values with
@@ -256,19 +257,23 @@ Events:
   `unknown_user` or `deactivated`, and `user`/`name` from the account's own
   record when there is one: what was typed as the username is never logged,
   because people sometimes type their password there.
-- **Sockets:** `socket.connect`, `socket.disconnect` (`reason`),
-  `socket.handler_failed` and `socket.task_failed` (`error`; the per-event
-  wrapper and `safely`). No line per move or chat message.
-- **Games:** `game.start` (`white`/`white_name`, `black`/`black_name`, time
-  control, `rated`, variant), `game.over` (`result`, `termination`),
-  `game.rematch`, `game.restart_sweep` (`aborted` count),
-  `game.corrupt_record` (`error`: ply, move, FEN).
-- **Background and data:** `db.migrated`, `db.case_duplicates` (`warn`),
-  `chat.retention` (`removed`, or `error` when the sweep fails),
-  `achievements.check_failed` (`error`: check, game, user),
+- **Sockets:** `socket.connect`, `socket.disconnect` (`reason`), both with
+  `user`/`name` from `socket.log`; `socket.handler_failed` (`error`, the
+  per-event wrapper: `event`, `err`) and `socket.task_failed` (`error`,
+  `safely`: `task`, `err`). No line per move or chat message.
+- **Games** (PvP; games against LorFish are saved over HTTP and show as
+  `http.request`): `game.start` (`game`, `white`/`white_name`,
+  `black`/`black_name`, `tc`, `rated`, `variant`), `game.over` (`result`,
+  `termination`), `game.rematch` (`game`, `new_game`),
+  `game.restart_sweep` (`aborted` count), `game.corrupt_record` (`error`:
+  `ply`, `move`, `fen`).
+- **Background and data:** `db.migrated` (`added=<table>.<column>` or
+  `backfilled=<table>.<column>`), `db.case_duplicates` (`warn`, `names`),
+  `chat.retention` (`removed`, `days`) and `chat.retention_failed` (`error`),
+  `achievements.check_failed` (`error`: `check`, `game`, `user`),
+  `achievements.game_failed` (`error`: the whole evaluation after a game),
   `achievements.visit_failed` (`error`: the time-based check on login or a
-  profile visit),
-  `lobby.broadcast_failed` (`error`).
+  profile visit), `lobby.broadcast_failed` (`error`).
 
 What is never logged, and where personal data may appear:
 

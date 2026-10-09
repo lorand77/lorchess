@@ -50,6 +50,10 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
   handicap and the premove flag are decided or re-checked on the server.
 - Commit subjects are short and imperative; a `feat:`/`fix:` prefix is optional.
 - When a design decision changes, update `docs/design.md` in the same commit.
+- Server code logs through `src/log.js` with a fixed event name and fields
+  (`log.info("game.over", { game, result })`), never `console.*`. The events,
+  and what must never be logged, are under "Logging" in `docs/design.md`.
+  What the logs hold is stated in `public/privacy.html`: keep it true.
 
 ## Gotchas
 

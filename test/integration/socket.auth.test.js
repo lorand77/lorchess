@@ -8,6 +8,7 @@ const assert = require("node:assert/strict");
 const {
   startServer, client, registerUser, connectSocket, emitAck, waitFor, quickMatch, db,
 } = require("../helpers/server");
+const { captureLogs } = require("../helpers/logs");
 const { Manager } = require("socket.io-client");
 const { sq } = require("../helpers/board");
 const rooms = require("../../src/game/rooms");
@@ -143,10 +144,12 @@ test("logout reports a store failure instead of claiming the session was revoked
   t.after(() => socket.close());
   const store = srv.io.sockets.sockets.get(socket.id).request.sessionStore;
   t.mock.method(store, "destroy", (_sid, callback) => callback(new Error("write failed")));
-  t.mock.method(console, "error", () => {});
+  const logs = captureLogs();
+  t.after(() => logs.restore());
   const out = await c.post("/api/logout");
   assert.equal(out.status, 500);
   assert.deepEqual(out.body, { error: "Logout failed." });
+  assert.equal(logs.find("auth.logout_error").fields.err, "Error: write failed");
   assert.equal(c.cookie(), cookie);
   assert.equal((await c.get("/api/me")).status, 200);
   assert.equal(socket.connected, true);

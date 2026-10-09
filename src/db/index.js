@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
 const config = require("../config");
+const log = require("../log");
 const { aiLevelForDepth } = require("../shared/aiLevels");
 
 // Ensure the data/ directory exists before opening the file.
@@ -32,10 +33,8 @@ try {
     .prepare("SELECT username FROM users GROUP BY username COLLATE NOCASE HAVING COUNT(*) > 1")
     .all()
     .map((r) => r.username);
-  console.warn(
-    "[db] users holds names differing only in case, so the case-insensitive index was not created. " +
-    "Rename one of each pair: " + dupes.join(", ")
-  );
+  // The index is skipped until one name of each pair is renamed.
+  log.warn("db.case_duplicates", { names: dupes.join(",") });
 }
 
 // --- migrations ---
@@ -48,7 +47,7 @@ function addColumnIfMissing(table, column, definition) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all();
   if (cols.some((c) => c.name === column)) return false;
   db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-  console.log(`[db] migrated: added ${table}.${column}`);
+  log.info("db.migrated", { added: `${table}.${column}` });
   return true;
 }
 addColumnIfMissing("games", "initial_ms", "INTEGER");
@@ -64,7 +63,7 @@ if (addColumnIfMissing("users", "chat_count", "INTEGER NOT NULL DEFAULT 0")) {
   db.exec(
     "UPDATE users SET chat_count = (SELECT COUNT(*) FROM chat_messages WHERE user_id = users.id)"
   );
-  console.log("[db] migrated: seeded users.chat_count from existing messages");
+  log.info("db.migrated", { backfilled: "users.chat_count" });
 }
 // When the user became a member, or NULL if they never redeemed a code.
 addColumnIfMissing("users", "member_since", "TEXT");
@@ -102,7 +101,7 @@ if (addColumnIfMissing("games", "ai_level", "TEXT")) {
     const level = aiLevelForDepth(ai_depth);
     if (level) setLevel.run(level, ai_depth);
   }
-  console.log("[db] migrated: set games.ai_level from ai_depth");
+  log.info("db.migrated", { backfilled: "games.ai_level" });
 }
 
 // The puzzle rating used to start at 1500. Move anyone who never attempted a

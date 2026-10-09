@@ -18,6 +18,7 @@
 // time-control allowlist, and the resolved milliseconds are what get stored.
 
 const queries = require("../db/queries");
+const log = require("../log");
 const matchmaking = require("./matchmaking");
 const rooms = require("./rooms");
 const { resolveTimeControl } = require("../shared/timeControls");
@@ -502,7 +503,7 @@ function nudge(io) {
     try {
       broadcastState(io);
     } catch (err) {
-      console.error("[lobby] preview broadcast failed:", err);
+      log.error("lobby.broadcast_failed", { err });
     }
   }, wait);
 }

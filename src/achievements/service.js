@@ -16,6 +16,7 @@
 // the caller can tell the player.
 
 const queries = require("../db/queries");
+const log = require("../log");
 const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/chess");
 const handicap = require("../shared/handicap");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
@@ -360,7 +361,7 @@ function evaluateGame(userId, game, analysis, extra) {
     try {
       r = GAME_CHECKS[key](ctx);
     } catch (e) {
-      console.error(`[achievements] ${key} check failed on game #${game.id}:`, e);
+      log.error("achievements.check_failed", { check: key, game: game.id, user: userId, err: e });
       continue;
     }
     const got = award(userId, key, r, ref);

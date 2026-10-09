@@ -27,8 +27,6 @@ process.on("exit", () => fs.rmSync(dir, { recursive: true, force: true }));
 // database logs its migrations. Keep the test output to the runner's own
 // report unless TEST_LOG is set, which shows everything down to debug.
 process.env.LOG_LEVEL ??= process.env.TEST_LOG ? "debug" : "silent";
-// Call sites not yet moved to src/log.js still use console.log.
-if (!process.env.TEST_LOG) console.log = () => {};
 
 // Start the server. Returns { baseUrl, io, close }. Servers may be started one
 // after another against the same database, which is how a restart is tested.

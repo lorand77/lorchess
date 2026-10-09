@@ -9,6 +9,7 @@ const assert = require("node:assert/strict");
 const {
   startServer, registerUser, connectSocket, emitAck, waitFor, expectNo, quickMatch, db,
 } = require("../helpers/server");
+const { captureLogs } = require("../helpers/logs");
 const { sq } = require("../helpers/board");
 const rooms = require("../../src/game/rooms");
 
@@ -184,14 +185,15 @@ describe("a damaged record", () => {
     rooms.clearTimers(rooms.getRoom(gameId));
     rooms.deleteRoom(gameId);
 
-    const realError = console.error;
-    console.error = () => {};
+    const logs = captureLogs();
     let joined;
     try {
       joined = await emitAck(white, "game:join", { gameId });
     } finally {
-      console.error = realError;
+      logs.restore();
     }
+    const corrupt = logs.find("game.corrupt_record", { game: gameId, ply: 1, move: "a1a1" });
+    assert.equal(corrupt.level, "error");
     assert.equal(joined.ok, false);
     assert.match(joined.error, /aborted/);
     const row = gameRow(gameId);

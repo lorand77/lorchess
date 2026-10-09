@@ -7,6 +7,7 @@
 const { Chess, STANDARD_START } = require("../shared/chess");
 const queries = require("../db/queries");
 const config = require("../config");
+const log = require("../log");
 const { describeTimeControl } = require("../shared/timeControls");
 const handicap = require("../shared/handicap");
 const { usesStandardSetup } = require("../shared/variants");
@@ -197,7 +198,7 @@ function loadRoomFromDb(gameId) {
       // stored one. Refuse to rebuild — and abort the game, since left 'active'
       // it would hold both players to a game nobody can enter (one game at a
       // time) until the next restart's sweep.
-      console.error(`[rooms] game #${gameId}: stored move ${m.uci} at ply ${m.ply} is illegal in ${room.chess.fen()}`);
+      log.error("game.corrupt_record", { game: gameId, ply: m.ply, move: m.uci, fen: room.chess.fen() });
       deleteRoom(gameId);
       if (game.status === "active") queries.abortGame.run("corrupt-record", gameId);
       return null;
