@@ -68,9 +68,11 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
   finishing a game, or loading your statistics) with the time, whether it
   worked, and your username and account number. They never contain your
   password, your chat messages or your uploaded images.</p>
-  <p>We use your IP address to limit repeated login and sign-up attempts. It
-  is held in memory for about 15 minutes, never written to disk, and not kept
-  anywhere else.</p>
+  <p>We use your IP address to limit repeated login and sign-up attempts, and
+  for that it is held in memory for about 15 minutes. It is also written to
+  the logs when someone signs in, tries to sign in or signs up, so that we can
+  deal with password guessing and abuse. It is not recorded for anything else
+  you do on the site.</p>
   <p>Logs are deleted after 14 days and are not included in backups.</p>
 
   <h2>Where it is kept</h2>

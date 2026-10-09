@@ -42,7 +42,10 @@ function startSession(req, user) {
 
 router.post("/register", async (req, res) => {
   try {
-    if (registrations.blocked(req.ip)) return res.status(429).json(TOO_MANY);
+    if (registrations.blocked(req.ip)) {
+      req.log.warn("auth.throttled", { kind: "register", ip: req.ip });
+      return res.status(429).json(TOO_MANY);
+    }
     const { username, password } = req.body || {};
     if (typeof username !== "string" || !USERNAME_RE.test(username)) {
       return res.status(400).json({
@@ -69,7 +72,10 @@ router.post("/register", async (req, res) => {
     }
 
     const release = acquireHashSlot();
-    if (!release) return res.status(503).json(BUSY);
+    if (!release) {
+      req.log.warn("auth.busy", { kind: "register" });
+      return res.status(503).json(BUSY);
+    }
     registrations.hit(req.ip);
     let hash;
     try {
@@ -80,6 +86,7 @@ router.post("/register", async (req, res) => {
     const info = queries.createUser.run(username, hash, config.PUZZLE_START_RATING);
     const user = { id: Number(info.lastInsertRowid), username };
     await startSession(req, user);
+    req.log.info("auth.register", { user: user.id, name: username, ip: req.ip });
     return res.status(201).json(user);
   } catch (err) {
     // Two registrations for the same name can both pass the check above while
@@ -87,14 +94,17 @@ router.post("/register", async (req, res) => {
     if (err && err.code === "SQLITE_CONSTRAINT_UNIQUE") {
       return res.status(409).json({ error: "Username already taken." });
     }
-    console.error("register failed:", err);
+    req.log.error("auth.register_error", { err });
     return res.status(500).json({ error: "Registration failed." });
   }
 });
 
 router.post("/login", async (req, res) => {
   try {
-    if (loginFailures.blocked(req.ip)) return res.status(429).json(TOO_MANY);
+    if (loginFailures.blocked(req.ip)) {
+      req.log.warn("auth.throttled", { kind: "login", ip: req.ip });
+      return res.status(429).json(TOO_MANY);
+    }
     const { username, password } = req.body || {};
     const user =
       typeof username === "string" ? queries.getUserByUsername.get(username) : null;
@@ -106,27 +116,46 @@ router.post("/login", async (req, res) => {
     let ok = false;
     if (user && user.password_hash && candidate.length <= MAX_PASSWORD) {
       const release = acquireHashSlot();
-      if (!release) return res.status(503).json(BUSY);
+      if (!release) {
+        req.log.warn("auth.busy", { kind: "login" });
+        return res.status(503).json(BUSY);
+      }
       try {
         ok = await argon2.verify(user.password_hash, candidate);
       } finally {
         release();
       }
     }
+    // What was typed as the username is never logged: people sometimes type
+    // their password there. An existing account is named by its own record.
     if (!ok) {
       loginFailures.hit(req.ip);
+      req.log.info("auth.login_failed", {
+        user: user?.id,
+        name: user?.username,
+        reason: user ? "wrong_password" : "unknown_user",
+        ip: req.ip,
+      });
       return res.status(401).json({ error: "Invalid username or password." });
     }
     // Only said to someone who knows the password, so it leaks nothing.
     if (user.deactivated_at) {
+      req.log.info("auth.login_failed", {
+        user: user.id, name: user.username, reason: "deactivated", ip: req.ip,
+      });
       return res.status(403).json({ error: "This account has been deactivated." });
     }
 
     await startSession(req, user);
-    try { achievements.onVisit(user.id); } catch (e) { console.error("achievements:", e); }
+    req.log.info("auth.login", { user: user.id, name: user.username, ip: req.ip });
+    try {
+      achievements.onVisit(user.id);
+    } catch (err) {
+      req.log.error("achievements.visit_failed", { user: user.id, err });
+    }
     return res.json({ id: user.id, username: user.username });
   } catch (err) {
-    console.error("login failed:", err);
+    req.log.error("auth.login_error", { err });
     return res.status(500).json({ error: "Login failed." });
   }
 });
@@ -135,9 +164,10 @@ router.post("/logout", (req, res) => {
   const sessionId = req.sessionID;
   req.session.destroy((err) => {
     if (err) {
-      console.error("logout failed:", err);
+      req.log.error("auth.logout_error", { err });
       return res.status(500).json({ error: "Logout failed." });
     }
+    req.log.info("auth.logout");
     disconnectSessionSockets(req, sessionId);
     res.clearCookie("connect.sid");
     res.json({ ok: true });

@@ -249,11 +249,13 @@ Events:
   is an exception no handler caught, with its stack; the client gets a bare
   500 `{ error: "Server error." }`, never the stack.
 - **Auth** (the only lines with `ip`): `auth.register`, `auth.login`,
-  `auth.login_failed`, `auth.throttled` (`warn`, with `kind=login|register`),
-  `auth.busy` (`warn`, the argon2 cap), `auth.logout`. A failed login carries
-  `user`/`name` only if the name matches an account, otherwise
-  `unknown_user=true`: the typed string is never logged, because people
-  sometimes type their password into the username field.
+  `auth.login_failed`, `auth.throttled` (`warn`, with `kind=login|register`);
+  without `ip`: `auth.busy` (`warn`, the argon2 cap), `auth.logout`, and
+  `auth.register_error`, `auth.login_error`, `auth.logout_error` (`error`,
+  an exception). `auth.login_failed` has `reason=wrong_password`,
+  `unknown_user` or `deactivated`, and `user`/`name` from the account's own
+  record when there is one: what was typed as the username is never logged,
+  because people sometimes type their password there.
 - **Sockets:** `socket.connect`, `socket.disconnect` (`reason`),
   `socket.handler_failed` and `socket.task_failed` (`error`; the per-event
   wrapper and `safely`). No line per move or chat message.
@@ -264,6 +266,8 @@ Events:
 - **Background and data:** `db.migrated`, `db.case_duplicates` (`warn`),
   `chat.retention` (`removed`, or `error` when the sweep fails),
   `achievements.check_failed` (`error`: check, game, user),
+  `achievements.visit_failed` (`error`: the time-based check on login or a
+  profile visit),
   `lobby.broadcast_failed` (`error`).
 
 What is never logged, and where personal data may appear:
