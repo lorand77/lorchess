@@ -286,6 +286,29 @@ describe("aggregate achievements", () => {
     assert.equal(tiers.games_played, 1);
   });
 
+  test("wins in each variant, and in every variant", () => {
+    const me = makeUser("me");
+    const foe = makeUser("foe");
+    const win = (variant, start = STANDARD_START, moves = ["e2e4", "e7e5"]) => keysOf(achievements.onGameFinished(
+      recordGame({ white: me.id, black: foe.id, variant, start, moves, result: "1-0", termination: "resign" })
+    ), me.id);
+    let keys = win("atomic");
+    assert.ok(has(keys, "atomic_wins") && lacks(keys, "chess960_wins", "pawnwars_wins", "every_variant"), keys);
+    keys = win("chess960", "bqnbrkrn/pppppppp/8/8/8/8/PPPPPPPP/BQNBRKRN w - - 0 1", ["c2c3", "c7c6"]);
+    assert.ok(has(keys, "chess960_wins") && lacks(keys, "every_variant"), keys);
+    keys = win("pawnwars", "pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1", ["a1a2", "a8a7"]);
+    assert.ok(has(keys, "pawnwars_wins") && lacks(keys, "every_variant"), keys);
+    // A win against LorFish is a standard win too.
+    const ai = recordGame({
+      white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",
+      moves: ["e2e4", "e7e5"], result: "1-0", termination: "resign", initialMs: null, rated: 0,
+    });
+    assert.ok(has(keysOf(achievements.onGameFinished(ai), me.id), "every_variant"));
+    for (let i = 0; i < 9; i++) win("atomic");
+    assert.equal(tiersOf(me.id).atomic_wins, 2, "10 Atomic wins: Silver");
+    assert.equal(tiersOf(me.id).chess960_wins, 1);
+  });
+
   test("ten draws in a row make a draw master; games played reaches Silver", () => {
     const me = makeUser("me");
     const foe = makeUser("foe");

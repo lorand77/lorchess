@@ -521,6 +521,14 @@ module.exports = {
       AND ((result = '1-0' AND white_id = @me) OR (result = '0-1' AND black_id = @me))
     GROUP BY initial_ms, increment_ms
   `),
+  // Wins per variant, for the variant badges. Every mode counts; AI games are
+  // always standard, so the other variants are PvP wins anyway.
+  achievementWinsByVariant: db.prepare(`
+    SELECT variant, COUNT(*) AS n FROM games
+    WHERE status = 'finished'
+      AND ((result = '1-0' AND white_id = @me) OR (result = '0-1' AND black_id = @me))
+    GROUP BY variant
+  `),
   achievementMoveStats: db.prepare(`
     SELECT COUNT(*) AS moves,
            COALESCE(SUM(san LIKE 'O-O-O%'), 0) AS long_castles,

@@ -26,6 +26,13 @@ describe("achievement catalogue", () => {
     assert.equal(new Set(names).size, names.length);
   });
 
+  test("every variant but Standard has a win badge", () => {
+    const { VARIANTS } = require("../../src/shared/variants");
+    for (const v of VARIANTS.filter((v) => v.key !== "standard")) {
+      assert.equal(byKey(`${v.key}_wins`).group, "formats", v.key);
+    }
+  });
+
   test("the lookup table mirrors the list", () => {
     assert.equal(Object.keys(BY_KEY).length, ACHIEVEMENTS.length);
     for (const a of ACHIEVEMENTS) assert.equal(BY_KEY[a.key], a);

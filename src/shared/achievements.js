@@ -53,6 +53,16 @@ const ACHIEVEMENTS = [
     desc: "Win {n} rapid games (8 to 25 minutes).", tiers: [1, 10, 50] },
   { key: "well_rounded", name: "Well Rounded", icon: "🧭", group: "formats",
     desc: "Win a game in every time control." },
+  // One per variant in variants.js except Standard, which "Victorious" covers;
+  // a unit test holds the two lists together.
+  { key: "chess960_wins", name: "Shuffle Master", icon: "🔀", group: "formats",
+    desc: "Win {n} Chess960 games.", tiers: [1, 10, 50] },
+  { key: "atomic_wins", name: "Chain Reaction", icon: "💥", group: "formats",
+    desc: "Win {n} Atomic games.", tiers: [1, 10, 50] },
+  { key: "pawnwars_wins", name: "Pawn Storm", icon: "🪖", group: "formats",
+    desc: "Win {n} Pawn Wars games.", tiers: [1, 10, 50] },
+  { key: "every_variant", name: "Jack of All Trades", icon: "🃏", group: "formats",
+    desc: "Win a game in every variant, Standard included." },
   { key: "beat_fish_2", name: "Fish Food", icon: "🐟", group: "formats",
     desc: "Beat LorFish at Intermediate." },
   { key: "fish_slayer", name: "Fish Slayer", icon: "🔱", group: "formats",

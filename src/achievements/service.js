@@ -19,6 +19,7 @@ const queries = require("../db/queries");
 const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/chess");
 const handicap = require("../shared/handicap");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
+const { VARIANTS } = require("../shared/variants");
 const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
 
 const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -411,6 +412,8 @@ function evaluateStats(userId, ref) {
     if (k) byClock[k] = (byClock[k] || 0) + r.n;
   }
   const { bullet, blitz, rapid } = bySpeed;
+  const byVariant = {};
+  for (const r of queries.achievementWinsByVariant.all({ me: userId })) byVariant[r.variant] = r.n;
   const recent = queries.achievementRecentResults.all(userId, userId);
   const attempts = queries.achievementRecentAttempts.all(userId);
   let firstTry = 0;
@@ -436,6 +439,10 @@ function evaluateStats(userId, ref) {
     ["blitz_wins", tierFor("blitz_wins", blitz)],
     ["rapid_wins", tierFor("rapid_wins", rapid)],
     ["well_rounded", TIME_CONTROLS.every((t) => (byClock[t.key] || 0) > 0)],
+    ["chess960_wins", tierFor("chess960_wins", byVariant.chess960 || 0)],
+    ["atomic_wins", tierFor("atomic_wins", byVariant.atomic || 0)],
+    ["pawnwars_wins", tierFor("pawnwars_wins", byVariant.pawnwars || 0)],
+    ["every_variant", VARIANTS.every((v) => (byVariant[v.key] || 0) > 0)],
     ["both_colours", g.wins_white > 0 && g.wins_black > 0],
     ["black_is_ok", tierFor("black_is_ok", g.wins_black)],
     ["castled_both_ways", mv.long_castles > 0 && mv.short_castles > 0],

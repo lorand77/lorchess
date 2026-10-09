@@ -511,9 +511,12 @@ was earned lives in `src/achievements/service.js`:
   comeback, mirror match, …) and run for each human participant. Pasted-FEN AI
   games earn nothing here; only the standard start or a server-built handicap
   counts, since the AI client is authoritative for its own game.
-- **Stats** are aggregate queries (games, wins per time control, castles,
-  puzzle streaks, rating, chat count, anniversary) re-evaluated after every
-  game, puzzle, chat message, login and visit to the page.
+- **Stats** are aggregate queries (games, wins per time control and per
+  variant, castles, puzzle streaks, rating, chat count, anniversary)
+  re-evaluated after every game, puzzle, chat message, login and visit to the
+  page. Every variant but Standard has a `<key>_wins` badge, and "Jack of All
+  Trades" wants a win in each one; a win against LorFish counts for Standard,
+  the only variant AI games are played in.
 - Awarding is an upsert that only writes when the tier goes up, so every
   evaluation is idempotent; `npm run achievements:backfill` replays history.
 
