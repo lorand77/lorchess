@@ -17,7 +17,7 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
 <main class="legal-page">
   <p class="legal-back"><a href="/login.html">← LorChess</a></p>
   <h1>Privacy Policy</h1>
-  <p class="legal-updated">Last updated 30 September 2026</p>
+  <p class="legal-updated">Last updated 9 October 2026</p>
 
   <p>LorChess is a free chess site run by Lorand, an independent developer.
   This page explains what the site stores about you, who can see it, and how
@@ -63,10 +63,15 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
   analysis is sent to us.</p>
 
   <h2>IP addresses and logs</h2>
+  <p>The server keeps logs so that we can find and fix problems. They record
+  what your account does on the site (for example signing in, starting or
+  finishing a game, or loading your statistics) with the time, whether it
+  worked, and your username and account number. They never contain your
+  password, your chat messages or your uploaded images.</p>
   <p>We use your IP address to limit repeated login and sign-up attempts. It
   is held in memory for about 15 minutes, never written to disk, and not kept
-  anywhere else. The server's logs record when a username connects or
-  disconnects, so that we can fix problems.</p>
+  anywhere else.</p>
+  <p>Logs are deleted after 14 days and are not included in backups.</p>
 
   <h2>Where it is kept</h2>
   <p>The site runs on a server at Amazon Web Services. The database is backed
@@ -83,7 +88,7 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
     <li>When an account is deleted, its chat, images, friends and sessions are
     removed. The games stay in your opponents' histories but no longer show
     your name. Copies in backups disappear as those backups expire, within 90
-    days.</li>
+    days, and log entries that mention the account within 14 days.</li>
   </ul>
 
   <h2>Children</h2>

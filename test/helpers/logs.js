@@ -31,12 +31,26 @@ function captureLogs(level = "debug") {
   const previousWrite = log.setWrite((text) => lines.push(parse(text)));
   const previousLevel = log.getLevel();
   log.setLevel(level);
+  // The first line with this event whose fields include all of `fields`.
+  const find = (event, fields = {}) =>
+    lines.find((l) => l.event === event &&
+      Object.entries(fields).every(([k, v]) => l.fields[k] === String(v)));
   return {
     lines,
-    // The first line with this event whose fields include all of `fields`.
-    find: (event, fields = {}) =>
-      lines.find((l) => l.event === event &&
-        Object.entries(fields).every(([k, v]) => l.fields[k] === String(v))),
+    find,
+    // find(), retried until it matches: some lines are written just after the
+    // client has its answer (http.request on the response's close).
+    async waitFor(event, fields = {}, timeoutMs = 2000) {
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const line = find(event, fields);
+        if (line) return line;
+        if (Date.now() > deadline) {
+          throw new Error(`no ${event} ${JSON.stringify(fields)} logged within ${timeoutMs}ms`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    },
     restore() {
       log.setWrite(previousWrite);
       log.setLevel(previousLevel);

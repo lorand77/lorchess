@@ -122,9 +122,9 @@ chmod 600 .env
   obtains a session id (from logs or a DB backup) can turn it into a valid
   cookie. Use a different value per environment and never commit it. Changing it
   invalidates all existing sessions, i.e. logs everyone out.
-- `NODE_ENV=production` — makes Express's default error handler send a bare
-  "Internal Server Error" instead of a stack trace in the HTTP response body.
-  Also makes `npm install` skip devDependencies.
+- `NODE_ENV=production` — makes `npm install` skip devDependencies and puts
+  Express in production mode. (Uncaught errors never send a stack trace to
+  the client either way: `src/app.js` answers them itself.)
 
 Everything else has a default and is read in `src/config.js`; put it in `.env`
 only to change it:

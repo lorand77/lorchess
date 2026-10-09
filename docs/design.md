@@ -242,7 +242,12 @@ Events:
   never the query string), `status`, `ms`, and `user`/`name` when signed in.
   `error` for 5xx, `warn` at 1 s or slower, `info` otherwise. 4xx stays
   `info`: a signed-out page load gets a 401 from `/api/me` every time. Static
-  files are not logged.
+  files are not logged. A request the client abandoned has `aborted=true`;
+  one that never reached a route (unknown path, malformed JSON) has
+  `route=unmatched`. Routers are mounted through `api()` in `src/app.js` so
+  the route survives an error leaving its router. `http.unhandled` (`error`)
+  is an exception no handler caught, with its stack; the client gets a bare
+  500 `{ error: "Server error." }`, never the stack.
 - **Auth** (the only lines with `ip`): `auth.register`, `auth.login`,
   `auth.login_failed`, `auth.throttled` (`warn`, with `kind=login|register`),
   `auth.busy` (`warn`, the argon2 cap), `auth.logout`. A failed login carries
