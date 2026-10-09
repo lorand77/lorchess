@@ -174,6 +174,31 @@ pm2 delete lorchess          # remove from pm2 entirely
 pm2 monit                       # live dashboard: CPU, memory, logs
 ```
 
+### log rotation
+
+pm2 appends the app's stdout and stderr to `~/.pm2/logs/lorchess-out.log` and
+`~/.pm2/logs/lorchess-error.log` and never trims them, so without rotation
+they grow until the disk is full (and SQLite can no longer write). Install
+pm2's rotation module once per server:
+```
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:rotateInterval '0 0 * * *'   # rotate daily at midnight
+pm2 set pm2-logrotate:max_size 50M                 # and early if a file reaches 50 MB
+pm2 set pm2-logrotate:retain 14                    # keep 14 rotated files per log
+pm2 set pm2-logrotate:compress true                # gzip the rotated files
+```
+
+Rotated files sit next to the live ones as `lorchess-out__<date>.log.gz`.
+`retain` counts files, not days: a size-triggered rotation adds a file, so
+the 14 kept cover at most 14 days, never more. Rotation copies the file and
+then truncates it, so the app keeps writing without a restart. pm2's own
+`~/.pm2/pm2.log` is rotated too.
+
+```
+pm2 conf pm2-logrotate     # show the current settings
+ls -lh ~/.pm2/logs/        # live and rotated files with their sizes
+```
+
 ## https with custom domain (Caddy)
 
 - the domain `lorand77.dev` is registered at name.com
