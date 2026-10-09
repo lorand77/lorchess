@@ -181,11 +181,95 @@ the terms ever need to be enforced against someone.
 The privacy policy states facts that the code and operations decide. If one of
 these changes, update the page and its date in the same commit:
 chat is swept after `CHAT_RETENTION_DAYS` (30); sessions last 7 days
-(`src/auth/session.js`); IPs live only in the throttle's memory for
-`AUTH_WINDOW_MS` (15 min); Caddy keeps no access log; uploaded images and
-colours are served only to their owner; nothing is visible when signed out;
-there is no analytics; backups go to Backblaze B2 and are kept for at most 90
-days (`scripts/backup.sh` deletes them after 30).
+(`src/auth/session.js`); IPs live in the throttle's memory for
+`AUTH_WINDOW_MS` (15 min) and are written only on the `auth.*` log lines;
+what the logs hold and their 14-day lifetime (see Logging); Caddy keeps no
+access log; uploaded images and colours are served only to their owner;
+nothing is visible when signed out; there is no analytics; backups go to
+Backblaze B2 and are kept for at most 90 days (`scripts/backup.sh` deletes
+them after 30).
+
+## Logging
+
+The server runs unattended, and by the time someone reports "my game vanished
+last night" the process that knew why has moved on or restarted. The log is
+the only record, so it is written for that reader: someone on the server with
+`less` and `grep`, days later, reconstructing what happened.
+
+- **One module, `src/log.js`, no dependency.** Server code logs through it and
+  never calls `console.*` directly. The CLI scripts in `src/db/` and
+  `scripts/` are exempt: their `console.log` is a tool talking to the person
+  running it, not a log.
+- **Format: logfmt, one line per event, all to stdout.**
+  ```
+  2026-10-09T21:14:03.120Z INFO  game.over game=318 result=0-1 termination=resign
+  2026-10-09T21:14:05.004Z ERROR socket.handler_failed user=7 name=bob event=move err="Cannot read properties of undefined"
+      at applyMove (src/game/socket.js:412:9)
+  ```
+  Time (UTC, ISO), level, event name, then `key=value` fields; values with
+  spaces, quotes or `=` are quoted. An error's stack follows on indented
+  lines. Every level goes to stdout so pm2's `lorchess-out.log` holds the whole
+  story in order; `lorchess-error.log` then only gets what bypasses the logger
+  (Node's own crash output, native-module warnings), so anything there is
+  worth a look. The logger stamps the time itself; pm2's `--time` stays off.
+- **Levels.** `error`: something failed and someone should look. `warn`:
+  unexpected or slow, but served. `info`: a normal event worth a record.
+  `debug`: detail for an investigation. `LOG_LEVEL` (`src/config.js`) defaults
+  to `info`; the tests run `silent`, and `TEST_LOG=1` makes them `debug`.
+- **Event names are fixed, `area.event`** in snake_case, so a search for one
+  finds all of it and this list is the full set. Fields are flat and
+  lower-case; IDs are numbers (`game=318`, `user=12`).
+- **Context is explicit.** `log.child(fields)` returns a logger that adds
+  those fields to every line. Each `/api` request gets an 8-hex `req` id and
+  `req.log` (with `req`, `user`, `name`); each socket gets `socket.log` (with
+  `user`, `name`). Handlers log through those, so an error line and its
+  request line share a `req`.
+
+Events:
+
+- **Process:** `process.start` (version, node, port, db path),
+  `process.resumable` (games left by the previous run, reconnect window),
+  `process.stop` (signal; on SIGTERM/SIGINT the server closes and exits),
+  `process.crash` (`error`, on `uncaughtException`/`unhandledRejection`; the
+  process then exits 1 and pm2 restarts it).
+- **HTTP:** `http.request` once per `/api` request when the response
+  finishes: `method`, `route` (the matched pattern, e.g. `/api/games/:id`,
+  never the query string), `status`, `ms`, and `user`/`name` when signed in.
+  `error` for 5xx, `warn` at 1 s or slower, `info` otherwise. 4xx stays
+  `info`: a signed-out page load gets a 401 from `/api/me` every time. Static
+  files are not logged.
+- **Auth** (the only lines with `ip`): `auth.register`, `auth.login`,
+  `auth.login_failed`, `auth.throttled` (`warn`, with `kind=login|register`),
+  `auth.busy` (`warn`, the argon2 cap), `auth.logout`. A failed login carries
+  `user`/`name` only if the name matches an account, otherwise
+  `unknown_user=true`: the typed string is never logged, because people
+  sometimes type their password into the username field.
+- **Sockets:** `socket.connect`, `socket.disconnect` (`reason`),
+  `socket.handler_failed` and `socket.task_failed` (`error`; the per-event
+  wrapper and `safely`). No line per move or chat message.
+- **Games:** `game.start` (`white`/`white_name`, `black`/`black_name`, time
+  control, `rated`, variant), `game.over` (`result`, `termination`),
+  `game.rematch`, `game.restart_sweep` (`aborted` count),
+  `game.corrupt_record` (`error`: ply, move, FEN).
+- **Background and data:** `db.migrated`, `db.case_duplicates` (`warn`),
+  `chat.retention` (`removed`, or `error` when the sweep fails),
+  `achievements.check_failed` (`error`: check, game, user),
+  `lobby.broadcast_failed` (`error`).
+
+What is never logged, and where personal data may appear:
+
+- **Users** appear as `user=<id> name=<username>`, always together: the name
+  for reading, the id because a deleted account's name can be registered again.
+- **IPs** appear only on the `auth.*` lines above, for dealing with password
+  guessing and mass sign-ups. Never on requests, sockets or games.
+- **Never:** passwords or hashes, session ids, cookies, request bodies, query
+  strings, chat text, uploaded content. As a safety net the logger replaces
+  any field named `password`, `hash`, `secret`, `token`, `session`, `sid`,
+  `cookie` or `authorization` with `[redacted]`; the rule is not to pass them.
+- **Lifetime:** pm2 writes the files and `pm2-logrotate` keeps 14 daily files
+  (`setup.md`), so a line lives at most 14 days. Logs are not in the backups:
+  `scripts/backup.sh` copies only the database. `public/privacy.html` says
+  all of this; change it with anything in this list.
 
 ## Database
 
