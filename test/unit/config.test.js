@@ -11,7 +11,7 @@ const CONFIG = require.resolve("../../src/config");
 const VARS = [
   "PORT", "SESSION_SECRET", "DB_PATH", "GRACE_MS", "DEACTIVATION_SWEEP_MS", "CLOCK_MS", "CLOCK_INC_MS",
   "RESUME_WINDOW_MS", "CHAT_RETENTION_DAYS", "ELO_K",
-  "AUTH_WINDOW_MS", "LOGIN_MAX_FAILURES", "REGISTER_MAX", "HASH_MAX_CONCURRENT",
+  "AUTH_WINDOW_MS", "LOGIN_MAX_FAILURES", "REGISTER_MAX", "HASH_MAX_CONCURRENT", "LOG_LEVEL",
 ];
 
 function loadConfig(env = {}) {
@@ -49,6 +49,7 @@ describe("config", () => {
     assert.equal(c.LOGIN_MAX_FAILURES, 10);
     assert.equal(c.REGISTER_MAX, 5);
     assert.equal(c.HASH_MAX_CONCURRENT, 2);
+    assert.equal(c.LOG_LEVEL, "info");
   });
 
   test("environment overrides are parsed as integers", () => {
@@ -58,6 +59,7 @@ describe("config", () => {
       CLOCK_MS: "180000", CLOCK_INC_MS: "2000", RESUME_WINDOW_MS: "60000",
       CHAT_RETENTION_DAYS: "7", ELO_K: "16", AUTH_WINDOW_MS: "60000",
       LOGIN_MAX_FAILURES: "3", REGISTER_MAX: "1", HASH_MAX_CONCURRENT: "4",
+      LOG_LEVEL: "debug",
     });
     assert.equal(c.PORT, 8080);
     assert.equal(c.SESSION_SECRET, "s3cret");
@@ -73,6 +75,7 @@ describe("config", () => {
     assert.equal(c.LOGIN_MAX_FAILURES, 3);
     assert.equal(c.REGISTER_MAX, 1);
     assert.equal(c.HASH_MAX_CONCURRENT, 4);
+    assert.equal(c.LOG_LEVEL, "debug");
   });
 
   test("unparseable numbers fall back to the defaults", () => {

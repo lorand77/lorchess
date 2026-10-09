@@ -203,19 +203,22 @@ the only record, so it is written for that reader: someone on the server with
 - **Format: logfmt, one line per event, all to stdout.**
   ```
   2026-10-09T21:14:03.120Z INFO  game.over game=318 result=0-1 termination=resign
-  2026-10-09T21:14:05.004Z ERROR socket.handler_failed user=7 name=bob event=move err="Cannot read properties of undefined"
+  2026-10-09T21:14:05.004Z ERROR socket.handler_failed user=7 name=bob event=move err="TypeError: Cannot read properties of undefined"
       at applyMove (src/game/socket.js:412:9)
   ```
   Time (UTC, ISO), level, event name, then `key=value` fields; values with
-  spaces, quotes or `=` are quoted. An error's stack follows on indented
-  lines. Every level goes to stdout so pm2's `lorchess-out.log` holds the whole
+  spaces, quotes, `=` or anything outside printable ASCII are JSON-quoted, so
+  no value can break the line or fake a field. An error is written as
+  `name: message`, its stack frames on indented lines below. Every level goes to stdout so pm2's `lorchess-out.log` holds the whole
   story in order; `lorchess-error.log` then only gets what bypasses the logger
   (Node's own crash output, native-module warnings), so anything there is
   worth a look. The logger stamps the time itself; pm2's `--time` stays off.
 - **Levels.** `error`: something failed and someone should look. `warn`:
   unexpected or slow, but served. `info`: a normal event worth a record.
   `debug`: detail for an investigation. `LOG_LEVEL` (`src/config.js`) defaults
-  to `info`; the tests run `silent`, and `TEST_LOG=1` makes them `debug`.
+  to `info`; an unknown value logs `log.bad_level` and uses `info`. The tests
+  run `silent`, `TEST_LOG=1` makes them `debug`, and `captureLogs()` in
+  `test/helpers/logs.js` lets a test assert that a line was written.
 - **Event names are fixed, `area.event`** in snake_case, so a search for one
   finds all of it and this list is the full set. Fields are flat and
   lower-case; IDs are numbers (`game=318`, `user=12`).
@@ -227,11 +230,13 @@ the only record, so it is written for that reader: someone on the server with
 
 Events:
 
-- **Process:** `process.start` (version, node, port, db path),
-  `process.resumable` (games left by the previous run, reconnect window),
-  `process.stop` (signal; on SIGTERM/SIGINT the server closes and exits),
-  `process.crash` (`error`, on `uncaughtException`/`unhandledRejection`; the
-  process then exits 1 and pm2 restarts it).
+- **Process** (`src/server.js`): `process.start` (version, node, url, db
+  path), `process.resumable` (games left by the previous run, reconnect
+  window), `process.stop` (signal; on SIGTERM/SIGINT the process exits at
+  once, which is safe because every move is already in SQLite and games
+  resume on the next start), `process.crash` (`error`, on
+  `uncaughtException`/`unhandledRejection`; the process then exits 1 and pm2
+  restarts it).
 - **HTTP:** `http.request` once per `/api` request when the response
   finishes: `method`, `route` (the matched pattern, e.g. `/api/games/:id`,
   never the query string), `status`, `ms`, and `user`/`name` when signed in.
@@ -263,9 +268,10 @@ What is never logged, and where personal data may appear:
 - **IPs** appear only on the `auth.*` lines above, for dealing with password
   guessing and mass sign-ups. Never on requests, sockets or games.
 - **Never:** passwords or hashes, session ids, cookies, request bodies, query
-  strings, chat text, uploaded content. As a safety net the logger replaces
-  any field named `password`, `hash`, `secret`, `token`, `session`, `sid`,
-  `cookie` or `authorization` with `[redacted]`; the rule is not to pass them.
+  strings, chat text, uploaded content. As a safety net the logger writes
+  `[redacted]` for any field whose name has one of the words `password`,
+  `hash`, `secret`, `token`, `session`, `sid`, `cookie` or `authorization`
+  (`password_hash`, `sessionID`); the rule is not to pass them.
 - **Lifetime:** pm2 writes the files and `pm2-logrotate` keeps 14 daily files
   (`setup.md`), so a line lives at most 14 days. Logs are not in the backups:
   `scripts/backup.sh` copies only the database. `public/privacy.html` says

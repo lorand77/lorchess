@@ -60,4 +60,8 @@ module.exports = {
 
   // Starting puzzle rating for a new account.
   PUZZLE_START_RATING: 1200,
+
+  // How much the server logs: silent, error, warn, info or debug (src/log.js).
+  // An unknown value logs a warning and falls back to info.
+  LOG_LEVEL: process.env.LOG_LEVEL || "info",
 };

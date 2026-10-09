@@ -147,6 +147,8 @@ only to change it:
   900000, i.e. 15 min); past that, 429 until the window moves on.
 - `HASH_MAX_CONCURRENT` — how many password hashes or checks may run at once
   (default 2, one per vCPU); more get 503 "server busy" instead of waiting.
+- `LOG_LEVEL` — `error`, `warn`, `info` or `debug` (default `info`); `debug`
+  adds detail for an investigation. See "Logging" in `design.md`.
 
 ## run the app
 ```
