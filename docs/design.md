@@ -377,6 +377,12 @@ above it and the score formatting are the replay's.
   Stockfish, as in the review.
 - Standard rules only. A Chess960 FEN loads; Atomic and Pawn Wars positions
   would get standard-chess answers, so there is no variant picker.
+- **A Practice tab** (`#practice`, beside `#analysis`) is the same board with
+  the engine off and the bar hidden: both sides are played by hand, the board
+  turns to face the side to move, and Undo takes the last move back rather
+  than stepping through the line. Each tab keeps its own game, so practising
+  never disturbs an analysis. The URL stays the analysis board's; the practice
+  moves are kept in `sessionStorage`, enough to survive a refresh.
 
 ## Real-time PvP
 

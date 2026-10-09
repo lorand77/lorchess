@@ -11,6 +11,12 @@
 // (?fen=…&moves=e2e4,e7e5), so a refresh or a shared link reopens the same
 // board. Moves are spelled as the engine and the game records spell them,
 // castling by the rook square.
+//
+// The Practice tab (#practice) is the same board without the engine: both
+// sides are played by hand, the board turns to face whoever is to move, and
+// Undo takes the last move back. Each tab keeps its own game, so practising
+// leaves the analysis where it was. The practice game lives in sessionStorage,
+// not the URL, which stays the analysis board's.
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -20,18 +26,22 @@
   const depthEl = $("engineDepth"), lineEl = $("engineLine"), engineErrEl = $("engineError");
   const toggleEl = $("engineToggle"), fenOutEl = $("fenOut");
   const fenPanel = $("fenPanel"), fenText = $("fenText"), fenError = $("fenError");
+  const tabsEl = $("boardTabs");
 
   // Remembers whether the engine was switched off, across visits.
   const ENGINE_KEY = "lorchess.analysisEngine";
   // How much of the engine's line to spell out under the bar.
   const PV_SHOWN = 10;
+  // The practice game's moves, so a refresh keeps it.
+  const PRACTICE_KEY = "lorchess.practice";
 
   const chess = new Chess();
   let startFen = STANDARD_START;
   let line = [];        // [{ uci, san }] from the start position
   let idx = 0;          // plies of `line` on the board
   let lastMove = null;
-  let flip = false;
+  let flip = false;      // the analysis tab's own choice; practice follows the turn
+  let mode = "analysis"; // or "practice": the tab on show
   let selected = null, legal = [];
   let pendingPromo = null;
   let engineOn = localStorage.getItem(ENGINE_KEY) !== "off";
@@ -87,13 +97,21 @@
     if (line[idx] && line[idx].uci === uci) return goto(idx + 1);
     line = line.slice(0, idx);
     line.push({ uci, san: chess.moveToSan(m) });
-    saveUrl();
+    save();
     goto(idx + 1);
   }
 
-  // Start again from `fen` (null: the standard start), with `uciMoves` played
-  // as far as they are legal. Throws, changing nothing, on a FEN that won't load.
-  function load(fen, uciMoves) {
+  // Practice only: take the last move back for good.
+  function undo() {
+    if (!idx) return;
+    line = line.slice(0, idx - 1);
+    save();
+    goto(line.length);
+  }
+
+  // A game from `fen` (null: the standard start) with `uciMoves` played as far
+  // as they are legal. Throws on a FEN that won't load.
+  function gameOf(fen, uciMoves) {
     const scratch = new Chess();
     scratch.loadFen(fen || STANDARD_START);
     const kept = [];
@@ -103,10 +121,20 @@
       kept.push({ uci: uciOf(m), san: scratch.moveToSan(m) });
       scratch.makeMove(m);
     }
-    startFen = fen || STANDARD_START;
-    line = kept;
-    saveUrl();
+    return { startFen: fen || STANDARD_START, line: kept };
+  }
+
+  // Start the tab on show again from `fen`, with `uciMoves` played. Throws,
+  // changing nothing, on a FEN that won't load.
+  function load(fen, uciMoves) {
+    ({ startFen, line } = gameOf(fen, uciMoves));
+    save();
     goto(line.length);
+  }
+
+  function save() {
+    if (mode === "practice") sessionStorage.setItem(PRACTICE_KEY, line.map((x) => x.uci).join(","));
+    else saveUrl();
   }
 
   function saveUrl() {
@@ -115,7 +143,7 @@
     if (line.length) params.set("moves", line.map((x) => x.uci).join(","));
     // Slashes and commas are fine in a query and far easier to read unescaped.
     const query = params.toString().replace(/%2F/g, "/").replace(/%2C/g, ",");
-    history.replaceState(null, "", location.pathname + (query ? "?" + query : ""));
+    history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
   }
 
   // ---- board ----
@@ -123,10 +151,11 @@
   function render() {
     boardEl.innerHTML = "";
     const inCheck = chess.inCheck();
+    const turned = mode === "practice" ? chess.turn === B : flip;
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
-        const r = flip ? row : 7 - row;
-        const f = flip ? 7 - col : col;
+        const r = turned ? row : 7 - row;
+        const f = turned ? 7 - col : col;
         const sq = sqIdx(f, r);
         const div = el("div", "square " + ((r + f) % 2 === 0 ? "dark" : "light"));
         div.dataset.sq = sq; // boardDrag.js and boardArrows.js find squares by this
@@ -249,7 +278,8 @@
       if (white) historyEl.append(el("span", "mv-num", number + "."), " ");
       else if (k === 0) historyEl.append(el("span", "mv-num", number + "…"), " ");
       const span = el("span", "mv" + (k + 1 === idx ? " current" : ""), mv.san);
-      span.addEventListener("click", () => goto(k + 1));
+      // Practice has no stepping back and forth, only Undo.
+      if (mode === "analysis") span.addEventListener("click", () => goto(k + 1));
       historyEl.append(span, " ");
       if (!white) number++;
       white = !white;
@@ -277,7 +307,7 @@
   // over there: Stockfish is never asked about a finished position.
   function analyse() {
     if (!engineFailed) engineErrEl.textContent = "";
-    if (!engineOn || engineFailed) { live.stop(); clearEval(); return; }
+    if (mode === "practice" || !engineOn || engineFailed) { live.stop(); clearEval(); return; }
     if (chess.isGameOver()) {
       live.stop();
       const mate = chess.isCheckmate();
@@ -364,12 +394,16 @@
   $("lastBtn").onclick = () => goto(line.length);
   $("flipBtn").onclick = () => { flip = !flip; render(); barEl.classList.toggle("flipped", flip); };
   $("resetBtn").onclick = () => load(null, []);
+  $("undoBtn").onclick = undo;
   fenOutEl.addEventListener("focus", () => fenOutEl.select());
 
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (fenPanel.classList.contains("show") || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-    if (e.key === "ArrowLeft") goto(idx - 1);
+    if (mode === "practice") {
+      if (e.key === "Backspace") undo();
+      else return;
+    } else if (e.key === "ArrowLeft") goto(idx - 1);
     else if (e.key === "ArrowRight") goto(idx + 1);
     else if (e.key === "Home") goto(0);
     else if (e.key === "End") goto(line.length);
@@ -393,14 +427,47 @@
     fenPanel.classList.remove("show");
   });
 
+  // ---- tabs ----
+
+  // The game of the tab not on show, with where it was stepped to.
+  const shelved = {};
+
+  // Show the tab named in the hash, putting the other tab's game away.
+  function showTab() {
+    let next = location.hash.slice(1);
+    if (!tabsEl.querySelector(`[data-tab="${CSS.escape(next)}"]`)) next = "analysis";
+    for (const a of tabsEl.querySelectorAll("[data-tab]")) {
+      const on = a.dataset.tab === next;
+      a.classList.toggle("current", on);
+      a.setAttribute("aria-selected", String(on));
+    }
+    for (const n of document.querySelectorAll("[data-mode]")) n.hidden = n.dataset.mode !== next;
+    // Hidden rather than removed, so the board keeps its size between tabs.
+    barEl.style.visibility = next === "practice" ? "hidden" : "";
+    if (next !== mode) {
+      shelved[mode] = { startFen, line, idx };
+      ({ startFen, line, idx } = shelved[next]);
+      mode = next;
+    }
+    goto(idx);
+  }
+  window.addEventListener("hashchange", showTab);
+
   // ---- start ----
 
   const params = new URLSearchParams(location.search);
   const moves = (params.get("moves") || "").split(",").filter(Boolean);
+  let linkError = null;
   try {
-    load(params.get("fen"), moves);
+    ({ startFen, line } = gameOf(params.get("fen"), moves));
   } catch (e) {
-    load(null, []);
-    engineErrEl.textContent = "That link's position didn't load: " + e.message;
+    ({ startFen, line } = gameOf(null, []));
+    linkError = "That link's position didn't load: " + e.message;
   }
+  idx = line.length;
+  saveUrl(); // drops whatever part of the link didn't load
+  const practice = gameOf(null, (sessionStorage.getItem(PRACTICE_KEY) || "").split(",").filter(Boolean));
+  shelved.practice = { ...practice, idx: practice.line.length };
+  showTab();
+  if (linkError) engineErrEl.textContent = linkError;
 })();

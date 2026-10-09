@@ -35,9 +35,15 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
   <div class="info">
     <div class="userbar" id="userbar"></div>
     <h2>Analysis board</h2>
+    <!-- Tabs are #analysis / #practice, so a link or a refresh keeps the tab.
+         Elements with data-mode show on that tab only. -->
+    <nav class="profile-tabs" id="boardTabs" role="tablist">
+      <a href="#analysis" data-tab="analysis" role="tab">🔍 Analysis</a>
+      <a href="#practice" data-tab="practice" role="tab">♟️ Practice</a>
+    </nav>
     <p id="positionStatus" class="muted"></p>
 
-    <section class="analysis-engine">
+    <section class="analysis-engine" data-mode="analysis">
       <div class="analysis-engine-head">
         <label class="analysis-toggle">
           <input type="checkbox" id="engineToggle" checked> Stockfish 19
@@ -50,7 +56,7 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
 
     <h3>Moves</h3>
     <div id="history"></div>
-    <p id="analysisControls">
+    <p id="analysisControls" data-mode="analysis">
       <button id="firstBtn" title="Start (Home)">⏮</button>
       <button id="prevBtn" title="Previous (←)">◀</button>
       <button id="nextBtn" title="Next (→)">▶</button>
@@ -58,12 +64,16 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
       <button id="flipBtn" title="Flip board (F)">⇅</button>
     </p>
     <p>
+      <button id="undoBtn" data-mode="practice" title="Take back the last move (Backspace)">Undo</button>
       <button id="resetBtn">New board</button>
-      <button id="loadFenBtn">Load FEN</button>
+      <button id="loadFenBtn" data-mode="analysis">Load FEN</button>
     </p>
-    <label class="muted small" for="fenOut">FEN of this position</label>
-    <input id="fenOut" class="analysis-fen" type="text" readonly spellcheck="false">
-    <p class="muted" style="font-size:12px;">Move either side by clicking or dragging. Playing a different move from an earlier position replaces the moves after it.</p>
+    <div data-mode="analysis">
+      <label class="muted small" for="fenOut">FEN of this position</label>
+      <input id="fenOut" class="analysis-fen" type="text" readonly spellcheck="false">
+      <p class="muted" style="font-size:12px;">Move either side by clicking or dragging. Playing a different move from an earlier position replaces the moves after it.</p>
+    </div>
+    <p class="muted" style="font-size:12px;" data-mode="practice">Play both sides, without the engine. The board turns to face whoever is to move.</p>
   </div>
 </div>
 
