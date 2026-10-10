@@ -66,5 +66,6 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
   use no Node-only or DOM-only APIs.
 - Time controls, variants and achievements are allowlists in `src/shared/`.
   Add entries there, not in ad-hoc lists elsewhere.
-- Native modules need a rebuild after `npm install` because `ignore-scripts` is
-  on globally: see "run the app" in `docs/setup.md`.
+- Native modules need a rebuild after `npm ci` / `npm install` because
+  `ignore-scripts` is on globally, and it must be `\npm rebuild`: the socket
+  alias's rebuild silently does nothing. See "run the app" in `docs/setup.md`.

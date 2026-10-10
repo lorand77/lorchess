@@ -44,6 +44,17 @@ npm install PACKAGE_NAME     ## routed via socket now
 npm install PACKAGE_NAME --ignore-scripts=false
 ```
 
+The wrapper aliases `npm` to `socket npm`. A leading backslash (`\npm`) skips the
+alias and runs plain npm, without Socket's check. Three things the wrapper changes:
+- It scans only packages that an install adds or changes in `node_modules`. For
+  a full scan: `rm -rf node_modules && npm ci`, and look for
+  `Socket npm found no risks` (not "no *new* risks").
+- It adds `--no-audit` whenever `node_modules` exists, so `npm audit fix` fixes
+  nothing. Use `npm audit fix --audit`.
+- `npm rebuild` through it runs no install scripts, yet still reports success.
+  Rebuild with `\npm rebuild ...`; the packages were already scanned when they
+  were installed.
+
 ### install claude code
 ```
 curl -fsSL https://claude.ai/install.sh | bash
@@ -51,14 +62,16 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ## run the app
 ```
-npm install
+npm ci             # installs exactly package-lock.json; wipes node_modules first
 
 # Native modules (better-sqlite3, argon2) compile a binary in their install
 # script. Two gates block that script; the rebuild below clears both:
 #   1. our global ignore-scripts=true  -> --ignore-scripts=false lifts it
 #   2. npm 12's install-script allowlist -> already granted by "allowScripts"
 #      in package.json (committed), so no `npm install-scripts approve` needed
-npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
+# The backslash bypasses the socket alias, whose rebuild silently does nothing.
+# Needed after every `npm ci`, since that deletes the compiled binary.
+\npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
 
 npm start
 ```
@@ -122,7 +135,7 @@ chmod 600 .env
   obtains a session id (from logs or a DB backup) can turn it into a valid
   cookie. Use a different value per environment and never commit it. Changing it
   invalidates all existing sessions, i.e. logs everyone out.
-- `NODE_ENV=production` — makes `npm install` skip devDependencies and puts
+- `NODE_ENV=production` — makes `npm ci` / `npm install` skip devDependencies and puts
   Express in production mode. (Uncaught errors never send a stack trace to
   the client either way: `src/app.js` answers them itself.)
 
@@ -152,7 +165,7 @@ only to change it:
 
 ## run the app
 ```
-npm install
+npm ci
 npm start
 ```
 
@@ -229,9 +242,15 @@ sudo systemctl reload caddy
 ## deploying new code
 ```
 git pull
-npm install        # in case dependencies changed
+npm ci             # exactly the committed package-lock.json, nothing re-resolved
 pm2 restart lorchess
 ```
+
+`npm ci` deletes `node_modules` and reinstalls, so restart straight after.
+Here ignore-scripts is not set, so the native modules build during `npm ci`. If
+it ever is set on the server, add the `\npm rebuild ...` line from the dev
+"run the app" section before restarting. Never `npm install` or `npm audit fix`
+on the server: change dependencies in dev, test, commit the lockfile, deploy.
 
 ## changing a user's password
 
