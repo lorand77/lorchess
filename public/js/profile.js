@@ -9,6 +9,11 @@
 // tab is shown, so opening the page doesn't also open the Friends socket or
 // fetch a game list nobody asked for. The tab lives in the URL hash, so tabs
 // can be linked to and back/forward moves between them.
+//
+// On your own profile the tabs are also listed in the left rail (shell.js), so
+// the page's tab bar is marked .in-rail and styles.css hides it wherever the
+// rail has room for them. Someone else's profile keeps it: the rail's links
+// go to your own tabs, not theirs.
 
 (function () {
   const id = new URLSearchParams(location.search).get("id");
@@ -61,6 +66,7 @@
     metaEl.textContent = "Joined " + fmtDate(u.createdAt);
     if (!you) renderVisitor(u);
 
+    tabsEl.classList.toggle("in-rail", you);
     tabsEl.style.display = "";
     show();
     window.addEventListener("hashchange", show);

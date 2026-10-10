@@ -1175,6 +1175,10 @@ body.has-shell .topbar {
 .rail-legal { margin-top: auto; padding: 12px 12px 0; display: flex; gap: 12px; font-size: 12px; }
 .rail-legal a { color: var(--text-muted); text-decoration: none; }
 .rail-legal a:hover { color: var(--text-2); }
+/* My Profile's tabs, indented under it. While one of them is current, the
+   parent is only emphasised so the open tab is the one that stands out. */
+.app-rail .rail-sub { padding: 6px 12px 6px 30px; font-size: 13px; }
+.app-rail .rail-parent.current { background: none; border-left-color: transparent; color: var(--text); }
 
 .app-main {
   margin-left: var(--rail-w);
@@ -1216,6 +1220,13 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
   .app-rail .rail-item.current { border-left: none; border-bottom-color: var(--link); }
   .rail-legal { margin: 0 0 0 auto; padding: 0 6px; align-items: center; white-space: nowrap; }
   .app-main { margin-left: 0; padding-top: 0; }
+  /* A single row has no room for nesting: the profile page's own tab bar
+     takes over, and My Profile is highlighted like any other page. */
+  .app-rail .rail-sub { display: none; }
+  .app-rail .rail-parent.current { background: #3d6098; color: #fff; }
+}
+@media (min-width: 701px) {
+  body.has-shell .profile-tabs.in-rail { display: none; }
 }
 
 /* Hidden until a page with a socket puts text in it. */

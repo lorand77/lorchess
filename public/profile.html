@@ -20,7 +20,8 @@ try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light")
   <p id="profileError" class="check-text"></p>
 
   <!-- Tabs are #stats / #games / #achievements / #friends, so each one can be
-       linked to. On someone else's profile, Games and Friends are read-only. -->
+       linked to. On someone else's profile, Games and Friends are read-only.
+       On your own, the rail lists the tabs and this bar shows only on phones. -->
   <nav class="profile-tabs" id="profileTabs" role="tablist" style="display:none;">
     <a href="#stats" data-tab="stats" role="tab">📊 Stats</a>
     <a href="#games" data-tab="games" role="tab">📜 <span data-you="My Games" data-them="Games">My Games</span></a>

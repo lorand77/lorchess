@@ -11,12 +11,23 @@
 //
 // game.html and replay.html load it too; styles.css narrows the shell around
 // the board there (body.has-shell .game).
+//
+// The profile's tabs are listed under My Profile as sub-items, on every page,
+// so any of them is one click away. They are plain links to the tab's hash;
+// profile.js does the switching. On a phone the rail is a single row with no
+// room for nesting, so styles.css hides them there and the profile page keeps
+// its own tab bar.
 
 (function () {
   const ITEMS = [
     { href: "/lobby.html",        icon: "▶",  label: "Play" },
     { href: "/puzzles.html",      icon: "🧩", label: "Puzzles" },
-    { href: "/profile.html",      icon: "👤", label: "My Profile" },
+    { href: "/profile.html",      icon: "👤", label: "My Profile", children: [
+      { tab: "stats",        icon: "📊", label: "Stats" },
+      { tab: "games",        icon: "📜", label: "My Games" },
+      { tab: "achievements", icon: "🏅", label: "Achievements" },
+      { tab: "friends",      icon: "👥", label: "Friends" },
+    ] },
     { href: "/settings.html",     icon: "🎨", label: "Customize" },
     { href: "/leaderboard.html",  icon: "🏆", label: "Leaderboard" },
     { href: "/analysis.html",     icon: "📈", label: "Analysis Board" },
@@ -70,15 +81,43 @@
   // Someone else's profile is not "yours": keep the Profile rail item as a link
   // back to your own.
   const someoneElses = new URLSearchParams(location.search).has("id");
+  let ownProfile = here === "/profile.html" && !someoneElses;
   for (const item of ITEMS) {
     const current = here === item.href && !(someoneElses && here === "/profile.html");
     // The page you are on is not a link to itself.
     const node = el(current ? "span" : "a", "rail-item" + (current ? " current" : ""));
     if (current) node.setAttribute("aria-current", "page");
     else node.href = item.href;
+    if (item.children) node.classList.add("rail-parent");
     node.append(el("span", "rail-icon", item.icon), el("span", "rail-label", item.label));
     rail.appendChild(node);
+    // Sub-items stay links even when current: switching tabs only changes the
+    // hash, and swapping elements on every hashchange buys nothing.
+    for (const sub of item.children || []) {
+      const a = el("a", "rail-item rail-sub");
+      a.href = item.href + "#" + sub.tab;
+      a.dataset.tab = sub.tab;
+      a.append(el("span", "rail-icon", sub.icon), el("span", "rail-label", sub.label));
+      rail.appendChild(a);
+    }
   }
+
+  // On your own profile, highlight the open tab. An unknown or empty hash is
+  // the first tab, as in profile.js.
+  function markProfileTab() {
+    if (!ownProfile) return;
+    const subs = rail.querySelectorAll(".rail-sub");
+    const key = location.hash.slice(1);
+    const open = Array.prototype.some.call(subs, (a) => a.dataset.tab === key) ? key : subs[0].dataset.tab;
+    for (const a of subs) {
+      const on = a.dataset.tab === open;
+      a.classList.toggle("current", on);
+      if (on) a.setAttribute("aria-current", "true");
+      else a.removeAttribute("aria-current");
+    }
+  }
+  markProfileTab();
+  window.addEventListener("hashchange", markProfileTab);
   // Terms and privacy, pinned to the bottom of the rail. The pages themselves
   // carry no shell: they must be readable before anyone has an account.
   const legal = el("div", "rail-legal");
@@ -95,10 +134,12 @@
     if (new URLSearchParams(location.search).get("id") !== String(e.detail.id)) return;
     const link = rail.querySelector('a.rail-item[href="/profile.html"]');
     if (!link) return;
-    const current = el("span", "rail-item current");
+    const current = el("span", "rail-item rail-parent current");
     current.setAttribute("aria-current", "page");
     current.append(...link.childNodes);
     link.replaceWith(current);
+    ownProfile = true;
+    markProfileTab();
   });
 
   const main = el("div", "app-main");
