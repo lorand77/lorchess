@@ -45,7 +45,7 @@ npm install PACKAGE_NAME --ignore-scripts=false
 ```
 
 The wrapper aliases `npm` to `socket npm`. A leading backslash (`\npm`) skips the
-alias and runs plain npm, without Socket's check. Three things the wrapper changes:
+alias and runs plain npm, without Socket's check. Four things the wrapper changes:
 - It scans only packages that an install adds or changes in `node_modules`. For
   a full scan: `rm -rf node_modules && npm ci`, and look for
   `Socket npm found no risks` (not "no *new* risks").
@@ -54,6 +54,11 @@ alias and runs plain npm, without Socket's check. Three things the wrapper chang
 - `npm rebuild` through it runs no install scripts, yet still reports success.
   Rebuild with `\npm rebuild ...`; the packages were already scanned when they
   were installed.
+- Scripts (`npm test`, `npm run dev`, `npm start`) run under Node's permission
+  model, allowed to write only in the project, npm's prefix and npm's cache.
+  The tests put their database in the OS temp dir, so through the wrapper they
+  fail with `ERR_ACCESS_DENIED`. Run scripts with `node --run test` (built into
+  Node, no npm) or `\npm test`.
 
 ### install claude code
 ```
@@ -78,6 +83,36 @@ npm start
 
 ## test in browser
 open http://localhost:3000
+
+## updating node, npm and socket
+```
+node --version; npm --version; socket --version
+npm outdated -g                  # what's newer for socket (and npm, if installed globally)
+
+# node (stays on 24.x), with the npm 11 bundled with it (e.g. 24.21.0 -> 11.19.0)
+sudo apt update && sudo apt install --only-upgrade nodejs
+
+# socket, through the alias so socket checks its own update; if it trips over
+# replacing itself mid-install, run it once as \npm install -g ...
+npm install -g @socketsecurity/cli
+
+# check: a full socket scan, the native rebuild and the tests
+rm -rf node_modules && npm ci    # look for "Socket npm found no risks"
+\npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
+node --run test
+```
+
+- npm stays on the version bundled with Node; dev keeps npm 11, as the socket
+  wrapper patches npm's installer and is known to work with 11. For a newer 11
+  than the bundled one: `npm install -g npm@11`. It lands in `~/.npm-global/bin`,
+  ahead of `/usr/bin/npm` on PATH (`hash -r` in open shells), and from then on
+  Node updates no longer change npm; `npm uninstall -g npm` goes back to the
+  bundled one.
+- `min-release-age=7` applies to these global installs too: a release younger
+  than 7 days is skipped, which is why `npm outdated -g` may "want" an older
+  version than "latest".
+- A 24.x update keeps the native-module ABI, so the rebuild is only strictly
+  needed after a new Node major, or after `npm ci`.
 
 
 --------------------------------------------------------
