@@ -59,16 +59,17 @@ full report, the plans and every game are in
 The run (Oct 2026, 7,740 games, Stockfish 100 ms a move) gave, with 95%
 intervals: Novice 383 (338–428), Beginner 822 (785–858), Casual 1323
 (1305–1343), Intermediate 1626 (1592–1662) and Advanced 1971 (1919–2026):
-each 80–170 above what earlier runs of 20 games a level gave. The playing levels in
-`src/shared/aiLevels.js` carry these rounded to 100s: Novice (~400, depth 1 at
-T=300), Beginner (~800, depth 1 at T=120), Casual (~1300, depth 1 at T=10),
-Intermediate (~1600, depth 2) and Advanced (~2000, depth 4). The ratings are
-on Stockfish's engine scale rather than a human one, and the lite build
-probably plays below its `UCI_Elo`, which would make them read high. The
-intervals grow down the chain, and they leave out how far Stockfish's own
-labels are off. Games still going at 300 plies count as draws; 104 did, 67 of
-them Novice's, and dropping them puts Novice at 364 and moves no other level
-more than 4.
+each 80–170 above what earlier runs of 20 games a level gave. The ratings are
+on Stockfish's engine scale rather than a human one, so the labels in
+`src/shared/aiLevels.js` are set 200 to 300 lower, closer to what the levels
+would be rated on chess.com: Novice (~200, depth 1 at T=300), Beginner (~600,
+depth 1 at T=120), Casual (~1000, depth 1 at T=10), Intermediate (~1400,
+depth 2) and Advanced (~1800, depth 4). That offset is a judgement, not a
+measurement. The lite build probably plays below its `UCI_Elo`, which would
+make the measured ratings read high. The intervals grow down the chain, and
+they leave out how far Stockfish's own labels are off. Games still going at
+300 plies count as draws; 104 did, 67 of them Novice's, and dropping them puts
+Novice at 364 and moves no other level more than 4.
 
 Dead-material detection follows the variant: in Atomic, opposing bishops on
 the same square colour can explode a king and must not trigger the standard

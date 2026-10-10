@@ -78,7 +78,7 @@
     return "";
   }
 
-  // "Casual (~1300)". Games from before levels have only a depth, shown as
+  // "Casual (~1000)". Games from before levels have only a depth, shown as
   // that; null if neither, as on the replay page.
   function aiStrength(g) {
     if (AI_LEVELS_BY_KEY.has(g.ai_level)) return aiLevelLabel(g.ai_level);
