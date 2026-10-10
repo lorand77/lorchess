@@ -143,7 +143,13 @@ git clone https://github.com/lorand77/lorchess.git
 ```
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
-sudo npm install -g npm@latest
+```
+
+npm stays the version bundled with Node (11), as on dev; Node updates bring it
+along. No `npm install -g npm`: an npm installed that way is replaced by the
+bundled one on the next Node update anyway. Updating Node:
+```
+sudo apt update && sudo apt install --only-upgrade nodejs
 ```
 
 ## configure environment
@@ -223,6 +229,28 @@ pm2 stop lorchess            # stop without removing from pm2's list
 pm2 delete lorchess          # remove from pm2 entirely
 pm2 monit                       # live dashboard: CPU, memory, logs
 ```
+
+### updating pm2
+
+Two parts: the global package (installed with sudo) and the daemon already
+running the app, which keeps the old version until told to reload.
+```
+sudo npm outdated -g            # as ubuntu: current vs latest pm2
+sudo npm install -g pm2@latest
+
+sudo -u lorchess -i
+pm2 update                      # saves the list, restarts the daemon and the app (a few seconds down)
+pm2 list                        # lorchess "online"
+pm2 save
+```
+
+- Until `pm2 update`, pm2 warns "In-memory PM2 is out-of-date".
+- The boot service from `pm2 startup` calls `/usr/bin/pm2`, which doesn't move,
+  so `pm2 startup` needn't be rerun.
+- `sudo npm` reads root's config, not lorchess's: a `min-release-age` for
+  global installs needs `sudo npm config set min-release-age=7`.
+- A Node update leaves pm2 installed, but the daemon keeps the old Node until
+  `pm2 update`.
 
 ### log rotation
 
