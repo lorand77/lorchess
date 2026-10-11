@@ -65,6 +65,8 @@ alias and runs plain npm, without Socket's check. Four things the wrapper change
 curl -fsSL https://claude.ai/install.sh | bash
 ```
 
+or install the VSC extension
+
 ## run the app
 ```
 npm ci             # installs exactly package-lock.json; wipes node_modules first
@@ -86,10 +88,6 @@ open http://localhost:3000
 
 ## updating node, npm and socket
 ```
-node --version; npm --version; socket --version
-npm outdated -g                  # what's newer for socket (and npm, if installed globally)
-
-# node (stays on 24.x), with the npm 11 bundled with it (e.g. 24.21.0 -> 11.19.0)
 sudo apt update && sudo apt install --only-upgrade nodejs
 
 # socket, through the alias so socket checks its own update; if it trips over
@@ -97,23 +95,10 @@ sudo apt update && sudo apt install --only-upgrade nodejs
 npm install -g @socketsecurity/cli
 
 # check: a full socket scan, the native rebuild and the tests
-rm -rf node_modules && npm ci    # look for "Socket npm found no risks"
+npm ci    # look for "Socket npm found no risks"
 \npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
-node --run test
+\npm test
 ```
-
-- npm stays on the version bundled with Node; dev keeps npm 11, as the socket
-  wrapper patches npm's installer and is known to work with 11. For a newer 11
-  than the bundled one: `npm install -g npm@11`. It lands in `~/.npm-global/bin`,
-  ahead of `/usr/bin/npm` on PATH (`hash -r` in open shells), and from then on
-  Node updates no longer change npm; `npm uninstall -g npm` goes back to the
-  bundled one.
-- `min-release-age=7` applies to these global installs too: a release younger
-  than 7 days is skipped, which is why `npm outdated -g` may "want" an older
-  version than "latest".
-- A 24.x update keeps the native-module ABI, so the rebuild is only strictly
-  needed after a new Node major, or after `npm ci`.
-
 
 --------------------------------------------------------
 
@@ -145,9 +130,7 @@ curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
 
-npm stays the version bundled with Node (11), as on dev; Node updates bring it
-along. No `npm install -g npm`: an npm installed that way is replaced by the
-bundled one on the next Node update anyway. Updating Node:
+Updating Node:
 ```
 sudo apt update && sudo apt install --only-upgrade nodejs
 ```
@@ -235,22 +218,23 @@ pm2 monit                       # live dashboard: CPU, memory, logs
 Two parts: the global package (installed with sudo) and the daemon already
 running the app, which keeps the old version until told to reload.
 ```
-sudo npm outdated -g            # as ubuntu: current vs latest pm2
 sudo npm install -g pm2@latest
 
 sudo -u lorchess -i
 pm2 update                      # saves the list, restarts the daemon and the app (a few seconds down)
-pm2 list                        # lorchess "online"
 pm2 save
 ```
 
-- Until `pm2 update`, pm2 warns "In-memory PM2 is out-of-date".
-- The boot service from `pm2 startup` calls `/usr/bin/pm2`, which doesn't move,
-  so `pm2 startup` needn't be rerun.
-- `sudo npm` reads root's config, not lorchess's: a `min-release-age` for
-  global installs needs `sudo npm config set min-release-age=7`.
 - A Node update leaves pm2 installed, but the daemon keeps the old Node until
   `pm2 update`.
+- The boot service from `pm2 startup` calls `/usr/bin/pm2`, which doesn't move,
+  so `pm2 startup` needn't be rerun.
+
+Check:
+```
+pm2 list                        # lorchess "online"
+```
+
 
 ### log rotation
 
