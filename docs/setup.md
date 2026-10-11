@@ -291,9 +291,14 @@ sudo apt update && sudo apt install -y caddy
 /etc/caddy/Caddyfile:
 ```
 lorchess.lorand77.dev {
+    header Strict-Transport-Security "max-age=31536000"
     reverse_proxy localhost:3000
 }
 ```
+
+The HSTS line matches lorciv's Caddy block. It changes nothing in practice:
+browsers already force HTTPS on every `.dev` host (see "Content Security
+Policy" in `docs/design.md`).
 
 ```
 sudo systemctl reload caddy

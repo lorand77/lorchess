@@ -217,9 +217,11 @@ object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
   symptom; the browser console says `Refused to … Content Security Policy`.
   The browser tests (`test/browser/`) fail on any such message.
 
-No HSTS header: `.dev` is on the browsers' HSTS preload list as a whole
-TLD, so they already refuse plain HTTP to every `*.lorand77.dev` host before
-a request is made.
+HSTS is set in Caddy, not here (`Strict-Transport-Security: max-age=31536000`,
+no `includeSubDomains`, no `preload`; see `setup.md`), only to match lorciv.
+It adds no protection: `.dev` is on the browsers' HSTS preload list as a whole
+TLD, so they already refuse plain HTTP to every `*.lorand77.dev` host before a
+request is made.
 
 ## Terms and privacy
 
