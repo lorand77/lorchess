@@ -74,7 +74,7 @@ npm ci             # installs exactly package-lock.json; wipes node_modules firs
 # Native modules (better-sqlite3, argon2) compile a binary in their install
 # script. Two gates block that script; the rebuild below clears both:
 #   1. our global ignore-scripts=true  -> --ignore-scripts=false lifts it
-#   2. npm 12's install-script allowlist -> already granted by "allowScripts"
+#   2. npm's install-script allowlist -> already granted by "allowScripts"
 #      in package.json (committed), so no `npm install-scripts approve` needed
 # The backslash bypasses the socket alias, whose rebuild silently does nothing.
 # Needed after every `npm ci`, since that deletes the compiled binary.
@@ -86,7 +86,8 @@ npm start
 ## test in browser
 open http://localhost:3000
 
-## updating node, npm and socket
+## updating node and socket
+npm is the version bundled with Node and is updated along with it.
 ```
 sudo apt update && sudo apt install --only-upgrade nodejs
 
@@ -114,13 +115,17 @@ are kept in the appendix at the end, for reference only.
 
 ```
 ssh ubuntu@IP_ADDRESS
-adduser --disabled-password --gecos "" lorchess
-sudo -u lorchess -i
+sudo adduser --disabled-password --gecos "" lorchess
 ```
+
+`lorchess` owns the code, the database and the pm2 daemon, and has no sudo.
+Commands starting with `sudo` run as `ubuntu`; everything else runs as
+`lorchess`, after `sudo -u lorchess -i`.
 
 
 ## project code
 ```
+sudo -u lorchess -i
 git clone https://github.com/lorand77/lorchess.git
 ```
 
@@ -134,6 +139,8 @@ Updating Node:
 ```
 sudo apt update && sudo apt install --only-upgrade nodejs
 ```
+then `pm2 update` as `lorchess`: the app keeps running on the old Node until
+then (see "updating pm2").
 
 ## configure environment
 
@@ -159,8 +166,9 @@ chmod 600 .env
   obtains a session id (from logs or a DB backup) can turn it into a valid
   cookie. Use a different value per environment and never commit it. Changing it
   invalidates all existing sessions, i.e. logs everyone out.
-- `NODE_ENV=production` — makes `npm ci` / `npm install` skip devDependencies and puts
-  Express in production mode. (Uncaught errors never send a stack trace to
+- `NODE_ENV=production` — puts Express in production mode. npm never reads
+  `.env`, so it does not make `npm ci` skip devDependencies: that is what
+  `--omit=dev` is for. (Uncaught errors never send a stack trace to
   the client either way: `src/app.js` answers them itself.)
 
 Everything else has a default and is read in `src/config.js`; put it in `.env`
@@ -184,24 +192,27 @@ only to change it:
   900000, i.e. 15 min); past that, 429 until the window moves on.
 - `HASH_MAX_CONCURRENT` — how many password hashes or checks may run at once
   (default 2, one per vCPU); more get 503 "server busy" instead of waiting.
-- `LOG_LEVEL` — `error`, `warn`, `info` or `debug` (default `info`); `debug`
-  adds detail for an investigation. See "Logging" in `design.md`.
+- `DEACTIVATION_SWEEP_MS` — how often sockets of accounts deactivated from the
+  command line are disconnected (default 30000, i.e. 30 s).
+- `LOG_LEVEL` — `silent`, `error`, `warn`, `info` or `debug` (default `info`);
+  `debug` adds detail for an investigation. See "Logging" in `design.md`.
 
 ## run the app
 ```
-npm ci
+npm ci --omit=dev
 npm start
 ```
 
 or better use pm2:
 ```
-sudo npm install -g pm2
+sudo npm install -g pm2         # as ubuntu
 
+sudo -u lorchess -i
 pm2 start npm --name "lorchess" -- start
 
 # survive reboot:
 pm2 save
-pm2 startup
+pm2 startup                     # prints a `sudo env PATH=... pm2 startup ...` line: run that as ubuntu
 
 
 pm2 list                        # see all running processes and their status
@@ -289,7 +300,7 @@ sudo systemctl reload caddy
 ## deploying new code
 ```
 git pull
-npm ci             # exactly the committed package-lock.json, nothing re-resolved
+npm ci --omit=dev  # exactly the committed package-lock.json, nothing re-resolved
 pm2 restart lorchess
 ```
 
@@ -362,17 +373,21 @@ for example by changing their board colours to a value you name.
 ## backing up sqlite database
 
 ```
-apt install sqlite3
-mkdir -p backups
+sudo apt install sqlite3        # as ubuntu
 
-sqlite3 data/lorchess.sqlite "VACUUM INTO 'backups/lorchess-backup-$(date +\%F).sqlite'"
+sudo -u lorchess -i
+cd ~/lorchess
+mkdir -p ~/backups
+sqlite3 data/lorchess.sqlite "VACUUM INTO '$HOME/backups/lorchess-backup-$(date +%F).sqlite'"
 ```
 
 and move the backup file somewhere safe (e.g. download to local machine, upload to cloud storage etc.)
 
+Restore, in the project dir:
 ```
+rclone copy b2:lorchess-backups/lorchess-backup-DATE.sqlite ~/backups/   # only if it isn't in ~/backups
 pm2 stop lorchess
-cp backups/lorchess-backup-DATE.sqlite data/lorchess.sqlite
+cp ~/backups/lorchess-backup-DATE.sqlite data/lorchess.sqlite
 rm -f data/lorchess.sqlite-wal data/lorchess.sqlite-shm
 pm2 start lorchess
 ```
@@ -380,18 +395,22 @@ pm2 start lorchess
 ### backup to B2
 
 ```
-apt install rclone
+sudo apt install rclone         # as ubuntu
+
+sudo -u lorchess -i
 rclone config
 rclone copy test1.txt b2:lorchess-backups/
 # restore:
 rclone copy b2:lorchess-backups/test1.txt .
 ```
 
-and create a cron job to run the backup script daily 
-`scripts/backup.sh`and `crontab -e` to add a line like:
+and create a cron job to run the backup script `scripts/backup.sh` daily: as
+`lorchess`, `crontab -e` and add
 ```
-0 3 * * * /home/lorchess/lorchess/scripts/backup.sh
+0 3 * * * /home/lorchess/lorchess/scripts/backup.sh >> /home/lorchess/backups/backup.log 2>&1
 ```
+It writes to `~/backups/`, the same folder as the manual backup above, and
+keeps 7 days there and 30 days in B2.
 
 
 --------------------------------------------------------
