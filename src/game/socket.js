@@ -11,6 +11,7 @@
 const { Server } = require("socket.io");
 const log = require("../log");
 const sessionMiddleware = require("../auth/session");
+const { sameOrigin } = require("../auth/sameOrigin");
 const matchmaking = require("./matchmaking");
 const lobby = require("./lobby");
 const rooms = require("./rooms");
@@ -87,7 +88,10 @@ function reloadSocketSession(socket, done) {
 }
 
 function attachSockets(httpServer) {
-  const io = new Server(httpServer);
+  // Only LorChess's own pages may open a socket; see src/auth/sameOrigin.js.
+  const io = new Server(httpServer, {
+    allowRequest: (req, done) => done(null, sameOrigin(req)),
+  });
 
   // Games left 'active' by the previous run are waiting to be resumed. Give
   // the players a window to reconnect, then abort whatever nobody claimed.

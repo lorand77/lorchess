@@ -117,7 +117,22 @@ of keeping lists of their own that would drift the same way.
   the usual presence and game-disconnect cleanup. Separate logins on the same
   account remain connected.
 - Cookie: `httpOnly`, `sameSite: lax`, `secure: "auto"` behind `trust proxy`
-  (Caddy terminates TLS), 7 days. Sessions are rows in SQLite.
+  (Caddy terminates TLS), 7 days. Sessions are rows in SQLite. In production
+  it is named `__Host-sid` (`SESSION_COOKIE` in `src/config.js`): the browser
+  then refuses any copy with a `Domain` attribute, so another `*.lorand77.dev`
+  app cannot plant a session cookie for LorChess. The prefix requires
+  `Secure`, so dev over plain HTTP keeps `connect.sid`, and production must be
+  reached over HTTPS or no one can sign in.
+- **Same-origin check** (`src/auth/sameOrigin.js`). Lax does not separate
+  LorChess from other apps under `lorand77.dev` such as lorciv: `.dev` is a
+  public suffix, so they are all one *site* and get the cookie. CORS does not
+  cover what they could do with it: a WebSocket handshake, or a POST with no
+  body (`/api/settings/reset`, `/api/friends/requests/:id/accept`), which
+  needs no preflight. So the Socket.IO handshake (`allowRequest`) and every
+  non-GET `/api` request are refused (403) when the `Origin` header names
+  another host than `Host`. Requests without `Origin` pass: browsers send it
+  on every WebSocket and non-GET fetch, so those are not from a page. Caddy
+  forwards `Host` unchanged, which the check relies on.
 - Usernames that differ only in case are one name: registration refuses the
   second, and a `COLLATE NOCASE` unique index backs that check where the
   database allows it (an old database with such pairs boots with a warning).
@@ -245,8 +260,8 @@ Events:
   `error` for 5xx, `warn` at 1 s or slower, `info` otherwise. 4xx stays
   `info`: a signed-out page load gets a 401 from `/api/me` every time. Static
   files are not logged. A request the client abandoned has `aborted=true`;
-  one that never reached a route (unknown path, malformed JSON) has
-  `route=unmatched`. Routers are mounted through `api()` in `src/app.js` so
+  one that never reached a route (unknown path, malformed JSON, a
+  cross-origin 403) has `route=unmatched`. Routers are mounted through `api()` in `src/app.js` so
   the route survives an error leaving its router. `http.unhandled` (`error`)
   is an exception no handler caught, with its stack; the client gets a bare
   500 `{ error: "Server error." }`, never the stack.

@@ -26,6 +26,7 @@ const sessionMiddleware = session({
     // Periodically purge expired rows from the sessions table.
     expired: { clear: true, intervalMs: 15 * 60 * 1000 },
   }),
+  name: config.SESSION_COOKIE,
   secret: config.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,

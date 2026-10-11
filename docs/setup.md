@@ -166,7 +166,9 @@ chmod 600 .env
   obtains a session id (from logs or a DB backup) can turn it into a valid
   cookie. Use a different value per environment and never commit it. Changing it
   invalidates all existing sessions, i.e. logs everyone out.
-- `NODE_ENV=production` — puts Express in production mode. npm never reads
+- `NODE_ENV=production` — puts Express in production mode and names the
+  session cookie `__Host-sid`, which browsers only accept over HTTPS: the
+  site must be reached through Caddy, not on port 3000. npm never reads
   `.env`, so it does not make `npm ci` skip devDependencies: that is what
   `--omit=dev` is for. (Uncaught errors never send a stack trace to
   the client either way: `src/app.js` answers them itself.)
@@ -433,6 +435,8 @@ What a PaaS needs from this app, should one ever be considered again:
   `--env-file-if-exists`, so they start fine without one.
 - TLS terminated at the platform's edge. `src/app.js` trusts one proxy hop
   (`trust proxy`), which is what lets the session cookie be `secure` behind it.
+  The edge must forward the `Host` header unchanged: socket handshakes and
+  `/api` changes are refused when the browser's `Origin` does not match it.
 
 ## setup
 

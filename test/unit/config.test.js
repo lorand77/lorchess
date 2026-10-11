@@ -11,7 +11,7 @@ const CONFIG = require.resolve("../../src/config");
 const VARS = [
   "PORT", "SESSION_SECRET", "DB_PATH", "GRACE_MS", "DEACTIVATION_SWEEP_MS", "CLOCK_MS", "CLOCK_INC_MS",
   "RESUME_WINDOW_MS", "CHAT_RETENTION_DAYS", "ELO_K",
-  "AUTH_WINDOW_MS", "LOGIN_MAX_FAILURES", "REGISTER_MAX", "HASH_MAX_CONCURRENT", "LOG_LEVEL",
+  "AUTH_WINDOW_MS", "LOGIN_MAX_FAILURES", "REGISTER_MAX", "HASH_MAX_CONCURRENT", "LOG_LEVEL", "NODE_ENV",
 ];
 
 function loadConfig(env = {}) {
@@ -50,6 +50,12 @@ describe("config", () => {
     assert.equal(c.REGISTER_MAX, 5);
     assert.equal(c.HASH_MAX_CONCURRENT, 2);
     assert.equal(c.LOG_LEVEL, "info");
+    assert.equal(c.SESSION_COOKIE, "connect.sid");
+  });
+
+  test("production names the session cookie with the __Host- prefix", () => {
+    assert.equal(loadConfig({ NODE_ENV: "production" }).SESSION_COOKIE, "__Host-sid");
+    assert.equal(loadConfig({ NODE_ENV: "development" }).SESSION_COOKIE, "connect.sid");
   });
 
   test("environment overrides are parsed as integers", () => {

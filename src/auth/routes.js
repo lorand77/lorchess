@@ -169,7 +169,8 @@ router.post("/logout", (req, res) => {
     }
     req.log.info("auth.logout");
     disconnectSessionSockets(req, sessionId);
-    res.clearCookie("connect.sid");
+    // A __Host- cookie is only replaced by one with the same Secure and Path.
+    res.clearCookie(config.SESSION_COOKIE, { path: "/", secure: req.secure, httpOnly: true, sameSite: "lax" });
     res.json({ ok: true });
   });
 });

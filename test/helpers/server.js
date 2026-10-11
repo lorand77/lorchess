@@ -117,10 +117,11 @@ const openSockets = new Set();
 // Connect a Socket.IO client as the user whose session cookie this is. Rejects
 // with the handshake error when the server refuses the connection. The
 // `welcome` payload the server sends on connection is kept on socket.welcome.
-function connectSocket(baseUrl, cookie) {
+// `headers` go on the handshake too (an Origin, say, as a browser would send).
+function connectSocket(baseUrl, cookie, headers = {}) {
   const socket = ioClient(baseUrl, {
     transports: ["websocket"],
-    extraHeaders: cookie ? { Cookie: `connect.sid=${cookie}` } : {},
+    extraHeaders: { ...headers, ...(cookie ? { Cookie: `connect.sid=${cookie}` } : {}) },
     reconnection: false,
     forceNew: true,
   });

@@ -18,6 +18,12 @@ module.exports = {
   // Signs the session cookie. MUST be overridden in production via env.
   SESSION_SECRET: process.env.SESSION_SECRET || "dev-insecure-secret-change-me",
 
+  // The session cookie's name. In production the __Host- prefix makes the
+  // browser refuse any copy that carries a Domain attribute, so another
+  // *.lorand77.dev app cannot plant one for LorChess. The prefix also demands
+  // Secure, which plain-HTTP localhost cannot give, so dev keeps the old name.
+  SESSION_COOKIE: process.env.NODE_ENV === "production" ? "__Host-sid" : "connect.sid",
+
   // Single-file SQLite database (created on first run).
   DB_PATH: process.env.DB_PATH || path.join(__dirname, "..", "data", "lorchess.sqlite"),
 
