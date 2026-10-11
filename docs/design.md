@@ -184,9 +184,10 @@ of keeping lists of their own that would drift the same way.
   let anyone lock a player out by typing their name. Passwords are 6–128
   characters; a longer one fails login without being verified.
 
-## Content Security Policy
+## Security headers
 
-`src/app.js` sends one policy on every Express response:
+`src/app.js` sends three headers on every Express response. The
+Content-Security-Policy:
 
 ```
 default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline';
@@ -198,7 +199,7 @@ object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
   handlers and `javascript:` URLs are all refused. So pages have none; the
   theme snippet that paints the cached colour scheme before the first frame
   is `public/js/themeBoot.js`, a blocking `<script src>` in `<head>`.
-  `test/integration/static.csp.test.js` fails on any inline script, handler
+  `test/integration/static.headers.test.js` fails on any inline script, handler
   or `javascript:` URL in `public/*.html`.
 - **`'wasm-unsafe-eval'`** lets Stockfish compile its WebAssembly. It allows
   nothing for JavaScript: no `eval`, no `new Function`. Workers and the
@@ -213,6 +214,19 @@ object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
   `default-src 'none'`. Responses from Socket.IO's own endpoint
   (`/socket.io/`) do not pass through Express and carry none; they are
   script and JSON, not pages.
+- **`Cross-Origin-Opener-Policy: same-origin`.** A page on another origin
+  that opens LorChess with `window.open` gets a dead handle back, so it can
+  neither navigate the tab to a fake login page later (tabnabbing) nor probe
+  it. Sibling subdomains count as other origins. LorChess opens no popups
+  that need a handle; its new-tab links use `noopener`.
+- **`Cross-Origin-Resource-Policy: same-origin`.** No other origin may embed
+  a LorChess response as `<img>`, `<script>` and the like. lorciv is
+  same-site, so such a load would carry the cookie: an `<img>` of an uploaded
+  asset would tell it, by `onload` or `onerror`, whether the visitor is signed
+  in, and the response bytes would land in its process. `same-origin`, not
+  `same-site`, because the threat is a sibling. Nothing outside LorChess
+  embeds its files.
+- Both match what lorciv sends.
 - **Checking a change:** a page that suddenly does nothing is the usual
   symptom; the browser console says `Refused to … Content Security Policy`.
   The browser tests (`test/browser/`) fail on any such message.

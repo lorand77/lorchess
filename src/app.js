@@ -53,8 +53,8 @@ function requestLog(req, res, next) {
   next();
 }
 
-// The Content-Security-Policy on every Express response; see "Content Security
-// Policy" in docs/design.md. Scripts only from our own files, so an injected
+// The Content-Security-Policy on every Express response; see "Security
+// headers" in docs/design.md. Scripts only from our own files, so an injected
 // <script> or onclick= never runs ('wasm-unsafe-eval' is for Stockfish).
 // Inline style attributes are allowed: CSS cannot run code. No framing, so
 // another site (lorciv included) cannot overlay LorChess and steal clicks.
@@ -69,8 +69,16 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+// Opener: a page on another origin (lorciv included) that opens LorChess in a
+// window gets a dead handle, so it cannot navigate that tab or probe it.
+// Resource: no other origin may embed our responses (an <img> of an uploaded
+// asset would tell it whether the visitor is signed in).
 function securityHeaders(req, res, next) {
-  res.set("Content-Security-Policy", CSP);
+  res.set({
+    "Content-Security-Policy": CSP,
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+  });
   next();
 }
 

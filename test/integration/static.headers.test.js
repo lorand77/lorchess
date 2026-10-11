@@ -1,8 +1,8 @@
 "use strict";
 
-// Every response carries the Content-Security-Policy from src/app.js, and no
-// page needs what it forbids: an inline <script>, an on*= handler or a
-// javascript: URL would silently stop working under it.
+// Every response carries the security headers from src/app.js, and no page
+// needs what the Content-Security-Policy forbids: an inline <script>, an on*=
+// handler or a javascript: URL would silently stop working under it.
 
 const fs = require("fs");
 const path = require("path");
@@ -24,15 +24,17 @@ function assertPolicy(res, what) {
   assert.equal(script, "script-src 'self' 'wasm-unsafe-eval'", what);
   assert.match(csp, /frame-ancestors 'none'/, what);
   assert.match(csp, /object-src 'none'/, what);
+  assert.equal(res.headers.get("cross-origin-opener-policy"), "same-origin", what);
+  assert.equal(res.headers.get("cross-origin-resource-policy"), "same-origin", what);
 }
 
-test("pages, scripts and the API all carry the policy", async () => {
+test("pages, scripts and the API all carry the headers", async () => {
   for (const url of ["/login.html", "/game.html", "/js/ui.js", "/js/chess.js", "/api/me"]) {
     assertPolicy(await fetch(srv.baseUrl + url), url);
   }
 });
 
-test("an uploaded image keeps its own stricter policy", async () => {
+test("an uploaded image keeps its own stricter CSP, and no other origin may embed it", async () => {
   const { c } = await registerUser(srv.baseUrl, "csp");
   const cookie = "connect.sid=" + c.cookie();
   const put = await fetch(srv.baseUrl + "/api/settings/assets/sqLight", {
@@ -41,6 +43,7 @@ test("an uploaded image keeps its own stricter policy", async () => {
   assert.equal(put.status, 200);
   const res = await fetch(srv.baseUrl + "/api/settings/assets/sqLight", { headers: { Cookie: cookie } });
   assert.equal(res.headers.get("content-security-policy"), "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+  assert.equal(res.headers.get("cross-origin-resource-policy"), "same-origin");
 });
 
 test("no page has inline script, an inline handler or a javascript: URL", () => {

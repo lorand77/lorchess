@@ -297,8 +297,8 @@ lorchess.lorand77.dev {
 ```
 
 The HSTS line matches lorciv's Caddy block. It changes nothing in practice:
-browsers already force HTTPS on every `.dev` host (see "Content Security
-Policy" in `docs/design.md`).
+browsers already force HTTPS on every `.dev` host (see "Security headers"
+in `docs/design.md`).
 
 ```
 sudo systemctl reload caddy
