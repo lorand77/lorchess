@@ -559,7 +559,9 @@ sockets, clocks and timers.
   server state, so a restart never interrupted them.
 - **Spectating.** `game.html?watch=<id>` joins a live game read-only via
   `game:watch`. Spectator chat reaches only other spectators; player chat
-  reaches only the opponent.
+  reaches only the opponent. Besides landing in the chat log, an incoming
+  message pops up bottom-right for 3 s (`public/js/chatToast.js`, one at a
+  time, never for your own).
 
 ## The board talks to a "move source"
 

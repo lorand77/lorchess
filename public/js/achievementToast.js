@@ -9,7 +9,10 @@ const AchievementToast = (function () {
   const SHOW_MS = 7000;
   let host = null;
 
+  // chatToast.js puts its toasts in this same stack and may have made it first.
   function container() {
+    if (host) return host;
+    host = document.querySelector(".ach-toasts");
     if (host) return host;
     host = document.createElement("div");
     host.className = "ach-toasts";

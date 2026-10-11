@@ -882,6 +882,34 @@ img.drag-piece {
 .ach-toast-name { font-weight: bold; font-size: 14px; }
 .ach-toast-desc { font-size: 12px; color: #c8c8c8; }
 
+/* Incoming-chat toast (public/js/chatToast.js): shares the .ach-toasts stack,
+   with a quieter border so the two are not confused. */
+.chat-toast {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  padding: 8px 12px;
+  background: #2a2f3a;
+  border: 1px solid #7a6bc4;
+  border-radius: 8px;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateX(24px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: auto;
+  overflow-wrap: anywhere;
+}
+.chat-toast.show { opacity: 1; transform: none; }
+.chat-toast-who { font-size: 12px; font-weight: bold; color: #c9b8ff; }
+.chat-toast-text { font-size: 13px; }
+
 /* ---- membership page (placeholder: no plans, no working codes yet) ---- */
 .membership-page { width: 460px; max-width: 100%; margin: 32px auto 0; }
 .membership-page h1 { margin: 8px 0 4px; }

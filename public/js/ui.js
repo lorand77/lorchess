@@ -1239,6 +1239,9 @@ function appendChat(m) {
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 24;
   log.appendChild(chatLine(m));
   if (atBottom) log.scrollTop = log.scrollHeight;
+  // Pop up what others say; your own message comes back here too, skip it.
+  const mine = window.currentUser && m.userId === window.currentUser.id;
+  if (!mine && typeof ChatToast !== 'undefined') ChatToast.show(m);
 }
 
 function setChatHistory(list) {
