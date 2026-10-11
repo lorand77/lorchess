@@ -184,6 +184,43 @@ of keeping lists of their own that would drift the same way.
   let anyone lock a player out by typing their name. Passwords are 6–128
   characters; a longer one fails login without being verified.
 
+## Content Security Policy
+
+`src/app.js` sends one policy on every Express response:
+
+```
+default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline';
+object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+```
+
+- **Scripts only from our own files.** An XSS that gets markup into a page
+  (a username, a chat line) still cannot run it: inline `<script>`, `on*=`
+  handlers and `javascript:` URLs are all refused. So pages have none; the
+  theme snippet that paints the cached colour scheme before the first frame
+  is `public/js/themeBoot.js`, a blocking `<script src>` in `<head>`.
+  `test/integration/static.csp.test.js` fails on any inline script, handler
+  or `javascript:` URL in `public/*.html`.
+- **`'wasm-unsafe-eval'`** lets Stockfish compile its WebAssembly. It allows
+  nothing for JavaScript: no `eval`, no `new Function`. Workers and the
+  `.wasm` fetch are same-origin, covered by `'self'`.
+- **Inline styles are allowed.** Pages use `style="…"` attributes, and
+  injected CSS cannot run code. Styles set from script (`el.style.x`) are not
+  restricted by CSP either way.
+- **`frame-ancestors 'none'`**: no site can load LorChess in a frame, so none
+  can lay an invisible board over its own page and steal clicks.
+- A route may set a stricter policy of its own: uploaded images are served
+  with `default-src 'none'; sandbox`, and Express's built-in 404 has
+  `default-src 'none'`. Responses from Socket.IO's own endpoint
+  (`/socket.io/`) do not pass through Express and carry none; they are
+  script and JSON, not pages.
+- **Checking a change:** a page that suddenly does nothing is the usual
+  symptom; the browser console says `Refused to … Content Security Policy`.
+  The browser tests (`test/browser/`) fail on any such message.
+
+No HSTS header: `.dev` is on the browsers' HSTS preload list as a whole
+TLD, so they already refuse plain HTTP to every `*.lorand77.dev` host before
+a request is made.
+
 ## Terms and privacy
 
 `public/terms.html` and `public/privacy.html` are plain static pages without

@@ -21,6 +21,10 @@ async function signedInPage(browser, baseUrl, t) {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  // Chromium reports what the Content-Security-Policy blocked as a console error.
+  page.on("console", (msg) => {
+    if (/Content Security Policy/.test(msg.text())) errors.push(msg.text());
+  });
   t.after(() => require("node:assert/strict").deepEqual(errors, [], "browser exceptions"));
   return { page, user };
 }

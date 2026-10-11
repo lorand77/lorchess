@@ -53,6 +53,27 @@ function requestLog(req, res, next) {
   next();
 }
 
+// The Content-Security-Policy on every Express response; see "Content Security
+// Policy" in docs/design.md. Scripts only from our own files, so an injected
+// <script> or onclick= never runs ('wasm-unsafe-eval' is for Stockfish).
+// Inline style attributes are allowed: CSS cannot run code. No framing, so
+// another site (lorciv included) cannot overlay LorChess and steal clicks.
+// A route may replace it with a stricter one (the uploaded-image route does).
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
+function securityHeaders(req, res, next) {
+  res.set("Content-Security-Policy", CSP);
+  next();
+}
+
 // Errors no handler dealt with: Express 5 passes thrown errors and rejected
 // promises here. Logged with the request id and the stack, answered with
 // neither. Express's own handler would print to stderr, outside the log.
@@ -72,6 +93,8 @@ function createServer() {
   // X-Forwarded-Proto — required for the session cookie's secure:"auto" to
   // activate over HTTPS.
   app.set("trust proxy", 1);
+
+  app.use(securityHeaders);
 
   // --- API: JSON body parsing, sessions, auth + game routes ---
   app.use(sessionMiddleware);

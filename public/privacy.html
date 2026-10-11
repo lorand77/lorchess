@@ -5,11 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LorChess — Privacy Policy</title>
 <link rel="stylesheet" href="/css/styles.css">
-<script>
-// Paint with the cached scheme before the first frame; theme.js takes over.
-// No shell or authGuard: this page must be readable before anyone has an account.
-try { if (JSON.parse(localStorage.getItem("lorchess.theme")).scheme === "light") document.documentElement.dataset.scheme = "light"; } catch (e) {}
-</script>
+<!-- No shell or authGuard: this page must be readable before anyone has an account. -->
+<script src="/js/themeBoot.js"></script>
 </head>
 <body>
 <!-- Every statement here describes what the code does. If you change what is
