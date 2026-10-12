@@ -5,6 +5,8 @@ time.
 
 **Live:** https://lorchess.lorand77.dev
 
+![LorChess home page: play options, players online and the daily puzzle](screenshot.png)
+
 ## Features
 
 - Real-time games against other players, with clocks kept on the server and
