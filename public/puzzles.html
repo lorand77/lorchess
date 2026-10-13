@@ -28,6 +28,13 @@
     <!-- Daily puzzles only: wrong moves left before the attempt fails. -->
     <p class="puzzle-tries" id="triesLine"></p>
     <p class="puzzle-status" id="statusLine"></p>
+    <!-- The solution, stepped through one move at a time (also ← → Home End). -->
+    <div class="puzzle-stepper" id="stepper" style="display:none;">
+      <button id="stepFirst" title="Start (Home)">⏮</button>
+      <button id="stepPrev" title="Previous move (←)">◀</button>
+      <button id="stepNext" class="primary" title="Next move (→)">▶</button>
+      <button id="stepLast" title="End (End)">⏭</button>
+    </div>
     <div class="puzzle-actions">
       <button id="giveUpBtn" style="display:none;">Give up</button>
       <!-- Members: drop the held puzzle unrated. Everyone else sees the perk. -->

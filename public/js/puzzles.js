@@ -7,6 +7,8 @@
 // us whether we're still on track, replying with the opponent's answer.
 // A daily puzzle allows a few wrong moves: the server answers "miss" with the
 // tries left, and the move is taken back. Only solving it extends the streak.
+// Once the puzzle is over, its solution is stepped through by hand (buttons or
+// arrow keys) rather than played out on a timer, so each move can be studied.
 
 (function () {
   const params = new URLSearchParams(location.search);
@@ -18,11 +20,12 @@
   const boardEl = $("board"), promoEl = $("promo"), promoOpts = $("promoOptions");
   const headEl = $("puzzleHead"), taskEl = $("taskLine"), statusEl = $("statusLine");
   const themeEl = $("themeLine"), triesEl = $("triesLine");
-  const resultEl = $("result"), navEl = $("modeNav");
+  const resultEl = $("result"), navEl = $("modeNav"), stepperEl = $("stepper");
   const btn = {
     giveUp: $("giveUpBtn"), skip: $("skipBtn"), skipLocked: $("skipLocked"),
     retry: $("retryBtn"), solution: $("solutionBtn"), next: $("nextBtn"),
   };
+  const stepBtn = { first: $("stepFirst"), prev: $("stepPrev"), next: $("stepNext"), last: $("stepLast") };
 
   const chess = new Chess();
   let puzzle = null;      // { id, fen, firstMove, playerColor, themes }
@@ -36,6 +39,9 @@
   let selected = null, legal = [], lastMove = null, wrongSq = null;
   let pendingPromo = null;
   let timers = [];
+  let steps = null;       // replay: the solution being stepped through (UCI)
+  let stepIdx = 0;        // replay: how many of its moves are on the board
+  let stepLabel = "";     // replay: why it is shown ("Gave up."), kept in the status
 
   // ---- helpers ----
   const alg = (sq) => String.fromCharCode(97 + (sq & 7)) + ((sq >> 3) + 1);
@@ -230,6 +236,7 @@
     moves = []; selected = null; legal = []; lastMove = null; wrongSq = null;
     promoEl.classList.remove("show");
     resultEl.style.display = "none";
+    stepperEl.style.display = "none";
     phase = "intro";
     setTask();
     renderTries();
@@ -342,24 +349,58 @@
     }
   }
 
-  // Play the stored solution through on the board. `label` prefixes the status
-  // so the reason (gave up / asked) stays visible while it plays.
-  function replaySolution(solution, label) {
+  // Show the stored solution from the puzzle's start, to be stepped through
+  // one move at a time. `label` prefixes the status so the reason (gave up /
+  // asked) stays visible throughout.
+  function showSolution(solution, label) {
     clearTimers();
-    chess.loadFen(puzzle.fen);
-    play(puzzle.firstMove);
+    steps = solution;
+    stepLabel = label ? label + " " : "";
     wrongSq = null; selected = null; legal = [];
     phase = "replay";
     showButtons(daily ? ["retry"] : ["retry", "next"]);
-    const prefix = label ? label + " " : "";
-    setStatus(prefix + "Solution…", "info");
-    render();
-    solution.forEach((uci, i) => later(() => {
-      play(uci);
-      render();
-      if (i === solution.length - 1) setStatus(prefix + "That was the solution.", "info");
-    }, 600 * (i + 1)));
+    stepperEl.style.display = "";
+    gotoStep(0);
   }
+
+  // Put the first `i` moves of the solution on the board. Moves alternate
+  // starting with the player's, so the status can say whose each one is.
+  function gotoStep(i) {
+    if (phase !== "replay") return;
+    stepIdx = Math.max(0, Math.min(i, steps.length));
+    chess.loadFen(puzzle.fen);
+    play(puzzle.firstMove);
+    let san = "";
+    for (let j = 0; j < stepIdx; j++) {
+      if (j === stepIdx - 1) san = chess.moveToSan(findMove(steps[j]));
+      play(steps[j]);
+    }
+    if (stepIdx === 0) {
+      setStatus(stepLabel + "Solution: press ▶ to see the first move.", "info");
+    } else {
+      const side = colorName(chess.turn === "w" ? "b" : "w");
+      setStatus(stepLabel + "Move " + stepIdx + " of " + steps.length + " — " + side + " plays " + san +
+        (stepIdx === steps.length ? ". That's the whole solution." : "."), "info");
+    }
+    stepBtn.first.disabled = stepBtn.prev.disabled = stepIdx === 0;
+    stepBtn.next.disabled = stepBtn.last.disabled = stepIdx === steps.length;
+    render();
+  }
+
+  stepBtn.first.addEventListener("click", () => gotoStep(0));
+  stepBtn.prev.addEventListener("click", () => gotoStep(stepIdx - 1));
+  stepBtn.next.addEventListener("click", () => gotoStep(stepIdx + 1));
+  stepBtn.last.addEventListener("click", () => gotoStep(steps.length));
+  document.addEventListener("keydown", (e) => {
+    if (phase !== "replay" || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (e.key === "ArrowLeft") gotoStep(stepIdx - 1);
+    else if (e.key === "ArrowRight") gotoStep(stepIdx + 1);
+    else if (e.key === "Home") gotoStep(0);
+    else if (e.key === "End") gotoStep(steps.length);
+    else return;
+    e.preventDefault();
+  });
 
   // ---- skipping (members) ----
   // Only the held puzzle can be skipped; the daily and retries can't.
@@ -457,11 +498,11 @@
       const resp = await api("POST", "/" + puzzle.id + "/giveup");
       phase = "failed";
       finish(resp, false);
-      replaySolution(resp.solution, "Gave up.");
+      showSolution(resp.solution, "Gave up.");
     } catch (err) { phase = "playing"; setStatus(err.message, "bad"); }
   });
   btn.retry.addEventListener("click", () => { resultEl.style.display = "none"; begin(); later(() => setStatus("Your move (unrated retry).", ""), 750); });
-  btn.solution.addEventListener("click", () => { if (puzzle.solution) replaySolution(puzzle.solution); });
+  btn.solution.addEventListener("click", () => { if (puzzle.solution) showSolution(puzzle.solution); });
   btn.next.addEventListener("click", () => { if (!daily) loadRated(); });
 
   $("pageTitle").textContent = daily ? "Daily puzzle" : "Puzzles";

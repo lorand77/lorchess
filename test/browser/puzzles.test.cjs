@@ -44,3 +44,27 @@ for (const action of ["next", "skip"]) {
     assert.equal(restored.repeat, false);
   });
 }
+
+// After giving up, the solution waits at its start and moves only when asked.
+test("give up shows the solution one step at a time", async (t) => {
+  const { page, user } = await signedInPage(browser, srv.baseUrl, t);
+  const first = (await user.c.get("/api/puzzles/next")).body.puzzle.id;
+  await page.goto(srv.baseUrl + "/puzzles.html?id=" + first);
+  await page.locator("#giveUpBtn").waitFor({ state: "visible" });
+  const response = page.waitForResponse(r => r.url().endsWith("/giveup"));
+  await page.locator("#giveUpBtn").click();
+  const n = (await (await response).json()).solution.length;
+  await page.locator("#stepper").waitFor({ state: "visible" });
+  const status = page.locator("#statusLine");
+  await page.waitForFunction(() => /press ▶/.test(document.getElementById("statusLine").textContent));
+  assert.equal(await page.locator("#stepPrev").isDisabled(), true);
+  await page.locator("#stepNext").click();
+  assert.match(await status.textContent(), new RegExp("Move 1 of " + n));
+  await page.keyboard.press("End");
+  assert.match(await status.textContent(), /whole solution/);
+  assert.equal(await page.locator("#stepNext").isDisabled(), true);
+  await page.keyboard.press("ArrowLeft");
+  assert.match(await status.textContent(), new RegExp("Move " + (n - 1) + " of " + n + "|press ▶"));
+  await page.locator("#retryBtn").click();
+  await page.locator("#stepper").waitFor({ state: "hidden" });
+});

@@ -700,9 +700,11 @@ button.primary, button.danger { color: #fff; }
 .puzzle-status.bad { color: var(--bad); }
 .puzzle-status.info { color: var(--warn); }
 .puzzle-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
-.puzzle-actions .primary { background: #3d6098; }
-.puzzle-actions .primary:hover { background: #4a73b5; }
-.puzzle-actions button:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: default; }
+.puzzle-actions .primary, .puzzle-stepper .primary { background: #3d6098; }
+.puzzle-actions .primary:hover, .puzzle-stepper .primary:hover { background: #4a73b5; }
+.puzzle-actions button:disabled, .puzzle-stepper button:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: default; }
+.puzzle-stepper { display: flex; gap: 6px; margin: 10px 0 0; }
+.puzzle-stepper button { min-width: 44px; }
 .skip-locked { align-self: center; font-size: 13px; color: var(--link); text-decoration: none; }
 .skip-locked:hover { text-decoration: underline; }
 .puzzle-result { margin: 10px 0; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
