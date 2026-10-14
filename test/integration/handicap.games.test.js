@@ -99,6 +99,35 @@ describe("an odds game", () => {
   });
 });
 
+describe("pieces placed off the starting squares", () => {
+  test("are set up for their own side, whatever the payload says", async () => {
+    const a = await connectAs(alice);
+    const b = await connectAs(bob);
+    const entered = waitFor(b, "lobby:state");
+    b.emit("lobby:enter");
+    await entered;
+    // Alice's queen moves from d1 to d3, and a knight is added on f6 — sent
+    // in upper case, but f6 is in Black's half, so it is Black's knight.
+    const posted = waitForState(b, (s) => s.seeks.length === 1);
+    a.emit("seek:create", {
+      tc: "5+0", color: "w", handicap: { squares: { [sq("d1")]: null, [sq("d3")]: "q", [sq("f6")]: "N" } },
+    });
+    const seek = (await posted).seeks[0];
+    assert.equal(seek.handicap, "White −Q +Q · Black +N");
+    const startA = waitFor(a, "game:start");
+    b.emit("seek:accept", { id: seek.id });
+    const { gameId } = await startA;
+    assert.equal(gameRow(gameId).start_fen, "rnbqkbnr/pppppppp/5n2/8/8/3Q4/PPPPPPPP/RNB1KBNR w KQkq - 0 1");
+    const joined = await emitAck(a, "game:join", { gameId });
+    assert.equal(joined.state.handicap, "White −Q +Q · Black +N");
+    await emitAck(b, "game:join", { gameId });
+    const aborted = waitFor(a, "game:over");
+    a.emit("game:resign", { gameId });
+    assert.equal((await aborted).result, "*");
+    a.close(); b.close();
+  });
+});
+
 describe("the handicap label", () => {
   test("is not put on a Chess960 start, however it differs from the standard setup", () => {
     const base = {

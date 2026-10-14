@@ -184,14 +184,25 @@ function mirrorUci(uci) {
 
 // Highest-value piece `color` gave away outright: 1 pawn, 2 minor, 3 rook,
 // 4 queen; 0 if they surrendered nothing. Only removals count — swapping a
-// queen for a knight is a different kind of odds and isn't what this measures.
+// queen for a knight is a different kind of odds and isn't what this measures —
+// and only when the side ends up with fewer of that piece: taking the queen off
+// d1 and putting one on d3 has moved it, not given it up.
 function oddsTier(changes, color) {
-  let best = 0;
+  const net = {}; // type -> pieces added minus pieces removed, for `color`
+  const removed = [];
   for (const key of Object.keys(changes || {})) {
-    if (changes[key] !== null) continue; // replaced, not given up
-    const p = handicap.START_PIECES[Number(key)];
-    if (!p || (handicap.isWhitePiece(p) ? "w" : "b") !== color) continue;
-    const t = { P: 1, N: 2, B: 2, R: 3, Q: 4 }[p.toUpperCase()] || 0;
+    const sq = Number(key);
+    if ((handicap.isWhiteSquare(sq) ? "w" : "b") !== color) continue;
+    const was = handicap.START_PIECES[sq];
+    const now = changes[key];
+    if (was) net[was.toLowerCase()] = (net[was.toLowerCase()] || 0) - 1;
+    if (now) net[now] = (net[now] || 0) + 1;
+    if (was && now === null) removed.push(was.toLowerCase());
+  }
+  let best = 0;
+  for (const type of removed) {
+    if (net[type] >= 0) continue; // put back elsewhere
+    const t = { p: 1, n: 2, b: 2, r: 3, q: 4 }[type] || 0;
     if (t > best) best = t;
   }
   return best;

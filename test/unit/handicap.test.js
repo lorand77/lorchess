@@ -23,6 +23,7 @@ const SAMPLES = [
   { [sq("b1")]: "r", [sq("g8")]: "q" },
   { [sq("a1")]: null, [sq("h1")]: null, [sq("a8")]: null, [sq("h8")]: null },
   { [sq("d1")]: "n", [sq("c8")]: null, [sq("f7")]: null },
+  { [sq("d1")]: null, [sq("d3")]: "q", [sq("c4")]: "p", [sq("f6")]: "n", [sq("h5")]: "r" },
 ];
 
 describe("handicap", () => {
@@ -45,8 +46,11 @@ describe("handicap", () => {
       assert.equal(isKingSquare(sq("d1")), false);
       assert.equal(isEditable(sq("a1")), true);
       assert.equal(isEditable(sq("e1")), false);
-      assert.equal(isEditable(sq("e4")), false);
+      assert.equal(isEditable(sq("e4")), true);
+      assert.equal(isEditable(sq("e5")), true);
       assert.equal(isWhiteSquare(sq("h2")), true);
+      assert.equal(isWhiteSquare(sq("h4")), true);
+      assert.equal(isWhiteSquare(sq("a5")), false);
       assert.equal(isWhiteSquare(sq("a7")), false);
       assert.equal(isBackRank(sq("a1")), true);
       assert.equal(isBackRank(sq("h8")), true);
@@ -61,6 +65,8 @@ describe("handicap", () => {
       assert.equal(isWhitePiece("q"), false);
       assert.equal(pieceFor(sq("d1"), "q"), "Q");
       assert.equal(pieceFor(sq("d8"), "Q"), "q");
+      assert.equal(pieceFor(sq("d4"), "n"), "N");
+      assert.equal(pieceFor(sq("d5"), "N"), "n");
       assert.equal(pieceFor(sq("a1"), null), null);
       assert.equal(pieceFor(sq("a1"), undefined), null);
     });
@@ -76,7 +82,6 @@ describe("handicap", () => {
       ["a negative square", { "-1": null }, /not a square/],
       ["a non-numeric key", { d1: null }, /not a square/],
       ["a fractional key", { 1.5: null }, /not a square/],
-      ["an empty start square", { [sq("e4")]: "q" }, /empty in the starting position/],
       ["the white king", { [sq("e1")]: null }, /king cannot/],
       ["the black king", { [sq("e8")]: "q" }, /king cannot/],
       ["a king as the new piece", { [sq("d1")]: "k" }, /only hold a queen/],
@@ -86,6 +91,7 @@ describe("handicap", () => {
       ["no actual change", { [sq("d1")]: "q" }, /Change at least one/],
       ["no actual change in upper case", { [sq("d1")]: "Q" }, /Change at least one/],
       ["an empty object", {}, /Change at least one/],
+      ["clearing a square that starts empty", { [sq("e4")]: null, [sq("e5")]: "" }, /Change at least one/],
     ];
     for (const [name, input, message] of rejected) {
       test(`rejects ${name}`, () => {
@@ -103,6 +109,20 @@ describe("handicap", () => {
         ok: true,
         squares: { [sq("d1")]: null, [sq("b8")]: "r", [sq("a2")]: null, [sq("h7")]: null },
       });
+    });
+
+    test("accepts pieces placed anywhere in their own half, coloured by the half", () => {
+      const result = validateSquares({
+        [sq("e4")]: "Q", [sq("a3")]: "p", [sq("d5")]: "N", [sq("h6")]: "p", [sq("c4")]: null,
+      });
+      assert.deepEqual(result, {
+        ok: true,
+        squares: { [sq("e4")]: "q", [sq("a3")]: "p", [sq("d5")]: "n", [sq("h6")]: "p" },
+      });
+      assert.equal(
+        buildFen(result.squares),
+        "rnbqkbnr/pppppppp/7p/3n4/4Q3/P7/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+      );
     });
 
     test("drops no-op entries but keeps the rest", () => {
@@ -162,12 +182,27 @@ describe("handicap", () => {
       }
     });
 
+    test("tolerates stray whitespace around the FEN", () => {
+      assert.deepEqual(diffFromFen("  " + buildFen({ [sq("d3")]: "q" }).replace(/ /g, "  ") + "\n"), { [sq("d3")]: "q" });
+    });
+
     test("returns null for anything that is not a rearranged start", () => {
       const notHandicaps = [
         play(new Chess(), "e2e4").fen(),
         "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1",
         "k7/8/8/8/8/8/8/K7 w - - 0 1",
-        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        // A piece in the other side's half.
+        "rnbqkbnr/pppppppp/8/8/4p3/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "rnbqkbnr/pppppppp/8/4P3/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        // A second king, a king off its square, a pawn on the back rank, junk.
+        "rnbqkbnr/pppppppp/8/8/3K4/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQ1BNR w kq - 0 1",
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/PNBQKBNR w Kkq - 0 1",
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNX w KQkq - 0 1",
+        // The right pieces, but not what buildFen writes after them.
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1",
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 3 7",
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1",
         "rnbqkbnrr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         42,
@@ -186,11 +221,19 @@ describe("handicap", () => {
       assert.equal(handicap.describe({ [sq("d8")]: null, [sq("b1")]: "r" }), "White N→R · Black −Q");
       assert.equal(handicap.describe({ [sq("g1")]: null, [sq("d1")]: null, [sq("a2")]: null }), "White −Q −N −P");
     });
+
+    test("pieces placed on a square that starts empty read as additions", () => {
+      assert.equal(handicap.describe({ [sq("d3")]: "q" }), "White +Q");
+      assert.equal(handicap.describe({ [sq("d1")]: null, [sq("d3")]: "q" }), "White −Q +Q");
+      assert.equal(handicap.describe({ [sq("f6")]: "n", [sq("h7")]: null, [sq("e5")]: "p" }), "Black +N +P −P");
+      assert.equal(handicap.describe({ [sq("e4")]: null }), "", "clearing an empty square says nothing");
+    });
   });
 });
 
 describe("handicap mirror", () => {
   test("moves every change to the other side's square, keeping the type", () => {
+    assert.deepEqual(handicap.mirror({ [sq("d3")]: "q" }), { [sq("d6")]: "q" });
     assert.deepEqual(handicap.mirror({ [sq("d1")]: null }), { [sq("d8")]: null });
     assert.deepEqual(
       handicap.mirror({ [sq("b1")]: "r", [sq("g8")]: "q", [sq("f7")]: null }),

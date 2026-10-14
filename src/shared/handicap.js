@@ -1,18 +1,20 @@
 "use strict";
 
-// Handicap positions: the standard opening setup with pieces taken off or
-// swapped for different ones, so players of different strength can agree terms.
+// Handicap positions: the standard opening setup with pieces taken off, swapped
+// for different ones or added anywhere on their own side's half of the board, so
+// players of different strength can agree terms.
 // Loaded both as a browser <script> (served at /js/handicap.js, used by the
 // position editor) and as a Node `require` (used by the lobby to validate).
 //
-// The wire format is a sparse map of CHANGES to the 32 starting squares:
+// The wire format is a sparse map of CHANGES to the standard setup:
 //
-//   { "3": null, "1": "r" }   // clear d1, make b1 a rook
+//   { "3": null, "1": "r", "19": "q" }   // clear d1, make b1 a rook, a queen on d3
 //
 // never a FEN. The server rebuilds the position itself, so the worst a crafted
-// payload can do is describe a different arrangement of the starting squares —
-// which is exactly the feature. Colour is never sent: it comes from the square,
-// so a change can't smuggle a black piece onto White's rank.
+// payload can do is describe a different arrangement of the two halves — which
+// is exactly the feature. Colour is never sent: it comes from the half the
+// square is in (ranks 1-4 White, 5-8 Black), so a change can't smuggle a black
+// piece into White's half. The kings stay on e1 and e8.
 
 // Square index is file + rank * 8, so 0 = a1 and 63 = h8.
 const START_PIECES = (function () {
@@ -39,8 +41,9 @@ const PLACEABLE = ['q', 'r', 'b', 'n', 'p'];
 
 const isStartSquare = (sq) => !!START_PIECES[sq];
 const isKingSquare = (sq) => sq === WHITE_KING_SQ || sq === BLACK_KING_SQ;
-const isEditable = (sq) => isStartSquare(sq) && !isKingSquare(sq);
-const isWhiteSquare = (sq) => sq < 16;
+const isEditable = (sq) => !isKingSquare(sq);
+// White's half of the board is ranks 1-4.
+const isWhiteSquare = (sq) => sq < 32;
 // A pawn cannot stand on the first or last rank.
 const isBackRank = (sq) => sq < 8 || sq >= 56;
 const algOfSq = (sq) => String.fromCharCode(97 + (sq % 8)) + (Math.floor(sq / 8) + 1);
@@ -65,15 +68,13 @@ function validateSquares(input) {
     if (!Number.isInteger(sq) || sq < 0 || sq > 63) {
       return { ok: false, error: 'That is not a square on the board.' };
     }
-    if (!isStartSquare(sq)) {
-      return { ok: false, error: 'That square is empty in the starting position.' };
-    }
     if (isKingSquare(sq)) {
       return { ok: false, error: 'A king cannot be removed or replaced.' };
     }
     const raw = input[key];
     if (raw === null || raw === undefined || raw === '') {
-      squares[sq] = null;
+      // Clearing a square that starts empty is not a change.
+      if (isStartSquare(sq)) squares[sq] = null;
       continue;
     }
     const type = String(raw).toLowerCase();
@@ -124,7 +125,7 @@ function buildFen(squares) {
   return rows.join('/') + ' w ' + (castling || '-') + ' - 0 1';
 }
 
-// Short summary of the terms, e.g. "White −Q · Black N→R". Used in the lobby
+// Short summary of the terms, e.g. "White −Q · Black N→R +P". Used in the lobby
 // lists so whoever accepts an offer can read what they are agreeing to.
 function describe(squares) {
   const changes = squares || {};
@@ -133,14 +134,15 @@ function describe(squares) {
   for (const key of Object.keys(changes)) {
     const sq = Number(key);
     const was = START_PIECES[sq];
-    if (!was) continue;
     const now = pieceFor(sq, changes[key]);
-    const side = isWhitePiece(was) ? 'w' : 'b';
-    sides[side].push(
-      now === null
-        ? { sort: order.indexOf(was.toUpperCase()), text: '−' + was.toUpperCase() }
-        : { sort: order.indexOf(was.toUpperCase()), text: was.toUpperCase() + '→' + now.toUpperCase() }
-    );
+    if (!was && !now) continue;
+    const side = isWhiteSquare(sq) ? 'w' : 'b';
+    const sort = order.indexOf((was || now).toUpperCase());
+    let text;
+    if (!was) text = '+' + now.toUpperCase();
+    else if (!now) text = '−' + was.toUpperCase();
+    else text = was.toUpperCase() + '→' + now.toUpperCase();
+    sides[side].push({ sort, text });
   }
   const fmt = (list) =>
     list.sort((a, b) => a.sort - b.sort).map((x) => x.text).join(' ');
@@ -151,7 +153,7 @@ function describe(squares) {
 }
 
 // The same terms for the other side: every change moved to the mirrored
-// square (same file, opposite rank). Colour comes from the square, so the type
+// square (same file, opposite rank). Colour comes from the half, so the type
 // carries over as it is. A rematch swaps colours, and the player who gave the
 // odds should still be the one giving them.
 function mirror(squares) {
@@ -161,8 +163,9 @@ function mirror(squares) {
 }
 
 // Recover the change map from a stored start position. Returns null when the
-// FEN is not the standard setup with the starting squares rearranged — a
-// Chess960 start, for instance, or any mid-game position.
+// FEN is not one buildFen could have produced — kings off e1/e8, a piece in
+// the other side's half, a pawn on a back rank: a Chess960 start, for
+// instance, or most mid-game positions.
 function diffFromFen(fen) {
   if (typeof fen !== 'string') return null;
   const ranks = fen.trim().split(/\s+/)[0].split('/');
@@ -185,14 +188,19 @@ function diffFromFen(fen) {
   for (let sq = 0; sq < 64; sq++) {
     const want = START_PIECES[sq];
     const got = at[sq];
-    if (!want) {
-      if (got) return null;      // something on a square the setup leaves empty
-      continue;
-    }
     if (got === want) continue;
-    if (isKingSquare(sq)) return null; // a king elsewhere: not a handicap
-    changes[sq] = got === null ? null : got.toLowerCase();
+    if (isKingSquare(sq)) return null; // a king missing from e1/e8
+    if (got === null) { changes[sq] = null; continue; }
+    const type = got.toLowerCase();
+    if (!PLACEABLE.includes(type)) return null;         // a second king
+    if (pieceFor(sq, type) !== got) return null;        // in the other side's half
+    if (type === 'p' && isBackRank(sq)) return null;
+    changes[sq] = type;
   }
+  // The rest must be what buildFen writes, too. Now that pieces can stand
+  // anywhere in their half, 1.e4 would otherwise pass for a handicap: only the
+  // side to move gives it away.
+  if (buildFen(changes) !== fen.trim().split(/\s+/).join(' ')) return null;
   return changes;
 }
 

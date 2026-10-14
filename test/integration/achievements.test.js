@@ -204,6 +204,13 @@ describe("game feats", () => {
     assert.ok(lacks(pawn.w, "handicap_hustler"), pawn.w);
     const receiver = playAndEvaluate({ start: handicap.buildFen({ 3: null }), moves: ["e2e4"], result: "0-1", termination: "resign" });
     assert.ok(lacks(receiver.b, "giving_odds"), receiver.b);
+    // The queen taken off d1 and put on d3 has moved, not been given; the
+    // knight taken off g1 with nothing put back has.
+    const moved = playAndEvaluate({
+      start: handicap.buildFen({ 3: null, 19: "q", 6: null }), moves: ["e2e4"], result: "1-0", termination: "resign",
+    });
+    assert.equal(tiersOf(moved.wId).giving_odds, 2);
+    assert.ok(lacks(moved.w, "handicap_hustler"), moved.w);
   });
 });
 

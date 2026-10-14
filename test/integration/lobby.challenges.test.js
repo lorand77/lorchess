@@ -174,6 +174,12 @@ describe("a handicap the server will not set up", () => {
       { tc: "5+0", handicap: { squares: { [sq("e7")]: "r", [sq("e2")]: null } } },
       /king in check/,
     ],
+    [
+      "with a placed piece giving check",
+      // A white queen on e4 and Black's e-pawn gone: Qe4 checks Ke8.
+      { tc: "5+0", handicap: { squares: { [sq("e4")]: "q", [sq("e7")]: null } } },
+      /king in check/,
+    ],
   ]) {
     test(`is refused ${label}, as a seek and as a challenge`, async () => {
       const a = await connectAs(alice);

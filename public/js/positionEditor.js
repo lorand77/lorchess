@@ -1,7 +1,8 @@
 "use strict";
 
 // The handicap position editor. You start from the standard setup and change
-// the 32 starting squares: take a piece off, or swap it for a different one.
+// it: take a piece off, swap it for a different one, or place one anywhere in
+// its own side's half (ranks 1-4 White, 5-8 Black — the half decides colour).
 // Kings are fixed, and a pawn can't be put on the first or last rank.
 //
 // Pick a tool, then click squares. "Remove" is selected by default, so the
@@ -64,8 +65,9 @@ window.PositionEditor = (function () {
     box.appendChild(el("h3", null, "Handicap position"));
     box.appendChild(el(
       "p", "editor-hint",
-      "Pick a tool, then click a square. Take pieces off to give odds, or swap one " +
-      "for another. Kings stay put, and pawns can't go on the back rank. " +
+      "Pick a tool, then click a square. Take pieces off to give odds, swap one " +
+      "for another, or place pieces anywhere on their own half of the board. " +
+      "Kings stay put, and pawns can't go on the back rank. " +
       "A handicap game is always casual — it never affects ratings."
     ));
 
@@ -132,6 +134,8 @@ window.PositionEditor = (function () {
         const sq = rank * 8 + col;
         const div = el("div", "square " + ((rank + col) % 2 === 0 ? "dark" : "light"));
         div.dataset.sq = sq;
+        // The line between the halves: each side places pieces on its own.
+        if (rank === 4) div.classList.add("half-edge");
 
         const now = currentPiece(sq);
         const original = START_PIECES[sq];
@@ -181,8 +185,10 @@ window.PositionEditor = (function () {
       delete changes[sq];
     } else if (tool === "remove") {
       // Clicking a square that is already empty puts its piece back, so the
-      // default tool still toggles the way it always has.
-      if (Object.prototype.hasOwnProperty.call(changes, sq) && changes[sq] === null) delete changes[sq];
+      // default tool still toggles the way it always has. A square that starts
+      // empty just loses whatever was placed on it.
+      if (!START_PIECES[sq]) delete changes[sq];
+      else if (Object.prototype.hasOwnProperty.call(changes, sq) && changes[sq] === null) delete changes[sq];
       else changes[sq] = null;
     } else {
       if (tool === "p" && isBackRank(sq)) {

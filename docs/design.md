@@ -570,7 +570,9 @@ sockets, clocks and timers.
   anyone may take and **challenges** addressed to one user. Either path creates
   the `games` row and the room and emits `game:start`; clients navigate to
   `game.html?id=<gameId>`. Handicap positions arrive as a sparse map of changes
-  to the starting squares, never a FEN; the server rebuilds the position.
+  to the standard setup, never a FEN; the server rebuilds the position. Any
+  square but the kings' may change, and colour comes from the half it is in
+  (ranks 1–4 White, 5–8 Black), so each side's pieces stand on its own half.
   **One game at a time:** a player in a live PvP game (`rooms.liveGameOf`, read
   from the database so a game awaiting resumption counts) may neither offer,
   accept nor quick-match, and the moment a match starts both players' other
