@@ -29,7 +29,8 @@ in the browser, no build step.
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
 squares, and the Atomic and Pawn Wars rule sets. `src/shared/lorfish.js` is
 **LorFish**, a synchronous search engine ported from a sunfish-derived Python
-original (roughly 1400–1800 strength). It depends tightly on `chess.js`.
+original; its five levels are labelled from about 200 to 1800 (see below). It
+depends tightly on `chess.js`.
 
 Weaker play comes from choosing, not from a broken search. The root already
 scores every move exactly, so a `temperature` option picks among them at random,
@@ -80,8 +81,8 @@ Repetition keys include en passant only when a legal capture exists. An
 uncapturable FEN target, including one blocked by a pin, does not distinguish
 otherwise identical positions; FEN output still preserves the original target.
 
-The engine and the catalogues next to it (`achievements.js`, `timeControls.js`,
-`variants.js`, `chess960.js`, `handicap.js`) live **only** in `src/shared/` and
+The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
+`timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`) live **only** in `src/shared/` and
 load three ways: as a browser `<script>` global, via `importScripts` in the
 engine Web Worker, and as a Node `require`. The UMD tail
 (`if (typeof module !== 'undefined' && module.exports) module.exports = {...}`)
@@ -236,6 +237,21 @@ no `includeSubDomains`, no `preload`; see `setup.md`), only to match lorciv.
 It adds no protection: `.dev` is on the browsers' HSTS preload list as a whole
 TLD, so they already refuse plain HTTP to every `*.lorand77.dev` host before a
 request is made.
+
+## Health check
+
+`GET /health` (`src/health.js`) is for the external uptime check (see
+"monitoring" in `setup.md`). pm2 already restarts a crashed process; this
+catches what pm2 cannot see: the box or Caddy down, the event loop stuck, the
+database unreadable, the disk filling up. It reads a row from `users`, so the
+query reaches the database file, and fails when less than 10 % of the disk
+holding the database is free.
+
+- **The answer says nothing:** 200 `{ ok: true }` or 503 `{ ok: false }`. The
+  URL is public, so why it failed goes to the log (`health.failed`).
+- **Mounted ahead of the session and the request log** in `src/app.js`: a
+  check every few minutes needs neither a session lookup nor a log line. The
+  security headers still apply.
 
 ## Terms and privacy
 
@@ -421,6 +437,11 @@ Design notes:
   solution stays on the server until the attempt is over.
   The rated trainer updates its puzzle ID in the URL on Next and Skip, so a
   refresh returns to the displayed puzzle without turning it into an old retry.
+- **The solution is stepped through by hand.** After giving up or asking for
+  the solution, the page shows the puzzle's start and the player steps through
+  the solution with buttons or ← → Home End, a move at a time. Each step names
+  whose move it is and gives it in SAN. It once played itself out on a 600 ms
+  timer; stepping by hand lets each move be studied.
 
 ## AI games: client-side Web Worker
 
@@ -706,6 +727,11 @@ was earned lives in `src/achievements/service.js`:
   page. Every variant but Standard has a `<key>_wins` badge, and "Jack of All
   Trades" wants a win in each one; a win against LorFish counts for Standard,
   the only variant AI games are played in.
+- **Odds badges** ("Giving Odds", "Handicap Hustler") read the handicap's
+  change map and count only pieces a side ends up short of. A handicap can add
+  pieces anywhere in a side's half, so taking the queen off d1 and putting one
+  on d3 has moved it, not given it up. Swapping a piece for a different one
+  does not count either: that is a different kind of odds.
 - Awarding is an upsert that only writes when the tier goes up, so every
   evaluation is idempotent; `npm run achievements:backfill` replays history.
 

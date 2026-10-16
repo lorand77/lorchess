@@ -26,13 +26,18 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
 - `src/<area>/routes.js` — Express routers mounted at `/api/<area>` in `app.js`
   (auth is mounted at `/api` itself; the leaderboard router is `src/game/leaderboard.js`).
   `src/game/socket.js` owns every Socket.IO event, `src/game/rooms.js` the
-  in-memory PvP state.
+  in-memory PvP state. `src/log.js` is the logger; `src/health.js` answers
+  `GET /health` for the uptime check, ahead of the session middleware.
 - `src/shared/` — engine and catalogues loaded by browser, Web Worker and Node
   alike; served at `/js/`. The only place LorFish and the rules live.
 - `public/js/vendor/stockfish/` — vendored Stockfish 19 (WebAssembly), used by
   game review and the analysis board. Third-party files: replace them, never edit them.
 - `public/*.html` pages with their scripts in `public/js/`; `ui.js` is the game page.
-- `test/unit`, `test/integration` — `node --test`.
+- `test/unit`, `test/integration` — `node --test`. `test/browser/*.test.cjs` —
+  optional Chromium tests through an existing `playwright-core`, not part of
+  `npm test`; how to run them is in `test/browser/README.md`.
+- `docs/onboarding/` — the plan and slides for walking a new developer through
+  the project.
 - `scripts/` — ops scripts (backups, the puzzle fixture). `tools/lorfish/` —
   LorFish's rating harness (`levels.js`, `eloFit.js`, the opening set), run by
   hand and never loaded by the app.
@@ -64,7 +69,7 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
   the database path is fixed when `src/db/index.js` loads.
 - `src/shared/*.js` runs in three runtimes: keep the UMD tail at the bottom and
   use no Node-only or DOM-only APIs.
-- Time controls, variants and achievements are allowlists in `src/shared/`.
+- Time controls, variants, AI levels and achievements are allowlists in `src/shared/`.
   Add entries there, not in ad-hoc lists elsewhere.
 - Native modules need a rebuild after `npm ci` / `npm install` because
   `ignore-scripts` is on globally, and it must be `\npm rebuild`: the socket
