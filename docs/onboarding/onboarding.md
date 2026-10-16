@@ -269,9 +269,9 @@ The hosting options in general, and how this app's needs rule each one in or out
 - **Logs:** `pm2 logs`, `pm2 monit`. 💬 Is log rotation set up
   (pm2-logrotate)? On an 8 GB disk, logs that are never rotated will eventually
   fill it.
-- **Monitoring:** 💬 none is documented. Who finds out the site is down, and
-  how? An external uptime check is cheap. Also cover disk-usage checks
-  (`df -h`) and backup-log checks.
+- **Monitoring:** Better Stack checks `/health` (process, database, free
+  disk) and expects a heartbeat from the nightly backup; see "monitoring" in
+  [setup.md](setup.md). 💬 Who gets the alerts, and what do they do first?
 - **Updates:**
   - Ubuntu security patches (💬 unattended-upgrades?).
   - Node minor and LTS versions.
@@ -313,4 +313,4 @@ The hosting options in general, and how this app's needs rule each one in or out
 - Cover a branch the coverage report shows as untested.
 - Add an achievement (catalogue, service, toast, backfill).
 - In ops: write the missing runbook items identified in section 18, such as log
-  rotation or an uptime check.
+  rotation.

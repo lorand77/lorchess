@@ -21,6 +21,7 @@ const membershipRoutes = require("./membership/routes");
 const statsRoutes = require("./stats/routes");
 const achievementRoutes = require("./achievements/routes");
 const { attachSockets } = require("./game/socket");
+const { health } = require("./health");
 
 // At or over this, a request is logged as a warning.
 const SLOW_MS = 1000;
@@ -103,6 +104,10 @@ function createServer() {
   app.set("trust proxy", 1);
 
   app.use(securityHeaders);
+
+  // Ahead of the session and the request log: an uptime check every few
+  // minutes needs neither a session lookup nor a log line.
+  app.get("/health", health);
 
   // --- API: JSON body parsing, sessions, auth + game routes ---
   app.use(sessionMiddleware);

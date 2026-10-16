@@ -419,6 +419,47 @@ and create a cron job to run the backup script `scripts/backup.sh` daily: as
 It writes to `~/backups/`, the same folder as the manual backup above, and
 keeps 7 days there and 30 days in B2.
 
+## monitoring (Better Stack)
+
+pm2 restarts the app when it crashes, but nothing on the server can report
+that the server itself is down. An outside service checks two things and
+emails when either fails:
+
+- **`/health`** answers 200 `{"ok":true}` when the app is up, the database can
+  be read and more than 10 % of the disk is free; otherwise it answers 503 and
+  logs `health.failed` with the reason (`pm2 logs lorchess | grep health`). A
+  dead box, a stopped app or a broken Caddy/certificate fails the check too:
+  the request never reaches the app. Healthy checks are not logged.
+- **A heartbeat from the backup cron job**, so a backup that stops running is
+  noticed within a day instead of on the day it is needed.
+
+```
+curl -i https://lorchess.lorand77.dev/health   # HTTP/2 200, {"ok":true}
+```
+
+In Better Stack (betterstack.com, Uptime, free plan):
+
+1. Monitors -> Create monitor: alert when the URL becomes unavailable,
+   URL `https://lorchess.lorand77.dev/health`, check every 3 minutes. Any
+   status other than 2xx, a timeout or a TLS error counts as down.
+2. Heartbeats -> Create heartbeat: expect one every 1 day, grace period
+   2 hours. Copy its URL.
+3. On-call: email (and the mobile app for push) for whoever runs the server.
+
+The heartbeat URL lets anyone who has it mark the backup as done, so it goes
+in the crontab, never in the repo. As `lorchess`, `crontab -e` and extend
+the backup line from above so that it pings only when the script succeeded
+(`backup.sh` stops at the first failing command):
+```
+0 3 * * * /home/lorchess/lorchess/scripts/backup.sh >> /home/lorchess/backups/backup.log 2>&1 && curl -fsS -m 10 --retry 3 -o /dev/null https://uptime.betterstack.com/api/v1/heartbeat/<token>
+```
+
+Try it once after setting up: `pm2 stop lorchess`, wait for the alert,
+`pm2 start lorchess`, and the incident resolves on the next check.
+
+Not covered: a bug that breaks games while the server still answers, and
+Socket.IO trouble. Those still show up in `pm2 logs` as `error` lines.
+
 
 --------------------------------------------------------
 

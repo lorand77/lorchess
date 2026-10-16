@@ -312,7 +312,7 @@ Events:
   never the query string), `status`, `ms`, and `user`/`name` when signed in.
   `error` for 5xx, `warn` at 1 s or slower, `info` otherwise. 4xx stays
   `info`: a signed-out page load gets a 401 from `/api/me` every time. Static
-  files are not logged. A request the client abandoned has `aborted=true`;
+  files and `/health` are not logged. A request the client abandoned has `aborted=true`;
   one that never reached a route (unknown path, malformed JSON, a
   cross-origin 403) has `route=unmatched`. Routers are mounted through `api()` in `src/app.js` so
   the route survives an error leaving its router. `http.unhandled` (`error`)
@@ -343,6 +343,12 @@ Events:
   `achievements.game_failed` (`error`: the whole evaluation after a game),
   `achievements.visit_failed` (`error`: the time-based check on login or a
   profile visit), `lobby.broadcast_failed` (`error`).
+- **Health** (`src/health.js`): `health.failed` (`error`), when `/health`
+  answers 503: `reason=disk_low` with `free_pct` (under 10 % free where the
+  database lives), or `reason=error` with `err`. The uptime check sees only
+  the status; this line says why. A healthy `/health` writes nothing: it sits
+  ahead of the session and the request log, so a check every few minutes
+  neither fills the log nor touches the session store.
 
 What is never logged, and where personal data may appear:
 
