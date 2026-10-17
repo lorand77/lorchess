@@ -174,10 +174,9 @@ The hosting options in general, and how this app's needs rule each one in or out
 | Containers / Kubernetes | ❌ Far too much machinery for one process |
 | VPS / IaaS (EC2, Lightsail, Hetzner, DigitalOcean) | ✅ One long-running process, a local disk and full control |
 
-- **The move from Railway to EC2 (summer 2026).** The appendix in
-  [setup.md](../setup.md) records what a PaaS needed: a volume, environment
-  variables and edge TLS. 💬 The actual reasons, such as cost, control, volume
-  limits or wanting to learn the server side.
+- **The move from Railway to EC2 (summer 2026).** On a PaaS the app needed a
+  volume, environment variables and edge TLS. 💬 The actual reasons, such as
+  cost, control, volume limits or wanting to learn the server side.
 - **Why AWS EC2 specifically** compared with Lightsail or Hetzner. 💬 For
   example ecosystem, credits or experience.
 - **Why t4g.small:** Graviton ARM is cheaper per vCPU. One consequence is that
