@@ -110,8 +110,9 @@ are kept in the appendix at the end, for reference only.
 
 ## setup server
 
-- AWS EC2 instance t4g.small (2 vCPU, 2 GB RAM, 8 GB Disk)
+- AWS EC2 instance t4g.small (2 vCPU, 2 GB RAM, 16 GB Disk)
 - Ubuntu 26.04 (LTS) ARM64
+- use elastic IP
 
 ```
 ssh ubuntu@IP_ADDRESS
