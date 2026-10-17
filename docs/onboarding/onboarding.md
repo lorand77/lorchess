@@ -11,11 +11,11 @@ these in before the session: they are the most useful part to hear.
 
 ## Before session 1 (the new developer does this alone)
 
-- Set up the dev environment by following the DEV half of [setup.md](setup.md):
+- Set up the dev environment by following the DEV half of [setup.md](../setup.md):
   WSL2, Docker, the dev container and Node 24.
 - Run `npm install`, the native rebuild, `npm start` and `npm test`. Getting all
   of these to pass is the first goal.
-- Read [README.md](../README.md) and skim [design.md](design.md). Full
+- Read [README.md](../../README.md) and skim [design.md](../design.md). Full
   understanding is not expected yet.
 - Play the app: a game against LorFish, a PvP game in two browsers, a puzzle
   and a game review.
@@ -56,8 +56,8 @@ nightly cron ──► backup.sh ──► Backblaze B2
 - **Repo map.** `src/` is the server, `src/shared/` is shared with the browser,
   `public/` holds pages and browser code, `test/` the tests, `scripts/` the
   ops scripts, `tools/` developer tools such as LorFish's rating harness and
-  `experiments/` dated experiment reports with their data. The docs split into [design.md](design.md) (why),
-  [setup.md](setup.md) (how to run) and [CLAUDE.md](CLAUDE.md) (rules).
+  `experiments/` dated experiment reports with their data. The docs split into [design.md](../design.md) (why),
+  [setup.md](../setup.md) (how to run) and [CLAUDE.md](../CLAUDE.md) (rules).
 
 ## 3. The architecture decisions and their trade-offs
 
@@ -113,13 +113,13 @@ revisiting:
 
 ## 6. HTTP and Express
 
-- Read [src/app.js](../src/app.js) from top to bottom (it is the whole middleware
+- Read [src/app.js](../../src/app.js) from top to bottom (it is the whole middleware
   chain), then trace `POST /api/login` through the throttle, argon2, session
   regeneration and the cookie.
 
 ## 7. Data: SQLite
 
-- WAL mode, prepared statements in [src/db/queries.js](../src/db/queries.js),
+- WAL mode, prepared statements in [src/db/queries.js](../../src/db/queries.js),
   transactions, and the gotcha that `schema.sql` only CREATEs while
   `addColumnIfMissing` handles new columns.
 - Modelling choices: the AI side is a real user, deactivation is a flag, and
@@ -129,19 +129,19 @@ revisiting:
 ## 8. Real-time with Socket.IO
 
 - Rooms, acks and reconnects, with one session shared by REST and sockets. Walk
-  through `handleMove` in [src/game/socket.js](../src/game/socket.js) and **"never
+  through `handleMove` in [src/game/socket.js](../../src/game/socket.js) and **"never
   trust the client"**.
 
 ## 9. The shared engine
 
-- [src/shared/](../src/shared/) runs in three runtimes thanks to the UMD tail. The
+- [src/shared/](../../src/shared/) runs in three runtimes thanks to the UMD tail. The
   catalogues are allowlists. Positions are rebuilt by replaying moves, never by
   loading a FEN. Stockfish is vendored WASM and is never edited.
 
 ## 10. The front end
 
 - One HTML page per script. The move-source abstraction in
-  [public/js/ui.js](../public/js/ui.js). `authGuard.js` is a convenience, not
+  [public/js/ui.js](../../public/js/ui.js). `authGuard.js` is a convenience, not
   security. DevTools: network, WS frames and the console.
 
 ## 11. Security
@@ -151,12 +151,12 @@ revisiting:
 
 ## 12. Testing
 
-- Unit and integration tests, [test/helpers/server.js](../test/helpers/server.js),
+- Unit and integration tests, [test/helpers/server.js](../../test/helpers/server.js),
   coverage thresholds and `test:deep`. Exercise: write one integration test.
 
 ## 13. Conventions
 
-- The [CLAUDE.md](CLAUDE.md) rules, commit style, updating `design.md` in the
+- The [CLAUDE.md](../CLAUDE.md) rules, commit style, updating `design.md` in the
   same commit, and using AI tools responsibly.
 
 ---
@@ -175,7 +175,7 @@ The hosting options in general, and how this app's needs rule each one in or out
 | VPS / IaaS (EC2, Lightsail, Hetzner, DigitalOcean) | ✅ One long-running process, a local disk and full control |
 
 - **The move from Railway to EC2 (summer 2026).** The appendix in
-  [setup.md](setup.md) records what a PaaS needed: a volume, environment
+  [setup.md](../setup.md) records what a PaaS needed: a volume, environment
   variables and edge TLS. 💬 The actual reasons, such as cost, control, volume
   limits or wanting to learn the server side.
 - **Why AWS EC2 specifically** compared with Lightsail or Hetzner. 💬 For
@@ -224,7 +224,7 @@ The hosting options in general, and how this app's needs rule each one in or out
 ## 16. Running it day to day
 
 - **Config and secrets:** `.env` only holds `SESSION_SECRET` and `NODE_ENV`,
-  and everything else defaults in [src/config.js](../src/config.js). Rotating the
+  and everything else defaults in [src/config.js](../../src/config.js). Rotating the
   secret logs everyone out. Never commit it, and never paste it into chat or AI
   tools.
 - **What a deploy does** (`git pull` → `npm install` → `pm2 restart`):
@@ -247,7 +247,7 @@ The hosting options in general, and how this app's needs rule each one in or out
 
 ## 17. Data safety: backups and privacy
 
-- [scripts/backup.sh](../scripts/backup.sh):
+- [scripts/backup.sh](../../scripts/backup.sh):
   - Uses `VACUUM INTO`, which gives a consistent copy while the app keeps
     writing. Explain why `cp` of a live WAL database is wrong.
   - Keeps 7 days locally and uploads to B2 with rclone, where copies are
@@ -271,7 +271,7 @@ The hosting options in general, and how this app's needs rule each one in or out
   fill it.
 - **Monitoring:** Better Stack checks `/health` (process, database, free
   disk) and expects a heartbeat from the nightly backup; see "monitoring" in
-  [setup.md](setup.md). 💬 Who gets the alerts, and what do they do first?
+  [setup.md](../setup.md). 💬 Who gets the alerts, and what do they do first?
 - **Updates:**
   - Ubuntu security patches (💬 unattended-upgrades?).
   - Node minor and LTS versions.
@@ -282,7 +282,7 @@ The hosting options in general, and how this app's needs rule each one in or out
   - A bad deploy goes out.
   - The disk fills up.
   - The certificate fails to renew.
-  - The instance dies completely: rebuild from [setup.md](setup.md) plus a B2
+  - The instance dies completely: rebuild from [setup.md](../setup.md) plus a B2
     restore. That is the strongest argument for keeping setup.md accurate.
   - `SESSION_SECRET` leaks.
   - Somebody hammers the login endpoint.
