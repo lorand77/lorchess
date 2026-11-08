@@ -81,14 +81,22 @@ Repetition keys include en passant only when a legal capture exists. An
 uncapturable FEN target, including one blocked by a pin, does not distinguish
 otherwise identical positions; FEN output still preserves the original target.
 
-Crazyhouse (being built; not in the variant catalogue yet, and without drops)
-keeps captured pieces in `chess.pockets`. Like the rest of the position, they
+Crazyhouse (being built, and not in the variant catalogue yet) keeps captured
+pieces in `chess.pockets`. Like the rest of the position, they
 are set up by `reset()` and `loadFen()`, never by `setVariant()`. A captured
 promoted piece goes back as a pawn, so promotions carry `promoted: true`. FEN
 writes both as python-chess does: the pockets in brackets after the board
 (`…/RNBQKBNR[Qnp]`, White's pieces first) and `~` after a promoted piece. No
 brackets means empty pockets, so the standard start FEN opens a Crazyhouse
 game. The pockets and the promoted marks are part of the repetition key.
+`legalMoves()` adds a drop (`{ from: null, to, drop }`) for every piece in hand
+on every empty square, never a pawn on the first or last rank; in check only
+blocking drops are legal. Drops are reached through `findDrop(type, to)`, never
+`findMove`, and written `N@e4` in both UCI and SAN, pawns as `P@e4`. A pawn
+drop resets the 50-move count, like a pawn move. Nothing leaves the game, so
+the material is dead only in a set-up position with bare kings or one minor
+piece between both sides, and a flag always loses otherwise: a bare king can
+capture something and mate with it.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,

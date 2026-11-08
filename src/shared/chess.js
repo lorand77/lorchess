@@ -317,15 +317,23 @@ class Chess {
   // ambiguous. Order matters: an ordinary move wins the exact match, then a
   // castle is matched by its rook's square, and only then by the king's
   // destination, which is how games recorded before Chess960 existed are written.
+  // A Crazyhouse drop has no square it comes from and is never matched here,
+  // even for a `from` of null: findDrop is the only way to one.
   findMove(from, to, promo) {
     const moves = this.legalMoves();
     const promoOk = (m) => (promo ? m.promo === promo : !m.promo);
     return (
-      moves.find((m) => !m.castle && m.from === from && m.to === to && promoOk(m)) ||
+      moves.find((m) => !m.castle && !m.drop && m.from === from && m.to === to && promoOk(m)) ||
       moves.find((m) => m.castle && m.from === from && m.rookFrom === to) ||
       moves.find((m) => m.castle && m.from === from && m.to === to) ||
       null
     );
+  }
+
+  // Resolve a Crazyhouse drop — `type` from the mover's pocket onto `to` — to a
+  // legal move, or null.
+  findDrop(type, to) {
+    return this.legalMoves().find((m) => m.drop && m.drop === type && m.to === to) || null;
   }
 
   // Every square the king and rook travel over (and land on) must be empty,
@@ -637,14 +645,41 @@ class Chess {
         this.undoMove();
       }
     }
+    if (this.pockets) this.addDrops(moves, c);
     return moves;
   }
 
+  // Crazyhouse: every piece in `c`'s pocket onto every empty square, except a
+  // pawn onto the first or last rank. A drop may give check, even mate. It can
+  // never expose the dropper's own king, so out of check every drop is legal;
+  // in check, only one that blocks it is.
+  addDrops(moves, c) {
+    const types = POCKET_TYPES.filter((t) => this.pockets[c][t] > 0);
+    if (!types.length) return;
+    const inCheck = this.inCheck(c);
+    for (let to = 0; to < 64; to++) {
+      if (this.squares[to]) continue;
+      const backRank = rankOf(to) === 0 || rankOf(to) === 7;
+      for (const t of types) {
+        if (t === 'p' && backRank) continue;
+        const m = { from: null, to, drop: t };
+        if (inCheck) {
+          this.makeMove(m, false);
+          const legal = !this.isAttacked(this.findKing(c), opp(c));
+          this.undoMove();
+          if (!legal) continue;
+        }
+        moves.push(m);
+      }
+    }
+  }
+
   makeMove(m, trackPosition = true) {
-    const piece = this.squares[m.from];
+    // A drop's piece comes out of the mover's pocket, not off a square.
+    const piece = m.drop ? { t: m.drop, c: this.turn } : this.squares[m.from];
     // Castling captures nothing — and in Chess960 the king's destination may be
     // occupied by its own castling rook, which must not be read as a capture.
-    const captured = m.castle
+    const captured = m.castle || m.drop
       ? null
       : m.enpassant
         ? this.squares[sqIdx(fileOf(m.to), rankOf(m.from))]
@@ -663,7 +698,10 @@ class Chess {
     };
     this.history.push(histEntry);
 
-    if (m.castle) {
+    if (m.drop) {
+      this.pockets[piece.c][m.drop]--;
+      this.squares[m.to] = piece;
+    } else if (m.castle) {
       // Both pieces move at once and their squares can overlap, so lift both
       // before setting either down.
       const r = rankOf(m.from);
@@ -782,7 +820,10 @@ class Chess {
       for (const b of h.blast) this.squares[b.sq] = b.piece;
     }
 
-    if (m.castle) {
+    if (m.drop) {
+      this.squares[m.to] = null;
+      this.pockets[h.turn][m.drop]++;
+    } else if (m.castle) {
       const r = rankOf(m.from);
       const kingTo = sqIdx(m.castle === 'K' ? 6 : 2, r);
       const rookTo = sqIdx(m.castle === 'K' ? 5 : 3, r);
@@ -807,6 +848,7 @@ class Chess {
 
   isInsufficientMaterial() {
     if (this.isPawnWars) return false;
+    if (this.pockets) return this.crazyhouseMaterialDead();
     const ps = [];
     for (let i = 0; i < 64; i++) {
       const p = this.squares[i];
@@ -860,6 +902,10 @@ class Chess {
   // answer is always yes.
   hasMatingMaterial(c) {
     if (this.isAtomic || this.isPawnWars) return true;
+    // In Crazyhouse whatever either side holds can change hands, so a bare king
+    // can capture something and mate with it. Only material too thin for
+    // anyone to mate with stops a side.
+    if (this.pockets) return !this.crazyhouseMaterialDead();
     let knights = 0;
     const myBishops = new Set();
     const theirs = { p: 0, n: 0, b: 0, r: 0, q: 0 };
@@ -885,6 +931,20 @@ class Chess {
     if (myBishops.size >= 2) return true;                   // bishops of both colours
     const mine = [...myBishops][0];
     return theirs.n > 0 || theirs.p > 0 || [...theirBishops].some((col) => col !== mine);
+  }
+
+  // Crazyhouse: nothing ever leaves the game — a capture only moves a piece
+  // into a pocket — so material can't run out in play. Only a position set up
+  // with almost nothing is dead: bare kings, or one knight or bishop between
+  // the two sides, on the board or in hand, which nobody can mate with.
+  crazyhouseMaterialDead() {
+    // A promoted piece counts as the pawn it goes back to when captured.
+    const extra = [];
+    for (const p of this.squares) if (p && p.t !== 'k') extra.push(p.promoted ? 'p' : p.t);
+    for (const c of [W, B]) {
+      for (const t of POCKET_TYPES) for (let i = 0; i < this.pockets[c][t]; i++) extra.push(t);
+    }
+    return extra.length === 0 || (extra.length === 1 && (extra[0] === 'n' || extra[0] === 'b'));
   }
 
   // Atomic ends the moment a king is destroyed, however that happened.
@@ -949,7 +1009,9 @@ class Chess {
   moveToSan(m) {
     const piece = this.squares[m.from];
     let san;
-    if (m.castle === 'K') san = 'O-O';
+    // A drop is the piece's letter, pawns included, then "@" and the square.
+    if (m.drop) san = m.drop.toUpperCase() + '@' + algOf(m.to);
+    else if (m.castle === 'K') san = 'O-O';
     else if (m.castle === 'Q') san = 'O-O-O';
     else {
       const isCap = !!(m.capture || m.enpassant);
