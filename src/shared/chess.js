@@ -14,23 +14,50 @@ const inBoard = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
 const squaresTouch = (a, b) =>
   Math.abs(fileOf(a) - fileOf(b)) <= 1 && Math.abs(rankOf(a) - rankOf(b)) <= 1;
 const PIECE_NAMES = { p:'pawn', n:'knight', b:'bishop', r:'rook', q:'queen', k:'king' };
+// What a Crazyhouse pocket can hold, in the order FEN writes it. Never a king.
+const POCKET_TYPES = ['q', 'r', 'b', 'n', 'p'];
+const emptyPockets = () => ({
+  [W]: { q: 0, r: 0, b: 0, n: 0, p: 0 },
+  [B]: { q: 0, r: 0, b: 0, n: 0, p: 0 },
+});
 
 class Chess {
   constructor() {
     // Which rule set is in force. 'standard' covers Chess960 too — that only
-    // changes the starting position. 'atomic' changes what a capture does.
-    // Set it with setVariant(); reset() and loadFen() deliberately leave it
-    // alone, so loading a position never silently changes the rules.
+    // changes the starting position. 'atomic' changes what a capture does;
+    // 'crazyhouse' keeps what you capture in a pocket. Set it with
+    // setVariant(), then reset() or loadFen(): those two deliberately leave the
+    // rules alone, so loading a position never silently changes them, and they
+    // are what set up the position state a variant carries (the pockets).
     this.variant = 'standard';
     this.reset();
   }
 
   setVariant(name) {
-    this.variant = name === 'atomic' || name === 'pawnwars' ? name : 'standard';
+    this.variant = name === 'atomic' || name === 'pawnwars' || name === 'crazyhouse' ? name : 'standard';
     return this;
   }
 
   get isAtomic() { return this.variant === 'atomic'; }
+
+  // Crazyhouse: a captured piece joins the capturer's pocket, changing colour,
+  // to be dropped back on the board later. A promoted piece goes back as the
+  // pawn it was, so promotions are marked (`promoted: true` on the piece).
+  get isCrazyhouse() { return this.variant === 'crazyhouse'; }
+
+  // The pockets as FEN writes them inside the brackets: White's pieces in
+  // upper case, then Black's, queens first ("Qnp").
+  pocketText() {
+    if (!this.pockets) return '';
+    let s = '';
+    for (const c of [W, B]) {
+      for (const t of POCKET_TYPES) {
+        const ch = c === W ? t.toUpperCase() : t;
+        s += ch.repeat(this.pockets[c][t]);
+      }
+    }
+    return s;
+  }
 
   // Pawn Wars: nothing but pawns, starting on the first and last ranks. There
   // are no kings, so there is no check and no mate — you win by taking every
@@ -80,6 +107,7 @@ class Chess {
       this.squares[sqIdx(f,7)] = { t: back[f], c: B };
     }
     }
+    this.pockets = this.isCrazyhouse ? emptyPockets() : null;
     this.turn = W;
     // Nothing to castle with in Pawn Wars, and claiming rights would put a
     // meaningless "KQkq" in every FEN it produces.
@@ -103,21 +131,47 @@ class Chess {
     const parts = String(fen || '').trim().split(/\s+/);
     if (parts.length < 4) throw new Error('FEN must have at least 4 fields');
 
+    // Crazyhouse writes the pockets after the board, "…/RNBQKBNR[Qnp]", and a
+    // "~" after a promoted piece ("Q~"). A board with no brackets has empty
+    // pockets, so the standard start FEN opens a Crazyhouse game too.
+    let boardField = parts[0];
+    let pockets = null;
+    if (this.isCrazyhouse) {
+      const split = /^([^[\]]*)(?:\[([^[\]]*)\])?$/.exec(boardField);
+      if (!split) throw new Error('FEN: the pockets must be one [...] after the board');
+      boardField = split[1];
+      pockets = emptyPockets();
+      for (const ch of split[2] || '') {
+        const t = ch.toLowerCase();
+        if (!POCKET_TYPES.includes(t)) throw new Error(`FEN: bad pocket piece "${ch}"`);
+        pockets[ch === t ? B : W][t]++;
+      }
+    }
+
     const newSquares = new Array(64).fill(null);
-    const ranks = parts[0].split('/');
+    const ranks = boardField.split('/');
     if (ranks.length !== 8) throw new Error('FEN must have 8 ranks separated by "/"');
 
     for (let i = 0; i < 8; i++) {
       const r = 7 - i; // FEN lists rank 8 first, our index 7 = rank 8
       let f = 0;
+      let last = null; // the piece just placed, which a "~" would mark
       for (const ch of ranks[i]) {
         if (ch >= '1' && ch <= '8') {
           f += ch.charCodeAt(0) - 48;
+          last = null;
         } else if ('prnbqkPRNBQK'.includes(ch)) {
           if (f >= 8) throw new Error(`FEN rank ${8 - i} overflows 8 files`);
           const c = ch === ch.toUpperCase() ? W : B;
-          newSquares[sqIdx(f, r)] = { t: ch.toLowerCase(), c };
+          last = { t: ch.toLowerCase(), c };
+          newSquares[sqIdx(f, r)] = last;
           f++;
+        } else if (ch === '~' && this.isCrazyhouse) {
+          // Only a piece a pawn could have become can be marked, and only once.
+          if (!last || last.t === 'p' || last.t === 'k' || last.promoted) {
+            throw new Error(`FEN rank ${8 - i}: "~" must follow a queen, rook, bishop or knight`);
+          }
+          last.promoted = true;
         } else {
           throw new Error(`FEN: bad piece char "${ch}"`);
         }
@@ -173,6 +227,7 @@ class Chess {
     }
 
     this.squares = newSquares;
+    this.pockets = pockets;
     this.turn = turn;
     const cr = parts[2] || '-';
     this.castling = {
@@ -298,8 +353,12 @@ class Chess {
     let s = '';
     for (let i = 0; i < 64; i++) {
       const p = this.squares[i];
-      s += p ? (p.c === W ? p.t.toUpperCase() : p.t) : '.';
+      s += p ? (p.c === W ? p.t.toUpperCase() : p.t) + (p.promoted ? '~' : '') : '.';
     }
+    // In Crazyhouse what is in hand is part of the position: the same board
+    // with a knight to drop is not the same position as without one. Whether a
+    // piece is promoted is too, since it decides what capturing it pockets.
+    if (this.pockets) s += '|' + this.pocketText();
     s += '|' + this.turn;
     s += '|' + (this.castling.K ? 'K' : '') + (this.castling.Q ? 'Q' : '')
             + (this.castling.k ? 'k' : '') + (this.castling.q ? 'q' : '');
@@ -320,10 +379,12 @@ class Chess {
         if (!p) { empty++; continue; }
         if (empty) { board += empty; empty = 0; }
         board += p.c === W ? p.t.toUpperCase() : p.t;
+        if (p.promoted) board += '~';
       }
       if (empty) board += empty;
       if (r > 0) board += '/';
     }
+    if (this.pockets) board += '[' + this.pocketText() + ']';
     let cr = (this.castling.K ? 'K' : '') + (this.castling.Q ? 'Q' : '')
            + (this.castling.k ? 'k' : '') + (this.castling.q ? 'q' : '');
     if (!cr) cr = '-';
@@ -614,10 +675,23 @@ class Chess {
       this.squares[sqIdx(m.castle === 'K' ? 5 : 3, r)] = rook;
     } else {
       this.squares[m.from] = null;
-      this.squares[m.to] = m.promo ? { t: m.promo, c: piece.c } : piece;
+      let landed = piece;
+      if (m.promo) {
+        landed = { t: m.promo, c: piece.c };
+        if (this.isCrazyhouse) landed.promoted = true;
+      }
+      this.squares[m.to] = landed;
       if (m.enpassant) {
         this.squares[sqIdx(fileOf(m.to), rankOf(m.from))] = null;
       }
+    }
+
+    // Crazyhouse: what was taken goes into the mover's pocket — a promoted
+    // piece as the pawn it started as. Recorded for undoMove.
+    if (this.pockets && captured) {
+      const type = captured.promoted ? 'p' : captured.t;
+      this.pockets[piece.c][type]++;
+      histEntry.pocketed = type;
     }
 
     // Castling rights updates
@@ -695,6 +769,7 @@ class Chess {
       else this.positionCounts.set(h.newKey, cur);
     }
 
+    if (h.pocketed) this.pockets[h.turn][h.pocketed]--;
     this.castling = h.castling;
     this.ep = h.ep;
     this.halfmove = h.halfmove;

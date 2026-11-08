@@ -81,6 +81,15 @@ Repetition keys include en passant only when a legal capture exists. An
 uncapturable FEN target, including one blocked by a pin, does not distinguish
 otherwise identical positions; FEN output still preserves the original target.
 
+Crazyhouse (being built; not in the variant catalogue yet, and without drops)
+keeps captured pieces in `chess.pockets`. Like the rest of the position, they
+are set up by `reset()` and `loadFen()`, never by `setVariant()`. A captured
+promoted piece goes back as a pawn, so promotions carry `promoted: true`. FEN
+writes both as python-chess does: the pockets in brackets after the board
+(`…/RNBQKBNR[Qnp]`, White's pieces first) and `~` after a promoted piece. No
+brackets means empty pockets, so the standard start FEN opens a Crazyhouse
+game. The pockets and the promoted marks are part of the repetition key.
+
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
 the one reader of stored moves) live **only** in `src/shared/` and load three
