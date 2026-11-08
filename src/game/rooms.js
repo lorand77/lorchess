@@ -10,11 +10,10 @@ const config = require("../config");
 const log = require("../log");
 const { describeTimeControl } = require("../shared/timeControls");
 const handicap = require("../shared/handicap");
+const { moveFromUci } = require("../shared/uci");
 const { usesStandardSetup } = require("../shared/variants");
 
 const rooms = new Map(); // gameId -> room
-
-const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 
 function createRoom(
   gameId,
@@ -188,10 +187,7 @@ function loadRoomFromDb(gameId) {
   });
 
   for (const m of queries.getMovesForGame.all(gameId)) {
-    const from = sqFromAlg(m.uci.slice(0, 2));
-    const to = sqFromAlg(m.uci.slice(2, 4));
-    const promo = m.uci[4] || null;
-    const mv = room.chess.findMove(from, to, promo);
+    const mv = moveFromUci(room.chess, m.uci);
     if (!mv) {
       // A stored move the rules refuse cannot be skipped: the room would sit a
       // ply behind its own record and the next move would collide with the

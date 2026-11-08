@@ -47,13 +47,8 @@
   let engineOn = localStorage.getItem(ENGINE_KEY) !== "off";
   let engineFailed = false;
 
-  const sqOf = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
   const uciOf = (m) =>
     algOf(m.from) + algOf(m.castle && m.rookFrom != null ? m.rookFrom : m.to) + (m.promo || "");
-  const findUci = (board, uci) =>
-    /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)
-      ? board.findMove(sqOf(uci.slice(0, 2)), sqOf(uci.slice(2, 4)), uci[4] || null)
-      : null;
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -80,7 +75,7 @@
     chess.loadFen(startFen);
     lastMove = null;
     for (let k = 0; k < idx; k++) {
-      lastMove = findUci(chess, line[k].uci);
+      lastMove = moveFromUci(chess, line[k].uci);
       chess.makeMove(lastMove);
     }
     selected = null; legal = [];
@@ -116,7 +111,7 @@
     scratch.loadFen(fen || STANDARD_START);
     const kept = [];
     for (const uci of uciMoves || []) {
-      const m = findUci(scratch, uci);
+      const m = moveFromUci(scratch, uci);
       if (!m) break;
       kept.push({ uci: uciOf(m), san: scratch.moveToSan(m) });
       scratch.makeMove(m);
@@ -362,10 +357,10 @@
   function pvText(pv) {
     const scratch = new Chess();
     scratch.loadFen(startFen);
-    for (let k = 0; k < idx; k++) scratch.makeMove(findUci(scratch, line[k].uci));
+    for (let k = 0; k < idx; k++) scratch.makeMove(moveFromUci(scratch, line[k].uci));
     const out = [];
     for (const uci of pv.slice(0, PV_SHOWN)) {
-      const m = findUci(scratch, uci);
+      const m = moveFromUci(scratch, uci);
       if (!m) break;
       if (scratch.turn === W) out.push(scratch.fullmove + ".");
       else if (!out.length) out.push(scratch.fullmove + "…");

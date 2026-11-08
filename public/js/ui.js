@@ -1034,9 +1034,6 @@ function initAi(params) {
   startNewGame();
 }
 
-// Inverse of chess.js's algOf: 'e4' -> square index.
-const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
-
 // Restore an unfinished AI game from its stored move list and hand the board
 // back to the player. The engine picks up from wherever the game left off.
 function resumeAiGame(game) {
@@ -1068,12 +1065,9 @@ function resumeAiGame(game) {
   lastMove = null;
   let replayed = true;
   for (const m of game.moves) {
-    const from = sqFromAlg(m.uci.slice(0, 2));
-    const to = sqFromAlg(m.uci.slice(2, 4));
-    const promo = m.uci[4] || null;
     // findMove takes castling spelled either way: by the rook square (how
     // moves are stored now) or by the king's destination (older AI games).
-    const mv = chess.findMove(from, to, promo);
+    const mv = moveFromUci(chess, m.uci);
     if (!mv) { replayed = false; break; }
     chess.makeMove(mv);
     moveHistory.push(m.san);
@@ -1596,7 +1590,7 @@ function rebuildFromRecord(state) {
   if (!Array.isArray(state.moves)) { chess.loadFen(state.fen); return; }
   if (state.startFen) chess.loadFen(state.startFen); else chess.reset();
   for (const uci of state.moves) {
-    const mv = chess.findMove(sqFromAlg(uci.slice(0, 2)), sqFromAlg(uci.slice(2, 4)), uci[4] || null);
+    const mv = moveFromUci(chess, uci);
     if (!mv) {
       console.warn('The move record did not replay; showing the position as sent.');
       chess.loadFen(state.fen);

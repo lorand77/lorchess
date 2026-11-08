@@ -51,12 +51,11 @@ function tcLabel(key) {
   return tc ? tc.label : key;
 }
 
-// 'e2' -> 12. Enough to highlight a UCI move on a preview board without
-// pulling the whole chess engine into this page.
-const sqFromAlg = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
+// The squares of a UCI move, to highlight on a preview board. uci.js reads
+// them without pulling the whole chess engine into this page.
 function lastMoveOf(uci) {
-  if (typeof uci !== "string" || uci.length < 4) return null;
-  return { from: sqFromAlg(uci.slice(0, 2)), to: sqFromAlg(uci.slice(2, 4)) };
+  const m = parseUci(uci);
+  return m ? { from: m.from, to: m.to } : null;
 }
 
 // Colour as the OFFERING side described it, read from the taker's point of view.

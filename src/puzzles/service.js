@@ -11,7 +11,8 @@
 
 const db = require("../db/index");
 const queries = require("../db/queries");
-const { Chess, sqIdx } = require("../shared/chess");
+const { Chess } = require("../shared/chess");
+const { parseUci } = require("../shared/uci");
 
 const DAILY_MIN = 1200;
 const DAILY_MAX = 2000;
@@ -26,13 +27,12 @@ const WINDOWS = [100, 200, 400, 800, 4000];
 
 // ---- move helpers ----
 
-const sqFromAlg = (a) => sqIdx(a.charCodeAt(0) - 97, parseInt(a[1], 10) - 1);
-
+// An exact match against legalMoves(), not Chess.findMove, which would also
+// take castling spelled by the rook's square.
 function findMove(chess, uci) {
-  if (typeof uci !== "string" || !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) return null;
-  const from = sqFromAlg(uci.slice(0, 2));
-  const to = sqFromAlg(uci.slice(2, 4));
-  const promo = uci[4] || null;
+  const p = parseUci(uci);
+  if (!p) return null;
+  const { from, to, promo } = p;
   return (
     chess.legalMoves().find(
       (m) => m.from === from && m.to === to && (promo ? m.promo === promo : !m.promo)

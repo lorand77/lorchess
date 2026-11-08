@@ -196,13 +196,6 @@ window.GameReview = (function () {
     return null;
   }
 
-  function findUci(chess, uci) {
-    if (typeof uci !== "string" || uci.length < 4) return null;
-    const from = (uci.charCodeAt(0) - 97) + (Number(uci[1]) - 1) * 8;
-    const to = (uci.charCodeAt(2) - 97) + (Number(uci[3]) - 1) * 8;
-    return chess.findMove(from, to, uci[4] || null);
-  }
-
   // `createEngine` exists for the tests, which drive the same code with a
   // scripted engine or a Stockfish child process instead of a Web Worker.
   function run(opts) {
@@ -249,7 +242,7 @@ window.GameReview = (function () {
     // Step the board past move `ply`. False once the record stops making sense.
     function advance() {
       if (ply < total) {
-        const mv = findUci(board, uciMoves[ply]);
+        const mv = moveFromUci(board, uciMoves[ply]);
         if (!mv) {
           fail("Illegal move in the game record: " + uciMoves[ply]);
           return false;
@@ -283,7 +276,7 @@ window.GameReview = (function () {
     // rather than inventing a verdict.
     function searched(bestUci) {
       clearTimeout(timer);
-      const mv = bestUci && bestUci !== "(none)" ? findUci(board, bestUci) : null;
+      const mv = bestUci && bestUci !== "(none)" ? moveFromUci(board, bestUci) : null;
       report({
         score: last ? last.score : null,
         // Once it sees a forced mate Stockfish runs straight to its maximum

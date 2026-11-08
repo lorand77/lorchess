@@ -19,6 +19,7 @@ const queries = require("../db/queries");
 const log = require("../log");
 const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/chess");
 const handicap = require("../shared/handicap");
+const { parseUci } = require("../shared/uci");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
 const { VARIANTS } = require("../shared/variants");
 const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
@@ -97,12 +98,10 @@ function analyze(game, moves) {
 
   const plies = [];
   for (const m of moves) {
-    if (typeof m.uci !== "string" || m.uci.length < 4) return null;
-    const from = sqFromAlg(m.uci.slice(0, 2));
-    const to = sqFromAlg(m.uci.slice(2, 4));
-    const promo = m.uci[4] || null;
-    const mv = chess
-      .findMove(from, to, promo);
+    const parsed = parseUci(m.uci);
+    if (!parsed) return null;
+    const { from, to, promo } = parsed;
+    const mv = chess.findMove(from, to, promo);
     if (!mv) return null;
     const color = chess.turn;
     const origPiece = chess.squares[from].t;

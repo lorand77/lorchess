@@ -82,8 +82,9 @@ uncapturable FEN target, including one blocked by a pin, does not distinguish
 otherwise identical positions; FEN output still preserves the original target.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
-`timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`) live **only** in `src/shared/` and
-load three ways: as a browser `<script>` global, via `importScripts` in the
+`timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
+the one reader of stored moves) live **only** in `src/shared/` and load three
+ways: as a browser `<script>` global, via `importScripts` in the
 engine Web Worker, and as a Node `require`. The UMD tail
 (`if (typeof module !== 'undefined' && module.exports) module.exports = {...}`)
 makes one file serve all three; Express mounts `src/shared/` at `/js/` ahead of

@@ -40,7 +40,6 @@ let isMember = false; // game review is a membership perk
 let review = null;   // GameReview summary once the analysis finishes
 let reviewJob = null; // the running job, so it can be cancelled
 
-const sqOf = (a) => (a.charCodeAt(0) - 97) + (parseInt(a[1], 10) - 1) * 8;
 
 init();
 
@@ -125,7 +124,7 @@ function goto(i) {
   chess.loadFen(startFen);
   lastMove = null;
   for (let k = 0; k < idx; k++) {
-    const m = findUci(uciList[k]);
+    const m = moveFromUci(chess, uciList[k]);
     if (!m) break;
     chess.makeMove(m);
     lastMove = m;
@@ -134,13 +133,6 @@ function goto(i) {
   highlightMoveList();
   renderMoveVerdict();
   renderEvalBar();
-}
-
-function findUci(uci) {
-  const from = sqOf(uci.slice(0, 2));
-  const to = sqOf(uci.slice(2, 4));
-  const promo = uci[4] || null;
-  return chess.findMove(from, to, promo);
 }
 
 // Older AI games stored castling by the king's destination ("e1g1"); the
@@ -154,7 +146,7 @@ function normaliseUci(list) {
   scratch.loadFen(startFen);
   const out = [];
   for (const uci of list) {
-    const m = scratch.findMove(sqOf(uci.slice(0, 2)), sqOf(uci.slice(2, 4)), uci[4] || null);
+    const m = moveFromUci(scratch, uci);
     if (!m) break;
     const to = m.castle && m.rookFrom != null ? m.rookFrom : m.to;
     out.push(algOf(m.from) + algOf(to) + (m.promo || ""));

@@ -2,9 +2,11 @@
 
 // Small conveniences for driving src/shared/chess.js from tests. Moves are
 // written in coordinate form ("e2e4", "e7e8q", "e1g1") and resolved through
-// findMove, so a test can only ever play a legal move.
+// uci.js and findMove, as the app reads them, so a test can only ever play a
+// legal move.
 
 const { Chess, sqIdx, rankOf, algOf } = require("../../src/shared/chess");
+const { moveFromUci } = require("../../src/shared/uci");
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -31,7 +33,7 @@ function uci(m) {
 
 // "e2e4" -> the legal move object in the current position, or null.
 function moveOf(chess, text) {
-  return chess.findMove(sq(text.slice(0, 2)), sq(text.slice(2, 4)), text[4] || undefined);
+  return moveFromUci(chess, text);
 }
 
 // Play a sequence of coordinate moves (strings or arrays of them). Throws on

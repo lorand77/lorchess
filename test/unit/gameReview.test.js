@@ -10,10 +10,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { Chess } = require("../../src/shared/chess");
+const { moveFromUci } = require("../../src/shared/uci");
 const { stockfishProcess } = require("../helpers/stockfish");
 
 const PUBLIC_JS = path.join(__dirname, "../../public/js");
-const reviewContext = { window: {}, Chess, setTimeout, clearTimeout };
+const reviewContext = { window: {}, Chess, moveFromUci, setTimeout, clearTimeout };
 vm.runInNewContext(fs.readFileSync(path.join(PUBLIC_JS, "gameReview.js"), "utf8"), reviewContext);
 const review = reviewContext.window.GameReview;
 const MATE = 100000;
