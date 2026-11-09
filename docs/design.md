@@ -144,6 +144,53 @@ ringed (`.must-capture`) until the selection changes. A win reads "White wins
 with no pieces left" / "with no moves left" on the game page and in the replay,
 and neither page shows a material count, since being up material is no help.
 
+**Infinite chess** (planned; nothing is built yet) will follow infinitechess.org's
+"Classical" variant, checked against its source (`variantdictionary.ts`,
+`variant.ts`, `specialdetect.ts`, `insufficientmaterial.ts`, `wincondition.ts`
+and `gamemanager.ts` in github.com/Infinite-Chess/infinitechess.org). That code
+is AGPL-3.0, so none of its code is copied: the engine will be our own
+`src/shared/infiniteChess.js`, written from these rules.
+
+- *The board* has no edges. Squares are integer coordinates `x,y`; the ordinary
+  setup sits where it always does (a1 is `1,1`, e4 is `5,4`), and a square is
+  dark when `x + y` is even. LorChess limits every coordinate to ±1,000,000: a
+  slider stops at the limit, and the server refuses anything beyond it. No one
+  plays that far out, and infinitechess.org's own code treats a board edge at
+  that distance as out of reach (`boundForWorldBorderConsideration`).
+- *Pieces and moves* are the ordinary ones, the sliders going as far as they
+  like. Pawns promote on reaching y = 8 (White) or y = 1 (Black), to a queen,
+  rook, bishop or knight; there is no promotion anywhere else. En passant is as
+  usual. A pawn may step twice only while it holds its starting right.
+- *Castling*: a king that still holds its right steps two squares towards the
+  nearest piece on its rank, which must be friendly, not a pawn, still holding
+  its own right and at least three squares away; that piece lands on the square
+  the king passed over. Not out of check, through an attacked square or into
+  one. In the Classical setup only the four rooks hold the right.
+- *The end*: checkmate wins; stalemate, threefold repetition (with castling and
+  double-step rights part of the position) and the 50-move rule (100 plies)
+  draw automatically, checked after mate so a draw never takes a win away.
+- *Dead material* is a table rather than a rule of thumb: on a board with no
+  edges much less can mate than usual (a king and queen cannot mate a bare king,
+  even with help), so infinitechess.org lists the combinations of pieces with
+  which no mate is possible, and a position is dead when its material, seen
+  from either side, fits within one of them. Pawns count as each piece they
+  could promote to, for up to two pawns; with three or more promotable pawns
+  the position is never called dead. The table records chess facts rather than
+  code; it will be entered by hand from their source, which it will cite.
+- *A flag* loses outright on infinitechess.org. LorChess keeps its own rule
+  instead, the one every other variant here uses: a flag draws when the side
+  still on time could not mate by any series of legal moves. The same table
+  answers that question, asked of one side.
+- *Notation* is ICN, infinitechess.org's Infinite Chess Notation
+  (github.com/tsevasa/infinite-chess-notation), in the subset these rules need.
+  A move is stored as `5,2>5,4`, with a promotion letter in the mover's case
+  (`4,7>4,8Q`); `uci.js` will read and write that form next to `e2e4` and
+  `N@e4`. A position is an ICN position string, stored where FEN goes:
+  `w 0/100 1 (8|1) checkmate P1,2+|…|K5,1+|k5,8+`, a `+` marking a piece's
+  special right and an optional en passant square after the side to move.
+  ICN's fairy pieces, extra win conditions and annotations are refused.
+  The move list shows ICN's long form: `P5,2>5,4`, `Qx3,5+`, `P4,7>4,8=Q#`.
+
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
 which reads and writes stored moves) live **only** in `src/shared/` and load
