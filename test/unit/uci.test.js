@@ -24,6 +24,7 @@ describe("parseUci", () => {
   test("reads a promotion", () => {
     assert.deepEqual(parseUci("e7e8q"), { from: sq("e7"), to: sq("e8"), promo: "q", drop: null });
     assert.equal(parseUci("b2a1n").promo, "n");
+    assert.equal(parseUci("e7e8k").promo, "k", "an Antichess pawn may become a king");
   });
 
   test("reads a drop: the piece in lower case, and no square it comes from", () => {
@@ -35,7 +36,7 @@ describe("parseUci", () => {
   test("returns null for anything that is not a well-formed move", () => {
     for (const bad of [
       undefined, null, 42, {}, ["e2e4"], "", "e2", "e2e", "e2e4e5",
-      "i2e4", "e0e4", "e2e9", "E2E4", "e7e8Q", "e7e8k", "e7e8x", " e2e4", "e2e4 ",
+      "i2e4", "e0e4", "e2e9", "E2E4", "e7e8Q", "e7e8K", "e7e8x", " e2e4", "e2e4 ",
       "n@e4", "K@e4", "N@e9", "N@i4", "@e4", "N@", "N@e4q", "Ne4", "N@@e4",
     ]) {
       assert.equal(parseUci(bad), null, JSON.stringify(bad));

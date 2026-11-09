@@ -99,6 +99,19 @@ the material is dead only in a set-up position with bare kings or one minor
 piece between both sides, and a flag always loses otherwise: a bare king can
 capture something and mate with it.
 
+**Antichess** (being built; not in the variant catalogue yet) follows Lichess:
+a capture is compulsory whenever there is one, the king is an ordinary piece
+(no check, no mate, it can be taken), pawns may also promote to a king (`k` in
+UCI, `=K` in SAN), and there is no castling, whatever a FEN claims. The side to
+move wins with no piece or no legal move left, ahead of any draw; otherwise the
+50-move rule and threefold repetition draw as usual. `antichessMoves()` keeps
+only the captures when there are any, and the engine matches Lichess's own
+perft counts (scalachess's `antichess.perft`, in `test/unit/antichess.test.js`).
+Dead material is the clear-cut case only: nothing but bishops, each side's on
+one square colour and the two sides on opposite colours, so nothing can ever be
+taken. Lichess also counts some positions with blocked pawns, and draws some
+knight endings on a flag; here those play on, and a flag otherwise loses.
+
 Crazyhouse is casual only for now (`rateable: false` in `variants.js`,
 enforced by the lobby's offers, by quick match and again in `startMatch`,
 where every game is created): every variant moves the one Elo, and a new one

@@ -15,7 +15,8 @@
 // It needs nothing from chess.js, so a page without the engine (the lobby) can
 // still read a move's squares.
 
-const UCI_MOVE = /^([a-h])([1-8])([a-h])([1-8])([qrbn]?)$/;
+// The promotion letter can be a king's: Antichess pawns may promote to one.
+const UCI_MOVE = /^([a-h])([1-8])([a-h])([1-8])([qrbnk]?)$/;
 const UCI_DROP = /^([QRBNP])@([a-h])([1-8])$/;
 
 // "e7e8q" -> { from: 52, to: 60, promo: "q", drop: null }, squares numbered as

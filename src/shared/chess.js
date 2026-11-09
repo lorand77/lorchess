@@ -25,7 +25,8 @@ class Chess {
   constructor() {
     // Which rule set is in force. 'standard' covers Chess960 too — that only
     // changes the starting position. 'atomic' changes what a capture does;
-    // 'crazyhouse' keeps what you capture in a pocket. Set it with
+    // 'crazyhouse' keeps what you capture in a pocket; 'antichess' makes you
+    // try to lose everything. Set it with
     // setVariant(), then reset() or loadFen(): those two deliberately leave the
     // rules alone, so loading a position never silently changes them, and they
     // are what set up the position state a variant carries (the pockets).
@@ -34,11 +35,24 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = name === 'atomic' || name === 'pawnwars' || name === 'crazyhouse' ? name : 'standard';
+    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess'].includes(name) ? name : 'standard';
     return this;
   }
 
   get isAtomic() { return this.variant === 'atomic'; }
+
+  // Antichess (Lichess's rules): the aim is to lose every piece. A capture is
+  // compulsory whenever there is one, the king is an ordinary piece — no check,
+  // no mate, and it can be taken — pawns may also promote to a king, and there
+  // is no castling. The side to move wins if it has no piece left or no legal
+  // move; otherwise the usual draws (50 moves, threefold) apply.
+  get isAntichess() { return this.variant === 'antichess'; }
+
+  pieceCount(c) {
+    let n = 0;
+    for (const p of this.squares) if (p && p.c === c) n++;
+    return n;
+  }
 
   // Crazyhouse: a captured piece joins the capturer's pocket, changing colour,
   // to be dropped back on the board later. A promoted piece goes back as the
@@ -110,8 +124,8 @@ class Chess {
     this.pockets = this.isCrazyhouse ? emptyPockets() : null;
     this.turn = W;
     // Nothing to castle with in Pawn Wars, and claiming rights would put a
-    // meaningless "KQkq" in every FEN it produces.
-    this.castling = this.isPawnWars
+    // meaningless "KQkq" in every FEN it produces. Antichess forbids it.
+    this.castling = this.isPawnWars || this.isAntichess
       ? { K: false, Q: false, k: false, q: false }
       : { K: true, Q: true, k: true, q: true };
     // Standard chess fixes the king on e1/e8 and the castling rooks in the
@@ -184,9 +198,11 @@ class Chess {
       if (!p || p.t !== 'k') continue;
       if (p.c === W) wKings++; else bKings++;
     }
-    // Pawn Wars has no kings at all; every other variant must have exactly one
-    // per side, which is the check that catches most malformed FENs.
-    if (this.isPawnWars ? (wKings || bKings) : (wKings !== 1 || bKings !== 1)) {
+    // Pawn Wars has no kings at all, and in Antichess a king is a piece like
+    // any other — none, or several after promotions. Every other variant must
+    // have exactly one per side, the check that catches most malformed FENs.
+    const kingsWrong = this.isPawnWars ? (wKings || bKings) : (wKings !== 1 || bKings !== 1);
+    if (!this.isAntichess && kingsWrong) {
       throw new Error(this.isPawnWars
         ? 'Pawn Wars positions have no kings'
         : 'FEN must have exactly one king per side');
@@ -229,7 +245,8 @@ class Chess {
     this.squares = newSquares;
     this.pockets = pockets;
     this.turn = turn;
-    const cr = parts[2] || '-';
+    // Antichess has no castling, whatever the FEN claims.
+    const cr = this.isAntichess ? '-' : parts[2] || '-';
     this.castling = {
       K: cr.includes('K'),
       Q: cr.includes('Q'),
@@ -410,6 +427,8 @@ class Chess {
     const add = (to, opts) => moves.push(Object.assign({ from: sq, to }, opts || {}));
 
     if (piece.t === 'p') {
+      // An Antichess pawn may also become a king.
+      const promos = this.isAntichess ? ['q','r','b','n','k'] : ['q','r','b','n'];
       const dir = c === W ? 1 : -1;
       // Pawn Wars starts its pawns on the outer ranks, so that is where their
       // two-square opening move comes from.
@@ -419,7 +438,7 @@ class Chess {
       if (inBoard(f, r + dir) && !this.squares[sqIdx(f, r + dir)]) {
         const to = sqIdx(f, r + dir);
         if (rankOf(to) === promoRank) {
-          for (const p of ['q','r','b','n']) add(to, { promo: p });
+          for (const p of promos) add(to, { promo: p });
         } else {
           add(to);
           if (r === startRank && !this.squares[sqIdx(f, r + 2*dir)]) {
@@ -435,7 +454,7 @@ class Chess {
         const tgt = this.squares[to];
         if (tgt && tgt.c === them) {
           if (rankOf(to) === promoRank) {
-            for (const p of ['q','r','b','n']) add(to, { promo: p, capture: true });
+            for (const p of promos) add(to, { promo: p, capture: true });
           } else {
             add(to, { capture: true });
           }
@@ -579,6 +598,7 @@ class Chess {
   }
 
   inCheck(c) {
+    if (this.isAntichess) return false; // no king to keep safe
     if (c === undefined) c = this.turn;
     const king = this.findKing(c);
     if (king === -1) return false;
@@ -612,6 +632,7 @@ class Chess {
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return [];
     // Same in Pawn Wars once a side has been wiped out.
     if (this.isPawnWars && (this.pawnCount(W) === 0 || this.pawnCount(B) === 0)) return [];
+    if (this.isAntichess) return this.antichessMoves(c);
     const moves = [];
     for (let sq = 0; sq < 64; sq++) {
       const p = this.squares[sq];
@@ -647,6 +668,18 @@ class Chess {
     }
     if (this.pockets) this.addDrops(moves, c);
     return moves;
+  }
+
+  // Antichess: nothing to expose, so every pseudo-legal move is legal — but if
+  // any of them captures (en passant included), only the captures are.
+  antichessMoves(c) {
+    const moves = [];
+    for (let sq = 0; sq < 64; sq++) {
+      const p = this.squares[sq];
+      if (p && p.c === c) moves.push(...this.pseudoMovesFrom(sq, c));
+    }
+    const captures = moves.filter((m) => m.capture);
+    return captures.length ? captures : moves;
   }
 
   // Crazyhouse: every piece in `c`'s pocket onto every empty square, except a
@@ -849,6 +882,7 @@ class Chess {
   isInsufficientMaterial() {
     if (this.isPawnWars) return false;
     if (this.pockets) return this.crazyhouseMaterialDead();
+    if (this.isAntichess) return this.antichessMaterialDead();
     const ps = [];
     for (let i = 0; i < 64; i++) {
       const p = this.squares[i];
@@ -902,6 +936,9 @@ class Chess {
   // answer is always yes.
   hasMatingMaterial(c) {
     if (this.isAtomic || this.isPawnWars) return true;
+    // Antichess has no mate: a flag loses unless the game could no longer be
+    // won by anyone. (Lichess also draws some knight endings on a flag.)
+    if (this.isAntichess) return !this.antichessMaterialDead();
     // In Crazyhouse whatever either side holds can change hands, so a bare king
     // can capture something and mate with it. Only material too thin for
     // anyone to mate with stops a side.
@@ -947,9 +984,25 @@ class Chess {
     return extra.length === 0 || (extra.length === 1 && (extra[0] === 'n' || extra[0] === 'b'));
   }
 
+  // Antichess: only bishops left, each side's all on one square colour and the
+  // two sides on opposite colours. No capture can ever happen again, so no one
+  // can lose their pieces. Lichess also counts some positions where pawns are
+  // blocked beside the bishops; those are left to the 50-move rule here.
+  antichessMaterialDead() {
+    const colours = { [W]: new Set(), [B]: new Set() };
+    for (let i = 0; i < 64; i++) {
+      const p = this.squares[i];
+      if (!p) continue;
+      if (p.t !== 'b') return false;
+      colours[p.c].add((fileOf(i) + rankOf(i)) & 1);
+    }
+    const w = colours[W], b = colours[B];
+    return w.size === 1 && b.size === 1 && [...w][0] !== [...b][0];
+  }
+
   // Atomic ends the moment a king is destroyed, however that happened.
   isCheckmate() {
-    if (this.isPawnWars) return false;
+    if (this.isPawnWars || this.isAntichess) return false;
     if (this.isAtomic) {
       if (this.kingMissing(this.turn)) return true;          // ours went up: we lost
       if (this.kingMissing(opp(this.turn))) return false;    // theirs did: a win, not mate
@@ -957,7 +1010,9 @@ class Chess {
     }
     return this.inCheck() && this.legalMoves().length === 0;
   }
+  // In Antichess having no move is a win, not a stalemate: see result().
   isStalemate() {
+    if (this.isAntichess) return false;
     if (this.isPawnWars) {
       if (this.pawnCount(W) === 0 || this.pawnCount(B) === 0) return false;
       return this.legalMoves().length === 0;
@@ -979,12 +1034,18 @@ class Chess {
           || this.isThreefoldRepetition();
     }
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return true;
+    // In Antichess an empty move list includes having no pieces left.
     return this.legalMoves().length === 0
         || this.isInsufficientMaterial()
         || this.halfmove >= 100
         || this.isThreefoldRepetition();
   }
   result() {
+    if (this.isAntichess) {
+      // The side to move wins with no piece or no move left — before any draw.
+      if (this.legalMoves().length === 0) return this.turn === W ? '1-0' : '0-1';
+      return this.isGameOver() ? '1/2-1/2' : '*';
+    }
     if (this.isPawnWars) {
       const w = this.pawnCount(W), b = this.pawnCount(B);
       // Promoting your last pawn loses too — the rule is about pawns, not
@@ -1052,10 +1113,12 @@ class Chess {
 const STANDARD_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // Pawn Wars opens with eight pawns a side on the outer ranks.
 const PAWN_WARS_START = 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1';
+// Antichess opens from the ordinary setup, with no castling rights.
+const ANTICHESS_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    Chess, W, B, PIECE_NAMES, STANDARD_START, PAWN_WARS_START,
+    Chess, W, B, PIECE_NAMES, STANDARD_START, PAWN_WARS_START, ANTICHESS_START,
     sqIdx, fileOf, rankOf, algOf, opp, inBoard,
   };
 }
