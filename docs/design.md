@@ -144,8 +144,9 @@ ringed (`.must-capture`) until the selection changes. A win reads "White wins
 with no pieces left" / "with no moves left" on the game page and in the replay,
 and neither page shows a material count, since being up material is no help.
 
-**Infinite chess** (planned; nothing is built yet) will follow infinitechess.org's
-"Classical" variant, checked against its source (`variantdictionary.ts`,
+**Infinite chess** (being built: so far the engine's board and moves, in
+`src/shared/infiniteChess.js`; not in the variant catalogue) will follow
+infinitechess.org's "Classical" variant, checked against its source (`variantdictionary.ts`,
 `variant.ts`, `specialdetect.ts`, `insufficientmaterial.ts`, `wincondition.ts`
 and `gamemanager.ts` in github.com/Infinite-Chess/infinitechess.org). That code
 is AGPL-3.0, so none of its code is copied: the engine will be our own
@@ -190,6 +191,13 @@ is AGPL-3.0, so none of its code is copied: the engine will be our own
   special right and an optional en passant square after the side to move.
   ICN's fairy pieces, extra win conditions and annotations are refused.
   The move list shows ICN's long form: `P5,2>5,4`, `Qx3,5+`, `P4,7>4,8=Q#`.
+- *The engine* never lists a position's moves, since a slider has infinitely
+  many: `findMove(from, to, promo)` answers for one move, asking the finitely
+  many pieces what stands between two squares or attacks one, never walking a
+  ray square by square. Each piece carries its ICN special right. With every
+  piece inside the 8x8 box, a move that stays in the box is legal here exactly
+  when chess.js says so; `test/unit/infiniteChess.test.js` checks that on every
+  perft position and on several hundred played out from them.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
