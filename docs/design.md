@@ -104,7 +104,9 @@ a capture is compulsory whenever there is one, the king is an ordinary piece
 (no check, no mate, it can be taken), pawns may also promote to a king (`k` in
 UCI, `=K` in SAN), and there is no castling, whatever a FEN claims. The side to
 move wins with no piece or no legal move left, ahead of any draw; otherwise the
-50-move rule and threefold repetition draw as usual. `antichessMoves()` keeps
+50-move rule and threefold repetition draw as usual; the server records those
+wins as `"all pieces lost"` or `"no moves"` (`terminationOf` in `socket.js`),
+checked ahead of every draw as `result()` does. `antichessMoves()` keeps
 only the captures when there are any, and the engine matches Lichess's own
 perft counts (scalachess's `antichess.perft`, in `test/unit/antichess.test.js`).
 Dead material is the clear-cut case only: nothing but bishops, each side's on

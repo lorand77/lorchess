@@ -873,6 +873,11 @@ function terminationOf(chess) {
     if (chess.pawnCount("w") === 0 || chess.pawnCount("b") === 0) return "pawns captured";
     if (chess.isStalemate()) return "stalemate";
   }
+  // Antichess is won by the side to move running out — of pieces, or of moves —
+  // which ends the game ahead of any draw rule, as result() has it.
+  if (chess.isAntichess && chess.legalMoves().length === 0) {
+    return chess.pieceCount(chess.turn) === 0 ? "all pieces lost" : "no moves";
+  }
   if (chess.isCheckmate()) return "checkmate";
   if (chess.isStalemate()) return "stalemate";
   if (chess.isInsufficientMaterial()) return "insufficient";
