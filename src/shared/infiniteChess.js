@@ -31,6 +31,9 @@ const InfiniteChess = (function () {
   const sign = (n) => (n > 0 ? 1 : n < 0 ? -1 : 0);
 
   const KNIGHT_STEPS = [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]];
+  const ORTHOGONAL = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const DIAGONAL = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const SLIDES = { b: DIAGONAL, r: ORTHOGONAL, q: ORTHOGONAL.concat(DIAGONAL) };
   const PIECE_TYPES = ['p', 'n', 'b', 'r', 'q', 'k'];
   // Pawns promote on arriving at this rank, and nowhere else.
   const PROMOTION_RANK = { [W]: 8, [B]: 1 };
@@ -49,6 +52,66 @@ const InfiniteChess = (function () {
       pieces.push({ t, c: B, x, y: 8, right: castles }, { t: 'p', c: B, x, y: 7, right: true });
     }
     return pieces;
+  }
+
+  // Dead material (infinitechess.org's insufficientmaterial.ts, the table for a
+  // board without edges, standard pieces only). On an infinite board far less
+  // can mate than usual: a king and queen can't mate a bare king even with
+  // help. Each row is material with which Black can't be checkmated, kings
+  // included; a position whose material fits within a row, read either way
+  // round, is dead. Counts are maxima. Bishops are [on one colour, on the
+  // other], larger first; Infinity means any number.
+  const DEAD = (function () {
+    const kings = { K: 1, k: 1 };
+    const rows = [
+      { Q: 1, q: 1 }, { Q: 1, r: 1 }, { Q: 1, b: [1, 0], n: 1 }, { Q: 1, b: [1, 1] },
+      { Q: 1, n: 2 }, { Q: 1, p: 1 },
+      { R: 1, B: [1, 0], n: 1 }, { R: 1, N: 1, n: 1 }, { R: 1, r: 1 }, { R: 1, b: [1, 1] },
+      { R: 1, b: [1, 0], n: 1 }, { R: 1, n: 2 }, { R: 1, p: 1 },
+      { B: [Infinity, 1] }, { B: [Infinity, 0], N: 1 }, { B: [Infinity, 0], p: 1 },
+      { B: [1, 1], N: 1 }, { B: [1, 1], b: [1, 0] }, { B: [1, 1], n: 1 }, { B: [1, 1], p: 1 },
+      { B: [1, 0], N: 2 }, { B: [1, 0], N: 1, b: [1, 0] }, { B: [1, 0], N: 1, b: [0, 1] },
+      { B: [1, 0], N: 1, n: 1 }, { B: [1, 0], N: 1, p: 1 }, { B: [1, 0], n: 2 },
+      { N: 3 }, { N: 2, n: 1 }, { N: 2, p: 1 }, { P: 3, p: 1 },
+    ];
+    // Theirs also lists material without a white king, which these rules
+    // never have (one king a side), and kings alone.
+    return rows.map((r) => Object.assign({}, kings, r)).concat([kings]);
+  })();
+  // Above this many pieces a position is never called dead (as theirs).
+  const DEAD_MAX_PIECES = 10;
+
+  // Does `a` (a count or a bishop pair) exceed `b` anywhere?
+  function more(a, b) {
+    if (typeof a === 'number') return a > b;
+    return a[0] > b[0] || a[1] > b[1];
+  }
+  const fitsRow = (scen, row) => Object.keys(scen).every((k) => k in row && !more(scen[k], row[k]));
+  const isDeadScenario = (scen) => DEAD.some((row) => fitsRow(scen, row));
+
+  // Sort the bishop pairs larger-first, White's first and Black's the same
+  // way round, so the two sides' colours keep their relation (theirs:
+  // normalizeBishopParities). Black's is sorted alone only when White's says
+  // nothing about colour.
+  function normalizeBishops(scen) {
+    const w = scen.B, b = scen.b;
+    let swapped = false;
+    if (w && w[0] < w[1]) { scen.B = [w[1], w[0]]; swapped = true; }
+    if (b) {
+      if (swapped) scen.b = [b[1], b[0]];
+      else if (!w || w[0] === w[1]) scen.b = b[0] < b[1] ? [b[1], b[0]] : b;
+    }
+    return scen;
+  }
+
+  // The same material with the colours swapped.
+  function invert(scen) {
+    const out = {};
+    for (const k of Object.keys(scen)) {
+      const swapped = k === k.toUpperCase() ? k.toLowerCase() : k.toUpperCase();
+      out[swapped] = Array.isArray(scen[k]) ? scen[k].slice() : scen[k];
+    }
+    return normalizeBishops(out);
   }
 
   class InfiniteChess {
@@ -117,6 +180,7 @@ const InfiniteChess = (function () {
       this.halfmove = halfmove;
       this.fullmove = fullmove;
       this.history = [];
+      this.positionCounts = new Map([[this.positionKey(), 1]]);
     }
 
     pieceAt(x, y) {
@@ -191,7 +255,7 @@ const InfiniteChess = (function () {
       if (!piece || piece.c !== this.turn) return null;
       const move = this.pseudoMove(piece, to.x, to.y, promo || null);
       if (!move) return null;
-      this.makeMove(move);
+      this.makeMove(move, false);
       const legal = !this.inCheck(piece.c);
       this.undoMove();
       return legal ? move : null;
@@ -260,7 +324,7 @@ const InfiniteChess = (function () {
       // The square passed over, judged with the king standing on it.
       const passed = { x: king.x + dir, y: king.y };
       const step = { from: { x: king.x, y: king.y }, to: passed, piece: 'k', capture: false };
-      this.makeMove(step);
+      this.makeMove(step, false);
       const attacked = this.inCheck(king.c);
       this.undoMove();
       if (attacked) return null;
@@ -269,8 +333,10 @@ const InfiniteChess = (function () {
     }
 
     // Play a move findMove (or pseudoMove) produced. Everything it changes is
-    // recorded on the history entry, so undoMove can put it back exactly.
-    makeMove(move) {
+    // recorded on the history entry, so undoMove can put it back exactly. The
+    // engine's own trial moves pass `track` false: only a move really played
+    // counts towards repetition.
+    makeMove(move, track = true) {
       const piece = this.pieceAt(move.from.x, move.from.y);
       const capturedAt = move.enpassant ? { x: move.to.x, y: move.from.y } : move.to;
       const captured = move.castle ? null : this.pieceAt(capturedAt.x, capturedAt.y);
@@ -285,6 +351,7 @@ const InfiniteChess = (function () {
         halfmove: this.halfmove,
         fullmove: this.fullmove,
         turn: this.turn,
+        key: null,
       };
 
       if (captured) this.board.delete(keyOf(capturedAt.x, capturedAt.y));
@@ -314,11 +381,20 @@ const InfiniteChess = (function () {
       if (this.turn === B) this.fullmove++;
       this.turn = opp(this.turn);
       this.history.push(entry);
+      if (track) {
+        entry.key = this.positionKey();
+        this.positionCounts.set(entry.key, (this.positionCounts.get(entry.key) || 0) + 1);
+      }
     }
 
     undoMove() {
       const h = this.history.pop();
       if (!h) return;
+      if (h.key) {
+        const n = this.positionCounts.get(h.key) - 1;
+        if (n > 0) this.positionCounts.set(h.key, n);
+        else this.positionCounts.delete(h.key);
+      }
       const { move, piece } = h;
       if (h.rook) {
         const rook = h.rook.piece;
@@ -340,6 +416,195 @@ const InfiniteChess = (function () {
       this.turn = h.turn;
     }
   }
+
+  Object.assign(InfiniteChess.prototype, {
+    // ---- whether any move is left ----
+
+    // Does the side to move have a legal move? Pawns, knights and the king
+    // have a handful each, and are simply tried. A slider has infinitely many,
+    // but they fall into few kinds. If its king is safe with the slider lifted
+    // off the board, its first step along any open ray is legal. If not, only
+    // a move that takes or blocks every piece still attacking the king can be,
+    // and those are finitely many squares: each attacker's own, and where each
+    // ray crosses the line from that attacker to the king.
+    hasLegalMove() {
+      const c = this.turn;
+      const king = this.kingOf(c);
+      for (const p of [...this.board.values()]) {
+        if (p.c !== c) continue;
+        const from = { x: p.x, y: p.y };
+        if (!SLIDES[p.t]) {
+          for (const to of this.stepTargets(p)) {
+            const promo = p.t === 'p' && to.y === PROMOTION_RANK[c] ? 'q' : null;
+            if (this.findMove(from, to, promo)) return true;
+          }
+          continue;
+        }
+        const attackers = this.attackersWithout(p, king);
+        for (const [dx, dy] of SLIDES[p.t]) {
+          if (!attackers.length) {
+            if (this.findMove(from, { x: p.x + dx, y: p.y + dy })) return true;
+            continue;
+          }
+          for (const to of this.helpingSquares(p, dx, dy, king, attackers)) {
+            if (this.findMove(from, to)) return true;
+          }
+        }
+      }
+      return false;
+    },
+
+    // The squares a pawn, knight or king might move to.
+    stepTargets(p) {
+      const out = [];
+      const add = (dx, dy) => out.push({ x: p.x + dx, y: p.y + dy });
+      if (p.t === 'n') for (const [dx, dy] of KNIGHT_STEPS) add(dx, dy);
+      else if (p.t === 'k') {
+        for (const [dx, dy] of ORTHOGONAL.concat(DIAGONAL)) add(dx, dy);
+        add(2, 0); add(-2, 0); // castling
+      } else {
+        const dir = p.c === W ? 1 : -1;
+        add(0, dir); add(0, 2 * dir); add(-1, dir); add(1, dir);
+      }
+      return out.filter((to) => isCoord(to.x) && isCoord(to.y));
+    },
+
+    // The enemy pieces that would attack `king` if `p` were not on the board.
+    attackersWithout(p, king) {
+      const key = keyOf(p.x, p.y);
+      this.board.delete(key);
+      const out = [];
+      for (const q of this.board.values()) {
+        if (q.c !== p.c && this.attacks(q, king.x, king.y)) out.push(q);
+      }
+      this.board.set(key, p);
+      return out;
+    },
+
+    // Squares along `p`'s ray (dx, dy) that take or block one of `attackers`.
+    helpingSquares(p, dx, dy, king, attackers) {
+      const out = [];
+      for (const a of attackers) {
+        // Taking it, if it stands on the ray.
+        const ax = a.x - p.x, ay = a.y - p.y;
+        if (ax * dy === ay * dx && ax * dx + ay * dy > 0) out.push({ x: a.x, y: a.y });
+        // Blocking it: only a slider's line has squares between.
+        if (!SLIDES[a.t]) continue;
+        const ex = sign(king.x - a.x), ey = sign(king.y - a.y);
+        const n = Math.max(Math.abs(king.x - a.x), Math.abs(king.y - a.y));
+        const det = ex * dy - dx * ey;
+        // A ray parallel to the attacker's line blocks nothing new: either it
+        // is that line — the piece pinned on it, where taking the attacker is
+        // always open, nothing standing between them — or it never meets it.
+        if (det === 0) continue;
+        // Solve p + t*(dx,dy) = a + u*(ex,ey) for whole t >= 1, 0 < u < n.
+        const rx = a.x - p.x, ry = a.y - p.y;
+        const t = (ex * ry - ey * rx) / det;
+        const u = (dx * ry - dy * rx) / det;
+        if (Number.isInteger(t) && Number.isInteger(u) && t >= 1 && u > 0 && u < n) {
+          out.push({ x: p.x + t * dx, y: p.y + t * dy });
+        }
+      }
+      return out.filter((to) => isCoord(to.x) && isCoord(to.y));
+    },
+
+    // ---- how a game ends ----
+
+    isCheckmate() {
+      return this.inCheck() && !this.hasLegalMove();
+    },
+
+    isStalemate() {
+      return !this.inCheck() && !this.hasLegalMove();
+    },
+
+    // The position for repetition: every piece with its special right, the
+    // side to move, and an en passant square only while a capture there is
+    // legal (as chess.js does). Rights count even when unusable, as on
+    // infinitechess.org.
+    positionKey() {
+      let ep = '-';
+      if (this.ep) {
+        const dir = this.turn === W ? 1 : -1;
+        for (const side of [-1, 1]) {
+          if (this.findMove({ x: this.ep.x + side, y: this.ep.y - dir }, this.ep)) ep = keyOf(this.ep.x, this.ep.y);
+        }
+      }
+      return this.pieceList().join('|') + ' ' + this.turn + ' ' + ep;
+    },
+
+    isThreefoldRepetition() {
+      return (this.positionCounts.get(this.positionKey()) || 0) >= 3;
+    },
+
+    // The material as the dead-material table counts it, once for each piece
+    // up to two pawns might become (staying a pawn included). Null when there
+    // are more promotable pawns than that: never dead, as theirs.
+    materialScenarios() {
+      const base = {};
+      const pawns = [];
+      for (const p of this.board.values()) {
+        if (p.t === 'p') { pawns.push(p); continue; }
+        const k = p.c === W ? p.t.toUpperCase() : p.t;
+        if (p.t === 'b') {
+          if (!base[k]) base[k] = [0, 0];
+          base[k][Math.abs(p.x + p.y) % 2] += 1;
+        } else base[k] = (base[k] || 0) + 1;
+      }
+      if (pawns.length > 2) return null;
+      let scenarios = [base];
+      for (const pawn of pawns) {
+        const up = (t) => (pawn.c === W ? t.toUpperCase() : t);
+        const next = [];
+        for (const scen of scenarios) {
+          for (const t of ['p', 'q', 'r', 'n', 'b0', 'b1']) {
+            const copy = JSON.parse(JSON.stringify(scen));
+            const k = up(t[0]);
+            if (t[0] === 'b') {
+              if (!copy[k]) copy[k] = [0, 0];
+              copy[k][Number(t[1])] += 1;
+            } else copy[k] = (copy[k] || 0) + 1;
+            next.push(copy);
+          }
+        }
+        scenarios = next;
+      }
+      return scenarios.map(normalizeBishops);
+    },
+
+    // Dead: nobody could checkmate by any series of legal moves.
+    isInsufficientMaterial() {
+      if (this.board.size > DEAD_MAX_PIECES) return false;
+      const scenarios = this.materialScenarios();
+      return !!scenarios && scenarios.every((s) => isDeadScenario(s) || isDeadScenario(invert(s)));
+    },
+
+    // Could `c` still checkmate, by any series of legal moves with the
+    // opponent's help? Asked when the opponent's flag falls: if not, it's a
+    // draw. (infinitechess.org has a flag always lose; LorChess keeps the rule
+    // every variant here has.) A bare king never can; otherwise the table
+    // answers, with `c` as White, the side whose rows say it can't mate.
+    hasMatingMaterial(c) {
+      let alone = true;
+      for (const p of this.board.values()) if (p.c === c && p.t !== 'k') alone = false;
+      if (alone) return false;
+      const scenarios = this.materialScenarios();
+      if (!scenarios) return true;
+      return !scenarios.every((s) => isDeadScenario(c === W ? s : invert(s)));
+    },
+
+    isGameOver() {
+      return !this.hasLegalMove() || this.isInsufficientMaterial()
+        || this.halfmove >= 100 || this.isThreefoldRepetition();
+    },
+
+    // Mate first, so a draw rule that holds at the same time never takes a
+    // win away; then every draw.
+    result() {
+      if (this.isCheckmate()) return this.turn === W ? '0-1' : '1-0';
+      return this.isGameOver() ? '1/2-1/2' : '*';
+    },
+  });
 
   InfiniteChess.LIMIT = LIMIT;
   InfiniteChess.PROMOTIONS = PROMOTIONS;

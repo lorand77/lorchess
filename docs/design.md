@@ -144,8 +144,8 @@ ringed (`.must-capture`) until the selection changes. A win reads "White wins
 with no pieces left" / "with no moves left" on the game page and in the replay,
 and neither page shows a material count, since being up material is no help.
 
-**Infinite chess** (being built: so far the engine's board and moves, in
-`src/shared/infiniteChess.js`; not in the variant catalogue) will follow
+**Infinite chess** (being built: so far the engine, `src/shared/infiniteChess.js`;
+not in the variant catalogue) will follow
 infinitechess.org's "Classical" variant, checked against its source (`variantdictionary.ts`,
 `variant.ts`, `specialdetect.ts`, `insufficientmaterial.ts`, `wincondition.ts`
 and `gamemanager.ts` in github.com/Infinite-Chess/infinitechess.org). That code
@@ -198,6 +198,23 @@ is AGPL-3.0, so none of its code is copied: the engine will be our own
   piece inside the 8x8 box, a move that stays in the box is legal here exactly
   when chess.js says so; `test/unit/infiniteChess.test.js` checks that on every
   perft position and on several hundred played out from them.
+- *Whether any move is left* (`hasLegalMove()`, behind mate and stalemate)
+  can't be asked of a move list either. Pawns, knights and kings have a few
+  moves each and are tried. A slider whose king is safe with it lifted off the
+  board can always take its first step along an open ray; one whose king isn't
+  can only help by taking a piece still attacking the king or stepping between
+  it and the king, which are finitely many squares, found by solving where each
+  ray meets each attacking line. The tests hold it to brute force: in any
+  position every kind of legal move has an example within two squares of the
+  box the pieces occupy, so trying every square there gives the true answer,
+  and the two agree on thousands of positions, half of them mates or
+  stalemates.
+- *Dead material* uses infinitechess.org's table, its 30 standard-piece rows
+  checked against their source by a script, with their bishop colour pairing,
+  their pawn expansion (up to two pawns, as every piece they could become) and
+  their cut-off (more than ten pieces is never dead). For a flag the same table
+  is read one way round, the side still on time as White; a bare king never
+  mates.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
