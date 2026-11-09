@@ -98,6 +98,13 @@ the material is dead only in a set-up position with bare kings or one minor
 piece between both sides, and a flag always loses otherwise: a bare king can
 capture something and mate with it.
 
+On the game page the two captured-piece strips show the pockets instead
+(opponent's on top, yours below; no material count, since nothing is lost).
+Your own pocket pieces are picked up by a click or a drag: `boardDrag.js`
+takes optional `sources`, elements outside the board whose pieces carry a
+`data-drag-from` key (`"@n"`), handed to the page in place of a square. A drop
+is only offered on your own move; there are no pre-drops.
+
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
 which reads and writes stored moves) live **only** in `src/shared/` and load three

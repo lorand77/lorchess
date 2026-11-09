@@ -21,10 +21,15 @@
 //   - a piece is an `img.piece` inside its square
 //
 // Handlers:
-//   canDrag(sq) -> bool     may the user pick up whatever is on this square?
-//   onPick(sq)              they did; select it and show hints (may re-render)
+//   canDrag(from) -> bool   may the user pick up whatever is on this square?
+//   onPick(from)            they did; select it and show hints (may re-render)
 //   onDrop(from, to)        released over square `to`, or null if cancelled /
 //                           dropped off the board
+//   sources                 optional: more elements to drag FROM, off the board
+//                           (Crazyhouse pockets). A piece there is an element
+//                           with `data-drag-from="<key>"` holding an <img>; the
+//                           handlers get that key, a string, as `from` instead
+//                           of a square number. Drops only ever land on squares.
 
 window.BoardDrag = (function () {
   const DRAG_THRESHOLD = 5;   // px before a press counts as a drag, not a tap
@@ -40,8 +45,34 @@ window.BoardDrag = (function () {
     let drag = null;          // in-flight press/drag, see onPointerDown
     let suppressClick = false;
 
+    const sources = handlers.sources || [];
     const squareEl = (sq) =>
       boardEl.querySelector('.square[data-sq="' + sq + '"]');
+    // The image being dragged: a piece on a square, or one in a source.
+    function pieceImg(from) {
+      if (typeof from === "number") {
+        const sq = squareEl(from);
+        return sq && sq.querySelector("img.piece");
+      }
+      for (const el of sources) {
+        const holder = el.querySelector('[data-drag-from="' + from + '"]');
+        if (holder) return holder.querySelector("img");
+      }
+      return null;
+    }
+
+    // What a press on `target` would pick up: a square number, a source key, or null.
+    function pickAt(target) {
+      if (!target.closest) return null;
+      const sqDiv = target.closest(".square");
+      if (sqDiv && boardEl.contains(sqDiv)) {
+        const n = Number(sqDiv.dataset.sq);
+        return Number.isInteger(n) ? n : null;
+      }
+      const holder = target.closest("[data-drag-from]");
+      if (holder && sources.some((el) => el.contains(holder))) return holder.dataset.dragFrom;
+      return null;
+    }
 
     // Which square is under a viewport point? Hit-tests the real DOM, so it
     // naturally ignores the dragged clone (pointer-events: none) and resolves
@@ -63,10 +94,8 @@ window.BoardDrag = (function () {
       suppressClick = false;
       if (drag) return;
       if (e.button != null && e.button !== 0) return; // left button / touch only
-      const sqDiv = e.target.closest && e.target.closest(".square");
-      if (!sqDiv || !boardEl.contains(sqDiv)) return;
-      const from = Number(sqDiv.dataset.sq);
-      if (!Number.isInteger(from)) return;
+      const from = pickAt(e.target);
+      if (from == null) return;
       if (!handlers.canDrag(from)) return;
 
       drag = {
@@ -88,8 +117,7 @@ window.BoardDrag = (function () {
       // onPick shows the move hints, which re-renders — so only look the piece
       // up afterwards, or we'd hold a detached node.
       handlers.onPick(drag.from);
-      const src = squareEl(drag.from);
-      const img = src && src.querySelector("img.piece");
+      const img = pieceImg(drag.from);
       if (!img) { endDrag(); return; }
 
       const rect = img.getBoundingClientRect();
@@ -167,8 +195,7 @@ window.BoardDrag = (function () {
         const el = squareEl(drag.hover);
         if (el) el.classList.remove("drag-over");
       }
-      const src = squareEl(drag.from);
-      const img = src && src.querySelector("img.piece");
+      const img = pieceImg(drag.from);
       if (img) img.classList.remove("dragging");
       drag = null;
     }
@@ -188,6 +215,10 @@ window.BoardDrag = (function () {
     // Capture phase, so the swallowed click never reaches a square's own
     // listener (those are attached in the bubble phase by render()).
     boardEl.addEventListener("click", onClickCapture, true);
+    for (const el of sources) {
+      el.addEventListener("pointerdown", onPointerDown);
+      el.addEventListener("click", onClickCapture, true);
+    }
     // On window, not the board: a drag routinely travels outside it, and the
     // board's DOM is replaced underneath us mid-drag.
     window.addEventListener("pointermove", onPointerMove, { passive: false });
@@ -200,7 +231,9 @@ window.BoardDrag = (function () {
       endDrag();
       boardEl.classList.remove("board-draggable");
       boardEl.removeEventListener("pointerdown", onPointerDown);
+      for (const el of sources) el.removeEventListener("pointerdown", onPointerDown);
       boardEl.removeEventListener("click", onClickCapture, true);
+      for (const el of sources) el.removeEventListener("click", onClickCapture, true);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", cancelDrag);

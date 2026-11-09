@@ -17,6 +17,10 @@ let moveHistory = [];
 // targets rather than legal moves (premoveSelecting).
 let premove = null;             // { from, to } or null
 let premoveSelecting = false;
+// Crazyhouse: the type of the pocket piece picked up to drop ('n'), or null.
+// While it is set, `selected` is null and `legalFromSelected` holds its drops.
+// Only on your own move: there are no pre-drops.
+let dropSelected = null;
 // Fullmove number and side-to-move at the start of the current PGN body,
 // plus the FEN string if the game was set up from one (null if standard start).
 let startFullmove = 1;
@@ -108,7 +112,9 @@ const env = {
 // confirmed moves, and the opponent's moves. `record` persists client-side
 // (AI mode only); in PvP the server already persisted it.
 function applyMove(rmove, record, opts) {
-  const move = chess.findMove(rmove.from, rmove.to, rmove.promo);
+  const move = rmove.drop
+    ? chess.findDrop(rmove.drop, rmove.to)
+    : chess.findMove(rmove.from, rmove.to, rmove.promo);
   if (!move) {
     console.error('Move is not legal here:', rmove);
     return;
@@ -120,6 +126,7 @@ function applyMove(rmove, record, opts) {
   moveHistory.push(san);
   playMoveSound();
   selected = null;
+  dropSelected = null;
   legalFromSelected = [];
   premoveSelecting = false;
   // Our turn now: the queued premove is consumed here, played or not.
@@ -184,6 +191,7 @@ const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const CAPTURE_ORDER = ['p', 'n', 'b', 'r', 'q'];
 
 function renderCaptured() {
+  if (chess.pockets) return renderPockets();
   const byWhite = [];
   const byBlack = [];
   for (const h of chess.history) {
@@ -239,6 +247,42 @@ function fillCaptured(el, pieces, adv) {
     badge.className = 'cap-adv';
     badge.textContent = '+' + adv;
     el.appendChild(badge);
+  }
+}
+
+// Crazyhouse: the strips show what each side holds in hand rather than what it
+// has taken (the two differ: a captured piece is dropped back). The opponent's
+// pocket is at the top, yours at the bottom, and yours can be picked up — by a
+// click or a drag — when it is your move. No material count: nothing is lost.
+function renderPockets() {
+  fillPocket(capturedTopEl, humanColor === W ? B : W);
+  fillPocket(capturedBottomEl, humanColor);
+}
+
+function fillPocket(el, color) {
+  el.innerHTML = '';
+  for (const t of CAPTURE_ORDER) {
+    const n = chess.pockets[color][t];
+    if (!n) continue;
+    const holder = document.createElement('span');
+    holder.className = 'pocket-piece';
+    holder.title = PIECE_NAMES[t] + (n > 1 ? ' ×' + n : '') + ' in hand';
+    // Only your own pieces can be dragged (boardDrag.js's `sources`).
+    if (color === humanColor) holder.dataset.dragFrom = '@' + t;
+    if (color === humanColor && canPickUpDrop(t)) holder.classList.add('usable');
+    if (color === humanColor && dropSelected === t) holder.classList.add('selected');
+    const img = document.createElement('img');
+    img.src = pieceImgSrc({ c: color, t });
+    img.draggable = false;
+    img.alt = color + t;
+    holder.appendChild(img);
+    if (n > 1) {
+      const count = document.createElement('span');
+      count.className = 'pocket-count';
+      count.textContent = n;
+      holder.appendChild(count);
+    }
+    el.appendChild(holder);
   }
 }
 
@@ -343,7 +387,7 @@ function resetSoundState() {
 const MOVE_ANIM_MS = 200;
 const reducedMotion = window.matchMedia
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-// { start, pieces: [{from, to}], captured: {sq, piece} | null }
+// { start, pieces: [{from, to}], captured: {sq, piece} | null, dropped: sq | undefined }
 let moveAnim = null;
 
 // A move made by dragging needs no slide: the user carried the piece there
@@ -362,6 +406,11 @@ function planMoveAnimation(move) {
     return;
   }
   if (reducedMotion) return;
+  if (move.drop) {
+    // A dropped piece comes from no square, so it fades in where it lands.
+    moveAnim = { start: performance.now(), pieces: [], captured: null, dropped: move.to };
+    return;
+  }
   const pieces = [{ from: move.from, to: move.to }];
   if (move.castle) {
     // The rook comes from wherever it stood — a corner in standard chess, any
@@ -423,6 +472,18 @@ function applyMoveAnimation() {
     );
     anim.currentTime = elapsed;
     anim.finished.then(() => toEl.classList.remove('animating'), () => {});
+  }
+
+  if (moveAnim.dropped != null) {
+    const toEl = sqEl(moveAnim.dropped);
+    const img = toEl && toEl.querySelector('img.piece');
+    if (img) {
+      const anim = img.animate(
+        [{ opacity: 0, transform: 'scale(1.25)' }, { opacity: 1, transform: 'scale(1)' }],
+        { duration: MOVE_ANIM_MS, easing: 'ease-out' }
+      );
+      anim.currentTime = elapsed;
+    }
   }
 
   // The captured piece stays visible under the arriving piece and fades out,
@@ -494,9 +555,10 @@ function render() {
         div.appendChild(img);
       }
 
-      if (selected !== null) {
+      if (selected !== null || dropSelected) {
         // Castling is offered on the rook's square too: in Chess960 that is
-        // sometimes the only square that can express it.
+        // sometimes the only square that can express it. A drop's moves all
+        // have `to` set, so they read the same way.
         const m = legalFromSelected.find(x => x.to === sq)
           || legalFromSelected.find(x => x.castle && x.rookFrom === sq);
         if (m) {
@@ -611,6 +673,13 @@ function canPickUp(sq) {
   return !!piece && piece.c === humanColor;
 }
 
+// May the user pick up a piece of this type from their Crazyhouse pocket? Only
+// on their own move — a drop is never queued as a premove.
+function canPickUpDrop(t) {
+  if (!chess.pockets || promotionPending || gameIsOver()) return false;
+  return canMoveNow() && chess.pockets[humanColor][t] > 0;
+}
+
 // It is our turn and the source will take a move right now.
 function canMoveNow() {
   return !thinking && !!moveSource && moveSource.canHumanMoveNow(chess.turn);
@@ -677,6 +746,7 @@ function premoveTargets(sq) {
 
 function selectSquare(sq) {
   selected = sq;
+  dropSelected = null;
   if (canMoveNow()) {
     premoveSelecting = false;
     legalFromSelected = chess.legalMoves().filter(m => m.from === sq);
@@ -687,8 +757,18 @@ function selectSquare(sq) {
   render();
 }
 
+// Pick up a pocket piece: its hints are every square it may be dropped on.
+function selectDrop(t) {
+  selected = null;
+  premoveSelecting = false;
+  dropSelected = t;
+  legalFromSelected = chess.legalMoves().filter(m => m.drop === t);
+  render();
+}
+
 function clearSelection() {
   selected = null;
+  dropSelected = null;
   legalFromSelected = [];
   premoveSelecting = false;
 }
@@ -736,17 +816,42 @@ function attemptMove(from, to, viaDrag) {
   return true;
 }
 
+// Drop the pocket piece `t` on `to`, if that is legal. Returns false otherwise,
+// like attemptMove, so the caller can reselect or deselect.
+function attemptDrop(t, to, viaDrag) {
+  const move = chess.findDrop(t, to);
+  if (!move) return false;
+  if (viaDrag) noAnimMove = { from: null, to };
+  doHumanMove(move);
+  return true;
+}
+
 // Drag-and-drop (mouse, touch and stylus alike). Taps fall through to
-// onSquareClick untouched; only a real drag is handled here.
+// onSquareClick untouched; only a real drag is handled here. A Crazyhouse
+// pocket piece arrives as "@n" (see renderPockets) rather than a square.
 BoardDrag.attach(boardEl, {
-  canDrag: canPickUp,
-  onPick: selectSquare,
+  sources: [capturedTopEl, capturedBottomEl],
+  canDrag: (from) => (typeof from === 'string' ? canPickUpDrop(from.slice(1)) : canPickUp(from)),
+  onPick: (from) => (typeof from === 'string' ? selectDrop(from.slice(1)) : selectSquare(from)),
   onDrop(from, to) {
     // Cancelled, or put back where it came from: leave it selected so the hints
     // stay up and a tap can finish the move instead.
+    if (typeof from === 'string') {
+      if (to != null) attemptDrop(from.slice(1), to, true);
+      return;
+    }
     if (to == null || to === from) return;
     attemptMove(from, to, true);
   },
+});
+
+// A pocket piece is picked up by a click too, and put down by a second one.
+capturedBottomEl.addEventListener('click', (e) => {
+  const holder = e.target.closest && e.target.closest('[data-drag-from]');
+  if (!holder) return;
+  const t = holder.dataset.dragFrom.slice(1);
+  if (dropSelected === t) { clearSelection(); render(); }
+  else if (canPickUpDrop(t)) selectDrop(t);
 });
 
 // Right-button arrows and circles (Lichess / chess.com style). Local to this
@@ -760,6 +865,13 @@ function onSquareClick(sq) {
   // A click anywhere withdraws a queued premove; picking up a piece may then
   // start a new one.
   const cancelled = cancelPremove();
+
+  if (dropSelected) {
+    if (attemptDrop(dropSelected, sq, false)) return;
+    if (canPickUp(sq)) selectSquare(sq);
+    else { clearSelection(); render(); }
+    return;
+  }
 
   if (selected === null) {
     if (canPickUp(sq)) selectSquare(sq);
@@ -777,7 +889,7 @@ function onSquareClick(sq) {
 
 // Right-click: drop the selection and any queued premove (chess.com habit).
 boardEl.addEventListener('contextmenu', (e) => {
-  if (selected === null && !premove && !promotionPending) return;
+  if (selected === null && !dropSelected && !premove && !promotionPending) return;
   e.preventDefault();
   cancelPromotion();
   cancelPremove();

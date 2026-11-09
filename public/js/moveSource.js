@@ -144,17 +144,21 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
     submitMove(move, opts) {
       if (busy) return;
       busy = true;
+      const premove = !!(opts && opts.premove);
       socket.emit(
         "move:make",
-        {
-          gameId,
-          from: move.from,
-          // Castling points at the rook (see Chess.findMove): in Chess960 the
-          // king's destination on its own can be ambiguous with a quiet move.
-          to: move.castle && move.rookFrom != null ? move.rookFrom : move.to,
-          promo: move.promo || null,
-          premove: !!(opts && opts.premove),
-        },
+        // A Crazyhouse drop names the piece and the square, nothing else.
+        move.drop
+          ? { gameId, drop: move.drop, to: move.to, premove }
+          : {
+            gameId,
+            from: move.from,
+            // Castling points at the rook (see Chess.findMove): in Chess960 the
+            // king's destination on its own can be ambiguous with a quiet move.
+            to: move.castle && move.rookFrom != null ? move.rookFrom : move.to,
+            promo: move.promo || null,
+            premove,
+          },
         (resp) => {
           if (!resp || !resp.ok) {
             busy = false; // rejected — let the player try again
@@ -167,7 +171,7 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
     // mover — so BOTH players apply moves only here. Single source of truth.
     onServerMove(m) {
       busy = false;
-      env.applyMove({ from: m.from, to: m.to, promo: m.promo }, false);
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false);
     },
     kickIfEngineTurn() {}, // no engine in PvP
     cancel() {
@@ -187,7 +191,7 @@ function createSpectatorMoveSource(env) {
     },
     submitMove() {},
     onServerMove(m) {
-      env.applyMove({ from: m.from, to: m.to, promo: m.promo }, false);
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false);
     },
     kickIfEngineTurn() {},
     cancel() {},

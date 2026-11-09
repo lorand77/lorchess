@@ -77,6 +77,31 @@ body {
 }
 .cap-piece + .cap-piece { margin-left: -10px; }
 .cap-adv { margin-left: 4px; color: var(--text); }
+/* Crazyhouse: the same strips hold the pockets (ui.js renderPockets). */
+.pocket-piece {
+  position: relative;
+  display: inline-flex;
+  padding: 1px;
+  border-radius: 4px;
+}
+.pocket-piece img { width: 24px; height: 24px; display: block; pointer-events: none; }
+.pocket-piece.usable { cursor: grab; touch-action: none; }
+.pocket-piece.usable:hover { background: var(--btn-soft-hover); }
+.pocket-piece.selected { background: #f6f682; }
+.pocket-piece img.dragging { opacity: 0.25; }
+.pocket-count {
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  min-width: 13px;
+  padding: 0 2px;
+  border-radius: 7px;
+  background: var(--text);
+  color: var(--sunken);
+  font-size: 10px;
+  line-height: 13px;
+  text-align: center;
+}
 .board {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
