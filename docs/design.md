@@ -859,6 +859,18 @@ too. Shapes are stored as square numbers and placed by measuring the squares,
 so flipping needs nothing extra. The only requirement on a host board is the
 one `boardDrag.js` already has: `.square[data-sq]`.
 
+**The board is a view.** `ui.js` never touches the board's DOM. It decides
+what the board should show — pieces, last move, premove, selection, the king
+in check, Antichess's capture ring, hint dots, the move to animate — and what
+a click, drag or right-click means, and hands the first to a board view's
+`render(state)` while the view hands back the second. The view owns the DOM,
+drag-and-drop, arrows and the move animation's playback. Today's view is
+`public/js/gridBoardView.js`, the 8x8 grid; infinite chess will be a second
+view with the same interface, so clocks, chat, offers and move sources stay
+shared. The split was made with no visible change: the browser tests pass as
+before, and a screenshot of a board in check with hints showing is
+byte-for-byte the same either side of it.
+
 ## Trickiest parts
 
 - **Blocking engine** → must run in a Web Worker; the old paint hacks existed only because it blocks.

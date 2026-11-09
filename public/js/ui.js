@@ -387,14 +387,13 @@ function resetSoundState() {
 }
 
 // === Move animation ===
-// A move is applied to `chess` instantly; the board then renders the piece on
-// its destination square and we slide it in from where it came (FLIP-style,
-// via the Web Animations API). The animation is stored as state rather than
-// fired once because render() rebuilds the whole board DOM and is called
-// again almost immediately after a move (e.g. setThinking in AI mode). Each
-// render re-attaches the in-flight animation at its current elapsed time, so
-// the slide continues seamlessly instead of being wiped.
-const MOVE_ANIM_MS = 200;
+// A move is applied to `chess` instantly; the board then shows the piece on
+// its destination and slides it in from where it came. Planned here, played
+// by the board view (gridBoardView.js). It is kept as state rather than fired
+// once because render() rebuilds the whole board and is called again almost
+// immediately after a move (e.g. setThinking in AI mode): each render hands it
+// to the view, which picks it up at its current elapsed time, until the view
+// says it has finished.
 const reducedMotion = window.matchMedia
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // { start, pieces: [{from, to}], captured: {sq, piece} | null, dropped: sq | undefined }
@@ -459,135 +458,39 @@ function castlingRookFrom(move) {
   return sqIdx(move.castle === 'K' ? 7 : 0, rankOf(move.from));
 }
 
-// Called at the end of render(), once the board DOM reflects the new position.
-function applyMoveAnimation() {
-  if (!moveAnim) return;
-  const elapsed = performance.now() - moveAnim.start;
-  if (elapsed >= MOVE_ANIM_MS) { moveAnim = null; return; }
-  const sqEl = (sq) => boardEl.querySelector(`.square[data-sq="${sq}"]`);
-
-  for (const p of moveAnim.pieces) {
-    const fromEl = sqEl(p.from);
-    const toEl = sqEl(p.to);
-    const img = toEl && toEl.querySelector('img.piece');
-    if (!fromEl || !img) continue;
-    const a = fromEl.getBoundingClientRect();
-    const b = toEl.getBoundingClientRect();
-    const dx = a.left - b.left;
-    const dy = a.top - b.top;
-    toEl.classList.add('animating');   // paint above the squares it crosses
-    const anim = img.animate(
-      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
-      { duration: MOVE_ANIM_MS, easing: 'ease-out' }
-    );
-    anim.currentTime = elapsed;
-    anim.finished.then(() => toEl.classList.remove('animating'), () => {});
+// Where the selected piece (or pocket piece) may go, for the board's hint
+// dots: 'premove' while choosing a premove, 'capture' onto a piece or en
+// passant, otherwise 'move'. Castling is offered on the rook's square too:
+// in Chess960 that is sometimes the only square that can express it.
+function selectionHints() {
+  const hints = new Map();
+  if (selected === null && !dropSelected) return hints;
+  for (let sq = 0; sq < 64; sq++) {
+    const m = legalFromSelected.find(x => x.to === sq)
+      || legalFromSelected.find(x => x.castle && x.rookFrom === sq);
+    if (!m) continue;
+    hints.set(sq, premoveSelecting ? 'premove' : chess.squares[sq] || m.enpassant ? 'capture' : 'move');
   }
-
-  if (moveAnim.dropped != null) {
-    const toEl = sqEl(moveAnim.dropped);
-    const img = toEl && toEl.querySelector('img.piece');
-    if (img) {
-      const anim = img.animate(
-        [{ opacity: 0, transform: 'scale(1.25)' }, { opacity: 1, transform: 'scale(1)' }],
-        { duration: MOVE_ANIM_MS, easing: 'ease-out' }
-      );
-      anim.currentTime = elapsed;
-    }
-  }
-
-  // The captured piece stays visible under the arriving piece and fades out,
-  // rather than blinking away before the capturer has landed.
-  if (moveAnim.captured) {
-    const capEl = sqEl(moveAnim.captured.sq);
-    if (capEl) {
-      const ghost = document.createElement('img');
-      ghost.src = pieceImgSrc(moveAnim.captured.piece);
-      ghost.className = 'ghost';
-      if (moveAnim.captured.piece.t === 'p') ghost.classList.add('pawn');
-      ghost.draggable = false;
-      ghost.alt = '';
-      capEl.insertBefore(ghost, capEl.firstChild);
-      const anim = ghost.animate(
-        [{ opacity: 1 }, { opacity: 0 }],
-        { duration: MOVE_ANIM_MS, easing: 'ease-in' }
-      );
-      anim.currentTime = elapsed;
-      anim.finished.then(() => ghost.remove(), () => {});
-    }
-  }
+  return hints;
 }
 
 function render() {
-  boardEl.innerHTML = '';
   const inCheckNow = chess.inCheck();
-  // Antichess: where the compulsory captures can be made from.
-  const capturers = captureHint ? new Set(chess.legalMoves().map(m => m.from)) : null;
-  const flip = humanColor === B;
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      // row/col are visual indices (0=top/left). Translate to board r/f.
-      const r = flip ? row : 7 - row;
-      const f = flip ? 7 - col : col;
-      const sq = sqIdx(f, r);
-      const div = document.createElement('div');
-      div.className = 'square ' + ((r + f) % 2 === 0 ? 'dark' : 'light');
-      div.dataset.sq = sq;
-
-      if (lastMove && (lastMove.from === sq || lastMove.to === sq)) div.classList.add('last-move');
-      if (capturers && capturers.has(sq)) div.classList.add('must-capture');
-      if (premove && (premove.from === sq || premove.to === sq)) div.classList.add('premove');
-      if (selected === sq) div.classList.add('selected');
-
-      const piece = chess.squares[sq];
-      if (inCheckNow && piece && piece.t === 'k' && piece.c === chess.turn) {
-        div.classList.add('check');
-      }
-
-      // Coordinate colour comes from CSS (opposite square colour, themeable).
-      if (col === 0) {
-        const c = document.createElement('div');
-        c.className = 'coord rank';
-        c.textContent = r + 1;
-        div.appendChild(c);
-      }
-      if (row === 7) {
-        const c = document.createElement('div');
-        c.className = 'coord file';
-        c.textContent = String.fromCharCode(97 + f);
-        div.appendChild(c);
-      }
-
-      if (piece) {
-        const img = document.createElement('img');
-        img.src = pieceImgSrc(piece);
-        img.classList.add('piece');
-        if (piece.t === 'p') img.classList.add('pawn');
-        img.draggable = false;
-        img.alt = piece.c + piece.t;
-        div.appendChild(img);
-      }
-
-      if (selected !== null || dropSelected) {
-        // Castling is offered on the rook's square too: in Chess960 that is
-        // sometimes the only square that can express it. A drop's moves all
-        // have `to` set, so they read the same way.
-        const m = legalFromSelected.find(x => x.to === sq)
-          || legalFromSelected.find(x => x.castle && x.rookFrom === sq);
-        if (m) {
-          const hint = document.createElement('div');
-          hint.className = 'hint';
-          if (premoveSelecting) hint.classList.add('premove');
-          else if (chess.squares[sq] || m.enpassant) hint.classList.add('capture');
-          div.appendChild(hint);
-        }
-      }
-
-      div.addEventListener('click', () => onSquareClick(sq));
-      boardEl.appendChild(div);
-    }
-  }
-  applyMoveAnimation();
+  // The board shows what this describes (gridBoardView.js draws it), and
+  // says whether the move it was asked to animate is still moving.
+  const animating = boardView.render({
+    pieces: chess.squares,
+    flip: humanColor === B,
+    lastMove,
+    premove,
+    selected,
+    check: inCheckNow ? chess.findKing(chess.turn) : null,
+    // Antichess: where the compulsory captures can be made from.
+    mustCapture: captureHint ? new Set(chess.legalMoves().map(m => m.from)) : null,
+    hints: selectionHints(),
+    animation: moveAnim,
+  });
+  if (!animating) moveAnim = null;
 
   // Turn / thinking line
   if (thinking) {
@@ -856,11 +759,23 @@ function attemptDrop(t, to, viaDrag) {
   return true;
 }
 
-// Drag-and-drop (mouse, touch and stylus alike). Taps fall through to
-// onSquareClick untouched; only a real drag is handled here. A Crazyhouse
-// pocket piece arrives as "@n" (see renderPockets) rather than a square.
-BoardDrag.attach(boardEl, {
-  sources: [capturedTopEl, capturedBottomEl],
+// The board itself: drawn by gridBoardView.js, which hands back clicks,
+// drags and right-clicks. A drag is a real drag only: taps fall through to
+// onSquareClick. A Crazyhouse pocket piece arrives as "@n" (see
+// renderPockets) rather than a square.
+const boardView = GridBoardView.create(boardEl, {
+  pieceSrc: pieceImgSrc,
+  onSquareClick: (sq) => onSquareClick(sq),
+  // Right-click: drop the selection and any queued premove (chess.com habit).
+  onContextMenu(e) {
+    if (selected === null && !dropSelected && !premove && !promotionPending) return;
+    e.preventDefault();
+    cancelPromotion();
+    cancelPremove();
+    clearSelection();
+    render();
+  },
+  dragSources: [capturedTopEl, capturedBottomEl],
   canDrag: (from) => (typeof from === 'string' ? canPickUpDrop(from.slice(1)) : canPickUp(from)),
   onPick: (from) => (typeof from === 'string' ? selectDrop(from.slice(1)) : selectSquare(from)),
   onDrop(from, to) {
@@ -883,10 +798,6 @@ capturedBottomEl.addEventListener('click', (e) => {
   if (dropSelected === t) { clearSelection(); render(); }
   else if (canPickUpDrop(t)) selectDrop(t);
 });
-
-// Right-button arrows and circles (Lichess / chess.com style). Local to this
-// page; the opponent never sees them.
-BoardArrows.attach(boardEl);
 
 function onSquareClick(sq) {
   if (promotionPending || gameIsOver()) return;
@@ -916,16 +827,6 @@ function onSquareClick(sq) {
   if (piece && piece.c === humanColor) selectSquare(sq);
   else { clearSelection(); render(); }
 }
-
-// Right-click: drop the selection and any queued premove (chess.com habit).
-boardEl.addEventListener('contextmenu', (e) => {
-  if (selected === null && !dropSelected && !premove && !promotionPending) return;
-  e.preventDefault();
-  cancelPromotion();
-  cancelPremove();
-  clearSelection();
-  render();
-});
 
 // Hand the human's chosen move to the active source. The source owns what
 // happens next (AI: apply + engine reply; PvP: emit and await server echo).
