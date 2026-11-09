@@ -203,6 +203,13 @@ is AGPL-3.0, so none of its code is copied: the engine will be our own
   everything else. The two share what a game needs (`findMove`, `makeMove`,
   `moveToSan`, `fen`, `loadFen`, `turn`, `history`, `isGameOver`, `result`,
   `hasMatingMaterial`), so the server and pages need not know which they hold.
+- *The server* builds every room through `createEngine`, and an infinite room
+  checks a move's shape before its engine sees it (`isInfiniteMove` in
+  `socket.js`): `from` and `to` exactly `{ x, y }`, whole numbers within the
+  limit, a promotion that is a piece or nothing, no drop. `move:made` carries
+  the engine's own squares, never the objects the client sent. Endings are
+  recorded under the names every variant uses (checkmate, stalemate,
+  insufficient, threefold, fifty-move, timeout).
 - *The engine* never lists a position's moves, since a slider has infinitely
   many: `findMove(from, to, promo)` answers for one move, asking the finitely
   many pieces what stands between two squares or attacks one, never walking a

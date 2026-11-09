@@ -22,6 +22,7 @@ const { elo } = require("./elo");
 const achievements = require("../achievements/service");
 const handicap = require("../shared/handicap");
 const { formatUci } = require("../shared/uci");
+const { InfiniteChess } = require("../shared/infiniteChess");
 const { usesStandardSetup } = require("../shared/variants");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
@@ -614,8 +615,13 @@ function handleMove(io, socket, payload, ack) {
   if (room.chess.turn !== color) return reply(ack, { ok: false, error: "Not your turn." });
 
   // (3) Legality — match against the server's own legal moves. Never trust client.
-  // A Crazyhouse drop comes as { drop, to } and has no square it leaves.
+  // A Crazyhouse drop comes as { drop, to } and has no square it leaves. An
+  // infinite-chess move comes as { from: { x, y }, to: { x, y }, promo }, and
+  // its shape is checked before the engine sees it at all.
   const { from, to, promo, drop } = payload || {};
+  if (room.variant === "infinite" && !isInfiniteMove(payload)) {
+    return reply(ack, { ok: false, error: "Illegal move." });
+  }
   const move = drop ? room.chess.findDrop(drop, to) : room.chess.findMove(from, to, promo);
   if (!move) return reply(ack, { ok: false, error: "Illegal move." });
 
@@ -671,10 +677,12 @@ function handleMove(io, socket, payload, ack) {
 
   reply(ack, { ok: true });
   // The move as the server resolved it, not as sent: a drop leaves no square,
-  // and a promotion letter only goes out on a promotion.
+  // a promotion letter only goes out on a promotion, and infinite-chess
+  // squares are the engine's own objects, not whatever the client's carried.
+  const coords = typeof move.from === "object" && move.from !== null;
   io.to(`game:${gameId}`).emit("move:made", {
-    from: move.drop ? null : from,
-    to,
+    from: move.drop ? null : coords ? { x: move.from.x, y: move.from.y } : from,
+    to: coords ? { x: move.to.x, y: move.to.y } : to,
     promo: move.promo || null,
     drop: move.drop || null,
     san,
@@ -862,6 +870,19 @@ function onGraceExpired(io, gameId, color) {
   const neverCame = !room.everJoined[color] && !(room.rehydrated && room.clockStarted);
   if (room.sans.length === 0 || neverCame) concludeGame(io, room, "*", "aborted");
   else concludeGame(io, room, winResult(other(color)), "disconnect");
+}
+
+// An infinite-chess move payload: two squares, each exactly { x, y } in whole
+// numbers within the board's limit, and a promotion that is a piece or
+// nothing. No drop, no extra fields riding along.
+function isInfiniteMove(payload) {
+  const square = (s) =>
+    !!s && typeof s === "object" && !Array.isArray(s) &&
+    Object.keys(s).length === 2 &&
+    [s.x, s.y].every((n) => Number.isInteger(n) && Math.abs(n) <= InfiniteChess.LIMIT);
+  const p = payload || {};
+  return square(p.from) && square(p.to) && !p.drop &&
+    (p.promo == null || InfiniteChess.PROMOTIONS.includes(p.promo));
 }
 
 function terminationOf(chess) {

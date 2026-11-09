@@ -4,7 +4,8 @@
 // instance per active game; clients are never trusted for legality. Rooms are
 // keyed by gameId and map 1:1 to the Socket.IO room `game:<id>`.
 
-const { Chess, STANDARD_START } = require("../shared/chess");
+const { STANDARD_START } = require("../shared/chess");
+const { createEngine } = require("../shared/engines");
 const queries = require("../db/queries");
 const config = require("../config");
 const log = require("../log");
@@ -25,12 +26,11 @@ function createRoom(
   const initial = initialMs == null ? config.CLOCK_INITIAL_MS : initialMs;
   const increment = incrementMs == null ? config.CLOCK_INCREMENT_MS : incrementMs;
 
-  const chess = new Chess();
-  // Atomic changes what a capture does, so the board must know before any move
-  // is validated against it.
-  chess.setVariant(variant || "standard");
+  // The engine comes with its rules already set (Atomic changes what a capture
+  // does; infinite chess is another engine altogether) and at its own start,
+  // so only a start of the game's own needs loading.
+  const chess = createEngine(variant || "standard");
   if (startFen && startFen !== STANDARD_START) chess.loadFen(startFen);
-  else chess.reset();
 
   const room = {
     gameId,
