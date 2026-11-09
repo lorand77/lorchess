@@ -19,7 +19,7 @@ const queries = require("../db/queries");
 const log = require("../log");
 const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/chess");
 const handicap = require("../shared/handicap");
-const { parseUci } = require("../shared/uci");
+const { parseUci, moveFromUci } = require("../shared/uci");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
 const { VARIANTS } = require("../shared/variants");
 const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
@@ -99,12 +99,13 @@ function analyze(game, moves) {
   const plies = [];
   for (const m of moves) {
     const parsed = parseUci(m.uci);
-    if (!parsed) return null;
-    const { from, to, promo } = parsed;
-    const mv = chess.findMove(from, to, promo);
+    const mv = parsed && moveFromUci(chess, m.uci);
     if (!mv) return null;
+    // The squares as stored; a drop's `from` is null.
+    const { from, to, promo } = parsed;
     const color = chess.turn;
-    const origPiece = chess.squares[from].t;
+    // A Crazyhouse drop comes from the pocket: from is null, the piece is the drop.
+    const origPiece = mv.drop || chess.squares[from].t;
     // Stored castling UCI targets our rook, but castling captures nothing.
     const captured = mv.castle ? null : mv.enpassant ? "p" : chess.squares[mv.to] ? chess.squares[mv.to].t : null;
     chess.makeMove(mv);
@@ -175,9 +176,10 @@ function neighbours(sq) {
   return out;
 }
 
-// e2e4 -> e7e5: the same move made by the other side.
+// e2e4 -> e7e5: the same move made by the other side. A drop, N@f3 -> N@f6.
 function mirrorUci(uci) {
   const flip = (a) => a[0] + String(9 - parseInt(a[1], 10));
+  if (uci[1] === "@") return uci.slice(0, 2) + flip(uci.slice(2, 4));
   return flip(uci.slice(0, 2)) + flip(uci.slice(2, 4)) + (uci[4] || "");
 }
 
@@ -329,6 +331,15 @@ const GAME_CHECKS = {
     c.resignReactionMs < 2000 && c.last && c.last.color === c.opp && !!c.last.captured,
 };
 
+// Feats that read the material on the board: a deficit overcome or defended,
+// a sacrifice, a bare king, every piece still standing. In Crazyhouse they say
+// nothing — a captured piece is not lost but in the capturer's hand, and comes
+// back as a drop — so there they are not checked at all.
+const MATERIAL_CHECKS = new Set([
+  "comeback_kid", "escape_artist", "fortress", "queen_sacrifice", "stalemate_sadness",
+  "the_grinder", "two_bishops", "full_house",
+]);
+
 // Run every game feat for one participant. `extra` carries facts that only the
 // live room knew (how fast a resignation came).
 function evaluateGame(userId, game, analysis, extra) {
@@ -367,6 +378,7 @@ function evaluateGame(userId, game, analysis, extra) {
   const ref = { gameId: game.id, at: extra && extra.at };
   const earned = [];
   for (const key of Object.keys(GAME_CHECKS)) {
+    if (analysis.chess.pockets && MATERIAL_CHECKS.has(key)) continue;
     let r;
     try {
       r = GAME_CHECKS[key](ctx);
@@ -453,6 +465,7 @@ function evaluateStats(userId, ref) {
     ["chess960_wins", tierFor("chess960_wins", byVariant.chess960 || 0)],
     ["atomic_wins", tierFor("atomic_wins", byVariant.atomic || 0)],
     ["pawnwars_wins", tierFor("pawnwars_wins", byVariant.pawnwars || 0)],
+    ["crazyhouse_wins", tierFor("crazyhouse_wins", byVariant.crazyhouse || 0)],
     ["every_variant", VARIANTS.every((v) => (byVariant[v.key] || 0) > 0)],
     ["both_colours", g.wins_white > 0 && g.wins_black > 0],
     ["black_is_ok", tierFor("black_is_ok", g.wins_black)],

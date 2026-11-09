@@ -6,7 +6,8 @@ const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Chess } = require("../../src/shared/chess");
 const {
-  VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, startOf,
+  VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
+  startOf,
 } = require("../../src/shared/variants");
 const { PAWN_WARS_START } = require("../../src/shared/chess");
 
@@ -20,13 +21,14 @@ describe("variant catalogue", () => {
       assert.equal(typeof v.label, "string", v.key);
       assert.equal(typeof v.standardSetup, "boolean", v.key);
       assert.equal(typeof v.reviewable, "boolean", v.key);
+      assert.equal(typeof v.rateable, "boolean", v.key);
     }
   });
 
   test("every catalogue key selects a rule set the engine knows", () => {
     for (const v of VARIANTS) {
       const rules = new Chess().setVariant(v.key).variant;
-      const expected = v.key === "atomic" || v.key === "pawnwars" ? v.key : "standard";
+      const expected = ["atomic", "pawnwars", "crazyhouse"].includes(v.key) ? v.key : "standard";
       assert.equal(rules, expected, v.key);
     }
   });
@@ -48,6 +50,7 @@ describe("variant catalogue", () => {
     assert.equal(variantLabel("chess960"), "Chess960");
     assert.equal(variantLabel("atomic"), "Atomic");
     assert.equal(variantLabel("pawnwars"), "Pawn Wars");
+    assert.equal(variantLabel("crazyhouse"), "Crazyhouse");
     assert.equal(variantLabel("nope"), "Standard");
   });
 
@@ -56,6 +59,7 @@ describe("variant catalogue", () => {
     assert.equal(usesStandardSetup("atomic"), true);
     assert.equal(usesStandardSetup("chess960"), false);
     assert.equal(usesStandardSetup("pawnwars"), false);
+    assert.equal(usesStandardSetup("crazyhouse"), false, "not until odds have been tried with pockets");
     assert.equal(usesStandardSetup("nope"), true, "unknown means standard");
   });
 
@@ -64,6 +68,7 @@ describe("variant catalogue", () => {
     assert.equal(startOf("atomic"), null);
     assert.equal(startOf("chess960"), "shuffled");
     assert.equal(startOf("pawnwars"), PAWN_WARS_START);
+    assert.equal(startOf("crazyhouse"), null, "the ordinary setup, with empty pockets");
     assert.equal(startOf("nope"), null, "unknown means standard");
     for (const v of VARIANTS) {
       assert.ok(!(v.shuffled && v.startFen), `${v.key}: shuffled or a fixed start, not both`);
@@ -76,6 +81,12 @@ describe("variant catalogue", () => {
     assert.equal(isReviewable("chess960"), true);
     assert.equal(isReviewable("atomic"), false);
     assert.equal(isReviewable("pawnwars"), false);
+    assert.equal(isReviewable("crazyhouse"), false);
     assert.equal(isReviewable("nope"), true, "unknown means standard");
+  });
+
+  test("only Crazyhouse is casual-only", () => {
+    for (const v of VARIANTS) assert.equal(isRateable(v.key), v.key !== "crazyhouse", v.key);
+    assert.equal(isRateable("nope"), true, "unknown means standard");
   });
 });

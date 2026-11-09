@@ -25,7 +25,7 @@ const { resolveTimeControl } = require("../shared/timeControls");
 const { Chess } = require("../shared/chess");
 const handicap = require("../shared/handicap");
 const chess960 = require("../shared/chess960");
-const { resolveVariant, usesStandardSetup } = require("../shared/variants");
+const { resolveVariant, usesStandardSetup, isRateable } = require("../shared/variants");
 
 const LOBBY_ROOM = "lobby";
 
@@ -309,7 +309,8 @@ function normalizeOffer(payload) {
     offer: {
       tc: tc.key,
       // Material odds are never rated: they would poison both players' Elo.
-      rated: odds ? false : p.rated !== false,
+      // Nor is a casual-only variant (see variants.js).
+      rated: odds || !isRateable(variant) ? false : p.rated !== false,
       color,
       variant,
       handicap: odds,

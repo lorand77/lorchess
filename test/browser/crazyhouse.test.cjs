@@ -3,14 +3,12 @@
 // Crazyhouse on the real pages, both players in their own browser: the game
 // page's strips show the pockets, a pocket piece is dropped by a click and by
 // a drag, and nothing in hand can be picked up while the opponent is on move;
-// a spectator sees the pockets and the drops; the exported PGN names the
-// variant; the replay shows what was in hand at each point. The
-// variant is not in the catalogue yet, so the game is matched as an ordinary
-// one and its row marked Crazyhouse before anyone joins (as in
-// test/integration/crazyhouse.games.test.js).
+// a spectator sees the pockets and the drops; the page says the game is casual
+// Crazyhouse and the exported PGN names the variant; the replay shows what was
+// in hand at each point, and says Stockfish cannot review it.
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { startServer, openBrowser, signedInPage, connectSocket, quickMatch, db } = require("./helpers.cjs");
+const { startServer, openBrowser, signedInPage, connectSocket, quickMatch } = require("./helpers.cjs");
 
 let srv, browser;
 before(async () => { srv = await startServer(); browser = await openBrowser(); });
@@ -25,11 +23,7 @@ async function crazyhouseGame(t) {
   const second = await signedInPage(browser, srv.baseUrl, t);
   const a = await connectSocket(srv.baseUrl, first.user.c.cookie());
   const b = await connectSocket(srv.baseUrl, second.user.c.cookie());
-  const { gameId } = await quickMatch(a, b, { tc: "10+0" });
-  db().prepare("UPDATE games SET variant = 'crazyhouse' WHERE id = ?").run(gameId);
-  const rooms = require("../../src/game/rooms");
-  rooms.clearTimers(rooms.getRoom(gameId));
-  rooms.deleteRoom(gameId);
+  const { gameId } = await quickMatch(a, b, { tc: "10+0", variant: "crazyhouse" });
   a.close(); b.close();
   // Colours were drawn at random; each page knows its own once it has joined.
   const pages = [first.page, second.page];
@@ -49,6 +43,7 @@ async function clickMove(page, from, to) {
 test("pockets fill from captures, and pieces drop by click and by drag", async (t) => {
   const { white, black, gameId } = await crazyhouseGame(t);
   assert.equal(await white.evaluate(() => chess.variant), "crazyhouse");
+  assert.equal(await white.locator("#tcLine").textContent(), "Rapid 10+0 · casual · Crazyhouse");
   assert.equal(await white.locator(".pocket-piece").count(), 0, "nothing in hand yet");
 
   // Each page applies a move when the server echoes it, its own moves
@@ -110,8 +105,7 @@ test("pockets fill from captures, and pieces drop by click and by drag", async (
 
   // The exported PGN says which variant it is, so its drops read as moves.
   const pgn = await white.locator("#history").textContent();
-  const label = await white.evaluate(() => variantLabel("crazyhouse"));
-  assert.ok(pgn.includes(`[Variant "${label}"]`), pgn);
+  assert.ok(pgn.includes('[Variant "Crazyhouse"]'), pgn);
   assert.ok(pgn.includes("3. P@e4 P@d6"), pgn);
 
   // The replay shows what each side held at every point: nothing at the end,
@@ -123,4 +117,23 @@ test("pockets fill from captures, and pieces drop by click and by drag", async (
   assert.equal(await white.locator("#capturedBottom .pocket-piece img[alt='wp']").count(), 1);
   assert.equal(await white.locator("#capturedTop .pocket-piece img[alt='bp']").count(), 1);
   assert.equal(await white.locator("[data-drag-from]").count(), 0, "nothing to pick up in a replay");
+  assert.equal(
+    await white.locator("#reviewStart").textContent(),
+    "Stockfish plays standard chess, so it can't review a Crazyhouse game."
+  );
+});
+
+test("the lobby holds Rated off for Crazyhouse, and gives it back after", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.waitForFunction(() => !document.getElementById("seekBtn").disabled);
+  const rated = page.locator("#ratedCheck");
+  assert.equal(await rated.isChecked(), true);
+  await page.locator("#variantSelect").selectOption("crazyhouse");
+  assert.equal(await rated.isChecked(), false);
+  assert.equal(await rated.isDisabled(), true);
+  assert.equal(await rated.getAttribute("title"), "Crazyhouse games are casual for now");
+  await page.locator("#variantSelect").selectOption("atomic");
+  assert.equal(await rated.isChecked(), true, "the player's choice comes back");
+  assert.equal(await rated.isDisabled(), false);
 });

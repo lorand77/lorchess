@@ -26,8 +26,8 @@ let searching = false;   // in the quick-match queue
 let awaitingQueue = false; // lobby:join sent, no lobby:waiting back yet
 let myseek = null;       // our own open seek, if any
 let handicapChanges = null; // start-square changes for material odds, or null
-let ratedBeforeHandicap = true; // what "Rated" was before a handicap forced it off
-let handicapShown = false;      // whether the form currently reflects a handicap
+let ratedBeforeForced = true;   // what "Rated" was before the form forced it off
+let ratedForced = false;        // whether "Rated" is currently held off
 let friendIds = new Set();  // to star friends in the players list
 let lastState = { players: [], seeks: [], games: [] };
 let myChallenges = { incoming: [], outgoing: [] };
@@ -92,8 +92,9 @@ for (const tc of TIME_CONTROLS) {
 const currentOffer = () => ({
   tc: tcSelect.value,
   color: colorSelect.value,
-  // Material odds are never rated. The server enforces this independently.
-  rated: handicapChanges ? false : ratedCheck.checked,
+  // Material odds and casual-only variants are never rated. The server
+  // enforces this independently.
+  rated: ratedForced ? false : ratedCheck.checked,
   variant: variantSelect.value,
   handicap: handicapChanges ? { squares: handicapChanges } : null,
 });
@@ -145,8 +146,29 @@ function renderVariant() {
     handicapChanges = null;
     renderHandicap();
   }
+  renderRated();
 }
 variantSelect.addEventListener("change", renderVariant);
+
+// "Rated" is held off while the game can't be rated — a handicap is set, or the
+// variant is casual only — and put back to what the player had once it can be.
+// Only on those two transitions: this also runs on every reconnect, and must
+// not re-tick a box the player unticked.
+function renderRated() {
+  const casualVariant = !isRateable(variantSelect.value);
+  const forced = !!handicapChanges || casualVariant;
+  ratedCheck.disabled = forced;
+  ratedCheck.title = casualVariant
+    ? variantLabel(variantSelect.value) + " games are casual for now"
+    : forced ? "A handicap game is always casual" : "";
+  if (forced && !ratedForced) {
+    ratedBeforeForced = ratedCheck.checked;
+    ratedCheck.checked = false;
+  } else if (!forced && ratedForced) {
+    ratedCheck.checked = ratedBeforeForced;
+  }
+  ratedForced = forced;
+}
 
 // --- handicap ---
 
@@ -163,17 +185,7 @@ function renderHandicap() {
   handicapBtn.textContent = on ? "⚖ Edit handicap…" : "⚖ Handicap…";
   handicapSumEl.textContent = on ? describe(handicapChanges) + " — casual only" : "";
   handicapClear.style.display = on ? "" : "none";
-  // "Rated" is forced off while a handicap is set, and put back to what the
-  // player had when it is cleared — on those two transitions only. This also
-  // runs on every reconnect, and must not re-tick a box the player unticked.
-  ratedCheck.disabled = on;
-  if (on && !handicapShown) {
-    ratedBeforeHandicap = ratedCheck.checked;
-    ratedCheck.checked = false;
-  } else if (!on && handicapShown) {
-    ratedCheck.checked = ratedBeforeHandicap;
-  }
-  handicapShown = on;
+  renderRated();
 
   // Quick Match pairs you with a stranger sight unseen, so odds would be an
   // unpleasant surprise. Handicaps go out as offers instead, where whoever

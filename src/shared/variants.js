@@ -21,15 +21,22 @@ const VARIANTS = [
     // Can the game review (Stockfish) handle it? It only knows the ordinary
     // rules; Chess960 differs only in the starting position, so that one is fine.
     reviewable: true,
+    // May a game of it be rated? Every variant moves the same Elo, so one whose
+    // games are not yet trusted to say who is stronger stays casual.
+    rateable: true,
   },
   // Draws a fresh back rank for every game (chess960.js has the generator).
-  { key: 'chess960', label: 'Chess960',  standardSetup: false, reviewable: true, shuffled: true },
-  { key: 'atomic',   label: 'Atomic',    standardSetup: true,  reviewable: false },
+  { key: 'chess960', label: 'Chess960',  standardSetup: false, reviewable: true, rateable: true, shuffled: true },
+  { key: 'atomic',   label: 'Atomic',    standardSetup: true,  reviewable: false, rateable: true },
   // Its own fixed start: pawns only, on the outermost ranks. The same FEN as
   // PAWN_WARS_START in chess.js (a test holds them together); repeated here
   // because this file also loads in the browser without chess.js.
-  { key: 'pawnwars', label: 'Pawn Wars', standardSetup: false, reviewable: false,
+  { key: 'pawnwars', label: 'Pawn Wars', standardSetup: false, reviewable: false, rateable: true,
     startFen: 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1' },
+  // Captured pieces change sides and can be dropped back on the board. It opens
+  // from the standard setup, but takes no handicap until odds have been tried
+  // with pockets, so standardSetup is false. Casual while it is new.
+  { key: 'crazyhouse', label: 'Crazyhouse', standardSetup: false, reviewable: false, rateable: false },
 ];
 
 // A Map, not a plain object: these keys come off the wire, and a lookup of
@@ -56,6 +63,10 @@ function isReviewable(name) {
   return !!VARIANTS_BY_KEY.get(resolveVariant(name)).reviewable;
 }
 
+function isRateable(name) {
+  return !!VARIANTS_BY_KEY.get(resolveVariant(name)).rateable;
+}
+
 // Where a game of this variant opens: null means the standard setup (or a
 // handicap built from it), a FEN is a fixed start of the variant's own, and
 // 'shuffled' tells the caller to draw one per game. Matchmaking reads this, so
@@ -67,6 +78,7 @@ function startOf(name) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, startOf,
+    VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
+    startOf,
   };
 }

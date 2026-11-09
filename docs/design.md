@@ -81,8 +81,12 @@ Repetition keys include en passant only when a legal capture exists. An
 uncapturable FEN target, including one blocked by a pin, does not distinguish
 otherwise identical positions; FEN output still preserves the original target.
 
-Crazyhouse (being built, and not in the variant catalogue yet) keeps captured
-pieces in `chess.pockets`. Like the rest of the position, they
+Crazyhouse keeps captured pieces in `chess.pockets`. It is casual only for now
+(`rateable: false` in `variants.js`, enforced by the lobby's offers, by quick
+match and again in `startMatch`, where every game is created): every variant
+moves the one Elo, and a new one shouldn't until its games are trusted. It
+opens from the standard setup but takes no handicap yet (`standardSetup:
+false`) until odds have been tried with pockets. Like the rest of the position, they
 are set up by `reset()` and `loadFen()`, never by `setVariant()`. A captured
 promoted piece goes back as a pawn, so promotions carry `promoted: true`. FEN
 writes both as python-chess does: the pockets in brackets after the board
@@ -576,7 +580,7 @@ in the member's browser, so reviews cost the server nothing.
   short games against it in a child process.
 
 Only Standard and Chess960 are reviewable (`reviewable` in `variants.js`);
-Stockfish does not know the Atomic or Pawn Wars rules.
+Stockfish does not know the Atomic, Pawn Wars or Crazyhouse rules.
 
 ## Analysis board
 
@@ -751,7 +755,10 @@ was earned lives in `src/achievements/service.js`:
 - **Game feats** replay a finished game's moves (en passant, smothered mate,
   comeback, mirror match, …) and run for each human participant. Pasted-FEN AI
   games earn nothing here; only the standard start or a server-built handicap
-  counts, since the AI client is authoritative for its own game.
+  counts, since the AI client is authoritative for its own game. In Crazyhouse
+  the feats that read material on the board (comeback, fortress, queen
+  sacrifice, full house, …; `MATERIAL_CHECKS` in the service) are not checked:
+  a captured piece is in the capturer's hand, not gone.
 - **Stats** are aggregate queries (games, wins per time control and per
   variant, castles, puzzle streaks, rating, chat count, anniversary)
   re-evaluated after every game, puzzle, chat message, login and visit to the

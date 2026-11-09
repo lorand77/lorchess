@@ -1,14 +1,14 @@
 "use strict";
 
-// A Crazyhouse game over the socket: drops sent as { drop, to }, checked by the
-// server, broadcast and stored as "P@e4", and replayed when the room is rebuilt
-// after a restart. Crazyhouse is not in the variant catalogue yet, so the lobby
-// cannot start one: the test matches an ordinary game, marks its row as
-// Crazyhouse before a move is played, and forgets the room, as a restart would.
+// A Crazyhouse game over the socket: always casual, however it was asked for;
+// drops sent as { drop, to }, checked by the server, broadcast and stored as
+// "P@e4", and replayed when the room is rebuilt after a restart.
 
 const { describe, test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { startServer, registerUser, connectSocket, emitAck, waitFor, quickMatch, db } = require("../helpers/server");
+const {
+  startServer, registerUser, connectSocket, emitAck, waitFor, quickMatch, db,
+} = require("../helpers/server");
 const { sq } = require("../helpers/board");
 const rooms = require("../../src/game/rooms");
 
@@ -42,21 +42,38 @@ async function play(socket, other, gameId, text) {
   return seen;
 }
 
+describe("a posted Crazyhouse seek", () => {
+  test("is casual, even when the form asked for a rated game", async () => {
+    const a = await connectSocket(srv.baseUrl, alice.c.cookie());
+    const state = new Promise((resolve) => {
+      a.on("lobby:state", (s) => { if (s.seeks.length) resolve(s); });
+    });
+    a.emit("lobby:enter");
+    a.emit("seek:create", { tc: "5+0", rated: true, variant: "crazyhouse" });
+    const seek = (await state).seeks[0];
+    assert.equal(seek.variant, "crazyhouse");
+    assert.equal(seek.rated, false);
+    a.emit("seek:cancel", { id: seek.id });
+    a.close();
+  });
+});
+
 describe("a Crazyhouse game", () => {
   let white, black, gameId;
   before(async () => {
     const a = await connectSocket(srv.baseUrl, alice.c.cookie());
     const b = await connectSocket(srv.baseUrl, bob.c.cookie());
-    ({ gameId, white, black } = await quickMatch(a, b, { tc: "10+0" }));
-    db().prepare("UPDATE games SET variant = 'crazyhouse' WHERE id = ?").run(gameId);
-    forgetRoom(gameId);
+    ({ gameId, white, black } = await quickMatch(a, b, { tc: "10+0", rated: true, variant: "crazyhouse" }));
   });
   after(() => { white.close(); black.close(); });
 
-  test("is rebuilt as Crazyhouse, with empty pockets", async () => {
+  test("starts casual, from the standard setup with empty pockets", async () => {
+    assert.equal(gameRow(gameId).variant, "crazyhouse");
+    assert.equal(gameRow(gameId).rated, 0, "quick match asked for rated; Crazyhouse is casual only");
     const joined = await emitAck(white, "game:join", { gameId });
     assert.equal(joined.ok, true);
     assert.equal(joined.state.variant, "crazyhouse");
+    assert.equal(joined.state.rated, false);
     assert.equal(joined.state.fen, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[] w KQkq - 0 1");
     await emitAck(black, "game:join", { gameId });
   });

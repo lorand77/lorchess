@@ -305,6 +305,8 @@ describe("aggregate achievements", () => {
     assert.ok(has(keys, "chess960_wins") && lacks(keys, "every_variant"), keys);
     keys = win("pawnwars", "pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1", ["a1a2", "a8a7"]);
     assert.ok(has(keys, "pawnwars_wins") && lacks(keys, "every_variant"), keys);
+    keys = win("crazyhouse", STANDARD_START, ["e2e4", "d7d5", "e4d5", "d8d5", "P@e4"]);
+    assert.ok(has(keys, "crazyhouse_wins") && lacks(keys, "every_variant"), keys);
     // A win against LorFish is a standard win too.
     const ai = recordGame({
       white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",
@@ -314,6 +316,34 @@ describe("aggregate achievements", () => {
     for (let i = 0; i < 9; i++) win("atomic");
     assert.equal(tiersOf(me.id).atomic_wins, 2, "10 Atomic wins: Silver");
     assert.equal(tiersOf(me.id).chess960_wins, 1);
+  });
+
+  test("Crazyhouse: drops replay, and the feats that read material are not checked", () => {
+    // A knight dropped on f7 mates a king hemmed in by its own pieces.
+    const drop = playAndEvaluate({
+      variant: "crazyhouse", start: "6rk/6pp/8/8/8/8/8/4K3[N] w - - 0 1",
+      moves: ["N@f7"], result: "1-0", termination: "checkmate",
+    });
+    assert.ok(has(drop.w, "mate_knight", "smothered_mate"), drop.w);
+    // King and pawn against a bare king is the grinder's win in standard chess;
+    // in Crazyhouse material on the board says nothing, so it is not checked.
+    const kp = (variant) => playAndEvaluate({
+      variant, start: "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1", moves: ["e2e4", "e8d7"], result: "1-0", termination: "resign",
+    });
+    assert.ok(has(kp("standard").w, "the_grinder"));
+    assert.ok(lacks(kp("crazyhouse").w, "the_grinder"));
+  });
+
+  test("Crazyhouse: a mirror match counts the drops, mirrored", () => {
+    const g = playAndEvaluate({
+      variant: "crazyhouse",
+      moves: [
+        "e2e4", "e7e5", "g1f3", "g8f6", "f3e5", "f6e4", "P@d6", "P@d3", "b1c3", "b8c6",
+        "a2a3", "a7a6", "h2h3", "h7h6", "b2b3", "b7b6", "g2g3", "g7g6", "f1g2", "f8g7",
+      ],
+      result: "1/2-1/2", termination: "agreement",
+    });
+    assert.ok(has(g.w, "mirror_match"), g.w);
   });
 
   test("ten draws in a row make a draw master; games played reaches Silver", () => {

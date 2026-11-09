@@ -15,7 +15,7 @@ const log = require("../log");
 const rooms = require("./rooms");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
 const chess960 = require("../shared/chess960");
-const { resolveVariant, startOf } = require("../shared/variants");
+const { resolveVariant, startOf, isRateable } = require("../shared/variants");
 
 // Every authenticated socket joins its user's room (see socket.js), so a game
 // can be announced to the PERSON rather than to one guessed socket. A user
@@ -58,8 +58,9 @@ function join(io, socket, payload) {
   }
 
   const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
-  const rated = !payload || payload.rated !== false;
   const variant = resolveVariant(payload && payload.variant);
+  // A casual-only variant pools with everyone who asked for it, rated or not.
+  const rated = (!payload || payload.rated !== false) && isRateable(variant);
   const key = poolKey(tc.key, rated, variant);
   const pool = poolFor(key);
 
@@ -125,7 +126,9 @@ function startMatch(io, white, black, opts) {
   const tc = resolveTimeControl(DEFAULT_TC);
   const initialMs = opts && opts.initialMs != null ? opts.initialMs : tc.initialMs;
   const incrementMs = opts && opts.incrementMs != null ? opts.incrementMs : tc.incrementMs;
-  const rated = !opts || opts.rated !== false;
+  // Checked again here, where every game is created: whatever the caller
+  // asked for, a casual-only variant is never rated.
+  const rated = (!opts || opts.rated !== false) && isRateable(variant);
 
   const info = queries.createGame.run(
     white.userId, black.userId, "pvp", null, null, null, start, start, "w",
