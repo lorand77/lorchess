@@ -63,6 +63,8 @@ const ACHIEVEMENTS = [
     desc: "Win {n} Pawn Wars games.", tiers: [1, 10, 50] },
   { key: "crazyhouse_wins", name: "Drop Zone", icon: "🪂", group: "formats",
     desc: "Win {n} Crazyhouse games.", tiers: [1, 10, 50] },
+  { key: "antichess_wins", name: "Giving It All Away", icon: "🎁", group: "formats",
+    desc: "Win {n} Antichess games.", tiers: [1, 10, 50] },
   { key: "every_variant", name: "Jack of All Trades", icon: "🃏", group: "formats",
     desc: "Win a game in every variant, Standard included." },
   { key: "beat_fish_2", name: "Fish Food", icon: "🐟", group: "formats",

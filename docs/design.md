@@ -99,7 +99,7 @@ the material is dead only in a set-up position with bare kings or one minor
 piece between both sides, and a flag always loses otherwise: a bare king can
 capture something and mate with it.
 
-**Antichess** (being built; not in the variant catalogue yet) follows Lichess:
+**Antichess** follows Lichess:
 a capture is compulsory whenever there is one, the king is an ordinary piece
 (no check, no mate, it can be taken), pawns may also promote to a king (`k` in
 UCI, `=K` in SAN), and there is no castling, whatever a FEN claims. The side to
@@ -113,6 +113,9 @@ Dead material is the clear-cut case only: nothing but bishops, each side's on
 one square colour and the two sides on opposite colours, so nothing can ever be
 taken. Lichess also counts some positions with blocked pawns, and draws some
 knight endings on a flag; here those play on, and a flag otherwise loses.
+Like Crazyhouse it is casual only for now (`rateable: false`) and takes no
+handicap; it opens from `ANTICHESS_START`, the ordinary setup without castling
+rights, which the catalogue repeats as its `startFen`.
 
 On the game page the promotion dialog offers a king too. Picking up a piece
 that can't move because a capture elsewhere is compulsory sets `captureHint`
@@ -781,10 +784,11 @@ was earned lives in `src/achievements/service.js`:
 - **Game feats** replay a finished game's moves (en passant, smothered mate,
   comeback, mirror match, …) and run for each human participant. Pasted-FEN AI
   games earn nothing here; only the standard start or a server-built handicap
-  counts, since the AI client is authoritative for its own game. In Crazyhouse
-  the feats that read material on the board (comeback, fortress, queen
-  sacrifice, full house, …; `MATERIAL_CHECKS` in the service) are not checked:
-  a captured piece is in the capturer's hand, not gone.
+  counts, since the AI client is authoritative for its own game. The feats that
+  read material on the board (comeback, fortress, queen sacrifice, full house,
+  …; `MATERIAL_CHECKS` in the service) are not checked where the catalogue says
+  `materialBadges: false`: Crazyhouse, where a captured piece is in the
+  capturer's hand, not gone, and Antichess, where losing material is the aim.
 - **Stats** are aggregate queries (games, wins per time control and per
   variant, castles, puzzle streaks, rating, chat count, anniversary)
   re-evaluated after every game, puzzle, chat message, login and visit to the

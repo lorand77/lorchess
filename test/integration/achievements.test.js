@@ -11,6 +11,7 @@ const db = require("../../src/db/index");
 const queries = require("../../src/db/queries");
 const achievements = require("../../src/achievements/service");
 const handicap = require("../../src/shared/handicap");
+const { ANTICHESS_START } = require("../../src/shared/chess");
 const { aiLevelOf } = require("../../src/shared/aiLevels");
 const { STANDARD_START, makeUser, lorfishId, recordGame } = require("../helpers/games");
 
@@ -307,6 +308,8 @@ describe("aggregate achievements", () => {
     assert.ok(has(keys, "pawnwars_wins") && lacks(keys, "every_variant"), keys);
     keys = win("crazyhouse", STANDARD_START, ["e2e4", "d7d5", "e4d5", "d8d5", "P@e4"]);
     assert.ok(has(keys, "crazyhouse_wins") && lacks(keys, "every_variant"), keys);
+    keys = win("antichess", ANTICHESS_START, ["e2e3", "e7e6"]);
+    assert.ok(has(keys, "antichess_wins") && lacks(keys, "every_variant"), keys);
     // A win against LorFish is a standard win too.
     const ai = recordGame({
       white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",
@@ -332,6 +335,17 @@ describe("aggregate achievements", () => {
     });
     assert.ok(has(kp("standard").w, "the_grinder"));
     assert.ok(lacks(kp("crazyhouse").w, "the_grinder"));
+  });
+
+  test("Antichess: the material feats are off there too, as the catalogue says", () => {
+    // King and pawn against a bare king, won: the grinder's position, but in
+    // Antichess the side with less is the one doing well.
+    const g = playAndEvaluate({
+      variant: "antichess", start: "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1",
+      moves: ["e2e3", "e8d7"], result: "1-0", termination: "resign",
+    });
+    assert.ok(lacks(g.w, "the_grinder"), g.w);
+    assert.ok(has(g.w, "antichess_wins"), g.w);
   });
 
   test("Crazyhouse: a mirror match counts the drops, mirrored", () => {

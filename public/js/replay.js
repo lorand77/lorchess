@@ -371,11 +371,12 @@ function wireReview() {
   // confident nonsense.
   if (!isReviewable(variant)) {
     const start = document.getElementById("reviewStart");
+    const label = variantLabel(variant);
     start.innerHTML = "";
     start.appendChild(Object.assign(document.createElement("span"), {
       className: "muted small",
-      textContent: "Stockfish plays standard chess, so it can't review a " +
-        variantLabel(variant) + " game.",
+      textContent: "Stockfish plays standard chess, so it can't review " +
+        (/^[aeiou]/i.test(label) ? "an " : "a ") + label + " game.",
     }));
     return;
   }

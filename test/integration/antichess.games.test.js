@@ -1,12 +1,12 @@
 "use strict";
 
-// Antichess over the socket: the server refuses a quiet move while a capture
-// is on the board, takes a promotion to a king, replays the game when the room
-// is rebuilt after a restart, and records the end as "all pieces lost" when a
-// side is left with nothing, or "no moves" when it is left with no move. Antichess is not in the variant catalogue yet, so
-// the lobby cannot start one: each game is matched as an ordinary one and its
-// row rewritten (variant, and the start for the endgame) before a move is
-// played, then the room forgotten, as a restart would.
+// Antichess over the socket: always casual, from its own start; the server
+// refuses a quiet move while a capture is on the board, takes a promotion to a
+// king, replays the game when the room is rebuilt after a restart, and records
+// the end as "all pieces lost" when a side is left with nothing, or "no moves"
+// when it is left with no move. The lobby only starts from the catalogue's
+// position, so an endgame is set up by rewriting the game's start before a
+// move is played and forgetting the room, as a restart would.
 
 const { describe, test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -34,17 +34,16 @@ function forgetRoom(gameId) {
   rooms.deleteRoom(gameId);
 }
 
-// A quick-matched game turned into Antichess, from `start` if given, with
-// both players seated in the rebuilt room.
+// A quick-matched Antichess game — asked for as rated, which it can't be —
+// from `start` if given, with both players seated.
 async function antichessGame(start) {
   const a = await connectSocket(srv.baseUrl, alice.c.cookie());
   const b = await connectSocket(srv.baseUrl, bob.c.cookie());
-  const { gameId, white, black } = await quickMatch(a, b, { tc: "10+0" });
-  db().prepare("UPDATE games SET variant = 'antichess' WHERE id = ?").run(gameId);
+  const { gameId, white, black } = await quickMatch(a, b, { tc: "10+0", rated: true, variant: "antichess" });
   if (start) {
     db().prepare("UPDATE games SET start_fen = ?, current_fen = ? WHERE id = ?").run(start, start, gameId);
+    forgetRoom(gameId);
   }
-  forgetRoom(gameId);
   const joined = await emitAck(white, "game:join", { gameId });
   assert.equal(joined.ok, true);
   await emitAck(black, "game:join", { gameId });
@@ -68,9 +67,12 @@ describe("an Antichess game from the start", () => {
   before(async () => { game = await antichessGame(); });
   after(() => { game.white.close(); game.black.close(); });
 
-  test("is rebuilt as Antichess, with no castling rights", () => {
+  test("starts casual, from the ordinary setup with no castling rights", () => {
     assert.equal(game.state.variant, "antichess");
+    assert.equal(game.state.rated, false);
+    assert.equal(gameRow(game.gameId).rated, 0, "quick match asked for rated; Antichess is casual only");
     assert.equal(game.state.fen, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1");
+    assert.equal(gameRow(game.gameId).start_fen, game.state.fen, "the catalogue's start, stored as such");
   });
 
   test("a capture on the board must be made", async () => {

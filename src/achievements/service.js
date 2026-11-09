@@ -21,7 +21,7 @@ const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/ches
 const handicap = require("../shared/handicap");
 const { parseUci, moveFromUci } = require("../shared/uci");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
-const { VARIANTS } = require("../shared/variants");
+const { VARIANTS, hasMaterialBadges } = require("../shared/variants");
 const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
 
 const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -332,9 +332,10 @@ const GAME_CHECKS = {
 };
 
 // Feats that read the material on the board: a deficit overcome or defended,
-// a sacrifice, a bare king, every piece still standing. In Crazyhouse they say
-// nothing — a captured piece is not lost but in the capturer's hand, and comes
-// back as a drop — so there they are not checked at all.
+// a sacrifice, a bare king, every piece still standing. In some variants they
+// say nothing — in Crazyhouse a captured piece comes back as a drop, in
+// Antichess losing material is the aim — and the catalogue says which
+// (`materialBadges` in variants.js); there they are not checked at all.
 const MATERIAL_CHECKS = new Set([
   "comeback_kid", "escape_artist", "fortress", "queen_sacrifice", "stalemate_sadness",
   "the_grinder", "two_bishops", "full_house",
@@ -378,7 +379,7 @@ function evaluateGame(userId, game, analysis, extra) {
   const ref = { gameId: game.id, at: extra && extra.at };
   const earned = [];
   for (const key of Object.keys(GAME_CHECKS)) {
-    if (analysis.chess.pockets && MATERIAL_CHECKS.has(key)) continue;
+    if (MATERIAL_CHECKS.has(key) && !hasMaterialBadges(game.variant)) continue;
     let r;
     try {
       r = GAME_CHECKS[key](ctx);
@@ -466,6 +467,7 @@ function evaluateStats(userId, ref) {
     ["atomic_wins", tierFor("atomic_wins", byVariant.atomic || 0)],
     ["pawnwars_wins", tierFor("pawnwars_wins", byVariant.pawnwars || 0)],
     ["crazyhouse_wins", tierFor("crazyhouse_wins", byVariant.crazyhouse || 0)],
+    ["antichess_wins", tierFor("antichess_wins", byVariant.antichess || 0)],
     ["every_variant", VARIANTS.every((v) => (byVariant[v.key] || 0) > 0)],
     ["both_colours", g.wins_white > 0 && g.wins_black > 0],
     ["black_is_ok", tierFor("black_is_ok", g.wins_black)],

@@ -4,9 +4,10 @@
 // up a piece that can't capture while a capture is compulsory says so and
 // marks the pieces that can; a pawn promotes to a king through the dialog; and
 // a side left without a move is told it has won, on the game page and in the
-// replay. Antichess is not in the variant catalogue yet, so the game is matched
-// as an ordinary one and its row rewritten (variant and start) before anyone
-// joins, as in test/integration/antichess.games.test.js.
+// replay. The game is casual Antichess and says so, with no review on offer.
+// The lobby only starts from the catalogue's position, so the endgame is set
+// up by rewriting the game's start before anyone joins, as in
+// test/integration/antichess.games.test.js.
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { startServer, openBrowser, signedInPage, connectSocket, quickMatch, db } = require("./helpers.cjs");
@@ -24,9 +25,8 @@ async function antichessGame(t, start) {
   const second = await signedInPage(browser, srv.baseUrl, t);
   const a = await connectSocket(srv.baseUrl, first.user.c.cookie());
   const b = await connectSocket(srv.baseUrl, second.user.c.cookie());
-  const { gameId } = await quickMatch(a, b, { tc: "10+0" });
-  db().prepare("UPDATE games SET variant = 'antichess', start_fen = ?, current_fen = ? WHERE id = ?")
-    .run(start, start, gameId);
+  const { gameId } = await quickMatch(a, b, { tc: "10+0", variant: "antichess" });
+  db().prepare("UPDATE games SET start_fen = ?, current_fen = ? WHERE id = ?").run(start, start, gameId);
   const rooms = require("../../src/game/rooms");
   rooms.clearTimers(rooms.getRoom(gameId));
   rooms.deleteRoom(gameId);
@@ -47,6 +47,7 @@ test("a forced capture is explained, a pawn becomes a king, and running out of m
   // has no move: White wins.
   const { white, black, gameId } = await antichessGame(t, "1r6/P1k5/8/8/8/7p/7P/8 w - - 0 1");
   const both = async (n) => { await plies(white, n); await plies(black, n); };
+  assert.equal(await white.locator("#tcLine").textContent(), "Rapid 10+0 · casual · Antichess");
 
   // The blocked pawn has nothing to take, and a capture is on the board.
   await square(white, "h2").click();
@@ -77,8 +78,14 @@ test("a forced capture is explained, a pawn becomes a king, and running out of m
   await white.waitForFunction((text) => document.getElementById("status").textContent === text, won);
   assert.equal(await black.locator("#status").textContent(), won);
   assert.deepEqual(await white.evaluate(() => moveHistory), ["axb8=K", "Kxb8"]);
+  assert.ok((await white.locator("#history").textContent()).includes('[Variant "Antichess"]'));
+  assert.equal(await white.locator("#reviewLinkWrap").isVisible(), false, "Stockfish can't review it");
 
   await white.goto(srv.baseUrl + "/replay.html?id=" + gameId);
   await white.waitForFunction(() => idx === 2);
   assert.equal(await white.locator("#replayStatus").textContent(), "White wins with no moves left");
+  assert.equal(
+    await white.locator("#reviewStart").textContent(),
+    "Stockfish plays standard chess, so it can't review an Antichess game."
+  );
 });
