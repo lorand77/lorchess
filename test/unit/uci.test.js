@@ -8,6 +8,7 @@ const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Chess, sqIdx, algOf } = require("../../src/shared/chess");
 const { parseUci, moveFromUci, formatUci } = require("../../src/shared/uci");
+const { InfiniteChess } = require("../../src/shared/infiniteChess");
 const { fromFen, sq } = require("../helpers/board");
 
 describe("parseUci", () => {
@@ -103,3 +104,54 @@ describe("formatUci", () => {
     for (const m of moves) assert.deepEqual(moveFromUci(chess, formatUci(m)), m, formatUci(m));
   });
 });
+
+describe("infinite-chess moves (ICN)", () => {
+  const icn = (text) => {
+    const inf = new InfiniteChess();
+    inf.loadFen(text);
+    return inf;
+  };
+
+  test("reads coordinates, negative ones included, and whose promotion it is", () => {
+    assert.deepEqual(parseUci("5,2>5,4"), { from: { x: 5, y: 2 }, to: { x: 5, y: 4 }, promo: null, drop: null });
+    assert.deepEqual(parseUci("-12,0>-12,-1000000").to, { x: -12, y: -1000000 });
+    assert.deepEqual(parseUci("4,7>4,8Q"), {
+      from: { x: 4, y: 7 }, to: { x: 4, y: 8 }, promo: "q", drop: null, promoColor: "w",
+    });
+    assert.equal(parseUci("4,2>4,1n").promoColor, "b");
+    for (const bad of ["5,2>5", "5,2-5,4", "5,2>5,4K", "5,2>5,4x", "-0,1>0,2", "01,2>1,3", "5, 2>5,4", "5,2>5,4 ", "a,2>5,4"]) {
+      assert.equal(parseUci(bad), null, bad);
+    }
+  });
+
+  test("finds the move in an infinite position, and nothing in an ordinary one", () => {
+    const inf = new InfiniteChess();
+    assert.equal(moveFromUci(inf, "7,1>6,3").piece, "n");
+    assert.equal(moveFromUci(inf, "e2e4"), null, "squares numbered 0-63 mean nothing here");
+    assert.equal(moveFromUci(new Chess(), "5,2>5,4"), null, "nor coordinates in ordinary chess");
+    const promote = icn("w 0/100 1 (8|1) checkmate K-10,1|k10,8|P1,7");
+    assert.equal(moveFromUci(promote, "1,7>1,8Q").promo, "q");
+    assert.equal(moveFromUci(promote, "1,7>1,8q"), null, "a black queen for White's pawn");
+  });
+
+  test("writes every legal move of a busy position so it reads back as the same move", () => {
+    const inf = icn("w 0/100 1 (8|1) checkmate K5,1+|R8,1+|R-100,1+|P2,7|P3,2+|N4,4|Q10,10|k5,8|b3,8|p4,5");
+    const moves = [];
+    for (const p of [...inf.board.values()]) {
+      if (p.c !== "w") continue;
+      for (let x = -101; x <= 12; x++) {
+        for (let y = -2; y <= 12; y++) {
+          for (const promo of p.t === "p" ? [null, "q", "r", "b", "n"] : [null]) {
+            const m = inf.findMove({ x: p.x, y: p.y }, { x, y }, promo);
+            if (m) moves.push(m);
+          }
+        }
+      }
+    }
+    assert.ok(moves.some((m) => m.castle) && moves.some((m) => m.promo) && moves.some((m) => m.capture));
+    for (const m of moves) assert.deepEqual(moveFromUci(inf, formatUci(m)), m, formatUci(m));
+    const black = icn("b 0/100 1 (8|1) checkmate K-10,1|k10,8|p1,2");
+    assert.equal(formatUci(black.findMove({ x: 1, y: 2 }, { x: 1, y: 1 }, "r")), "1,2>1,1r");
+  });
+});
+

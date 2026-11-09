@@ -487,3 +487,96 @@ describe("infinite chess, how a game ends", () => {
   });
 });
 
+describe("infinite chess, notation", () => {
+  // The two example positions in the ICN spec (github.com/tsevasa/infinite-chess-notation).
+  const SPEC_START = "w 0/100 1 (8|1) checkmate P1,2+|P2,2+|P3,2+|P4,2+|P5,2+|P6,2+|P7,2+|P8,2+|" +
+    "p1,7+|p2,7+|p3,7+|p4,7+|p5,7+|p6,7+|p7,7+|p8,7+|R1,1+|R8,1+|r1,8+|r8,8+|N2,1|N7,1|n2,8|n7,8|" +
+    "B3,1|B6,1|b3,8|b6,8|Q4,1|q4,8|K5,1+|k5,8+";
+  const SPEC_AFTER_D4 = "b 4,3 0/100 1 (8|1) checkmate P1,2+|P2,2+|P3,2+|P4,4|P5,2+|P6,2+|P7,2+|P8,2+|" +
+    "p1,7+|p2,7+|p3,7+|p4,7+|p5,7+|p6,7+|p7,7+|p8,7+|R1,1+|R8,1+|r1,8+|r8,8+|N2,1|N7,1|n2,8|n7,8|" +
+    "B3,1|B6,1|b3,8|b6,8|Q4,1|q4,8|K5,1+|k5,8+";
+
+  const loaded = (text) => {
+    const inf = new InfiniteChess();
+    inf.loadFen(text);
+    return inf;
+  };
+
+  test("reads the spec's own positions, and they are ours", () => {
+    const start = new InfiniteChess();
+    assert.equal(loaded(SPEC_START).fen(), start.fen());
+    start.makeMove(start.findMove({ x: 4, y: 2 }, { x: 4, y: 4 }));
+    assert.equal(loaded(SPEC_AFTER_D4).fen(), start.fen());
+    assert.ok(start.fen().startsWith("b 4,3 0/100 1 (8|1) checkmate "));
+  });
+
+  test("writes what it reads, for every kind of position", () => {
+    const positions = [...cagePositions(21, 150), ...scatteredPositions(22, 150)];
+    const played = new InfiniteChess();
+    for (const [a, b] of [[[5, 2], [5, 4]], [[4, 7], [4, 5]], [[5, 4], [4, 5]], [[4, 8], [4, 5]], [[7, 1], [6, 3]]]) {
+      played.makeMove(played.findMove({ x: a[0], y: a[1] }, { x: b[0], y: b[1] }));
+      positions.push(loaded(played.fen()));
+    }
+    for (const inf of positions) {
+      const again = loaded(inf.fen());
+      assert.equal(again.fen(), inf.fen());
+      assert.equal(again.positionKey(), inf.positionKey());
+    }
+  });
+
+  test("takes the fields ICN lets you leave out, and the spelled-out promotions", () => {
+    const short = loaded("0/100 (8|1) K5,1|k5,8|Q1,1");
+    assert.equal(short.turn, "w");
+    assert.equal(short.fullmove, 1);
+    const long = loaded("b 7/100 30 (8;Q,R,B,N|1;q,r,b,n) checkmate K-5,-1000|k5,8|Q1,1");
+    assert.deepEqual([long.turn, long.halfmove, long.fullmove], ["b", 7, 30]);
+    assert.ok(long.pieceList().includes("K-5,-1000"));
+  });
+
+  test("refuses anything these rules don't play, and keeps the position it had", () => {
+    for (const [text, message] of [
+      ["w 1 (8|1) checkmate K5,1|k5,8", /move rule/],
+      ["w 0/50 1 (8|1) checkmate K5,1|k5,8", /50-ply/],
+      ["w 0/100 1 checkmate K5,1|k5,8", /promotion ranks/],
+      ["w 0/100 1 (8|-8) checkmate K5,1|k5,8", /promotions/],
+      ["w 0/100 1 (8;Q,AM|1) checkmate K5,1|k5,8", /promotions/],
+      ["w 0/100 1 (8|1) allpiecescaptured K5,1|k5,8", /allpiecescaptured/],
+      ['[Variant "Classical"] w 0/100 1 (8|1) checkmate K5,1|k5,8', /not part of these rules/],
+      ["w 0/100 1 (8|1) checkmate Rays:1,1>0,1 K5,1|k5,8", /not part of these rules/],
+      ["w 0/100 1 (8|1) checkmate K5,1|k5,8|AM1,1", /not a piece/],
+      ["w 0/100 1 (8|1) checkmate K5,1|k5,8|3q1,1", /not a piece/],
+      ["w 0/100 1 (8|1) checkmate K5,1|k5,8|Q-0,1", /not a piece/],
+      ["w 0/100 1 (8|1) checkmate K5,1|k5,8|Q01,1", /not a piece/],
+      ["w 0/100 1 (8|1) checkmate K5,1|k5,8|Q1000001,1", /within/],
+      ["w 0/100 1 (8|1) checkmate K5,1|k5,8|Q5,1", /Two pieces/],
+      ["w 0/100 1 (8|1) checkmate K5,1|k5,8|P3,8", /would have promoted/],
+      ["w 0/100 1 (8|1) checkmate K5,1", /exactly one king/],
+      ["", /move rule/],
+    ]) {
+      const inf = new InfiniteChess();
+      const before = inf.fen();
+      assert.throws(() => inf.loadFen(text), message, text);
+      assert.equal(inf.fen(), before, text);
+    }
+  });
+
+  test("writes moves for the move list in ICN's long form", () => {
+    const start = new InfiniteChess();
+    const san = (inf, a, b, promo) => inf.moveToSan(inf.findMove({ x: a[0], y: a[1] }, { x: b[0], y: b[1] }, promo));
+    assert.equal(san(start, [5, 2], [5, 4]), "P5,2>5,4");
+    assert.equal(san(start, [7, 1], [6, 3]), "N7,1>6,3");
+    const capture = loaded("w 0/100 1 (8|1) checkmate K5,1|k5,8|R1,1|n1,500000");
+    assert.equal(san(capture, [1, 1], [1, 500000]), "R1,1x1,500000");
+    const promote = loaded("w 0/100 1 (8|1) checkmate K-10,1|k10,8|P1,7");
+    assert.equal(san(promote, [1, 7], [1, 8], "q"), "P1,7>1,8=Q+");
+    const blackPromote = loaded("b 0/100 1 (8|1) checkmate K-10,1|k10,8|p1,2");
+    assert.equal(san(blackPromote, [1, 2], [1, 1], "n"), "p1,2>1,1=n");
+    const castle = loaded("w 0/100 1 (8|1) checkmate K5,1+|R8,1+|k5,8");
+    assert.equal(san(castle, [5, 1], [7, 1]), "K5,1>7,1");
+    // The rook cage: a rook on the king's rank mates.
+    const mate = loaded("w 0/100 1 (8|1) checkmate k5,5|R4,100|R6,100|R100,4|R100,6|R150,10|K-50,-50");
+    assert.equal(san(mate, [150, 10], [150, 5]), "R150,10>150,5#");
+    assert.equal(mate.fen(), loaded(mate.fen()).fen(), "and naming it changed nothing");
+  });
+});
+

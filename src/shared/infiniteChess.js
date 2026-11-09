@@ -269,7 +269,7 @@ const InfiniteChess = (function () {
       if (!dx && !dy) return null;
       const target = this.pieceAt(x, y);
       if (target && target.c === piece.c) return null;
-      const move = { from: { x: piece.x, y: piece.y }, to: { x, y }, piece: piece.t, capture: !!target };
+      const move = { from: { x: piece.x, y: piece.y }, to: { x, y }, piece: piece.t, color: piece.c, capture: !!target };
 
       if (piece.t === 'p') {
         // A promotion names its piece; nothing else names one.
@@ -323,7 +323,7 @@ const InfiniteChess = (function () {
       if (this.inCheck(king.c)) return null;
       // The square passed over, judged with the king standing on it.
       const passed = { x: king.x + dir, y: king.y };
-      const step = { from: { x: king.x, y: king.y }, to: passed, piece: 'k', capture: false };
+      const step = { from: { x: king.x, y: king.y }, to: passed, piece: 'k', color: king.c, capture: false };
       this.makeMove(step, false);
       const attacked = this.inCheck(king.c);
       this.undoMove();
@@ -591,6 +591,77 @@ const InfiniteChess = (function () {
       const scenarios = this.materialScenarios();
       if (!scenarios) return true;
       return !scenarios.every((s) => isDeadScenario(c === W ? s : invert(s)));
+    },
+
+    // ---- notation ----
+
+    // The position as an ICN position string (infinite-chess-notation, the
+    // subset these rules need): side to move, en passant square if any, the
+    // 50-move count out of 100, the move number, the promotion ranks, the win
+    // condition, then the pieces. Named fen() to stand where a FEN would: the
+    // server stores and sends it the same way.
+    fen() {
+      const ep = this.ep ? ' ' + keyOf(this.ep.x, this.ep.y) : '';
+      return `${this.turn}${ep} ${this.halfmove}/100 ${this.fullmove} (8|1) checkmate ${this.pieceList().join('|')}`;
+    },
+
+    // Read an ICN position string. Only what these rules can play is taken:
+    // the side to move, move number and win condition (checkmate) may be left
+    // out, as ICN allows, but the 100-ply move rule and the 8|1 promotion
+    // ranks must be there — without them ICN means different rules. Fairy
+    // pieces, players other than White and Black, annotations and metadata
+    // are refused. Throws, leaving the position as it was.
+    loadFen(text) {
+      const tokens = String(text == null ? '' : text).trim().split(/\s+/);
+      const pieceField = tokens.pop();
+      let i = 0;
+      let turn = W, ep = null, halfmove = null, fullmove = 1, promotions = false;
+      if (tokens[i] === W || tokens[i] === B) turn = tokens[i++];
+      let m;
+      if (tokens[i] && (m = /^((?:0|-?[1-9]\d{0,14})),((?:0|-?[1-9]\d{0,14}))$/.exec(tokens[i]))) {
+        ep = { x: Number(m[1]), y: Number(m[2]) };
+        i++;
+      }
+      if (tokens[i] && (m = /^(\d{1,6})\/(\d{1,6})$/.exec(tokens[i]))) {
+        if (m[2] !== '100') throw new Error(`ICN: a ${m[2]}-ply move rule is not these rules' 100`);
+        halfmove = Number(m[1]);
+        i++;
+      }
+      if (tokens[i] && /^\d{1,9}$/.test(tokens[i])) fullmove = Number(tokens[i++]);
+      if (tokens[i] && tokens[i][0] === '(') {
+        const ranks = tokens[i++];
+        if (ranks !== '(8|1)' && ranks !== '(8;Q,R,B,N|1;q,r,b,n)') {
+          throw new Error(`ICN: promotions ${ranks} are not these rules' (8|1)`);
+        }
+        promotions = true;
+      }
+      if (tokens[i] === 'checkmate') i++;
+      if (i < tokens.length) throw new Error(`ICN: "${tokens[i]}" is not part of these rules`);
+      if (halfmove === null) throw new Error('ICN: the position needs its move rule, e.g. 0/100');
+      if (!promotions) throw new Error('ICN: the position needs its promotion ranks, (8|1)');
+
+      const pieces = [];
+      for (const entry of (pieceField || '').split('|')) {
+        const p = /^([pnbrqkPNBRQK])((?:0|-?[1-9]\d{0,14})),((?:0|-?[1-9]\d{0,14}))(\+?)$/.exec(entry);
+        if (!p) throw new Error(`ICN: "${entry}" is not a piece these rules know`);
+        const lower = p[1].toLowerCase();
+        pieces.push({ t: lower, c: p[1] === lower ? B : W, x: Number(p[2]), y: Number(p[3]), right: p[4] === '+' });
+      }
+      this.setup({ pieces, turn, ep, halfmove, fullmove });
+    },
+
+    // A move as the move list shows it, in ICN's long form: the piece (its
+    // letter in its colour's case), where from, ">" or "x" for a capture,
+    // where to, "=Q" for a promotion, then "+" or "#". Call BEFORE making it.
+    moveToSan(move) {
+      const letter = (t) => (move.color === W ? t.toUpperCase() : t);
+      let san = letter(move.piece) + keyOf(move.from.x, move.from.y)
+        + (move.capture ? 'x' : '>') + keyOf(move.to.x, move.to.y);
+      if (move.promo) san += '=' + letter(move.promo);
+      this.makeMove(move, false);
+      if (this.inCheck()) san += this.hasLegalMove() ? '+' : '#';
+      this.undoMove();
+      return san;
     },
 
     isGameOver() {

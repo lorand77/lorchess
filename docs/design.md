@@ -190,7 +190,19 @@ is AGPL-3.0, so none of its code is copied: the engine will be our own
   `w 0/100 1 (8|1) checkmate P1,2+|…|K5,1+|k5,8+`, a `+` marking a piece's
   special right and an optional en passant square after the side to move.
   ICN's fairy pieces, extra win conditions and annotations are refused.
-  The move list shows ICN's long form: `P5,2>5,4`, `Qx3,5+`, `P4,7>4,8=Q#`.
+  The move list shows ICN's long form, the piece's letter in its colour's
+  case: `P5,2>5,4`, `Q1,7x3,5+`, `p4,2>4,1=q#`. The engine's `fen()` and
+  `loadFen()` write and read the ICN position (named for where they stand in
+  the interface, not for the format), and `loadFen` refuses a position without
+  the 100-ply move rule or the `(8|1)` promotion ranks, which in ICN would
+  mean other rules; coordinates are written plainly (no leading zeros, no
+  `-0`), so a square has one spelling. The spec's own example positions are in
+  the tests and load as ours.
+- *Which engine*: `src/shared/engines.js`'s `createEngine(variant)` gives the
+  infinite engine for the key `infinite` and chess.js, its rule set chosen, for
+  everything else. The two share what a game needs (`findMove`, `makeMove`,
+  `moveToSan`, `fen`, `loadFen`, `turn`, `history`, `isGameOver`, `result`,
+  `hasMatingMaterial`), so the server and pages need not know which they hold.
 - *The engine* never lists a position's moves, since a slider has infinitely
   many: `findMove(from, to, promo)` answers for one move, asking the finitely
   many pieces what stands between two squares or attacks one, never walking a
