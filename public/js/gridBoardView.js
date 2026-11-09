@@ -25,6 +25,9 @@
 //     animation    the move to animate, as ui.js planned it, or null
 //   and returns whether that animation is still running.
 //
+//   view.destroy() takes its handlers off the board, so another view can
+//   take it over (an infinite-chess game swaps this one out).
+//
 // Squares are looked up by their data-sq attribute (boardDrag.js and
 // boardArrows.js rely on it), and the board is redrawn wholesale on every
 // change, so nothing here holds on to an element between renders.
@@ -36,7 +39,7 @@ window.GridBoardView = (function () {
   function create(boardEl, handlers) {
     // Drag-and-drop (mouse, touch and stylus alike). Taps fall through to the
     // squares' own click handlers untouched; only a real drag is handled there.
-    BoardDrag.attach(boardEl, {
+    const detachDrag = BoardDrag.attach(boardEl, {
       sources: handlers.dragSources || [],
       canDrag: handlers.canDrag,
       onPick: handlers.onPick,
@@ -44,8 +47,9 @@ window.GridBoardView = (function () {
     });
     // Right-button arrows and circles (Lichess / chess.com style). Local to
     // the page; the opponent never sees them.
-    BoardArrows.attach(boardEl);
-    boardEl.addEventListener('contextmenu', (e) => handlers.onContextMenu(e));
+    const detachArrows = BoardArrows.attach(boardEl);
+    const onContextMenu = (e) => handlers.onContextMenu(e);
+    boardEl.addEventListener('contextmenu', onContextMenu);
 
     const sqEl = (sq) => boardEl.querySelector(`.square[data-sq="${sq}"]`);
 
@@ -171,7 +175,14 @@ window.GridBoardView = (function () {
       return true;
     }
 
-    return { render };
+    function destroy() {
+      detachDrag();
+      detachArrows();
+      boardEl.removeEventListener('contextmenu', onContextMenu);
+      boardEl.innerHTML = '';
+    }
+
+    return { render, destroy };
   }
 
   return { create };

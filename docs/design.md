@@ -871,6 +871,20 @@ shared. The split was made with no visible change: the browser tests pass as
 before, and a screenshot of a board in check with hints showing is
 byte-for-byte the same either side of it.
 
+Infinite chess's view is `public/js/infiniteBoardView.js`: a window of
+squares onto the board with no edges, the same squares, colours and pieces as
+the grid's, each `data-sq` an `"x,y"` key. It keeps a camera — the window's
+lower-left square and its size (8 to 40 squares across) — framed on the pieces
+at first, or on those around the bottom king when they are spread too wide;
+dragging pans it a square at a time, the wheel and the − / + buttons zoom
+about its middle, ⌖ frames the pieces again, and a move that lands off screen
+brings the window to it. Pieces off screen are markers on the edge square
+nearest them, pushed towards them, sharing a marker with a count when several
+lie beyond one square; clicking one goes there. When a game says it is
+infinite chess, `applyPvpState` swaps `ui.js`'s engine for `createEngine`'s
+and the grid view for this one (`destroy()` takes the old one's handlers off
+the board). For now the view is read-only, for spectators: it reports no moves.
+
 ## Trickiest parts
 
 - **Blocking engine** → must run in a Web Worker; the old paint hacks existed only because it blocks.

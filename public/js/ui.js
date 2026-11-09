@@ -1,6 +1,8 @@
 "use strict";
 
-const chess = new Chess();
+// The rules engine: chess.js, or infinite chess's own once a game says so
+// (applyPvpState swaps it, with the board view).
+let chess = new Chess();
 let humanColor = W;
 // AI games: chosen in the lobby (or restored from the saved game) and fixed for
 // the game, including every worker request. New Game and Load FEN keep both.
@@ -211,7 +213,7 @@ function renderCaptured() {
   byBlack.sort(sortFn);
 
   let whiteMat = 0, blackMat = 0;
-  for (const p of chess.squares) {
+  for (const p of chess.squares || chess.board.values()) {
     if (!p) continue;
     if (p.c === W) whiteMat += PIECE_VAL[p.t];
     else           blackMat += PIECE_VAL[p.t];
@@ -415,6 +417,7 @@ function planMoveAnimation(move) {
     return;
   }
   if (reducedMotion) return;
+  if (move.from && typeof move.from === 'object') return planInfiniteAnimation(move);
   if (move.drop) {
     // A dropped piece comes from no square, so it fades in where it lands.
     moveAnim = { start: performance.now(), pieces: [], captured: null, dropped: move.to };
@@ -433,6 +436,21 @@ function planMoveAnimation(move) {
     start: performance.now(),
     pieces,
     captured: capPiece ? { sq: capSq, piece: capPiece } : null,
+  };
+}
+
+// The same for infinite chess, whose squares are { x, y } and whose board
+// view knows them as "x,y".
+function planInfiniteAnimation(move) {
+  const key = (p) => p.x + ',' + p.y;
+  const pieces = [{ from: key(move.from), to: key(move.to) }];
+  if (move.castle) pieces.push({ from: key(move.castle.rookFrom), to: key(move.castle.rookTo) });
+  const capAt = move.enpassant ? { x: move.to.x, y: move.from.y } : move.to;
+  const capPiece = move.capture ? chess.pieceAt(capAt.x, capAt.y) : null;
+  moveAnim = {
+    start: performance.now(),
+    pieces,
+    captured: capPiece ? { sq: key(capAt), piece: capPiece } : null,
   };
 }
 
@@ -478,16 +496,18 @@ function render() {
   const inCheckNow = chess.inCheck();
   // The board shows what this describes (gridBoardView.js draws it), and
   // says whether the move it was asked to animate is still moving.
+  const infinite = chess instanceof InfiniteChess;
+  const king = inCheckNow && (infinite ? chess.kingOf(chess.turn) : chess.findKing(chess.turn));
   const animating = boardView.render({
-    pieces: chess.squares,
+    pieces: infinite ? chess.board : chess.squares,
     flip: humanColor === B,
     lastMove,
     premove,
     selected,
-    check: inCheckNow ? chess.findKing(chess.turn) : null,
+    check: !inCheckNow ? null : infinite ? king.x + ',' + king.y : king,
     // Antichess: where the compulsory captures can be made from.
     mustCapture: captureHint ? new Set(chess.legalMoves().map(m => m.from)) : null,
-    hints: selectionHints(),
+    hints: infinite ? new Map() : selectionHints(),
     animation: moveAnim,
   });
   if (!animating) moveAnim = null;
@@ -763,7 +783,7 @@ function attemptDrop(t, to, viaDrag) {
 // drags and right-clicks. A drag is a real drag only: taps fall through to
 // onSquareClick. A Crazyhouse pocket piece arrives as "@n" (see
 // renderPockets) rather than a square.
-const boardView = GridBoardView.create(boardEl, {
+let boardView = GridBoardView.create(boardEl, {
   pieceSrc: pieceImgSrc,
   onSquareClick: (sq) => onSquareClick(sq),
   // Right-click: drop the selection and any queued premove (chess.com habit).
@@ -1655,7 +1675,17 @@ function applyPvpState(socket, state) {
   setChatHistory(state.chat);
   // Atomic changes the rules, not just the position — tell the board before
   // loading anything, or captures will be applied the standard way.
-  chess.setVariant(state.variant || 'standard');
+  if (state.variant === 'infinite') {
+    // Another engine and another board: a window onto a board with no edges.
+    // Read-only for now (it reports no moves).
+    if (!(chess instanceof InfiniteChess)) {
+      chess = createEngine('infinite');
+      boardView.destroy();
+      boardView = InfiniteBoardView.create(boardEl, { pieceSrc: pieceImgSrc });
+    }
+  } else {
+    chess.setVariant(state.variant || 'standard');
+  }
   gameVariant = state.variant || 'standard';
   rebuildFromRecord(state);
   startFullmove = 1;
