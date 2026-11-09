@@ -87,7 +87,7 @@ const env = {
   getLevel,
   getPosition:   () => ({
     startFen,
-    // Castling is spelled by the rook square (see uciOf), which the worker's
+    // Castling is spelled by the rook square (see formatUci), which the worker's
     // findMove resolves on any back rank.
     moves: chess.history.map(h => ({
       from: h.move.from,
@@ -141,20 +141,14 @@ function playPremove(pm) {
   doHumanMove(move, { premove: true });
 }
 
-// The stored spelling of a move. Castling points at the rook, not the king's
-// destination: on a shuffled back rank the king may move one square (or none)
-// when castling, so only the rook square says which move it was. The server
-// and the engine worker spell it the same way, and findMove reads both.
-function uciOf(move) {
-  const to = move.castle && move.rookFrom != null ? move.rookFrom : move.to;
-  return algOf(move.from) + algOf(to) + (move.promo || '');
-}
-
 // Record the move just applied to `chess`, and finalize the game if it ended
 // (AI mode — client is authoritative and drives persistence).
 function recordApplied(san, move, premove) {
   const ply = chess.history.length;
-  const uci = uciOf(move);
+  // The stored spelling, castling by the rook square: on a shuffled back rank
+  // the king may move one square (or none) when castling, so only the rook
+  // square says which move it was. formatUci is shared with the server.
+  const uci = formatUci(move);
   const fenAfter = chess.fen();
   const byColor = opp(chess.turn);   // the mover = side that just moved (turn has flipped)
   gameStore.recordMove({ ply, san, uci, fenAfter, byColor, premove: !!premove });

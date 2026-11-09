@@ -1,13 +1,13 @@
 "use strict";
 
-// Reading stored moves (src/shared/uci.js): the squares and promotion of a UCI
-// string, or the piece and square of a Crazyhouse drop, and the legal move it
-// names in a position.
+// Stored moves (src/shared/uci.js): reading the squares and promotion of a UCI
+// string, or the piece and square of a Crazyhouse drop, finding the legal move
+// it names in a position, and writing a move back the way it is stored.
 
 const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Chess, sqIdx, algOf } = require("../../src/shared/chess");
-const { parseUci, moveFromUci } = require("../../src/shared/uci");
+const { parseUci, moveFromUci, formatUci } = require("../../src/shared/uci");
 const { fromFen, sq } = require("../helpers/board");
 
 describe("parseUci", () => {
@@ -79,5 +79,26 @@ describe("moveFromUci", () => {
     assert.equal(moveFromUci(chess, "e7e5"), null, "not White's piece");
     assert.equal(moveFromUci(chess, "e2"), null);
     assert.equal(moveFromUci(chess, undefined), null);
+  });
+});
+
+describe("formatUci", () => {
+  test("writes moves, promotions and drops as they are stored", () => {
+    assert.equal(formatUci({ from: sq("e2"), to: sq("e4") }), "e2e4");
+    assert.equal(formatUci({ from: sq("b7"), to: sq("a8"), promo: "n" }), "b7a8n");
+    assert.equal(formatUci({ from: null, to: sq("e4"), drop: "p" }), "P@e4");
+  });
+
+  test("spells castling by the rook's square, however it was read", () => {
+    const fen = "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1";
+    assert.equal(formatUci(moveFromUci(fromFen(fen), "e1g1")), "e1h1");
+    assert.equal(formatUci(moveFromUci(fromFen(fen), "e1a1")), "e1a1");
+  });
+
+  test("is what parseUci reads back, for every legal move of a busy position", () => {
+    const chess = fromFen("r3k2r/1P6/8/8/8/8/8/R3K2R[NPq] w KQkq - 0 1", "crazyhouse");
+    const moves = chess.legalMoves();
+    assert.ok(moves.some((m) => m.drop) && moves.some((m) => m.promo) && moves.some((m) => m.castle));
+    for (const m of moves) assert.deepEqual(moveFromUci(chess, formatUci(m)), m, formatUci(m));
   });
 });

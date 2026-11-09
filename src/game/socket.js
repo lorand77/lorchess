@@ -21,6 +21,7 @@ const db = require("../db/index");
 const { elo } = require("./elo");
 const achievements = require("../achievements/service");
 const handicap = require("../shared/handicap");
+const { formatUci } = require("../shared/uci");
 const { usesStandardSetup } = require("../shared/variants");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
@@ -450,7 +451,7 @@ function stateOf(room, color) {
     // The moves as played (castling by the rook square), so a client can
     // rebuild the position by replaying them: a FEN loses the repetition
     // history, and cannot always say which rook a Chess960 castling right means.
-    moves: room.chess.history.map((h) => uciOf(h.move)),
+    moves: room.chess.history.map((h) => formatUci(h.move)),
     yourColor: color,
     turn: room.chess.turn,
     status: room.status,
@@ -613,8 +614,9 @@ function handleMove(io, socket, payload, ack) {
   if (room.chess.turn !== color) return reply(ack, { ok: false, error: "Not your turn." });
 
   // (3) Legality — match against the server's own legal moves. Never trust client.
-  const { from, to, promo } = payload || {};
-  const move = room.chess.findMove(from, to, promo);
+  // A Crazyhouse drop comes as { drop, to } and has no square it leaves.
+  const { from, to, promo, drop } = payload || {};
+  const move = drop ? room.chess.findDrop(drop, to) : room.chess.findMove(from, to, promo);
   if (!move) return reply(ack, { ok: false, error: "Illegal move." });
 
   // (3b) Clock: charge the mover for their think time; flag if they're out.
@@ -641,7 +643,7 @@ function handleMove(io, socket, payload, ack) {
   const ply = room.chess.history.length;
   const fen = room.chess.fen();
   const turn = room.chess.turn;
-  const uci = uciOf(move);
+  const uci = formatUci(move);
 
   // (5) Persist + (6) broadcast (mover included; everyone applies on confirmation).
   // The client says whether this was a premove; believe it only if the move
@@ -668,10 +670,13 @@ function handleMove(io, socket, payload, ack) {
   }
 
   reply(ack, { ok: true });
+  // The move as the server resolved it, not as sent: a drop leaves no square,
+  // and a promotion letter only goes out on a promotion.
   io.to(`game:${gameId}`).emit("move:made", {
-    from,
+    from: move.drop ? null : from,
     to,
-    promo: promo || null,
+    promo: move.promo || null,
+    drop: move.drop || null,
     san,
     fen,
     turn,
@@ -857,14 +862,6 @@ function onGraceExpired(io, gameId, color) {
   const neverCame = !room.everJoined[color] && !(room.rehydrated && room.clockStarted);
   if (room.sans.length === 0 || neverCame) concludeGame(io, room, "*", "aborted");
   else concludeGame(io, room, winResult(other(color)), "disconnect");
-}
-
-function uciOf(move) {
-  const alg = (sq) => String.fromCharCode(97 + (sq & 7)) + ((sq >> 3) + 1);
-  // Castling points at the rook, not the king's destination — see
-  // Chess.findMove for why.
-  const to = move.castle && move.rookFrom != null ? move.rookFrom : move.to;
-  return alg(move.from) + alg(to) + (move.promo || "");
 }
 
 function terminationOf(chess) {

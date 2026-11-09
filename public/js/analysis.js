@@ -47,8 +47,6 @@
   let engineOn = localStorage.getItem(ENGINE_KEY) !== "off";
   let engineFailed = false;
 
-  const uciOf = (m) =>
-    algOf(m.from) + algOf(m.castle && m.rookFrom != null ? m.rookFrom : m.to) + (m.promo || "");
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -88,7 +86,7 @@
   }
 
   function play(m) {
-    const uci = uciOf(m);
+    const uci = formatUci(m);
     if (line[idx] && line[idx].uci === uci) return goto(idx + 1);
     line = line.slice(0, idx);
     line.push({ uci, san: chess.moveToSan(m) });
@@ -113,7 +111,7 @@
     for (const uci of uciMoves || []) {
       const m = moveFromUci(scratch, uci);
       if (!m) break;
-      kept.push({ uci: uciOf(m), san: scratch.moveToSan(m) });
+      kept.push({ uci: formatUci(m), san: scratch.moveToSan(m) });
       scratch.makeMove(m);
     }
     return { startFen: fen || STANDARD_START, line: kept };

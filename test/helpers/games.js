@@ -8,6 +8,7 @@
 
 const { Chess } = require("../../src/shared/chess");
 const { moveOf } = require("./board");
+const { formatUci } = require("../../src/shared/uci");
 
 const STANDARD_START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const queries = () => require("../../src/db/queries");
@@ -27,13 +28,6 @@ function makeUser(base = "u", rating = 1200) {
 function lorfishId() {
   if (aiId == null) aiId = queries().getUserByUsername.get("LorFish").id;
   return aiId;
-}
-
-// The server's UCI spelling: castling points at the rook.
-function uciOf(m) {
-  const alg = (sq) => String.fromCharCode(97 + (sq & 7)) + ((sq >> 3) + 1);
-  const to = m.castle && m.rookFrom != null ? m.rookFrom : m.to;
-  return alg(m.from) + alg(to) + (m.promo || "");
 }
 
 // Create a game, store its moves, and finish it. Returns the game id.
@@ -61,7 +55,7 @@ function recordGame({
     const mover = chess.turn === "w" ? white : black;
     chess.makeMove(m);
     const byUser = mover === lorfishId() ? null : mover;
-    q.insertMoveTimed.run(gameId, i + 1, san, uciOf(m), chess.fen(), byUser, thinkMs, premove ? 1 : 0);
+    q.insertMoveTimed.run(gameId, i + 1, san, formatUci(m), chess.fen(), byUser, thinkMs, premove ? 1 : 0);
   });
   if (termination === "checkmate" && !chess.isCheckmate()) throw new Error(`fixture: ${chess.fen()} is not checkmate`);
   if (termination === "stalemate" && !chess.isStalemate()) throw new Error(`fixture: ${chess.fen()} is not stalemate`);

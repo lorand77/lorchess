@@ -148,8 +148,7 @@ function normaliseUci(list) {
   for (const uci of list) {
     const m = moveFromUci(scratch, uci);
     if (!m) break;
-    const to = m.castle && m.rookFrom != null ? m.rookFrom : m.to;
-    out.push(algOf(m.from) + algOf(to) + (m.promo || ""));
+    out.push(formatUci(m));
     scratch.makeMove(m);
   }
   return out.concat(list.slice(out.length));

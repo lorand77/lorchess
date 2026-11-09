@@ -1,15 +1,15 @@
 "use strict";
 
-// Reading a move as it is stored and sent: UCI long algebraic, "e2e4", with a
-// promotion letter on the end ("e7e8q"). Castling is spelled king-to-rook
-// ("e1h1"), or by the king's destination in games recorded before Chess960;
-// Chess.findMove takes either, so this file need not know which. A Crazyhouse
-// drop is the piece's letter, "@" and the square: "N@e4", "P@e4".
+// Reading and writing a move as it is stored and sent: UCI long algebraic,
+// "e2e4", with a promotion letter on the end ("e7e8q"). Castling is spelled
+// king-to-rook ("e1h1"), or by the king's destination in games recorded before
+// Chess960; Chess.findMove takes either, so the reader need not know which. A
+// Crazyhouse drop is the piece's letter, "@" and the square: "N@e4", "P@e4".
 //
-// One reader, because the slicing was once copied into every place that
-// replays a game — server rebuild, achievements, puzzles, the game, replay,
-// review and analysis pages, the lobby's previews — and a new kind of move (a
-// Crazyhouse drop, say) would have had to be taught to each copy.
+// One reader and one writer, because both were once copied into every place
+// that records or replays a game — server rebuild, achievements, puzzles, the
+// game, replay, review and analysis pages, the lobby's previews — and a new
+// kind of move (a Crazyhouse drop, say) would have had to be taught to each.
 //
 // Loaded as a browser <script> (served at /js/uci.js) and as a Node `require`.
 // It needs nothing from chess.js, so a page without the engine (the lobby) can
@@ -40,6 +40,15 @@ function moveFromUci(chess, text) {
   return p.drop ? chess.findDrop(p.drop, p.to) : chess.findMove(p.from, p.to, p.promo);
 }
 
+// A move object from chess.js, written the way it is stored: castling by the
+// rook's square ("e1h1", see Chess.findMove for why), a drop as "N@e4".
+function formatUci(move) {
+  const alg = (sq) => String.fromCharCode(97 + (sq & 7)) + ((sq >> 3) + 1);
+  if (move.drop) return move.drop.toUpperCase() + '@' + alg(move.to);
+  const to = move.castle && move.rookFrom != null ? move.rookFrom : move.to;
+  return alg(move.from) + alg(to) + (move.promo || '');
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseUci, moveFromUci };
+  module.exports = { parseUci, moveFromUci, formatUci };
 }

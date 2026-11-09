@@ -100,7 +100,7 @@ capture something and mate with it.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
-the one reader of stored moves) live **only** in `src/shared/` and load three
+which reads and writes stored moves) live **only** in `src/shared/` and load three
 ways: as a browser `<script>` global, via `importScripts` in the
 engine Web Worker, and as a Node `require`. The UMD tail
 (`if (typeof module !== 'undefined' && module.exports) module.exports = {...}`)
@@ -632,10 +632,12 @@ sockets, clocks and timers.
   buffered is still good, while a player who never joined has no seat and the
   clock would never start against them) →
   **turn enforcement** → **legality** against the
-  server's own `findMove` (never trust the client) → charge the mover's clock,
+  server's own `findMove` (never trust the client; a Crazyhouse drop comes as
+  `{ drop, to }` and goes through `findDrop`) → charge the mover's clock,
   and flag if it ran out → apply → persist move, position and clocks in one
   transaction → broadcast `move:made` to the room (mover included; everyone
-  applies on confirmation) → `game:over`, or re-arm the flag timer for the
+  applies on confirmation), carrying the move as the server resolved it, with
+  `drop` set and `from` null for a drop → `game:over`, or re-arm the flag timer for the
   other side. If the write fails, the room is rolled back to the position and
   clock it had and the mover's ack fails. Every socket handler, timer callback
   and the connection setup run under a try/catch for the same reason: Socket.IO has none of its own, and
