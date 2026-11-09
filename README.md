@@ -12,7 +12,7 @@ time.
 - Real-time games against other players, with clocks kept on the server and
   Elo ratings
 - Games against LorFish, which runs in the browser in a Web Worker
-- Variants: standard chess, Chess960, Atomic, Pawn Wars and Crazyhouse
+- Variants: standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse and Antichess
 - Puzzles, achievements, friends, a leaderboard, spectating, in-game chat and
   game replays
 

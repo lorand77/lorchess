@@ -7,10 +7,10 @@ repo are in `docs/CLAUDE.md`.
 
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
-standard chess, Chess960, Atomic, Pawn Wars or Crazyhouse. Around the games:
-puzzles, an analysis board, achievements, friends, a leaderboard, spectating,
-in-game chat and a promo-code membership. Node.js + SQLite on the server,
-vanilla JS in the browser, no build step.
+standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse or Antichess. Around
+the games: puzzles, an analysis board, achievements, friends, a leaderboard,
+spectating, in-game chat and a promo-code membership. Node.js + SQLite on the
+server, vanilla JS in the browser, no build step.
 
 ## Tech stack
 
@@ -27,7 +27,7 @@ vanilla JS in the browser, no build step.
 
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
-squares, and the Atomic, Pawn Wars and Crazyhouse rule sets.
+squares, and the Atomic, Pawn Wars, Crazyhouse and Antichess rule sets.
 `src/shared/lorfish.js` is **LorFish**, a synchronous search engine ported from
 a sunfish-derived Python original; its five levels are labelled from about 200
 to 1800 (see below). It depends tightly on `chess.js`.
@@ -99,31 +99,6 @@ the material is dead only in a set-up position with bare kings or one minor
 piece between both sides, and a flag always loses otherwise: a bare king can
 capture something and mate with it.
 
-**Antichess** follows Lichess:
-a capture is compulsory whenever there is one, the king is an ordinary piece
-(no check, no mate, it can be taken), pawns may also promote to a king (`k` in
-UCI, `=K` in SAN), and there is no castling, whatever a FEN claims. The side to
-move wins with no piece or no legal move left, ahead of any draw; otherwise the
-50-move rule and threefold repetition draw as usual; the server records those
-wins as `"all pieces lost"` or `"no moves"` (`terminationOf` in `socket.js`),
-checked ahead of every draw as `result()` does. `antichessMoves()` keeps
-only the captures when there are any, and the engine matches Lichess's own
-perft counts (scalachess's `antichess.perft`, in `test/unit/antichess.test.js`).
-Dead material is the clear-cut case only: nothing but bishops, each side's on
-one square colour and the two sides on opposite colours, so nothing can ever be
-taken. Lichess also counts some positions with blocked pawns, and draws some
-knight endings on a flag; here those play on, and a flag otherwise loses.
-Like Crazyhouse it is casual only for now (`rateable: false`) and takes no
-handicap; it opens from `ANTICHESS_START`, the ordinary setup without castling
-rights, which the catalogue repeats as its `startFen`.
-
-On the game page the promotion dialog offers a king too. Picking up a piece
-that can't move because a capture elsewhere is compulsory sets `captureHint`
-in `ui.js`: the status line says "You must capture" and the pieces that can are
-ringed (`.must-capture`) until the selection changes. A win reads "White wins
-with no pieces left" / "with no moves left" on the game page and in the replay,
-and neither page shows a material count, since being up material is no help.
-
 Crazyhouse is casual only for now (`rateable: false` in `variants.js`,
 enforced by the lobby's offers, by quick match and again in `startMatch`,
 where every game is created): every variant moves the one Elo, and a new one
@@ -141,6 +116,33 @@ same strips, unusable; the replay shows each side's pocket as it stood at the
 ply on show; the lobby's thumbnails (`miniBoard.js`) draw only the board. The
 game page's PGN carries a `[Variant "…"]` tag for every variant but Standard,
 so a reader doesn't take a drop, or an Atomic capture, for an illegal move.
+
+**Antichess** follows Lichess's rules. A capture is compulsory whenever there
+is one: `antichessMoves()` keeps only the captures when there are any. The king
+is an ordinary piece (no check, no mate, it can be taken), pawns may also
+promote to a king (`k` in UCI, `=K` in SAN), and there is no castling, whatever
+a FEN claims. The engine matches Lichess's own perft counts (scalachess's
+`antichess.perft`, in `test/unit/antichess.test.js`).
+
+The side to move wins with no piece or no legal move left, ahead of any draw;
+the server records those wins as `"all pieces lost"` or `"no moves"`
+(`terminationOf` in `socket.js`). Otherwise the 50-move rule and threefold
+repetition draw as usual. Dead material is the clear-cut case only: nothing
+but bishops, each side's on one square colour and the two sides on opposite
+colours, so nothing can ever be taken. Lichess also counts some positions with
+blocked pawns, and draws some knight endings on a flag; here those play on, and
+a flag otherwise loses.
+
+Like Crazyhouse it is casual only for now (`rateable: false`) and takes no
+handicap. It opens from `ANTICHESS_START`, the ordinary setup without castling
+rights, which the catalogue repeats as its `startFen`.
+
+On the game page the promotion dialog offers a king too. Picking up a piece
+that can't move because a capture elsewhere is compulsory sets `captureHint`
+in `ui.js`: the status line says "You must capture" and the pieces that can are
+ringed (`.must-capture`) until the selection changes. A win reads "White wins
+with no pieces left" / "with no moves left" on the game page and in the replay,
+and neither page shows a material count, since being up material is no help.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
@@ -609,7 +611,7 @@ in the member's browser, so reviews cost the server nothing.
   short games against it in a child process.
 
 Only Standard and Chess960 are reviewable (`reviewable` in `variants.js`);
-Stockfish does not know the Atomic, Pawn Wars or Crazyhouse rules.
+Stockfish does not know the Atomic, Pawn Wars, Crazyhouse or Antichess rules.
 
 ## Analysis board
 
@@ -637,8 +639,9 @@ above it and the score formatting are the replay's.
   one another. Each search stops at depth 22 or after 15 s, so a page left open
   does not keep a core busy. Finished positions are scored without asking
   Stockfish, as in the review.
-- Standard rules only. A Chess960 FEN loads; Atomic, Pawn Wars and Crazyhouse
-  positions would get standard-chess answers, so there is no variant picker.
+- Standard rules only. A Chess960 FEN loads; Atomic, Pawn Wars, Crazyhouse and
+  Antichess positions would get standard-chess answers, so there is no variant
+  picker.
 - **A Practice tab** (`#practice`, beside `#analysis`) is the same board with
   the engine off and the bar hidden: both sides are played by hand, the board
   turns to face the side to move, and Undo takes the last move back rather
