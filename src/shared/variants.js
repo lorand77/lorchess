@@ -28,27 +28,38 @@ const VARIANTS = [
     // a deficit, a sacrifice, every piece still standing) mean anything? Not
     // where a captured piece comes back, nor where losing material is the aim.
     materialBadges: true,
+    // Can the achievements that replay a game's moves (mates, en passant,
+    // smothered mate, ...) run on it at all? They read an 8x8 board.
+    moveBadges: true,
   },
   // Draws a fresh back rank for every game (chess960.js has the generator).
   { key: 'chess960', label: 'Chess960', standardSetup: false, reviewable: true, rateable: true,
-    materialBadges: true, shuffled: true },
+    materialBadges: true, moveBadges: true, shuffled: true },
   { key: 'atomic', label: 'Atomic', standardSetup: true, reviewable: false, rateable: true,
-    materialBadges: true },
+    materialBadges: true, moveBadges: true },
   // Its own fixed start: pawns only, on the outermost ranks. The same FEN as
   // PAWN_WARS_START in chess.js (a test holds them together); repeated here
   // because this file also loads in the browser without chess.js.
   { key: 'pawnwars', label: 'Pawn Wars', standardSetup: false, reviewable: false, rateable: true,
-    materialBadges: true, startFen: 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1' },
+    materialBadges: true, moveBadges: true, startFen: 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1' },
   // Captured pieces change sides and can be dropped back on the board. It opens
   // from the standard setup, but takes no handicap until odds have been tried
   // with pockets, so standardSetup is false. Casual while it is new.
   { key: 'crazyhouse', label: 'Crazyhouse', standardSetup: false, reviewable: false, rateable: false,
-    materialBadges: false },
+    materialBadges: false, moveBadges: true },
   // The aim is to lose every piece, captures are compulsory and there is no
   // castling: the ordinary setup without castling rights, ANTICHESS_START in
   // chess.js (a test holds them together). Casual while it is new.
   { key: 'antichess', label: 'Antichess', standardSetup: false, reviewable: false, rateable: false,
-    materialBadges: false, startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1' },
+    materialBadges: false, moveBadges: true, startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1' },
+  // A board with no edges (infinitechess.org's Classical rules), played by its
+  // own engine (engines.js). Its start is an ICN position, the same as
+  // infiniteChess.js's Classical setup (a test holds them together). Casual
+  // while it is new; no handicap, no review, and no achievement that replays
+  // moves on an 8x8 board.
+  { key: 'infinite', label: 'Infinite Chess', standardSetup: false, reviewable: false, rateable: false,
+    materialBadges: false, moveBadges: false,
+    startFen: 'w 0/100 1 (8|1) checkmate B3,1|B6,1|K5,1+|N2,1|N7,1|P1,2+|P2,2+|P3,2+|P4,2+|P5,2+|P6,2+|P7,2+|P8,2+|Q4,1|R1,1+|R8,1+|b3,8|b6,8|k5,8+|n2,8|n7,8|p1,7+|p2,7+|p3,7+|p4,7+|p5,7+|p6,7+|p7,7+|p8,7+|q4,8|r1,8+|r8,8+' },
 ];
 
 // A Map, not a plain object: these keys come off the wire, and a lookup of
@@ -83,6 +94,10 @@ function hasMaterialBadges(name) {
   return !!VARIANTS_BY_KEY.get(resolveVariant(name)).materialBadges;
 }
 
+function hasMoveBadges(name) {
+  return !!VARIANTS_BY_KEY.get(resolveVariant(name)).moveBadges;
+}
+
 // Where a game of this variant opens: null means the standard setup (or a
 // handicap built from it), a FEN is a fixed start of the variant's own, and
 // 'shuffled' tells the caller to draw one per game. Matchmaking reads this, so
@@ -95,6 +110,6 @@ function startOf(name) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
-    hasMaterialBadges, startOf,
+    hasMaterialBadges, hasMoveBadges, startOf,
   };
 }

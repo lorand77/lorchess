@@ -144,13 +144,12 @@ ringed (`.must-capture`) until the selection changes. A win reads "White wins
 with no pieces left" / "with no moves left" on the game page and in the replay,
 and neither page shows a material count, since being up material is no help.
 
-**Infinite chess** (being built: so far the engine, `src/shared/infiniteChess.js`;
-not in the variant catalogue) will follow
-infinitechess.org's "Classical" variant, checked against its source (`variantdictionary.ts`,
-`variant.ts`, `specialdetect.ts`, `insufficientmaterial.ts`, `wincondition.ts`
-and `gamemanager.ts` in github.com/Infinite-Chess/infinitechess.org). That code
-is AGPL-3.0, so none of its code is copied: the engine will be our own
-`src/shared/infiniteChess.js`, written from these rules.
+**Infinite chess** follows infinitechess.org's "Classical" variant, checked
+against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,
+`insufficientmaterial.ts`, `wincondition.ts` and `gamemanager.ts` in
+github.com/Infinite-Chess/infinitechess.org). That code is AGPL-3.0, so none
+of its code is copied: the engine is our own, `src/shared/infiniteChess.js`,
+written from these rules.
 
 - *The board* has no edges. Squares are integer coordinates `x,y`; the ordinary
   setup sits where it always does (a1 is `1,1`, e4 is `5,4`), and a square is
@@ -177,7 +176,7 @@ is AGPL-3.0, so none of its code is copied: the engine will be our own
   from either side, fits within one of them. Pawns count as each piece they
   could promote to, for up to two pawns; with three or more promotable pawns
   the position is never called dead. The table records chess facts rather than
-  code; it will be entered by hand from their source, which it will cite.
+  code; it is entered by hand from their source, which it cites.
 - *A flag* loses outright on infinitechess.org. LorChess keeps its own rule
   instead, the one every other variant here uses: a flag draws when the side
   still on time could not mate by any series of legal moves. The same table
@@ -185,7 +184,7 @@ is AGPL-3.0, so none of its code is copied: the engine will be our own
 - *Notation* is ICN, infinitechess.org's Infinite Chess Notation
   (github.com/tsevasa/infinite-chess-notation), in the subset these rules need.
   A move is stored as `5,2>5,4`, with a promotion letter in the mover's case
-  (`4,7>4,8Q`); `uci.js` will read and write that form next to `e2e4` and
+  (`4,7>4,8Q`); `uci.js` reads and writes that form next to `e2e4` and
   `N@e4`. A position is an ICN position string, stored where FEN goes:
   `w 0/100 1 (8|1) checkmate P1,2+|…|K5,1+|k5,8+`, a `+` marking a piece's
   special right and an optional en passant square after the side to move.
@@ -865,8 +864,8 @@ in check, Antichess's capture ring, hint dots, the move to animate — and what
 a click, drag or right-click means, and hands the first to a board view's
 `render(state)` while the view hands back the second. The view owns the DOM,
 drag-and-drop, arrows and the move animation's playback. Today's view is
-`public/js/gridBoardView.js`, the 8x8 grid; infinite chess will be a second
-view with the same interface, so clocks, chat, offers and move sources stay
+`public/js/gridBoardView.js`, the 8x8 grid; infinite chess has a second view
+with the same interface, so clocks, chat, offers and move sources are
 shared. The split was made with no visible change: the browser tests pass as
 before, and a screenshot of a board in check with hints showing is
 byte-for-byte the same either side of it.
@@ -883,7 +882,26 @@ nearest them, pushed towards them, sharing a marker with a count when several
 lie beyond one square; clicking one goes there. When a game says it is
 infinite chess, `applyPvpState` swaps `ui.js`'s engine for `createEngine`'s
 and the grid view for this one (`destroy()` takes the old one's handlers off
-the board). For now the view is read-only, for spectators: it reports no moves.
+the board).
+
+A press on a piece `ui.js` says may be picked up becomes a drag of that piece
+once it moves; a press anywhere else becomes a pan; a press that doesn't move
+is a click. Squares reach `ui.js` as `{ x, y }`. Its moves can't be listed, so
+the hint dots are asked for lazily: the view calls `hints.get("x,y")` for each
+square it draws, and `ui.js` answers with one `findMove` — so a slider's dots
+run along its rays as far as the window goes. A pawn reaching its last rank
+opens the usual promotion dialog. There are no premoves yet.
+
+Elsewhere: the replay page uses the same view, read-only, without arrows
+(they are drawn on numbered 8x8 squares); the lobby's live-game thumbnail
+(`miniBoard.js`) draws an 8x8 window around the kings, or around White's when
+they are too far apart; the game page exports ICN in place of PGN — tags, the
+start position, then the moves in ICN's compact form, numbered — with
+`[Variant "Classical"]`, infinitechess.org's name for these rules, so a game
+pastes into their site as such. In the catalogue it is `infinite`: casual only,
+no review, no handicap, its start the ICN Classical position (a test holds it
+to the engine's), and `moveBadges: false` — the achievements that replay a
+game's moves read an 8x8 board, so it earns only stats and its win badge.
 
 ## Trickiest parts
 

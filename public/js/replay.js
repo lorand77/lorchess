@@ -19,14 +19,17 @@ const statusEl = document.getElementById("replayStatus");
 const movesEl = document.getElementById("history");
 
 // Right-button arrows and circles, cleared as the replay steps on.
-BoardArrows.attach(boardEl);
+const detachArrows = BoardArrows.attach(boardEl);
 
 const params = new URLSearchParams(location.search);
 const gameId = parseInt(params.get("id"), 10);
 // Opened from someone's profile: whose side to take when you didn't play.
 const asId = parseInt(params.get("as"), 10) || null;
 
-const chess = new Chess();
+// chess.js, or infinite chess's engine with its own board view (init swaps
+// both in for an infinite-chess game).
+let chess = new Chess();
+let infiniteView = null;
 let uciList = [];
 let sanList = [];
 let startFen = STANDARD_START;
@@ -62,7 +65,15 @@ async function init() {
   }
 
   variant = game.variant || "standard";
-  chess.setVariant(variant);
+  if (variant === "infinite") {
+    // A window onto a board with no edges, read-only: arrows are drawn on
+    // numbered 8x8 squares, so they go.
+    chess = createEngine("infinite");
+    detachArrows();
+    infiniteView = InfiniteBoardView.create(boardEl, { pieceSrc: pieceImgSrc });
+  } else {
+    chess.setVariant(variant);
+  }
   startFen = game.start_fen || STANDARD_START;
   uciList = normaliseUci(game.moves.map((m) => m.uci));
   sanList = game.moves.map((m) => m.san);
@@ -141,6 +152,7 @@ function goto(i) {
 // engine's choice from one that wasn't. A move that fails to replay is kept as
 // it was, along with everything after it.
 function normaliseUci(list) {
+  if (variant === "infinite") return list; // ICN moves have one spelling
   const scratch = new Chess();
   scratch.setVariant(variant);
   scratch.loadFen(startFen);
@@ -160,6 +172,15 @@ function pieceImgSrc(p) {
 }
 
 function renderBoard() {
+  if (infiniteView) {
+    const king = chess.inCheck() ? chess.kingOf(chess.turn) : null;
+    infiniteView.render({
+      pieces: chess.board, flip, lastMove, premove: null, selected: null,
+      check: king ? king.x + "," + king.y : null, mustCapture: null, hints: new Map(), animation: null,
+    });
+    renderCaptured();
+    return;
+  }
   boardEl.innerHTML = "";
   const inCheck = chess.inCheck();
   for (let row = 0; row < 8; row++) {
@@ -216,7 +237,7 @@ function renderCaptured() {
   byBlack.sort(sortFn);
 
   let wm = 0, bm = 0;
-  for (const p of chess.squares) {
+  for (const p of chess.squares || chess.board.values()) {
     if (!p) continue;
     if (p.c === W) wm += PIECE_VAL[p.t];
     else bm += PIECE_VAL[p.t];

@@ -6,10 +6,9 @@
 // the game replayed when the room is rebuilt after a restart, and the ends —
 // checkmate, a draw by material that can't mate on a board with no edges, and
 // running out of time.
-// Infinite chess is not in the variant catalogue yet, so the lobby cannot
-// start one: each game is matched as an ordinary one and its row rewritten
-// (variant, and the start for an endgame) before a move is played, then the
-// room forgotten, as a restart would.
+// Games are quick-matched as infinite chess, asked for as rated (which it
+// can't be); an endgame is set up by rewriting the game's start before a move
+// is played and forgetting the room, as a restart would.
 
 const { describe, test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -39,10 +38,11 @@ function forgetRoom(gameId) {
 async function infiniteGame(start, tc = "10+0") {
   const a = await connectSocket(srv.baseUrl, alice.c.cookie());
   const b = await connectSocket(srv.baseUrl, bob.c.cookie());
-  const { gameId, white, black } = await quickMatch(a, b, { tc });
-  db().prepare("UPDATE games SET variant = 'infinite' WHERE id = ?").run(gameId);
-  if (start) db().prepare("UPDATE games SET start_fen = ?, current_fen = ? WHERE id = ?").run(start, start, gameId);
-  forgetRoom(gameId);
+  const { gameId, white, black } = await quickMatch(a, b, { tc, rated: true, variant: "infinite" });
+  if (start) {
+    db().prepare("UPDATE games SET start_fen = ?, current_fen = ? WHERE id = ?").run(start, start, gameId);
+    forgetRoom(gameId);
+  }
   const joined = await emitAck(white, "game:join", { gameId });
   assert.equal(joined.ok, true);
   await emitAck(black, "game:join", { gameId });
@@ -73,9 +73,12 @@ describe("an infinite chess game from the start", () => {
   before(async () => { game = await infiniteGame(); });
   after(() => { game.white.close(); game.black.close(); });
 
-  test("is rebuilt as infinite chess, at the Classical start, in ICN", () => {
+  test("starts casual, at the Classical start, in ICN", () => {
     assert.equal(game.state.variant, "infinite");
+    assert.equal(game.state.rated, false);
+    assert.equal(gameRow(game.gameId).rated, 0, "asked for rated; infinite chess is casual only");
     assert.equal(game.state.fen, new InfiniteChess().fen());
+    assert.equal(gameRow(game.gameId).start_fen, new InfiniteChess().fen(), "the catalogue's start");
   });
 
   test("refuses any payload that isn't two plain squares on the board", async () => {

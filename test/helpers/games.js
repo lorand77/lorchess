@@ -6,7 +6,7 @@
 // live server would have recorded. Load test/helpers/server.js first so the
 // database is the throwaway one.
 
-const { Chess } = require("../../src/shared/chess");
+const { createEngine } = require("../../src/shared/engines");
 const { moveOf } = require("./board");
 const { formatUci } = require("../../src/shared/uci");
 
@@ -45,9 +45,9 @@ function recordGame({
   );
   const gameId = Number(info.lastInsertRowid);
 
-  const chess = new Chess();
-  chess.setVariant(variant);
-  if (start === STANDARD_START) chess.reset(); else chess.loadFen(start);
+  // The variant's own engine (infinite chess has its own), at `start`.
+  const chess = createEngine(variant);
+  if (start !== STANDARD_START) chess.loadFen(start);
   moves.forEach((text, i) => {
     const m = moveOf(chess, text);
     if (!m) throw new Error(`fixture: illegal move ${text} at ply ${i + 1} in ${chess.fen()}`);

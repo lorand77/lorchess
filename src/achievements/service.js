@@ -21,7 +21,7 @@ const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/ches
 const handicap = require("../shared/handicap");
 const { parseUci, moveFromUci } = require("../shared/uci");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
-const { VARIANTS, hasMaterialBadges } = require("../shared/variants");
+const { VARIANTS, hasMaterialBadges, hasMoveBadges } = require("../shared/variants");
 const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
 
 const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -468,6 +468,7 @@ function evaluateStats(userId, ref) {
     ["pawnwars_wins", tierFor("pawnwars_wins", byVariant.pawnwars || 0)],
     ["crazyhouse_wins", tierFor("crazyhouse_wins", byVariant.crazyhouse || 0)],
     ["antichess_wins", tierFor("antichess_wins", byVariant.antichess || 0)],
+    ["infinite_wins", tierFor("infinite_wins", byVariant.infinite || 0)],
     ["every_variant", VARIANTS.every((v) => (byVariant[v.key] || 0) > 0)],
     ["both_colours", g.wins_white > 0 && g.wins_black > 0],
     ["black_is_ok", tierFor("black_is_ok", g.wins_black)],
@@ -528,7 +529,9 @@ function onGameFinished(gameId, extra) {
   const game = queries.getGameById.get(gameId);
   const out = {};
   if (!game || game.status !== "finished") return out;
-  const analysis = analyze(game, queries.getMovesForGame.all(gameId));
+  // Game feats replay the moves on an 8x8 board; a variant whose board isn't
+  // one (infinite chess) earns only the stats below.
+  const analysis = hasMoveBadges(game.variant) ? analyze(game, queries.getMovesForGame.all(gameId)) : null;
   const humans = [game.white_id, game.black_id].filter((id) => id != null && isHuman(id));
   for (const uid of humans) {
     const earned = [];

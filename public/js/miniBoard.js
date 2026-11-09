@@ -53,13 +53,50 @@ window.MiniBoard = (function () {
     return String(fen).trim().split(/\s+/)[1] === "b" ? "b" : "w";
   }
 
+  // An infinite-chess position (ICN: "w 0/100 1 (8|1) checkmate K5,1+|...")
+  // as an 8x8 window of it, around the kings — around White's when they are
+  // too far apart to share one. { squares (64, index 0 = the window's lower
+  // left), x0, y0 } or null if it isn't one.
+  function icnWindow(fen) {
+    if (typeof fen !== "string") return null;
+    // ICN ends with its piece list ("K5,1+|..."), a FEN with a move number.
+    const list = fen.trim().split(/\s+/).pop();
+    if (list.indexOf(",") === -1) return null;
+    const pieces = [];
+    for (const entry of list.split("|")) {
+      const m = /^([pnbrqkPNBRQK])(-?\d+),(-?\d+)\+?$/.exec(entry);
+      if (!m) return null;
+      pieces.push({ ch: m[1], x: Number(m[2]), y: Number(m[3]) });
+    }
+    const kings = pieces.filter((p) => p.ch === "K" || p.ch === "k");
+    if (kings.length !== 2) return null;
+    const [a, b] = kings;
+    const near = Math.abs(a.x - b.x) <= 7 && Math.abs(a.y - b.y) <= 7;
+    const white = kings.find((k) => k.ch === "K");
+    const cx = near ? (a.x + b.x) / 2 : white.x, cy = near ? (a.y + b.y) / 2 : white.y;
+    const x0 = Math.floor(cx - 3.5), y0 = Math.floor(cy - 3.5);
+    const squares = new Array(64).fill(null);
+    for (const p of pieces) {
+      const f = p.x - x0, r = p.y - y0;
+      if (f >= 0 && f < 8 && r >= 0 && r < 8) squares[r * 8 + f] = p.ch;
+    }
+    return { squares, x0, y0 };
+  }
+
   function render(container, fen, opts) {
     if (!container) return false;
-    const squares = parse(fen);
+    const icn = icnWindow(fen);
+    const squares = icn ? icn.squares : parse(fen);
     if (!squares) return false;
     const o = opts || {};
     const flip = !!o.flip;
-    const highlight = o.lastMove || null; // { from, to } as square indices
+    // { from, to }: square indices, or { x, y } squares for infinite chess,
+    // which are turned into this window's indices.
+    let highlight = o.lastMove || null;
+    if (icn && highlight) {
+      const idx = (s) => (s && typeof s === "object" ? (s.y - icn.y0) * 8 + (s.x - icn.x0) : null);
+      highlight = { from: idx(highlight.from), to: idx(highlight.to) };
+    }
 
     container.innerHTML = "";
     container.classList.add("mini-board");
@@ -69,7 +106,10 @@ window.MiniBoard = (function () {
         const file = flip ? 7 - col : col;
         const sq = rank * 8 + file;
         const cell = document.createElement("div");
-        cell.className = "mini-square " + ((rank + file) % 2 === 0 ? "dark" : "light");
+        // Dark when the absolute x + y is even, which is rank + file on an
+        // ordinary board (a1 dark) and holds for an infinite window too.
+        const parity = icn ? icn.x0 + icn.y0 + rank + file : rank + file;
+        cell.className = "mini-square " + (Math.abs(parity) % 2 === 0 ? "dark" : "light");
         if (highlight && (highlight.from === sq || highlight.to === sq)) {
           cell.classList.add("last-move");
         }
@@ -90,5 +130,5 @@ window.MiniBoard = (function () {
     return true;
   }
 
-  return { render, parse, turnOf };
+  return { render, parse, turnOf, icnWindow };
 })();

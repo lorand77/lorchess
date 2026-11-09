@@ -231,6 +231,8 @@ body {
   border-radius: 4px;
   font-family: monospace;
   white-space: pre-wrap;
+  /* An ICN position is one long token ("K5,1+|...") with nowhere to wrap. */
+  overflow-wrap: anywhere;
 }
 button {
   background: var(--btn); color: var(--btn-text); border: 0;

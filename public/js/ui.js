@@ -410,7 +410,7 @@ let noAnimMove = null;
 // the captured piece (which vanishes once the move is made).
 function planMoveAnimation(move) {
   const dragged = noAnimMove
-    && noAnimMove.from === move.from && noAnimMove.to === move.to;
+    && sameSquare(noAnimMove.from, move.from) && sameSquare(noAnimMove.to, move.to);
   noAnimMove = null; // one move only; never let a stale flag outlive it
   if (dragged) {
     moveAnim = null;
@@ -492,6 +492,23 @@ function selectionHints() {
   return hints;
 }
 
+// Infinite chess's hints: its moves can't be listed, so the board asks, for
+// each square it shows, whether the selected piece may go there.
+function infiniteHints() {
+  if (!selected) return new Map();
+  const from = selected;
+  const piece = chess.pieceAt(from.x, from.y);
+  if (!piece) return new Map();
+  return {
+    get(key) {
+      const [x, y] = key.split(',').map(Number);
+      const promo = piece.t === 'p' && y === (piece.c === W ? 8 : 1) ? 'q' : null;
+      const m = chess.findMove(from, { x, y }, promo);
+      return m ? (m.capture ? 'capture' : 'move') : undefined;
+    },
+  };
+}
+
 function render() {
   const inCheckNow = chess.inCheck();
   // The board shows what this describes (gridBoardView.js draws it), and
@@ -507,7 +524,7 @@ function render() {
     check: !inCheckNow ? null : infinite ? king.x + ',' + king.y : king,
     // Antichess: where the compulsory captures can be made from.
     mustCapture: captureHint ? new Set(chess.legalMoves().map(m => m.from)) : null,
-    hints: infinite ? new Map() : selectionHints(),
+    hints: infinite ? infiniteHints() : selectionHints(),
     animation: moveAnim,
   });
   if (!animating) moveAnim = null;
@@ -564,10 +581,30 @@ function render() {
     statusEl.className = '';
   }
 
-  historyEl.textContent = buildPgn();
+  historyEl.textContent = isInfinite() ? buildIcn() : buildPgn();
   historyEl.scrollTop = historyEl.scrollHeight;
 
   renderCaptured();
+}
+
+// Infinite chess has no PGN; ICN is its counterpart: tags, then the start
+// position (always given), then the moves in ICN's compact form, numbered.
+// The Variant tag names infinitechess.org's ruleset, "Classical", so the game
+// pastes into their site as these rules; our own label is "Infinite Chess".
+function buildIcn() {
+  const result = chess.isGameOver() ? chess.result() : (pvpResult ? pvpResult.result : '*');
+  const tags = [['Event', pgnEvent], ['White', whiteName], ['Black', blackName],
+    ['Result', result], ['Variant', 'Classical']];
+  let text = tags.map(([k, v]) => `[${k} "${v}"]`).join('\n') + '\n';
+  text += (startFen || new InfiniteChess().fen()) + '\n\n';
+  const moves = chess.history.map((h) => formatUci(h.move));
+  let fm = startFullmove, turn = startTurn;
+  moves.forEach((m, i) => {
+    if (turn === W) text += (i ? ' ' : '') + fm + '. ' + m;
+    else { text += (i ? ' | ' : fm + '. ... ') + m; fm++; }
+    turn = turn === W ? B : W;
+  });
+  return text;
 }
 
 function buildPgn() {
@@ -610,12 +647,19 @@ function buildPgn() {
   return pgn + body;
 }
 
+// Infinite chess: its engine, its squares ({ x, y }) and its board view.
+const isInfinite = () => chess instanceof InfiniteChess;
+const sameSquare = (a, b) =>
+  a === b || (!!a && !!b && typeof a === 'object' && a.x === b.x && a.y === b.y);
+// The piece on a square, whichever engine holds it.
+const pieceOn = (sq) => (isInfinite() ? chess.pieceAt(sq.x, sq.y) : chess.squares[sq]);
+
 // May the user pick up whatever is standing on this square right now? Shared by
 // click-to-move and drag-and-drop, so the two can never disagree.
 function canPickUp(sq) {
   if (promotionPending || gameIsOver()) return false;
   if (!canMoveNow() && !canPremove()) return false;
-  const piece = chess.squares[sq];
+  const piece = pieceOn(sq);
   return !!piece && piece.c === humanColor;
 }
 
@@ -634,6 +678,7 @@ function canMoveNow() {
 // The opponent is on move, so anything we pick up becomes a premove.
 function canPremove() {
   if (spectating || !moveSource || moveSource.kind === 'spectator') return false;
+  if (isInfinite()) return false; // no premoves on a board with no edges, yet
   if (promotionPending || gameIsOver()) return false;
   return chess.turn !== humanColor;
 }
@@ -694,6 +739,13 @@ function selectSquare(sq) {
   selected = sq;
   dropSelected = null;
   captureHint = false;
+  if (isInfinite()) {
+    // Its moves can't be listed; the hints ask the engine square by square.
+    premoveSelecting = false;
+    legalFromSelected = [];
+    render();
+    return;
+  }
   if (canMoveNow()) {
     premoveSelecting = false;
     const all = chess.legalMoves();
@@ -737,6 +789,7 @@ function cancelPremove() {
 // the caller can fall back to its own reselect / deselect behaviour.
 // `viaDrag` only affects the animation (see planMoveAnimation).
 function attemptMove(from, to, viaDrag) {
+  if (isInfinite()) return attemptInfiniteMove(from, to, viaDrag);
   if (premoveSelecting) {
     if (!premoveTargets(from).includes(to)) return false;
     premove = { from, to };
@@ -769,6 +822,24 @@ function attemptMove(from, to, viaDrag) {
   return true;
 }
 
+// The same for infinite chess: ask the engine about the one move. A pawn
+// arriving on its last rank opens the promotion dialog first.
+function attemptInfiniteMove(from, to, viaDrag) {
+  const piece = chess.pieceAt(from.x, from.y);
+  if (piece && piece.t === 'p' && to.y === (piece.c === W ? 8 : 1)) {
+    if (!chess.findMove(from, to, 'q')) return false;
+    selected = from;
+    promotionPending = { from, to, viaDrag: !!viaDrag };
+    showPromotionDialog();
+    return true;
+  }
+  const move = chess.findMove(from, to);
+  if (!move) return false;
+  if (viaDrag) noAnimMove = { from, to };
+  doHumanMove(move);
+  return true;
+}
+
 // Drop the pocket piece `t` on `to`, if that is legal. Returns false otherwise,
 // like attemptMove, so the caller can reselect or deselect.
 function attemptDrop(t, to, viaDrag) {
@@ -783,7 +854,7 @@ function attemptDrop(t, to, viaDrag) {
 // drags and right-clicks. A drag is a real drag only: taps fall through to
 // onSquareClick. A Crazyhouse pocket piece arrives as "@n" (see
 // renderPockets) rather than a square.
-let boardView = GridBoardView.create(boardEl, {
+const boardHandlers = {
   pieceSrc: pieceImgSrc,
   onSquareClick: (sq) => onSquareClick(sq),
   // Right-click: drop the selection and any queued premove (chess.com habit).
@@ -805,10 +876,11 @@ let boardView = GridBoardView.create(boardEl, {
       if (to != null) attemptDrop(from.slice(1), to, true);
       return;
     }
-    if (to == null || to === from) return;
+    if (to == null || sameSquare(to, from)) return;
     attemptMove(from, to, true);
   },
-});
+};
+let boardView = GridBoardView.create(boardEl, boardHandlers);
 
 // A pocket piece is picked up by a click too, and put down by a second one.
 capturedBottomEl.addEventListener('click', (e) => {
@@ -843,7 +915,7 @@ function onSquareClick(sq) {
   if (attemptMove(selected, sq, false)) return;
 
   // Reselect or deselect
-  const piece = chess.squares[sq];
+  const piece = pieceOn(sq);
   if (piece && piece.c === humanColor) selectSquare(sq);
   else { clearSelection(); render(); }
 }
@@ -865,7 +937,9 @@ function showPromotionDialog() {
     img.src = pieceImgSrc({ c: humanColor, t });
     opt.appendChild(img);
     opt.addEventListener('click', () => {
-      const move = legalFromSelected.find(m => m.to === promotionPending.to && m.promo === t);
+      const move = isInfinite()
+        ? chess.findMove(promotionPending.from, promotionPending.to, t)
+        : legalFromSelected.find(m => m.to === promotionPending.to && m.promo === t);
       const viaDrag = promotionPending.viaDrag;
       promoEl.classList.remove('show');
       promotionPending = null;
@@ -1675,13 +1749,14 @@ function applyPvpState(socket, state) {
   setChatHistory(state.chat);
   // Atomic changes the rules, not just the position — tell the board before
   // loading anything, or captures will be applied the standard way.
+  const historyTitle = document.getElementById('historyTitle');
+  if (historyTitle) historyTitle.textContent = state.variant === 'infinite' ? 'ICN' : 'PGN';
   if (state.variant === 'infinite') {
     // Another engine and another board: a window onto a board with no edges.
-    // Read-only for now (it reports no moves).
     if (!(chess instanceof InfiniteChess)) {
       chess = createEngine('infinite');
       boardView.destroy();
-      boardView = InfiniteBoardView.create(boardEl, { pieceSrc: pieceImgSrc });
+      boardView = InfiniteBoardView.create(boardEl, boardHandlers);
     }
   } else {
     chess.setVariant(state.variant || 'standard');

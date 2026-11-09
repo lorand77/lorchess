@@ -12,6 +12,7 @@ const queries = require("../../src/db/queries");
 const achievements = require("../../src/achievements/service");
 const handicap = require("../../src/shared/handicap");
 const { ANTICHESS_START } = require("../../src/shared/chess");
+const { InfiniteChess } = require("../../src/shared/infiniteChess");
 const { aiLevelOf } = require("../../src/shared/aiLevels");
 const { STANDARD_START, makeUser, lorfishId, recordGame } = require("../helpers/games");
 
@@ -310,6 +311,8 @@ describe("aggregate achievements", () => {
     assert.ok(has(keys, "crazyhouse_wins") && lacks(keys, "every_variant"), keys);
     keys = win("antichess", ANTICHESS_START, ["e2e3", "e7e6"]);
     assert.ok(has(keys, "antichess_wins") && lacks(keys, "every_variant"), keys);
+    keys = win("infinite", new InfiniteChess().fen(), ["5,2>5,4", "5,7>5,5"]);
+    assert.ok(has(keys, "infinite_wins") && lacks(keys, "every_variant"), keys);
     // A win against LorFish is a standard win too.
     const ai = recordGame({
       white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",
@@ -335,6 +338,18 @@ describe("aggregate achievements", () => {
     });
     assert.ok(has(kp("standard").w, "the_grinder"));
     assert.ok(lacks(kp("crazyhouse").w, "the_grinder"));
+  });
+
+  test("Infinite Chess: no feat replays its moves, but its wins still count", () => {
+    // Mate by a rook on the king's rank, far off the usual board: the mate
+    // badges would fire on an 8x8 board; here only the stats can.
+    const g = playAndEvaluate({
+      variant: "infinite",
+      start: "w 0/100 1 (8|1) checkmate k5,5|R4,100|R6,100|R100,4|R100,6|R150,10|K-50,-50",
+      moves: ["150,10>150,5"], result: "1-0", termination: "checkmate",
+    });
+    assert.ok(lacks(g.w, "mate_rook", "back_rank"), g.w);
+    assert.ok(has(g.w, "infinite_wins", "wins"), g.w);
   });
 
   test("Antichess: the material feats are off there too, as the catalogue says", () => {

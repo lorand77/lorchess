@@ -13,9 +13,14 @@
 //   - pieces off screen show as markers on the edge, in their direction;
 //     click one to go there
 //
-// Read-only for now: it reports no clicks or drags as moves.
+// A press on a piece ui.js says may be picked up (canDrag) becomes a drag of
+// that piece once it moves; a press anywhere else becomes a pan. A press that
+// doesn't move is a click on its square. Squares go to the handlers as { x, y }.
 //
-//   const view = InfiniteBoardView.create(boardEl, { pieceSrc })
+//   const view = InfiniteBoardView.create(boardEl, handlers)
+//     handlers.pieceSrc(piece), and, for a board that takes moves,
+//     onSquareClick(sq), canDrag(sq), onPick(sq), onDrop(from, to | null),
+//     onContextMenu(event) — as gridBoardView.js, squares as { x, y }
 //   view.render(state)   as gridBoardView.js, except: pieces is a Map from
 //                        "x,y" to the piece, squares are { x, y } (lastMove,
 //                        premove, selected) or "x,y" (check, mustCapture,
@@ -25,7 +30,14 @@
 window.InfiniteBoardView = (function () {
   const MOVE_ANIM_MS = 200;
   const MIN_SIZE = 8, MAX_SIZE = 40;
+  const DRAG_THRESHOLD = 5;   // px before a press is a drag or a pan, not a click
   const keyOf = (p) => p.x + ',' + p.y;
+  const squareOf = (el) => {
+    const div = el && el.closest ? el.closest('.square') : null;
+    if (!div) return null;
+    const [x, y] = div.dataset.sq.split(',').map(Number);
+    return { x, y };
+  };
 
   function create(boardEl, handlers) {
     let size = 10;
@@ -35,6 +47,7 @@ window.InfiniteBoardView = (function () {
     let state = null;           // what was last rendered, to redraw on a pan
 
     boardEl.classList.add('infinite');
+    if (handlers.canDrag) boardEl.classList.add('board-draggable');
 
     // ---- the camera ----
 
@@ -95,33 +108,84 @@ window.InfiniteBoardView = (function () {
       zoom(size + (e.deltaY > 0 ? 2 : -2));
     }
 
-    // Drag to pan: the board follows the pointer a whole square at a time.
-    let pan = null;
+    // A press: a click, a drag of a piece, or a pan, depending on where it
+    // started and whether it moves.
+    let press = null;
     function onPointerDown(e) {
       if (e.button !== 0) return;
       if (e.target.closest && e.target.closest('.edge-marker')) return;
-      pan = { id: e.pointerId, x: e.clientX, y: e.clientY, left, bottom };
+      const sq = squareOf(e.target);
+      press = {
+        id: e.pointerId, x: e.clientX, y: e.clientY, left, bottom, sq, mode: null,
+        piece: !!(sq && handlers.canDrag && handlers.canDrag(sq)), ghost: null, over: null,
+      };
       boardEl.setPointerCapture(e.pointerId);
-      boardEl.classList.add('panning');
     }
     function onPointerMove(e) {
-      if (!pan || e.pointerId !== pan.id) return;
-      const px = boardEl.clientWidth / size;
-      const dx = Math.round((e.clientX - pan.x) / px), dy = Math.round((e.clientY - pan.y) / px);
-      const sign = state && state.flip ? -1 : 1;
-      const l = pan.left - sign * dx, b = pan.bottom + sign * dy;
-      if (l !== left || b !== bottom) { left = l; bottom = b; redraw(); }
+      if (!press || e.pointerId !== press.id) return;
+      if (!press.mode) {
+        if (Math.abs(e.clientX - press.x) < DRAG_THRESHOLD && Math.abs(e.clientY - press.y) < DRAG_THRESHOLD) return;
+        press.mode = press.piece ? 'drag' : 'pan';
+        if (press.mode === 'pan') boardEl.classList.add('panning');
+        else startDrag();
+      }
+      if (press.mode === 'pan') {
+        const px = boardEl.clientWidth / size;
+        const dx = Math.round((e.clientX - press.x) / px), dy = Math.round((e.clientY - press.y) / px);
+        const sign = state && state.flip ? -1 : 1;
+        const l = press.left - sign * dx, b = press.bottom + sign * dy;
+        if (l !== left || b !== bottom) { left = l; bottom = b; redraw(); }
+      } else if (press.ghost) {
+        press.ghost.style.left = e.clientX + 'px';
+        press.ghost.style.top = e.clientY + 'px';
+        const over = squareOf(document.elementFromPoint(e.clientX, e.clientY));
+        const overKey = over && boardEl.contains(sqEl(keyOf(over))) ? keyOf(over) : null;
+        if (overKey !== press.over) {
+          if (press.over && sqEl(press.over)) sqEl(press.over).classList.remove('drag-over');
+          press.over = overKey;
+          if (overKey) sqEl(overKey).classList.add('drag-over');
+        }
+      }
+    }
+    // Pick the piece up (ui.js selects it, which redraws), then lift a copy of
+    // it to follow the pointer.
+    function startDrag() {
+      handlers.onPick(press.sq);
+      const src = sqEl(keyOf(press.sq));
+      const img = src && src.querySelector('img.piece');
+      if (!img) return;
+      const rect = img.getBoundingClientRect();
+      const ghost = img.cloneNode(true);
+      ghost.classList.add('drag-piece');
+      ghost.style.width = rect.width + 'px';
+      ghost.style.height = rect.height + 'px';
+      document.body.appendChild(ghost);
+      img.classList.add('dragging');
+      press.ghost = ghost;
     }
     function onPointerUp(e) {
-      if (!pan || e.pointerId !== pan.id) return;
-      pan = null;
+      if (!press || e.pointerId !== press.id) return;
+      const p = press;
+      press = null;
       boardEl.classList.remove('panning');
+      if (p.ghost) p.ghost.remove();
+      if (p.over && sqEl(p.over)) sqEl(p.over).classList.remove('drag-over');
+      if (!p.mode) {
+        if (p.sq && handlers.onSquareClick) handlers.onSquareClick(p.sq);
+      } else if (p.mode === 'drag') {
+        const to = p.over ? squareOf(sqEl(p.over)) : null;
+        handlers.onDrop(p.sq, e.type === 'pointercancel' ? null : to);
+      }
+    }
+    function onContextMenu(e) {
+      if (handlers.onContextMenu) handlers.onContextMenu(e);
     }
     boardEl.addEventListener('wheel', onWheel, { passive: false });
     boardEl.addEventListener('pointerdown', onPointerDown);
     boardEl.addEventListener('pointermove', onPointerMove);
     boardEl.addEventListener('pointerup', onPointerUp);
     boardEl.addEventListener('pointercancel', onPointerUp);
+    boardEl.addEventListener('contextmenu', onContextMenu);
 
     // ---- drawing ----
 
@@ -304,7 +368,8 @@ window.InfiniteBoardView = (function () {
       boardEl.removeEventListener('pointermove', onPointerMove);
       boardEl.removeEventListener('pointerup', onPointerUp);
       boardEl.removeEventListener('pointercancel', onPointerUp);
-      boardEl.classList.remove('infinite', 'panning');
+      boardEl.removeEventListener('contextmenu', onContextMenu);
+      boardEl.classList.remove('infinite', 'panning', 'board-draggable');
       boardEl.style.removeProperty('grid-template-columns');
       boardEl.style.removeProperty('grid-template-rows');
       boardEl.style.removeProperty('--sq');
