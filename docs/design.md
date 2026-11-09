@@ -114,6 +114,13 @@ one square colour and the two sides on opposite colours, so nothing can ever be
 taken. Lichess also counts some positions with blocked pawns, and draws some
 knight endings on a flag; here those play on, and a flag otherwise loses.
 
+On the game page the promotion dialog offers a king too. Picking up a piece
+that can't move because a capture elsewhere is compulsory sets `captureHint`
+in `ui.js`: the status line says "You must capture" and the pieces that can are
+ringed (`.must-capture`) until the selection changes. A win reads "White wins
+with no pieces left" / "with no moves left" on the game page and in the replay,
+and neither page shows a material count, since being up material is no help.
+
 Crazyhouse is casual only for now (`rateable: false` in `variants.js`,
 enforced by the lobby's offers, by quick match and again in `startMatch`,
 where every game is created): every variant moves the one Elo, and a new one

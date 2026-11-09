@@ -221,7 +221,8 @@ function renderCaptured() {
     if (p.c === W) wm += PIECE_VAL[p.t];
     else bm += PIECE_VAL[p.t];
   }
-  const adv = wm - bm;
+  // In Antichess less material is better, so no "+N" (as on the game page).
+  const adv = chess.isAntichess ? 0 : wm - bm;
   const topColor = youColor === W ? B : W;
   const byTop = topColor === W ? byWhite : byBlack;
   const byBottom = youColor === W ? byWhite : byBlack;
@@ -326,12 +327,16 @@ function wireControls() {
   });
 }
 
+// Antichess is won by running out, which "by all pieces lost" says backwards.
+const ANTICHESS_WINS = { "all pieces lost": "with no pieces left", "no moves": "with no moves left" };
+
 function outcomeText(g) {
   if (g.status === "active") return "In progress";
   if (g.status === "aborted") return "Aborted" + (g.termination ? ` (${g.termination})` : "");
   if (g.result === "1/2-1/2") return "Draw" + (g.termination ? ` (${g.termination})` : "");
   const whiteWon = g.result === "1-0";
-  return `${whiteWon ? "White" : "Black"} wins` + (g.termination ? ` by ${g.termination}` : "");
+  const how = ANTICHESS_WINS[g.termination] || (g.termination ? `by ${g.termination}` : "");
+  return `${whiteWon ? "White" : "Black"} wins` + (how ? " " + how : "");
 }
 
 function fmtDate(s) {

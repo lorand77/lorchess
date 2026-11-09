@@ -21,6 +21,10 @@ let premoveSelecting = false;
 // While it is set, `selected` is null and `legalFromSelected` holds its drops.
 // Only on your own move: there are no pre-drops.
 let dropSelected = null;
+// Antichess: the piece just picked up can't move because a capture elsewhere is
+// compulsory. The status line says so and the pieces that can capture are
+// marked, until the selection changes.
+let captureHint = false;
 // Fullmove number and side-to-move at the start of the current PGN body,
 // plus the FEN string if the game was set up from one (null if standard start).
 let startFullmove = 1;
@@ -130,6 +134,7 @@ function applyMove(rmove, record, opts) {
   playMoveSound();
   selected = null;
   dropSelected = null;
+  captureHint = false;
   legalFromSelected = [];
   premoveSelecting = false;
   // Our turn now: the queued premove is consumed here, played or not.
@@ -211,7 +216,9 @@ function renderCaptured() {
     if (p.c === W) whiteMat += PIECE_VAL[p.t];
     else           blackMat += PIECE_VAL[p.t];
   }
-  const whiteAdv = whiteMat - blackMat;
+  // In Antichess the side with less material is the one doing well, so a
+  // "+4" would mislead: show what was taken, but no count.
+  const whiteAdv = chess.isAntichess ? 0 : whiteMat - blackMat;
 
   const topColor    = humanColor === W ? B : W;
   const bottomColor = humanColor;
@@ -514,6 +521,8 @@ function applyMoveAnimation() {
 function render() {
   boardEl.innerHTML = '';
   const inCheckNow = chess.inCheck();
+  // Antichess: where the compulsory captures can be made from.
+  const capturers = captureHint ? new Set(chess.legalMoves().map(m => m.from)) : null;
   const flip = humanColor === B;
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
@@ -526,6 +535,7 @@ function render() {
       div.dataset.sq = sq;
 
       if (lastMove && (lastMove.from === sq || lastMove.to === sq)) div.classList.add('last-move');
+      if (capturers && capturers.has(sq)) div.classList.add('must-capture');
       if (premove && (premove.from === sq || premove.to === sq)) div.classList.add('premove');
       if (selected === sq) div.classList.add('selected');
 
@@ -598,7 +608,11 @@ function render() {
   // Status line
   if (chess.isGameOver()) {
     let s = `Game Over: ${chess.result()}`;
-    if (chess.isCheckmate()) {
+    if (chess.isAntichess && chess.legalMoves().length === 0) {
+      // Antichess is won by running out: the side to move has won.
+      const how = chess.pieceCount(chess.turn) === 0 ? 'no pieces' : 'no moves';
+      s += ` — ${chess.turn === W ? 'White' : 'Black'} wins with ${how} left!`;
+    } else if (chess.isCheckmate()) {
       s += ` — ${chess.turn === W ? 'Black' : 'White'} wins!`;
     } else if (chess.isStalemate()) {
       s += ' — Stalemate';
@@ -616,6 +630,9 @@ function render() {
     if (pvpResult.termination) s += ` — ${pvpResult.termination}`;
     statusEl.textContent = s;
     statusEl.className = 'game-over';
+  } else if (captureHint) {
+    statusEl.textContent = 'You must capture';
+    statusEl.className = 'check-text';
   } else if (inCheckNow) {
     statusEl.textContent = 'Check!';
     statusEl.className = 'check-text';
@@ -753,9 +770,14 @@ function premoveTargets(sq) {
 function selectSquare(sq) {
   selected = sq;
   dropSelected = null;
+  captureHint = false;
   if (canMoveNow()) {
     premoveSelecting = false;
-    legalFromSelected = chess.legalMoves().filter(m => m.from === sq);
+    const all = chess.legalMoves();
+    legalFromSelected = all.filter(m => m.from === sq);
+    // In Antichess, when there is a capture every legal move is one: a piece
+    // with nothing to take has no move at all, and that needs saying.
+    captureHint = chess.isAntichess && !legalFromSelected.length && all.some(m => m.capture);
   } else {
     premoveSelecting = true;
     legalFromSelected = premoveTargets(sq).map(to => ({ from: sq, to }));
@@ -766,6 +788,7 @@ function selectSquare(sq) {
 // Pick up a pocket piece: its hints are every square it may be dropped on.
 function selectDrop(t) {
   selected = null;
+  captureHint = false;
   premoveSelecting = false;
   dropSelected = t;
   legalFromSelected = chess.legalMoves().filter(m => m.drop === t);
@@ -775,6 +798,7 @@ function selectDrop(t) {
 function clearSelection() {
   selected = null;
   dropSelected = null;
+  captureHint = false;
   legalFromSelected = [];
   premoveSelecting = false;
 }
@@ -911,9 +935,11 @@ function doHumanMove(move, opts) {
 
 function showPromotionDialog() {
   promoOpts.innerHTML = '';
-  for (const t of ['q','r','b','n']) {
+  // An Antichess pawn may also become a king.
+  for (const t of chess.isAntichess ? ['q','r','b','n','k'] : ['q','r','b','n']) {
     const opt = document.createElement('div');
     opt.className = 'opt';
+    opt.title = PIECE_NAMES[t];
     const img = document.createElement('img');
     img.src = pieceImgSrc({ c: humanColor, t });
     opt.appendChild(img);
