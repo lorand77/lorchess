@@ -7,10 +7,10 @@ repo are in `docs/CLAUDE.md`.
 
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
-standard chess, Chess960, Atomic or Pawn Wars. Around the games: puzzles,
-an analysis board, achievements, friends, a leaderboard, spectating, in-game
-chat and a promo-code membership. Node.js + SQLite on the server, vanilla JS
-in the browser, no build step.
+standard chess, Chess960, Atomic, Pawn Wars or Crazyhouse. Around the games:
+puzzles, an analysis board, achievements, friends, a leaderboard, spectating,
+in-game chat and a promo-code membership. Node.js + SQLite on the server,
+vanilla JS in the browser, no build step.
 
 ## Tech stack
 
@@ -27,10 +27,10 @@ in the browser, no build step.
 
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
-squares, and the Atomic and Pawn Wars rule sets. `src/shared/lorfish.js` is
-**LorFish**, a synchronous search engine ported from a sunfish-derived Python
-original; its five levels are labelled from about 200 to 1800 (see below). It
-depends tightly on `chess.js`.
+squares, and the Atomic, Pawn Wars and Crazyhouse rule sets.
+`src/shared/lorfish.js` is **LorFish**, a synchronous search engine ported from
+a sunfish-derived Python original; its five levels are labelled from about 200
+to 1800 (see below). It depends tightly on `chess.js`.
 
 Weaker play comes from choosing, not from a broken search. The root already
 scores every move exactly, so a `temperature` option picks among them at random,
@@ -81,18 +81,15 @@ Repetition keys include en passant only when a legal capture exists. An
 uncapturable FEN target, including one blocked by a pin, does not distinguish
 otherwise identical positions; FEN output still preserves the original target.
 
-Crazyhouse keeps captured pieces in `chess.pockets`. It is casual only for now
-(`rateable: false` in `variants.js`, enforced by the lobby's offers, by quick
-match and again in `startMatch`, where every game is created): every variant
-moves the one Elo, and a new one shouldn't until its games are trusted. It
-opens from the standard setup but takes no handicap yet (`standardSetup:
-false`) until odds have been tried with pockets. Like the rest of the position, they
-are set up by `reset()` and `loadFen()`, never by `setVariant()`. A captured
-promoted piece goes back as a pawn, so promotions carry `promoted: true`. FEN
-writes both as python-chess does: the pockets in brackets after the board
-(`…/RNBQKBNR[Qnp]`, White's pieces first) and `~` after a promoted piece. No
-brackets means empty pockets, so the standard start FEN opens a Crazyhouse
-game. The pockets and the promoted marks are part of the repetition key.
+**Crazyhouse** keeps captured pieces in `chess.pockets`, to be dropped back on
+the board. Like the rest of the position, the pockets are set up by `reset()`
+and `loadFen()`, never by `setVariant()`. A captured promoted piece goes back
+as a pawn, so promotions carry `promoted: true`. FEN writes both as
+python-chess does: the pockets in brackets after the board (`…/RNBQKBNR[Qnp]`,
+White's pieces first) and `~` after a promoted piece. No brackets means empty
+pockets, so the standard start FEN opens a Crazyhouse game. The pockets and the
+promoted marks are part of the repetition key.
+
 `legalMoves()` adds a drop (`{ from: null, to, drop }`) for every piece in hand
 on every empty square, never a pawn on the first or last rank; in check only
 blocking drops are legal. Drops are reached through `findDrop(type, to)`, never
@@ -101,6 +98,13 @@ drop resets the 50-move count, like a pawn move. Nothing leaves the game, so
 the material is dead only in a set-up position with bare kings or one minor
 piece between both sides, and a flag always loses otherwise: a bare king can
 capture something and mate with it.
+
+Crazyhouse is casual only for now (`rateable: false` in `variants.js`,
+enforced by the lobby's offers, by quick match and again in `startMatch`,
+where every game is created): every variant moves the one Elo, and a new one
+shouldn't until its games are trusted. It opens from the standard setup but
+takes no handicap yet (`standardSetup: false`) until odds have been tried with
+pockets.
 
 On the game page the two captured-piece strips show the pockets instead
 (opponent's on top, yours below; no material count, since nothing is lost).
@@ -115,9 +119,9 @@ so a reader doesn't take a drop, or an Atomic capture, for an illegal move.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
-which reads and writes stored moves) live **only** in `src/shared/` and load three
-ways: as a browser `<script>` global, via `importScripts` in the
-engine Web Worker, and as a Node `require`. The UMD tail
+which reads and writes stored moves) live **only** in `src/shared/` and load
+three ways: as a browser `<script>` global, via `importScripts` in the engine
+Web Worker, and as a Node `require`. The UMD tail
 (`if (typeof module !== 'undefined' && module.exports) module.exports = {...}`)
 makes one file serve all three; Express mounts `src/shared/` at `/js/` ahead of
 `public/`, so `/js/chess.js` resolves there while `/js/ui.js` falls through.
@@ -608,8 +612,8 @@ above it and the score formatting are the replay's.
   one another. Each search stops at depth 22 or after 15 s, so a page left open
   does not keep a core busy. Finished positions are scored without asking
   Stockfish, as in the review.
-- Standard rules only. A Chess960 FEN loads; Atomic and Pawn Wars positions
-  would get standard-chess answers, so there is no variant picker.
+- Standard rules only. A Chess960 FEN loads; Atomic, Pawn Wars and Crazyhouse
+  positions would get standard-chess answers, so there is no variant picker.
 - **A Practice tab** (`#practice`, beside `#analysis`) is the same board with
   the engine off and the bar hidden: both sides are played by hand, the board
   turns to face the side to move, and Undo takes the last move back rather
