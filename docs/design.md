@@ -103,7 +103,11 @@ On the game page the two captured-piece strips show the pockets instead
 Your own pocket pieces are picked up by a click or a drag: `boardDrag.js`
 takes optional `sources`, elements outside the board whose pieces carry a
 `data-drag-from` key (`"@n"`), handed to the page in place of a square. A drop
-is only offered on your own move; there are no pre-drops.
+is only offered on your own move; there are no pre-drops. Spectators see the
+same strips, unusable; the replay shows each side's pocket as it stood at the
+ply on show; the lobby's thumbnails (`miniBoard.js`) draw only the board. The
+game page's PGN carries a `[Variant "…"]` tag for every variant but Standard,
+so a reader doesn't take a drop, or an Atomic capture, for an illegal move.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,

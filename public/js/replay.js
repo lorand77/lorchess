@@ -201,6 +201,11 @@ function renderBoard() {
 
 function renderCaptured() {
   const youColor = flip ? B : W; // bottom side
+  if (chess.pockets) {
+    renderPocket(capTopEl, youColor === W ? B : W);
+    renderPocket(capBottomEl, youColor);
+    return;
+  }
   const byWhite = [], byBlack = [];
   for (const h of chess.history) {
     if (!h.captured) continue;
@@ -222,6 +227,32 @@ function renderCaptured() {
   const byBottom = youColor === W ? byWhite : byBlack;
   fillCaptured(capTopEl, byTop, topColor === W ? adv : -adv);
   fillCaptured(capBottomEl, byBottom, youColor === W ? adv : -adv);
+}
+
+// Crazyhouse: what each side holds in hand at this point of the game, in place
+// of what it has taken (a captured piece goes back on the board). Read-only, but
+// drawn like the game page's pockets (ui.js fillPocket), counts and all.
+function renderPocket(el, color) {
+  el.innerHTML = "";
+  for (const t of CAPTURE_ORDER) {
+    const n = chess.pockets[color][t];
+    if (!n) continue;
+    const holder = document.createElement("span");
+    holder.className = "pocket-piece";
+    holder.title = PIECE_NAMES[t] + (n > 1 ? " ×" + n : "") + " in hand";
+    const img = document.createElement("img");
+    img.src = pieceImgSrc({ c: color, t });
+    img.draggable = false;
+    img.alt = color + t;
+    holder.appendChild(img);
+    if (n > 1) {
+      const count = document.createElement("span");
+      count.className = "pocket-count";
+      count.textContent = n;
+      holder.appendChild(count);
+    }
+    el.appendChild(holder);
+  }
 }
 
 function fillCaptured(el, pieces, adv) {

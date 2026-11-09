@@ -39,6 +39,9 @@ let blackMember = false;
 let whiteId = null;       // null in AI games: LorFish has no profile to link to
 let blackId = null;
 let pgnEvent = 'Human vs LorFish';
+// The game's variant as the catalogue names it (PvP only; AI games are
+// standard). Not chess.variant: Chess960 is played by the standard rules.
+let gameVariant = 'standard';
 
 // PvP clock state (server-authoritative; we render a smooth local countdown
 // between server updates). clocks holds the last snapshot {w,b} in ms.
@@ -641,6 +644,9 @@ function buildPgn() {
   pgn += `[White "${whiteName}"]\n`;
   pgn += `[Black "${blackName}"]\n`;
   pgn += `[Result "${result}"]\n`;
+  // Without it a reader takes the game for standard chess, and a Crazyhouse
+  // drop or an Atomic capture reads as an illegal move.
+  if (gameVariant !== 'standard') pgn += `[Variant "${variantLabel(gameVariant)}"]\n`;
   if (startFen) {
     pgn += '[SetUp "1"]\n';
     pgn += `[FEN "${startFen}"]\n`;
@@ -1723,6 +1729,7 @@ function applyPvpState(socket, state) {
   // Atomic changes the rules, not just the position — tell the board before
   // loading anything, or captures will be applied the standard way.
   chess.setVariant(state.variant || 'standard');
+  gameVariant = state.variant || 'standard';
   rebuildFromRecord(state);
   startFullmove = 1;
   startTurn = W;

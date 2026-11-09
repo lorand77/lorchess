@@ -23,9 +23,12 @@ window.MiniBoard = (function () {
   }
 
   // FEN board field -> array of 64, index 0 = a1. Returns null if malformed.
+  // A Crazyhouse FEN's pockets ("[Qp]" after the board) and promoted-piece
+  // marks ("Q~") are dropped: a thumbnail shows only what is on the board.
   function parse(fen) {
     if (typeof fen !== "string") return null;
-    const ranks = fen.trim().split(/\s+/)[0].split("/");
+    const board = fen.trim().split(/\s+/)[0].replace(/\[[A-Za-z]*\]$/, "").replace(/~/g, "");
+    const ranks = board.split("/");
     if (ranks.length !== 8) return null;
     const squares = new Array(64).fill(null);
     for (let i = 0; i < 8; i++) {
