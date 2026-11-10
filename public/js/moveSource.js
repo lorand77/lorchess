@@ -11,7 +11,8 @@
 //
 // `env` (supplied by ui.js):
 //   getHumanColor() -> 'w'|'b'   getTurn() -> 'w'|'b'   isGameOver() -> bool
-//   getLevel() -> an aiLevels.js entry    getPosition() -> { startFen, moves }
+//   getLevel() -> an aiLevels.js entry
+//   getPosition() -> { startFen, variant, moves } (moves as stored: "e2e4", "N@e4")
 //   applyMove(move, record, opts) setThinking(bool)     onReject(msg?)
 //   onEngineError(msg)  the engine could not move; the page offers a retry
 //   opts.premove marks a move the human queued before the opponent replied.
@@ -93,6 +94,7 @@ function createAiMoveSource(env) {
     worker.postMessage({
       id: activeReq,
       startFen: pos.startFen,
+      variant: pos.variant,
       moves: pos.moves,
       depth: level.depth,
       temperature: level.temperature,

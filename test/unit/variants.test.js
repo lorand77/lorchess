@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const { Chess } = require("../../src/shared/chess");
 const {
   VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
-  hasMaterialBadges, hasMoveBadges, startOf,
+  hasMaterialBadges, hasMoveBadges, hasBot, startOf,
 } = require("../../src/shared/variants");
 const { PAWN_WARS_START, ANTICHESS_START } = require("../../src/shared/chess");
 const { InfiniteChess } = require("../../src/shared/infiniteChess");
@@ -26,6 +26,7 @@ describe("variant catalogue", () => {
       assert.equal(typeof v.rateable, "boolean", v.key);
       assert.equal(typeof v.materialBadges, "boolean", v.key);
       assert.equal(typeof v.moveBadges, "boolean", v.key);
+      assert.equal(typeof v.bot, "boolean", v.key);
     }
   });
 
@@ -111,6 +112,11 @@ describe("variant catalogue", () => {
       assert.equal(hasMaterialBadges(v.key), !["crazyhouse", "antichess", "infinite"].includes(v.key), v.key);
     }
     assert.equal(hasMaterialBadges("nope"), true, "unknown means standard");
+  });
+
+  test("LorFish plays standard chess and Chess960 so far", () => {
+    for (const v of VARIANTS) assert.equal(hasBot(v.key), ["standard", "chess960"].includes(v.key), v.key);
+    assert.equal(hasBot("nope"), true, "unknown means standard");
   });
 
   test("only Infinite Chess has no move badges: they replay moves on an 8x8 board", () => {

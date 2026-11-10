@@ -111,7 +111,7 @@ async function init() {
 // and one whose depth matched no level is shown by that depth. Null if neither.
 function lorfishStrength(game) {
   if (AI_LEVELS_BY_KEY.has(game.ai_level)) {
-    return { full: aiLevelLabel(game.ai_level), short: AI_LEVELS_BY_KEY.get(game.ai_level).label };
+    return { full: aiLevelLabel(game.ai_level, game.variant), short: AI_LEVELS_BY_KEY.get(game.ai_level).label };
   }
   if (game.ai_depth) return { full: `depth ${game.ai_depth}`, short: `depth ${game.ai_depth}` };
   return null;

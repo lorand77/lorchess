@@ -34,8 +34,12 @@ function aiLevelOf(key) {
   return AI_LEVELS_BY_KEY.get(resolveAiLevel(key));
 }
 
-function aiLevelLabel(key) {
+// "Casual (~1000)". The number was measured against Stockfish in standard
+// chess, so in any other variant — Chess960 included — the level goes by its
+// name alone: "Casual".
+function aiLevelLabel(key, variant) {
   const level = aiLevelOf(key);
+  if (variant && variant !== 'standard') return level.label;
   return `${level.label} (~${level.elo})`;
 }
 

@@ -885,26 +885,10 @@ function isInfiniteMove(payload) {
     (p.promo == null || InfiniteChess.PROMOTIONS.includes(p.promo));
 }
 
+// How the game ended — the engine says (Chess.termination), so the server
+// and the game page name each ending the same way.
 function terminationOf(chess) {
-  // In Atomic a game usually ends with a king blown off the board rather than
-  // mated, and "checkmate" would be a misleading thing to record.
-  if (chess.isAtomic && (chess.kingMissing("w") || chess.kingMissing("b"))) return "explosion";
-  // Pawn Wars is decided by pawns, not by mate.
-  if (chess.isPawnWars) {
-    if (chess.pawnCount("w") === 0 || chess.pawnCount("b") === 0) return "pawns captured";
-    if (chess.isStalemate()) return "stalemate";
-  }
-  // Antichess is won by the side to move running out — of pieces, or of moves —
-  // which ends the game ahead of any draw rule, as result() has it.
-  if (chess.isAntichess && chess.legalMoves().length === 0) {
-    return chess.pieceCount(chess.turn) === 0 ? "all pieces lost" : "no moves";
-  }
-  if (chess.isCheckmate()) return "checkmate";
-  if (chess.isStalemate()) return "stalemate";
-  if (chess.isInsufficientMaterial()) return "insufficient";
-  if (chess.isThreefoldRepetition()) return "threefold";
-  if (chess.halfmove >= 100) return "fifty-move";
-  return null;
+  return chess.termination();
 }
 
 module.exports = { attachSockets };

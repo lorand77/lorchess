@@ -669,6 +669,17 @@ const InfiniteChess = (function () {
         || this.halfmove >= 100 || this.isThreefoldRepetition();
     },
 
+    // How the game ended, named as for every other variant (see chess.js), or
+    // null while it goes on.
+    termination() {
+      if (this.isCheckmate()) return 'checkmate';
+      if (this.isStalemate()) return 'stalemate';
+      if (this.isInsufficientMaterial()) return 'insufficient';
+      if (this.isThreefoldRepetition()) return 'threefold';
+      if (this.halfmove >= 100) return 'fifty-move';
+      return null;
+    },
+
     // Mate first, so a draw rule that holds at the same time never takes a
     // win away; then every draw.
     result() {

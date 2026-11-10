@@ -1040,6 +1040,31 @@ class Chess {
         || this.halfmove >= 100
         || this.isThreefoldRepetition();
   }
+  // How the game ended, as it is recorded (games.termination), or null while
+  // it goes on. The server records PvP games with it and the game page reports
+  // AI games with it, so the two can't name the same ending differently.
+  termination() {
+    // In Atomic a game usually ends with a king blown off the board rather
+    // than mated, and "checkmate" would be a misleading thing to record.
+    if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return 'explosion';
+    // Pawn Wars is decided by pawns, not by mate.
+    if (this.isPawnWars) {
+      if (this.pawnCount(W) === 0 || this.pawnCount(B) === 0) return 'pawns captured';
+      if (this.isStalemate()) return 'stalemate';
+    }
+    // Antichess is won by the side to move running out — of pieces, or of
+    // moves — which ends the game ahead of any draw rule, as result() has it.
+    if (this.isAntichess && this.legalMoves().length === 0) {
+      return this.pieceCount(this.turn) === 0 ? 'all pieces lost' : 'no moves';
+    }
+    if (this.isCheckmate()) return 'checkmate';
+    if (this.isStalemate()) return 'stalemate';
+    if (this.isInsufficientMaterial()) return 'insufficient';
+    if (this.isThreefoldRepetition()) return 'threefold';
+    if (this.halfmove >= 100) return 'fifty-move';
+    return null;
+  }
+
   result() {
     if (this.isAntichess) {
       // The side to move wins with no piece or no move left — before any draw.

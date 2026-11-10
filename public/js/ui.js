@@ -100,13 +100,10 @@ const env = {
   getLevel,
   getPosition:   () => ({
     startFen,
-    // Castling is spelled by the rook square (see formatUci), which the worker's
-    // findMove resolves on any back rank.
-    moves: chess.history.map(h => ({
-      from: h.move.from,
-      to:   h.move.castle && h.move.rookFrom != null ? h.move.rookFrom : h.move.to,
-      promo: h.move.promo || null,
-    })),
+    variant: gameVariant,
+    // As they are stored (formatUci): castling by the rook square, which the
+    // worker resolves on any back rank, and a drop as "N@e4".
+    moves: chess.history.map(h => formatUci(h.move)),
   }),
   applyMove,
   setThinking,
@@ -182,13 +179,9 @@ function recordApplied(san, move, premove) {
   }
 }
 
+// How the game ended, named by the engine as the server names PvP endings.
 function terminationReason() {
-  if (chess.isCheckmate())            return 'checkmate';
-  if (chess.isStalemate())            return 'stalemate';
-  if (chess.isInsufficientMaterial()) return 'insufficient';
-  if (chess.isThreefoldRepetition())  return 'threefold';
-  if (chess.halfmove >= 100)          return 'fifty-move';
-  return null;
+  return chess.termination();
 }
 
 // Custom piece images (theme.js) win over the bundled set.
@@ -1029,8 +1022,10 @@ async function persistNewAiGame(fen) {
   url.searchParams.set('mode', 'ai');
   url.searchParams.set('level', aiLevel);
   url.searchParams.set('color', humanColor === B ? 'b' : 'w');
+  if (gameVariant !== 'standard') url.searchParams.set('variant', gameVariant);
+  else url.searchParams.delete('variant');
   history.replaceState(null, '', url);
-  const id = await gameStore.newGame({ humanColor, level: aiLevel, startFen: fen });
+  const id = await gameStore.newGame({ humanColor, level: aiLevel, startFen: fen, variant: gameVariant });
   // A later New Game may already own the board when this request completes.
   if (id && gameStore.currentId() === id) {
     const current = new URL(location.href);
@@ -1061,11 +1056,16 @@ function refreshGameState() {
 async function startNewGame() {
   abandonCurrentGame();
   moveSource.cancel();
-  chess.reset();
-  startFullmove = 1;
-  startTurn = W;
-  startFen = null;
-  const ready = persistNewAiGame(null);
+  // The variant's own start: a fresh Chess960 back rank every game, a fixed
+  // start of its own, or the standard setup.
+  const opening = startOf(gameVariant);
+  const fen = opening === 'shuffled' ? randomFen() : opening;
+  if (fen) chess.loadFen(fen);
+  else chess.reset();
+  startFullmove = chess.fullmove;
+  startTurn = chess.turn;
+  startFen = fen || null;
+  const ready = persistNewAiGame(fen || null);
   refreshGameState();
   return ready;
 }
@@ -1152,7 +1152,11 @@ function showAiLayout() {
   document.getElementById('gameTitle').textContent = 'LorFish AI';
   whiteLabelEl.style.display = 'none';
   blackLabelEl.style.display = 'none';
-  document.getElementById('aiLevelText').textContent = aiLevelLabel(aiLevel);
+  document.getElementById('aiLevelText').textContent = aiLevelLabel(aiLevel, gameVariant)
+    + (gameVariant !== 'standard' ? ' · ' + variantLabel(gameVariant) : '');
+  // A pasted position is a standard-chess thing: a variant starts from its own.
+  loadFenBtn.disabled = gameVariant !== 'standard';
+  loadFenBtn.title = loadFenBtn.disabled ? variantLabel(gameVariant) + ' games start from their own position' : '';
   document.getElementById('humanColorText').textContent = humanColor === B ? 'Black' : 'White';
 }
 
@@ -1162,6 +1166,10 @@ function showAiLayout() {
 function initAi(params) {
   humanColor = params.get('color') === 'b' ? B : W;
   aiLevel = resolveAiLevel(params.get('level'));
+  // Only a variant LorFish plays; anything else is a standard game.
+  const variant = resolveVariant(params.get('variant'));
+  gameVariant = hasBot(variant) ? variant : 'standard';
+  chess.setVariant(gameVariant);
   showAiLayout();
   moveSource = createAiMoveSource(env);
   startNewGame();
@@ -1176,6 +1184,9 @@ function resumeAiGame(game) {
   // Restore the level, if the game has one: a game from before levels whose
   // depth matched none plays the default.
   if (AI_LEVELS_BY_KEY.has(game.ai_level)) aiLevel = game.ai_level;
+  // Its rules before its position: loading never changes them.
+  gameVariant = game.variant || 'standard';
+  chess.setVariant(gameVariant);
 
   showAiLayout();
   resetSoundState();

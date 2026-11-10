@@ -21,7 +21,8 @@ const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/ches
 const handicap = require("../shared/handicap");
 const { parseUci, moveFromUci } = require("../shared/uci");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
-const { VARIANTS, hasMaterialBadges, hasMoveBadges } = require("../shared/variants");
+const { VARIANTS, hasMaterialBadges, hasMoveBadges, startOf } = require("../shared/variants");
+const chess960 = require("../shared/chess960");
 const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
 
 const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -92,9 +93,14 @@ function analyze(game, moves) {
   // a list of squares.
   const changes = startFen === STANDARD_START ? {} : handicap.diffFromFen(startFen);
   const standardStart = startFen === STANDARD_START;
-  // A handicap is a known, server-built position; anything else is a pasted FEN.
+  // A handicap is a known, server-built position, and so is a variant's own
+  // start: its fixed one, or a Chess960 back rank (the AI game route checks
+  // it is one). Anything else is a pasted FEN, whatever the client says.
+  const opening = startOf(game.variant || "standard");
+  const ownStart = opening === "shuffled" ? chess960.isStartFen(startFen) : !!opening && startFen === opening;
   const trustedStart =
-    standardStart || (changes !== null && typeof changes === "object" && Object.keys(changes).length > 0);
+    standardStart || ownStart ||
+    (changes !== null && typeof changes === "object" && Object.keys(changes).length > 0);
 
   const plies = [];
   for (const m of moves) {

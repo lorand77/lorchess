@@ -265,6 +265,18 @@ const LorFish = {
     return this.MATE - (chess.history.length - this.rootPly);
   },
 
+  // A position with no move left, scored for the side to move. The rules
+  // engine says who has won (chess.result()), so every variant reads right:
+  // mate or stalemate here, but also a king blown up (Atomic), the last pawn
+  // gone (Pawn Wars), or no move left as a win (Antichess). A win scores as a
+  // mate would, the nearer the better.
+  endScore(chess) {
+    const r = chess.result();
+    if (r !== '1-0' && r !== '0-1') return 0;
+    const moverWins = (r === '1-0') === (chess.turn === W);
+    return moverWins ? this.mateScore(chess) : -this.mateScore(chess);
+  },
+
   // Searches deeper than this would not come back in a browser's lifetime; a
   // depth below 1 would never bottom out (negamax stops at 0 and the root
   // searches one less). Anything unusable searches at 1.
@@ -279,7 +291,7 @@ const LorFish = {
 
     if ((chess.positionCounts.get(chess.positionKey()) || 0) >= 2) return 0;
     const moves = chess.legalMoves();
-    if (moves.length === 0) return chess.inCheck() ? -this.mateScore(chess) : 0;
+    if (moves.length === 0) return this.endScore(chess);
     if (chess.isInsufficientMaterial()) return 0;
 
     const standPat = this.evaluate(chess);
@@ -305,7 +317,7 @@ const LorFish = {
     // it and a losing side can seek it.
     if ((chess.positionCounts.get(chess.positionKey()) || 0) >= 2) return 0;
     const moves = chess.legalMoves();
-    if (moves.length === 0) return chess.inCheck() ? -this.mateScore(chess) : 0;
+    if (moves.length === 0) return this.endScore(chess);
     if (chess.isInsufficientMaterial()) return 0;
     // Check extension: at the horizon, give the side in check one more ply
     // so short forcing mates and quiet replies to checks fall in the window.

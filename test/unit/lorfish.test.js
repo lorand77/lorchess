@@ -370,3 +370,35 @@ describe("LorFish move ordering", () => {
     for (const m of ordered.slice(7)) assert.ok(!m.capture && !m.promo, uci(m));
   });
 });
+
+describe("LorFish in the variants", () => {
+  // The rules engine's result() says who has won when no move is left; the
+  // search used to assume mate or stalemate, and scored these wins as draws.
+  const winIn = (fen, variant, depth) => LorFish.analyse(fromFen(fen, variant), depth);
+
+  test("Atomic: blowing up the king wins", () => {
+    const a = winIn("4k3/4p3/8/8/8/8/8/K3R3 w - - 0 1", "atomic", 1);
+    assert.equal(a.san, "Rxe7");
+    assert.ok(a.score > LorFish.MATE - 10, String(a.score));
+  });
+
+  test("Pawn Wars: taking the last pawn wins", () => {
+    const a = winIn("8/8/8/8/3p4/4P3/8/8 w - - 0 1", "pawnwars", 1);
+    assert.equal(a.san, "exd4");
+    assert.ok(a.score > LorFish.MATE - 10, String(a.score));
+  });
+
+  test("Antichess: losing the last piece wins", () => {
+    // A quiet rook move onto the black rook's line: it must take, and White,
+    // with nothing left, has won.
+    const a = winIn("r7/8/8/8/8/8/8/7R w - - 0 1", "antichess", 2);
+    assert.ok(a.score > LorFish.MATE - 10, `${a.san} ${a.score}`);
+  });
+
+  test("standard chess: mate and stalemate as before", () => {
+    const mate = winIn("6k1/5ppp/8/8/8/8/8/K3R3 w - - 0 1", undefined, 1);
+    assert.equal(mate.san, "Re8#");
+    assert.ok(mate.score > LorFish.MATE - 10);
+  });
+});
+

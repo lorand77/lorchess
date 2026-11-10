@@ -72,7 +72,7 @@ describe("creating games", () => {
 
   test("an AI game for the chosen colour", async () => {
     const created = await newGame({ humanColor: "b", level: "intermediate" });
-    assert.deepEqual(created, { gameId: created.gameId, humanColor: "b", aiColor: "w", turn: "w" });
+    assert.deepEqual(created, { gameId: created.gameId, humanColor: "b", aiColor: "w", turn: "w", variant: "standard" });
     const res = await me.get(`/api/games/${created.gameId}`);
     assert.equal(res.status, 200);
     const g = res.body;
@@ -129,6 +129,44 @@ describe("creating games", () => {
     assert.deepEqual(await strength({ depth: "2" }), ["intermediate", 2]);
     assert.deepEqual(await strength({ depth: 3 }), ["intermediate", 2], "no level had depth 3");
     assert.deepEqual(await strength({ depth: 99 }), ["advanced", 4], "never deeper than the strongest level");
+  });
+});
+
+describe("AI games in a variant", () => {
+  const C960 = "bqnbrkrn/pppppppp/8/8/8/8/PPPPPPPP/BQNBRKRN w KQkq - 0 1";
+
+  test("a Chess960 game starts from the back rank the page drew, and records its variant", async () => {
+    const created = await newGame({ humanColor: "w", variant: "chess960", startFen: C960 });
+    assert.equal(created.variant, "chess960");
+    const game = (await me.get(`/api/games/${created.gameId}`)).body;
+    assert.equal(game.variant, "chess960");
+    assert.equal(game.start_fen, C960);
+  });
+
+  test("a Chess960 game needs a Chess960 start", async () => {
+    for (const startFen of [undefined, "7k/8/8/8/8/8/8/K6R w - - 0 1", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR w KQkq - 0 1"]) {
+      const res = await me.post("/api/games", { humanColor: "w", variant: "chess960", startFen });
+      assert.equal(res.status, 400, String(startFen));
+      assert.match(res.body.error, /Chess960 position/);
+    }
+  });
+
+  test("a variant LorFish doesn't play yet is refused, and an unknown one is standard", async () => {
+    for (const variant of ["atomic", "crazyhouse", "antichess", "pawnwars", "infinite"]) {
+      const res = await me.post("/api/games", { humanColor: "w", variant });
+      assert.equal(res.status, 400, variant);
+      assert.match(res.body.error, /LorFish doesn't play/);
+    }
+    const created = await newGame({ humanColor: "w", variant: "nope" });
+    assert.equal(created.variant, "standard");
+  });
+
+  test("a variant's endings can be recorded", async () => {
+    for (const termination of ["explosion", "pawns captured", "all pieces lost", "no moves"]) {
+      const { gameId } = await newGame({ humanColor: "w" });
+      assert.equal((await me.post(`/api/games/${gameId}/end`, { result: "1-0", termination })).status, 200, termination);
+      assert.equal((await me.get(`/api/games/${gameId}`)).body.termination, termination);
+    }
   });
 });
 

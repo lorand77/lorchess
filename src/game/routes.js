@@ -9,8 +9,11 @@
 const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
-const { Chess, STANDARD_START } = require("../shared/chess");
+const { STANDARD_START } = require("../shared/chess");
 const { aiLevelOf, aiLevelForDepth } = require("../shared/aiLevels");
+const { resolveVariant, variantLabel, hasBot, startOf } = require("../shared/variants");
+const { createEngine } = require("../shared/engines");
+const chess960 = require("../shared/chess960");
 const config = require("../config");
 const achievements = require("../achievements/service");
 
@@ -24,7 +27,11 @@ const VALID_RESULTS = new Set(["1-0", "0-1", "1/2-1/2"]);
 // The ways the client's rules engine can end a game (terminationReason in
 // ui.js). Anything else is refused: the value is stored and later shown in the
 // game history, so it must never be free text.
-const VALID_TERMINATIONS = new Set(["checkmate", "stalemate", "insufficient", "threefold", "fifty-move"]);
+// Every ending Chess.termination() can name, the variants' own included.
+const VALID_TERMINATIONS = new Set([
+  "checkmate", "stalemate", "insufficient", "threefold", "fifty-move",
+  "explosion", "pawns captured", "all pieces lost", "no moves",
+]);
 
 const turnOf = (fen) => (String(fen).split(/\s+/)[1] === "b" ? "b" : "w");
 
@@ -53,19 +60,40 @@ function loadOwnAiGame(req, res) {
 // POST /api/games — create a new AI game for the current user.
 router.post("/", (req, res) => {
   const { humanColor, level: levelKey, depth, startFen } = req.body || {};
+  // Only a variant LorFish plays (the catalogue's `bot`).
+  const variant = resolveVariant(req.body && req.body.variant);
+  if (!hasBot(variant)) {
+    return res.status(400).json({ error: `LorFish doesn't play ${variantLabel(variant)} yet.` });
+  }
   const human = humanColor === "b" ? "b" : "w";
   const aiColor = human === "w" ? "b" : "w";
   const uid = req.session.userId;
   const whiteId = human === "w" ? uid : AI_ID;
   const blackId = human === "w" ? AI_ID : uid;
-  const fen =
-    typeof startFen === "string" && startFen.trim() ? startFen.trim() : STANDARD_START;
+  const given = typeof startFen === "string" && startFen.trim() ? startFen.trim() : null;
+  // Where the game starts. Standard chess takes any position the player
+  // pastes; a variant starts from its own: a Chess960 back rank (drawn by the
+  // page, and checked to be one), its fixed start, or the standard setup.
+  const opening = startOf(variant);
+  let fen;
+  if (variant === "standard") fen = given || STANDARD_START;
+  else if (opening === "shuffled") {
+    if (!chess960.isStartFen(given)) {
+      return res.status(400).json({ error: `A ${variantLabel(variant)} game starts from a Chess960 position.` });
+    }
+    fen = given;
+  } else {
+    fen = opening || STANDARD_START;
+    if (given && given !== fen) {
+      return res.status(400).json({ error: `A ${variantLabel(variant)} game starts from its own position.` });
+    }
+  }
   // The client's own board has already loaded this FEN, but the record must
   // not hold a position the rules engine refuses: everything that later
   // replays the game (review, achievements, history) runs it through loadFen.
   if (fen !== STANDARD_START) {
     try {
-      const position = new Chess();
+      const position = createEngine(variant);
       position.loadFen(fen);
       if (position.isGameOver()) {
         return res.status(400).json({ error: "The start position is already over. Choose an unfinished position." });
@@ -81,13 +109,14 @@ router.post("/", (req, res) => {
 
   const info = queries.createGame.run(
     whiteId, blackId, "ai", aiColor, level.depth, level.key, fen, fen, turnOf(fen),
-    null, null, 0, "standard"   // untimed, unrated
+    null, null, 0, variant   // untimed, unrated
   );
   res.status(201).json({
     gameId: Number(info.lastInsertRowid),
     humanColor: human,
     aiColor,
     turn: turnOf(fen),
+    variant,
   });
 });
 

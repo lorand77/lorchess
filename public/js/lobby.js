@@ -108,6 +108,16 @@ for (const level of AI_LEVELS) {
   aiLevelSelect.add(new Option(aiLevelLabel(level.key), level.key, selected, selected));
 }
 
+// The variants LorFish plays, from the catalogue. The levels' ratings were
+// measured in standard chess, so in any other variant they go by name alone.
+const aiVariantSelect = document.getElementById("aiVariantSelect");
+for (const v of VARIANTS.filter((v) => v.bot)) {
+  aiVariantSelect.add(new Option(v.label, v.key, v.key === "standard", v.key === "standard"));
+}
+aiVariantSelect.addEventListener("change", () => {
+  for (const opt of aiLevelSelect.options) opt.textContent = aiLevelLabel(opt.value, aiVariantSelect.value);
+});
+
 // The picker starts at the level of the user's last AI game, read from their
 // game list (see checkActiveGame), so the choice follows them across devices.
 // Only once per page load, and never over a level they have already picked.

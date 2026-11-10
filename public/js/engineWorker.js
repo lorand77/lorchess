@@ -15,17 +15,18 @@
 //
 // Game review used to run here too; it is Stockfish's job now (gameReview.js).
 
-importScripts("/js/chess.js", "/js/lorfish.js");
+importScripts("/js/chess.js", "/js/uci.js", "/js/lorfish.js");
 
 self.onmessage = (e) => {
-  const { id, startFen, moves, depth, temperature } = e.data || {};
+  const { id, startFen, variant, moves, depth, temperature } = e.data || {};
   try {
-    const chess = new Chess();
+    // The variant's rules first, then its position: loading never changes them.
+    const chess = new Chess().setVariant(variant || "standard");
     if (startFen) chess.loadFen(startFen);
     else chess.reset();
 
-    for (const mv of moves || []) {
-      const match = chess.findMove(mv.from, mv.to, mv.promo);
+    for (const text of moves || []) {
+      const match = moveFromUci(chess, text);
       if (!match) {
         self.postMessage({ id, move: null, error: "illegal move during replay" });
         return;
@@ -38,11 +39,13 @@ self.onmessage = (e) => {
       id,
       // Castling spelled by the rook square: on a shuffled back rank the king's
       // destination alone can also be a plain king step (see Chess.findMove).
+      // A Crazyhouse drop names its piece and has no square it leaves.
       move: move
         ? {
             from: move.from,
             to: move.castle && move.rookFrom != null ? move.rookFrom : move.to,
             promo: move.promo || null,
+            drop: move.drop || null,
           }
         : null,
     });

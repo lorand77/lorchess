@@ -51,12 +51,13 @@ function createGameStore() {
 
   return {
     // Create a new server-side game; resolves when the id is known.
-    newGame({ humanColor, level, startFen }) {
+    newGame({ humanColor, level, startFen, variant }) {
       const next = { id: null, ready: null };
       next.ready = post("/api/games", {
         humanColor,
         level,
         startFen: startFen || null,
+        variant: variant || "standard",
       })
         .then((data) => {
           next.id = data.gameId;

@@ -607,15 +607,17 @@ LorFish's search is synchronous and blocks whatever thread runs it. It runs in
 `public/js/engineWorker.js`, so the page never freezes. (The original UI hid the
 freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
 needed.) The worker `importScripts` the engine, receives
-`{ id, startFen, moves, depth, temperature }` and **replays the moves** instead of loading the
-current FEN, because `loadFen` and `reset` wipe `positionCounts` and threefold
-repetition would be wrong.
+`{ id, startFen, variant, moves, depth, temperature }` — the moves as they are
+stored (`e2e4`, `N@e4`), read through `uci.js` — sets the variant's rules and
+**replays the moves** instead of loading the current FEN, because `loadFen` and
+`reset` wipe `positionCounts` and threefold repetition would be wrong.
 
 The browser is authoritative for its own AI game. `public/js/gameStore.js`
 mirrors it to the server (`POST /api/games`, `/:id/moves`, `/:id/end`,
 `/:id/truncate` for undo) best-effort and in order, so history, stats and
 achievements see it; nothing about play waits on the server. This is also why
-AI games from a pasted FEN earn no game-feat achievements (see below). Because
+AI games from a pasted FEN earn no game-feat achievements (see below); a
+variant's own start is not a pasted FEN. Because
 those routes take the client's word, they accept **active AI games only**: a
 PvP record is written by the socket layer alone, and a finished game of either
 kind is closed to them. The `termination` they store is an allowlist, since it
@@ -628,10 +630,27 @@ late response for an earlier board cannot overwrite it.
 The board, PGN and move source reset synchronously before persistence resolves.
 Moves played while creation is pending queue against that game, and completion
 only updates the bookmark; it never resets a board that has already advanced.
-The AI level and the player's colour are fixed per game, and chosen before it:
-the lobby's LorFish panel is a plain GET form to
-`game.html?mode=ai&level=<key>&color=w|b`. The game page only shows them; New
-Game and Load FEN keep both, and changing either means going back to the lobby.
+The AI level, the player's colour and the variant are fixed per game, and
+chosen before it: the lobby's LorFish panel is a plain GET form to
+`game.html?mode=ai&level=<key>&color=w|b&variant=<key>`. The game page only
+shows them; New Game and Load FEN keep them, and changing one means going back
+to the lobby.
+
+**LorFish in the variants.** The catalogue's `bot` flag says which variants
+LorFish plays (so far standard chess and Chess960); the lobby offers only
+those, and `POST /api/games` refuses the rest. A variant starts from its own
+position: standard chess from any position the player pastes, Chess960 from a
+back rank the page draws for each game (`chess960.randomFen`) and the route
+checks is one (`isStartFen`), every other variant from its catalogue start —
+so Load FEN is off outside standard chess. A position with no move left is
+scored by the rules engine's own `result()` (`LorFish.endScore`), not as mate
+or stalemate, so an Atomic king blown up, Pawn Wars' last pawn taken and
+Antichess's last piece lost all read as the wins they are. The levels'
+ratings were measured against Stockfish in standard chess, which plays no
+variant but Chess960 and wasn't measured there, so everywhere but standard
+chess a level goes by its name alone ("Casual", not "Casual (~1000)":
+`aiLevelLabel(key, variant)`). How a game ended is named by the engine
+(`termination()`), for AI games and the server's PvP games alike.
 The lobby's level picker starts at the level of the user's newest AI game,
 found in the game list it already fetches for "Resume", so it needs no stored
 preference and follows the user between devices. Missing or unknown values play
@@ -936,8 +955,10 @@ was earned lives in `src/achievements/service.js`:
   variant, castles, puzzle streaks, rating, chat count, anniversary)
   re-evaluated after every game, puzzle, chat message, login and visit to the
   page. Every variant but Standard has a `<key>_wins` badge, and "Jack of All
-  Trades" wants a win in each one; a win against LorFish counts for Standard,
-  the only variant AI games are played in.
+  Trades" wants a win in each one; a win against LorFish counts as any win
+  does, in whichever variant it was played. A variant's own start (its fixed
+  one, or a Chess960 back rank) is trusted like the standard start, so game
+  feats count in bot games there too.
 - **Odds badges** ("Giving Odds", "Handicap Hustler") read the handicap's
   change map and count only pieces a side ends up short of. A handicap can add
   pieces anywhere in a side's half, so taking the queen off d1 and putting one

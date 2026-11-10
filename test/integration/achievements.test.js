@@ -340,6 +340,28 @@ describe("aggregate achievements", () => {
     assert.ok(lacks(kp("crazyhouse").w, "the_grinder"));
   });
 
+  test("bot games in a variant count normally, their own start trusted", () => {
+    const C960 = "bqnbrkrn/pppppppp/8/8/8/8/PPPPPPPP/BQNBRKRN w KQkq - 0 1";
+    const me = makeUser("me");
+    const ai = recordGame({
+      white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "casual", variant: "chess960",
+      start: C960, moves: ["c2c3", "c7c6"], result: "1-0", termination: "resign", initialMs: null, rated: 0,
+    });
+    assert.ok(has(keysOf(achievements.onGameFinished(ai), me.id), "chess960_wins"));
+    const game = db.prepare("SELECT * FROM games WHERE id = ?").get(ai);
+    const moves = queries.getMovesForGame.all(ai);
+    assert.equal(achievements.analyze(game, moves).trustedStart, true, "a Chess960 back rank");
+    // A pasted position in a standard AI game — kings off their squares, so
+    // not a handicap either — is still the client's word.
+    const pasted = recordGame({
+      white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "casual",
+      start: "k7/8/8/8/8/8/4P3/K7 w - - 0 1", moves: ["e2e4"], result: "1-0", termination: "resign",
+      initialMs: null, rated: 0,
+    });
+    assert.equal(achievements.analyze(db.prepare("SELECT * FROM games WHERE id = ?").get(pasted),
+      queries.getMovesForGame.all(pasted)).trustedStart, false);
+  });
+
   test("Infinite Chess: no feat replays its moves, but its wins still count", () => {
     // Mate by a rook on the king's rank, far off the usual board: the mate
     // badges would fire on an 8x8 board; here only the stats can.

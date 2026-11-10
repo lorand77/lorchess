@@ -51,3 +51,13 @@ describe("AI level catalogue", () => {
     for (const depth of [1, 3, null, undefined, "x"]) assert.equal(aiLevelForDepth(depth), null, String(depth));
   });
 });
+
+describe("aiLevelLabel in a variant", () => {
+  test("the rating is standard chess's, so other variants show the name alone", () => {
+    assert.equal(aiLevelLabel("casual"), "Casual (~1000)");
+    assert.equal(aiLevelLabel("casual", "standard"), "Casual (~1000)");
+    assert.equal(aiLevelLabel("casual", "chess960"), "Casual");
+    assert.equal(aiLevelLabel("nope", "atomic"), "Intermediate");
+  });
+});
+
