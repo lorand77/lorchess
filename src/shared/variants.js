@@ -44,7 +44,7 @@ const VARIANTS = [
   // PAWN_WARS_START in chess.js (a test holds them together); repeated here
   // because this file also loads in the browser without chess.js.
   { key: 'pawnwars', label: 'Pawn Wars', standardSetup: false, reviewable: false, rateable: true,
-    materialBadges: true, moveBadges: true, bot: false, startFen: 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1' },
+    materialBadges: true, moveBadges: true, bot: true, startFen: 'pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1' },
   // Captured pieces change sides and can be dropped back on the board. It opens
   // from the standard setup, but takes no handicap until odds have been tried
   // with pockets, so standardSetup is false. Casual while it is new.

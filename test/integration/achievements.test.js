@@ -351,6 +351,14 @@ describe("aggregate achievements", () => {
     const game = db.prepare("SELECT * FROM games WHERE id = ?").get(ai);
     const moves = queries.getMovesForGame.all(ai);
     assert.equal(achievements.analyze(game, moves).trustedStart, true, "a Chess960 back rank");
+    const pawns = recordGame({
+      white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "casual", variant: "pawnwars",
+      start: "pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1", moves: ["a1a3", "h8h6"], result: "1-0", termination: "resign",
+      initialMs: null, rated: 0,
+    });
+    assert.ok(has(keysOf(achievements.onGameFinished(pawns), me.id), "pawnwars_wins"));
+    assert.equal(achievements.analyze(db.prepare("SELECT * FROM games WHERE id = ?").get(pawns),
+      queries.getMovesForGame.all(pawns)).trustedStart, true, "Pawn Wars' own start");
     // A pasted position in a standard AI game — kings off their squares, so
     // not a handicap either — is still the client's word.
     const pasted = recordGame({

@@ -151,8 +151,20 @@ describe("AI games in a variant", () => {
     }
   });
 
+  test("a Pawn Wars game starts from Pawn Wars' own position, and no other", async () => {
+    const PAWN_WARS = "pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1";
+    for (const startFen of [undefined, PAWN_WARS]) {
+      const created = await newGame({ humanColor: "b", variant: "pawnwars", startFen });
+      const game = (await me.get(`/api/games/${created.gameId}`)).body;
+      assert.deepEqual([game.variant, game.start_fen], ["pawnwars", PAWN_WARS]);
+    }
+    const res = await me.post("/api/games", { humanColor: "w", variant: "pawnwars", startFen: "8/pppppppp/8/8/8/8/PPPPPPPP/8 w - - 0 1" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /Pawn Wars game starts from its own position/);
+  });
+
   test("a variant LorFish doesn't play yet is refused, and an unknown one is standard", async () => {
-    for (const variant of ["atomic", "crazyhouse", "antichess", "pawnwars", "infinite"]) {
+    for (const variant of ["atomic", "crazyhouse", "antichess", "infinite"]) {
       const res = await me.post("/api/games", { humanColor: "w", variant });
       assert.equal(res.status, 400, variant);
       assert.match(res.body.error, /LorFish doesn't play/);

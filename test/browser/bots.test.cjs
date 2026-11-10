@@ -22,7 +22,7 @@ test("a Chess960 game against LorFish, from the lobby to a resumed game", async 
 
   // Only the variants LorFish plays; the levels lose their ratings outside standard.
   const variants = await page.locator("#aiVariantSelect option").evaluateAll((os) => os.map((o) => o.value));
-  assert.deepEqual(variants, ["standard", "chess960"]);
+  assert.deepEqual(variants, ["standard", "chess960", "pawnwars"]);
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual (~1000)");
   await page.locator("#aiVariantSelect").selectOption("chess960");
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual");
@@ -57,3 +57,30 @@ test("a Chess960 game against LorFish, from the lobby to a resumed game", async 
   );
   assert.equal(await page.locator("#aiLevelText").textContent(), "Casual · Chess960");
 });
+
+test("a Pawn Wars game against LorFish starts from its own position, and LorFish answers", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.locator("#aiVariantSelect").selectOption("pawnwars");
+  await page.locator("#aiLevelSelect").selectOption("intermediate");
+  await page.locator("#aiPlayBtn").click();
+  await page.waitForURL(/variant=pawnwars/);
+  await ready(page);
+  const PAWN_WARS = "pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1";
+  assert.equal(await page.evaluate(() => chess.fen()), PAWN_WARS);
+  assert.equal(await page.locator("#aiLevelText").textContent(), "Intermediate · Pawn Wars");
+  const id = await page.evaluate(() => gameStore.currentId());
+  assert.deepEqual(db().prepare("SELECT variant, start_fen FROM games WHERE id = ?").get(id),
+    { variant: "pawnwars", start_fen: PAWN_WARS });
+
+  await page.locator('#board [data-sq="3"]').click();   // d1
+  await page.locator('#board [data-sq="19"]').click();  // d3, a double step
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  assert.equal(await page.evaluate(() => chess.pawnCount("w") + chess.pawnCount("b")), 16);
+  assert.match(await page.locator("#history").textContent(), /\[Variant "Pawn Wars"\]/);
+
+  // How a won game reads: put the last black pawn's capture on the board.
+  await page.evaluate(() => { chess.loadFen("8/8/8/8/8/8/8/P7 b - - 0 1"); render(); });
+  assert.equal(await page.locator("#status").textContent(), "Game Over: 1-0 — White wins: no black pawns left!");
+});
+

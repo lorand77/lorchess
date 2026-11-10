@@ -541,7 +541,11 @@ function render() {
   // Status line
   if (chess.isGameOver()) {
     let s = `Game Over: ${chess.result()}`;
-    if (chess.isAntichess && chess.legalMoves().length === 0) {
+    if (chess.isPawnWars && (chess.pawnCount(W) === 0 || chess.pawnCount(B) === 0)) {
+      // Pawn Wars is won by taking every pawn the other side has.
+      const winner = chess.pawnCount(W) ? 'White' : 'Black';
+      s += chess.pawnCount(W) || chess.pawnCount(B) ? ` — ${winner} wins: no ${winner === 'White' ? 'black' : 'white'} pawns left!` : ' — no pawns left on either side';
+    } else if (chess.isAntichess && chess.legalMoves().length === 0) {
       // Antichess is won by running out: the side to move has won.
       const how = chess.pieceCount(chess.turn) === 0 ? 'no pieces' : 'no moves';
       s += ` — ${chess.turn === W ? 'White' : 'Black'} wins with ${how} left!`;

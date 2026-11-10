@@ -402,3 +402,44 @@ describe("LorFish in the variants", () => {
   });
 });
 
+describe("LorFish plays Pawn Wars", () => {
+  const pawnWars = (fen) => fromFen(fen || "pppppppp/8/8/8/8/8/8/PPPPPPPP w - - 0 1", "pawnwars");
+
+  test("takes a pawn left hanging", () => {
+    assert.equal(LorFish.analyse(pawnWars("p7/8/8/3p4/4P3/8/8/7P w - - 0 1"), 1).san, "exd5");
+  });
+
+  test("never promotes its last pawn, which would lose", () => {
+    const a = LorFish.analyse(pawnWars("8/P7/8/8/8/p7/8/7Q w - - 0 1"), 2);
+    assert.ok(!a.san.startsWith("a8"), a.san);
+    assert.ok(a.score > 0, "and still wins, with the queen it already has");
+  });
+
+  test("promotes when it has pawns to spare: a queen hunts pawns", () => {
+    const a = LorFish.analyse(pawnWars("8/P7/8/3p4/8/8/7P/8 w - - 0 1"), 2);
+    assert.equal(a.san, "a8=Q");
+    assert.ok(a.score > LorFish.MATE - 20, "and sees the win");
+  });
+
+  test("a running pawn is worth more the further it has got", () => {
+    const near = LorFish.evaluate(pawnWars("p7/8/8/8/8/8/8/7P w - - 0 1"));
+    const far = LorFish.evaluate(pawnWars("p7/8/8/8/8/8/7P/8 w - - 0 1"));
+    assert.ok(far > near);
+  });
+
+  test("plays a whole game to a finish, every move legal", (t) => {
+    silence(t);
+    const chess = pawnWars();
+    const rng = seeded(7);
+    let plies = 0;
+    while (!chess.isGameOver() && plies < 400) {
+      const m = LorFish.getBestMove(chess, 1, { temperature: 30, rng });
+      assert.ok(chess.findMove(m.from, m.to, m.promo), `ply ${plies + 1}`);
+      chess.makeMove(m);
+      plies++;
+    }
+    assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
+    assert.ok(["pawns captured", "stalemate", "threefold", "fifty-move"].includes(chess.termination()));
+  });
+});
+

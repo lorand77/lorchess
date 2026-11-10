@@ -228,7 +228,38 @@ const LorFish = {
     return scored.map(x => x.m);
   },
 
+  // Pawn Wars: nothing but pawns at the start, no kings, and the side left
+  // without a pawn has lost. A pawn is material and a life at once: each
+  // counts for its value and its advance (a passed one most, racing to become
+  // a queen, the best pawn-hunter there is), and a side running short of
+  // pawns is in growing danger, since every one taken brings defeat closer.
+  // A promoted piece is worth its usual value; promoting spends a life, and
+  // the search sees promoting the last one lose (endScore).
+  pawnWarsLives: [0, 300, 120, 40],
+  evaluatePawnWars(chess) {
+    let score = 0;
+    const lives = { [W]: 0, [B]: 0 };
+    for (let sq = 0; sq < 64; sq++) {
+      const p = chess.squares[sq];
+      if (!p) continue;
+      let v;
+      if (p.t === 'p') {
+        lives[p.c]++;
+        const adv = p.c === W ? (sq >> 3) : 7 - (sq >> 3);
+        v = this.pieceValues.p + 8 * adv;
+        if (this.isPassedPawn(chess, sq, p.c)) v += this.passedPawnBonus[adv];
+      } else {
+        v = this.pieceValues[p.t];
+      }
+      score += p.c === W ? v : -v;
+    }
+    const danger = (n) => this.pawnWarsLives[n] || 0;
+    score += danger(lives[B]) - danger(lives[W]);
+    return chess.turn === W ? score : -score;
+  },
+
   evaluate(chess) {
+    if (chess.isPawnWars) return this.evaluatePawnWars(chess);
     const lk = this.isLoneKingMate(chess);
     const phase = this.gamePhase(chess);   // 0..24
     const eg = 24 - phase;
