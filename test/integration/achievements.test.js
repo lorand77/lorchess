@@ -367,6 +367,11 @@ describe("aggregate achievements", () => {
     assert.ok(has(keysOf(achievements.onGameFinished(anti), me.id), "antichess_wins"));
     assert.equal(achievements.analyze(db.prepare("SELECT * FROM games WHERE id = ?").get(anti),
       queries.getMovesForGame.all(anti)).trustedStart, true, "Antichess' own start");
+    const atomic = recordGame({
+      white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "intermediate", variant: "atomic",
+      moves: ["g1f3", "f7f6"], result: "1-0", termination: "resign", initialMs: null, rated: 0,
+    });
+    assert.ok(has(keysOf(achievements.onGameFinished(atomic), me.id), "atomic_wins"));
     // A pasted position in a standard AI game — kings off their squares, so
     // not a handicap either — is still the client's word.
     const pasted = recordGame({

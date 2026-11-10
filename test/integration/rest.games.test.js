@@ -6,7 +6,7 @@
 const { describe, test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { startServer, registerUser } = require("../helpers/server");
-const { Chess } = require("../../src/shared/chess");
+const { Chess, STANDARD_START } = require("../../src/shared/chess");
 const { moveOf } = require("../helpers/board");
 const { makeUser, recordGame } = require("../helpers/games");
 
@@ -171,11 +171,21 @@ describe("AI games in a variant", () => {
     assert.deepEqual([game.variant, game.start_fen], ["antichess", ANTICHESS]);
     const res = await me.post("/api/games", { humanColor: "w", variant: "antichess", startFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" });
     assert.equal(res.status, 400);
-    assert.match(res.body.error, /Antichess game starts from its own position/);
+    assert.match(res.body.error, /^An Antichess game starts from its own position/);
+  });
+
+  test("an Atomic game starts from the standard position, and no other", async () => {
+    const created = await newGame({ humanColor: "b", variant: "atomic" });
+    assert.equal(created.variant, "atomic");
+    const game = (await me.get(`/api/games/${created.gameId}`)).body;
+    assert.deepEqual([game.variant, game.start_fen], ["atomic", STANDARD_START]);
+    const res = await me.post("/api/games", { humanColor: "w", variant: "atomic", startFen: "4k3/8/8/8/8/8/8/4K2R w K - 0 1" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /^An Atomic game starts from its own position/);
   });
 
   test("a variant LorFish doesn't play yet is refused, and an unknown one is standard", async () => {
-    for (const variant of ["atomic", "crazyhouse", "infinite"]) {
+    for (const variant of ["crazyhouse", "infinite"]) {
       const res = await me.post("/api/games", { humanColor: "w", variant });
       assert.equal(res.status, 400, variant);
       assert.match(res.body.error, /LorFish doesn't play/);

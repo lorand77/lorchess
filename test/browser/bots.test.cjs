@@ -22,7 +22,7 @@ test("a Chess960 game against LorFish, from the lobby to a resumed game", async 
 
   // Only the variants LorFish plays; the levels lose their ratings outside standard.
   const variants = await page.locator("#aiVariantSelect option").evaluateAll((os) => os.map((o) => o.value));
-  assert.deepEqual(variants, ["standard", "chess960", "pawnwars", "antichess"]);
+  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "antichess"]);
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual (~1000)");
   await page.locator("#aiVariantSelect").selectOption("chess960");
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual");
@@ -113,4 +113,27 @@ test("an Antichess game against LorFish: it must take what it is given", async (
     assert.ok(reply.capture, "a capture on the board must be made");
   }
   assert.match(await page.locator("#history").textContent(), /\[Variant "Antichess"\]/);
+});
+
+test("an Atomic game against LorFish starts from the standard position, and LorFish answers", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.locator("#aiVariantSelect").selectOption("atomic");
+  await page.locator("#aiLevelSelect").selectOption("intermediate");
+  await page.locator("#aiPlayBtn").click();
+  await page.waitForURL(/variant=atomic/);
+  await ready(page);
+  const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  assert.equal(await page.evaluate(() => chess.fen()), START);
+  assert.equal(await page.locator("#aiLevelText").textContent(), "Intermediate · Atomic");
+  const id = await page.evaluate(() => gameStore.currentId());
+  assert.deepEqual(db().prepare("SELECT variant, start_fen FROM games WHERE id = ?").get(id),
+    { variant: "atomic", start_fen: START });
+
+  // 1.Nf3, and LorFish answers on an Atomic board.
+  await page.locator('#board [data-sq="6"]').click();   // g1
+  await page.locator('#board [data-sq="21"]').click();  // f3
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  assert.equal(await page.evaluate(() => chess.isAtomic), true);
+  assert.match(await page.locator("#history").textContent(), /\[Variant "Atomic"\]/);
 });

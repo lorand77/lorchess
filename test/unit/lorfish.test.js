@@ -9,7 +9,7 @@
 
 const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
-const { Chess } = require("../../src/shared/chess");
+const { Chess, B } = require("../../src/shared/chess");
 const { LorFish } = require("../../src/shared/lorfish");
 const positions = require("../fixtures/perft.json");
 const { START_FEN, fromFen, sq, uci, play } = require("../helpers/board");
@@ -476,5 +476,52 @@ describe("LorFish plays Antichess", () => {
     }
     assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
     assert.ok(["all pieces lost", "no moves", "insufficient", "threefold", "fifty-move"].includes(chess.termination()));
+  });
+});
+
+describe("LorFish plays Atomic", () => {
+  const atomic = (fen) => fromFen(fen || START_FEN, "atomic");
+
+  test("a capture is worth what it blows up, less the capturer", () => {
+    // Nxd5 takes a pawn and the queen beside it, and loses the knight and
+    // the bishop on c4 in the same blast.
+    const chess = atomic("8/8/4q3/3p4/2B5/4N3/8/K6k w - - 0 1");
+    const v = LorFish.pieceValues;
+    assert.equal(LorFish.blastGain(chess, chess.findMove(sq("e3"), sq("d5"))), -v.n + v.p + v.q - v.b);
+    // Taking the king is worth a mate, and comes first.
+    const king = atomic("4k3/4p3/8/8/8/8/8/K3R2N w - - 0 1");
+    assert.ok(LorFish.blastGain(king, king.findMove(sq("e1"), sq("e7"))) > LorFish.MATE - 1000);
+  });
+
+  test("counts the pieces beside a king that the enemy can blow up", () => {
+    // A knight on e5 hits f7 and d7, both beside the black king.
+    assert.equal(LorFish.blastThreats(atomic("rnbqkb1r/pppppppp/8/4N3/8/8/PPPPPPPP/RNBQKB1R b KQkq - 0 1"), B), 2);
+    assert.equal(LorFish.blastThreats(atomic(), B), 0);
+    // The queen may take d4 and the king with it — unless the kings touch:
+    // then the blast would take White's king too, and no such capture is legal.
+    assert.equal(LorFish.blastThreats(atomic("8/8/8/3k4/3p3Q/8/8/K7 b - - 0 1"), B), 1);
+    assert.equal(LorFish.blastThreats(atomic("8/8/8/3kK3/3p3Q/8/8/8 b - - 0 1"), B), 0);
+  });
+
+  test("sees a knight's double threat on the king coming", () => {
+    // After 1.d4 a6 2.Nf3, 2...Nf6 allows 3.Ne5, hitting f7 and d7 at once.
+    const chess = atomic("rnbqkbnr/1ppppppp/p7/8/3P4/5N2/PPP1PPPP/RNBQKB1R b KQkq - 1 2");
+    const { evals, best } = LorFish.searchRoot(chess, 2, {});
+    assert.notEqual(best.san, "Nf6");
+    assert.ok(evals.find((e) => e.san === "Nf6").raw < best.raw - 2 * LorFish.ATOMIC_DANGER + 50);
+  });
+
+  test("plays a whole game to a finish, every move legal", (t) => {
+    silence(t);
+    const chess = atomic();
+    const rng = seeded(7);
+    let plies = 0;
+    while (!chess.isGameOver() && plies < 400) {
+      const m = LorFish.getBestMove(chess, 1, { temperature: 30, rng });
+      assert.ok(chess.findMove(m.from, m.to, m.promo), `ply ${plies + 1}`);
+      chess.makeMove(m);
+      plies++;
+    }
+    assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
   });
 });

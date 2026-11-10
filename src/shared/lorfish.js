@@ -217,7 +217,9 @@ const LorFish = {
       let s = 0;
       const victim = m.enpassant ? { t: 'p' } : chess.squares[m.to];
       const attacker = chess.squares[m.from];
-      if (victim && attacker) {
+      // Atomic: a capture costs the capturer, so it ranks by its blast.
+      if (chess.isAtomic && victim) s += this.blastGain(chess, m) * 10;
+      else if (victim && attacker) {
         s += (this.pieceValues[victim.t] || 0) * 10;
         s -= (this.pieceValues[attacker.t] || 0) / 100 | 0;
       }
@@ -226,6 +228,38 @@ const LorFish = {
     }
     scored.sort((a, b) => b.s - a.s);
     return scored.map(x => x.m);
+  },
+
+  // Atomic: what a capture is worth is everything it blows up — the piece
+  // taken and every non-pawn next to it, enemy or not — less the capturer,
+  // which always goes too. Taking the enemy king is worth a mate.
+  blastGain(chess, m) {
+    const mover = chess.squares[m.from];
+    let gain = -this.pieceValues[mover.t] + (m.enpassant ? this.pieceValues.p : 0);
+    for (const sq of chess.explosionSquares(m.to)) {
+      const p = chess.squares[sq];
+      if (!p || sq === m.from || (sq !== m.to && p.t === 'p')) continue;
+      const v = p.t === 'k' ? this.MATE : this.pieceValues[p.t];
+      gain += p.c === mover.c ? -v : v;
+    }
+    return gain;
+  },
+
+  // Atomic: a piece next to its own king that the enemy can take is a bomb
+  // under that king — the blast would take the king too. One can often be
+  // moved or shielded; two at once seldom both. Only the side to move needs
+  // counting: for the other side the capture search finds the blast.
+  ATOMIC_DANGER: 150,
+  blastThreats(chess, c) {
+    const king = chess.findKing(c);
+    if (king === -1 || chess.kingsConnected()) return 0;
+    const enemy = c === W ? B : W;
+    let n = 0;
+    for (const sq of chess.explosionSquares(king)) {
+      const p = chess.squares[sq];
+      if (sq !== king && p && p.c === c && chess.isAttacked(sq, enemy, true)) n++;
+    }
+    return n;
   },
 
   // Pawn Wars: nothing but pawns at the start, no kings, and the side left
@@ -300,6 +334,10 @@ const LorFish = {
       score += p.c === W ? v : -v;
     }
     if (lk) score += this.loneKingMateTerm(chess, lk);
+    if (chess.isAtomic) {
+      const danger = this.ATOMIC_DANGER * this.blastThreats(chess, chess.turn);
+      score += chess.turn === W ? -danger : danger;
+    }
     return chess.turn === W ? score : -score;
   },
 

@@ -39,7 +39,7 @@ const VARIANTS = [
   { key: 'chess960', label: 'Chess960', standardSetup: false, reviewable: true, rateable: true,
     materialBadges: true, moveBadges: true, bot: true, shuffled: true },
   { key: 'atomic', label: 'Atomic', standardSetup: true, reviewable: false, rateable: true,
-    materialBadges: true, moveBadges: true, bot: false },
+    materialBadges: true, moveBadges: true, bot: true },
   // Its own fixed start: pawns only, on the outermost ranks. The same FEN as
   // PAWN_WARS_START in chess.js (a test holds them together); repeated here
   // because this file also loads in the browser without chess.js.

@@ -637,7 +637,7 @@ shows them; New Game and Load FEN keep them, and changing one means going back
 to the lobby.
 
 **LorFish in the variants.** The catalogue's `bot` flag says which variants
-LorFish plays (so far standard chess, Chess960, Pawn Wars and Antichess); the lobby
+LorFish plays (all but Crazyhouse and Infinite Chess so far); the lobby
 offers only those, and `POST /api/games` refuses the rest. A variant starts from its own
 position: standard chess from any position the player pastes, Chess960 from a
 back rank the page draws for each game (`chess960.randomFen`) and the route
@@ -659,7 +659,16 @@ owner. Its capture search has no standing pat while a capture is on the board,
 since that capture is compulsory: every one is searched, ten captures deep at
 most, and only a quiet position is evaluated. Advanced's slowest Antichess
 moves take about a second and a half; self-play games end with a side's last
-piece gone or its moves run out. The levels'
+piece gone or its moves run out. Atomic keeps the standard evaluation and
+adds two things. A capture is ranked by its blast (`blastGain`: the piece
+taken and every non-pawn beside it, either side's, less the capturer), so the
+search tries the best blasts first. And a piece beside the side to move's own
+king that the enemy can take is a bomb under that king (`blastThreats`): each
+one costs 150, so a knight hitting f7 and d7 at once reads as the near-loss
+it is, two plies sooner than the search alone would see it. Kings that touch
+are exempt, as the rules make them. The capture search finds the other
+side's blasts by itself. Advanced searches Atomic at the same depth as
+standard chess and takes about as long. The levels'
 ratings were measured against Stockfish in standard chess, which plays no
 variant but Chess960 and wasn't measured there, so everywhere but standard
 chess a level goes by its name alone ("Casual", not "Casual (~1000)":

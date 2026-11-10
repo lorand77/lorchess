@@ -34,6 +34,8 @@ const VALID_TERMINATIONS = new Set([
 ]);
 
 const turnOf = (fen) => (String(fen).split(/\s+/)[1] === "b" ? "b" : "w");
+// "A Chess960 game", "An Atomic game".
+const aGame = (variant) => `${/^[AEIOU]/.test(variantLabel(variant)) ? "An" : "A"} ${variantLabel(variant)} game`;
 
 router.use(requireAuth);
 
@@ -79,13 +81,13 @@ router.post("/", (req, res) => {
   if (variant === "standard") fen = given || STANDARD_START;
   else if (opening === "shuffled") {
     if (!chess960.isStartFen(given)) {
-      return res.status(400).json({ error: `A ${variantLabel(variant)} game starts from a Chess960 position.` });
+      return res.status(400).json({ error: `${aGame(variant)} starts from a Chess960 position.` });
     }
     fen = given;
   } else {
     fen = opening || STANDARD_START;
     if (given && given !== fen) {
-      return res.status(400).json({ error: `A ${variantLabel(variant)} game starts from its own position.` });
+      return res.status(400).json({ error: `${aGame(variant)} starts from its own position.` });
     }
   }
   // The client's own board has already loaded this FEN, but the record must
