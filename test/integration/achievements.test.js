@@ -372,6 +372,14 @@ describe("aggregate achievements", () => {
       moves: ["g1f3", "f7f6"], result: "1-0", termination: "resign", initialMs: null, rated: 0,
     });
     assert.ok(has(keysOf(achievements.onGameFinished(atomic), me.id), "atomic_wins"));
+    // A drop in an AI game replays like any other move.
+    const zh = recordGame({
+      white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "advanced", variant: "crazyhouse",
+      moves: ["e2e4", "d7d5", "e4d5", "d8d5", "P@e4"], result: "1-0", termination: "resign", initialMs: null, rated: 0,
+    });
+    assert.ok(has(keysOf(achievements.onGameFinished(zh), me.id), "crazyhouse_wins"));
+    assert.equal(achievements.analyze(db.prepare("SELECT * FROM games WHERE id = ?").get(zh),
+      queries.getMovesForGame.all(zh)).trustedStart, true, "the standard setup");
     // A pasted position in a standard AI game — kings off their squares, so
     // not a handicap either — is still the client's word.
     const pasted = recordGame({

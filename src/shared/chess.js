@@ -682,6 +682,30 @@ class Chess {
     return captures.length ? captures : moves;
   }
 
+  // The legal captures alone, for a search that looks at nothing else: the
+  // test legalMoves runs, on just the moves that take something. In
+  // Crazyhouse that spares generating every drop only to throw it away. The
+  // variants that change what a capture does, or when one is allowed, get
+  // legalMoves' own list, filtered.
+  legalCaptures() {
+    const c = this.turn;
+    if (this.isAtomic || this.isAntichess || this.isPawnWars) {
+      return this.legalMoves(c).filter((m) => m.capture || m.enpassant);
+    }
+    const out = [];
+    for (let sq = 0; sq < 64; sq++) {
+      const p = this.squares[sq];
+      if (!p || p.c !== c) continue;
+      for (const m of this.pseudoMovesFrom(sq, c)) {
+        if (!m.capture && !m.enpassant) continue;
+        this.makeMove(m, false);
+        if (!this.isAttacked(this.findKing(c), opp(c))) out.push(m);
+        this.undoMove();
+      }
+    }
+    return out;
+  }
+
   // Crazyhouse: every piece in `c`'s pocket onto every empty square, except a
   // pawn onto the first or last rank. A drop may give check, even mate. It can
   // never expose the dropper's own king, so out of check every drop is legal;

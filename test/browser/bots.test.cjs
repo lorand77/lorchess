@@ -22,7 +22,7 @@ test("a Chess960 game against LorFish, from the lobby to a resumed game", async 
 
   // Only the variants LorFish plays; the levels lose their ratings outside standard.
   const variants = await page.locator("#aiVariantSelect option").evaluateAll((os) => os.map((o) => o.value));
-  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "antichess"]);
+  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "crazyhouse", "antichess"]);
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual (~1000)");
   await page.locator("#aiVariantSelect").selectOption("chess960");
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual");
@@ -136,4 +136,32 @@ test("an Atomic game against LorFish starts from the standard position, and LorF
   await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
   assert.equal(await page.evaluate(() => chess.isAtomic), true);
   assert.match(await page.locator("#history").textContent(), /\[Variant "Atomic"\]/);
+});
+
+test("a Crazyhouse game against LorFish, and the worker drops a piece to mate", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.locator("#aiVariantSelect").selectOption("crazyhouse");
+  await page.locator("#aiLevelSelect").selectOption("casual");
+  await page.locator("#aiPlayBtn").click();
+  await page.waitForURL(/variant=crazyhouse/);
+  await ready(page);
+  assert.equal(await page.evaluate(() => chess.fen()), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[] w KQkq - 0 1");
+  assert.equal(await page.locator("#aiLevelText").textContent(), "Casual · Crazyhouse");
+  const id = await page.evaluate(() => gameStore.currentId());
+  assert.equal(db().prepare("SELECT variant FROM games WHERE id = ?").get(id).variant, "crazyhouse");
+
+  await page.locator('#board [data-sq="12"]').click();  // e2
+  await page.locator('#board [data-sq="28"]').click();  // e4
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  assert.match(await page.locator("#history").textContent(), /\[Variant "Crazyhouse"\]/);
+
+  // The worker itself, asked for Black's move with a knight in hand beside a
+  // boxed-in king: N@f2 mates, and comes back as a drop.
+  const move = await page.evaluate(() => new Promise((resolve) => {
+    const w = new Worker("/js/engineWorker.js");
+    w.onmessage = (e) => { w.terminate(); resolve(e.data.move); };
+    w.postMessage({ id: 1, variant: "crazyhouse", startFen: "4k3/8/8/8/8/8/6PP/6RK[n] b - - 0 1", moves: [], depth: 1, temperature: 0 });
+  }));
+  assert.deepEqual(move, { from: null, to: 13, promo: null, drop: "n" });
 });

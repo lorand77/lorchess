@@ -45,6 +45,21 @@ breaks down the mistakes each one makes (`profile`), and rates the levels
 (`tournament`, then `fit`). The settings were chosen with small `match` runs;
 the ratings come from one larger run.
 
+Two things make the search faster without changing a move it plays, so the
+ratings still stand. With no temperature, only a root move within the
+tiebreak jitter's reach of the best so far (±10) can be picked, so only those
+get an exact score. Every other move is searched in a window it quickly fails
+low out of, and its score is then only an upper bound (`prune`, which
+`getBestMove` turns on and `analyse` and the rating tools leave off). Killer
+moves (`addKiller`) try the quiet move that last cut the search off at a ply
+right after the captures. That reorders the search, never changes a score
+that counts. Self-play checks against the full search found the same move at
+every ply, depth 4 included. Advanced's median move in standard chess fell from
+about 7 s to 3 s and its slowest from 51 s to 22 s (one game, Node). The
+random tiebreak draws can come out in a different order after the search finds
+a mate, so a seeded game run with and without `prune` can diverge after that
+point. The move chosen from any one position never does.
+
 Every rated game is a LorFish level against the vendored Stockfish, never two
 LorFish settings or two Stockfish settings: players that share one evaluation
 exaggerate the gaps between them (self-play, taking depth 2 as 1400, first
@@ -637,7 +652,7 @@ shows them; New Game and Load FEN keep them, and changing one means going back
 to the lobby.
 
 **LorFish in the variants.** The catalogue's `bot` flag says which variants
-LorFish plays (all but Crazyhouse and Infinite Chess so far); the lobby
+LorFish plays (all but Infinite Chess so far); the lobby
 offers only those, and `POST /api/games` refuses the rest. A variant starts from its own
 position: standard chess from any position the player pastes, Chess960 from a
 back rank the page draws for each game (`chess960.randomFen`) and the route
@@ -668,7 +683,21 @@ one costs 150, so a knight hitting f7 and d7 at once reads as the near-loss
 it is, two plies sooner than the search alone would see it. Kings that touch
 are exempt, as the rules make them. The capture search finds the other
 side's blasts by itself. Advanced searches Atomic at the same depth as
-standard chess and takes about as long. The levels'
+standard chess and takes about as long. In Crazyhouse a piece in hand is
+material like one on the board and still counts towards the game's phase, so
+captured pieces never trigger the endgame depth bonus. King safety matters
+most: each square beside a king that the enemy attacks is a way in
+(`kingZoneDanger`), an empty one doubly since a piece can be dropped there,
+and it counts for more the more the enemy holds in hand. With it, LorFish won
+all six self-play games against itself without it. A position offers a
+hundred-odd drops, so below the root a drop is searched only within two
+squares of the enemy king or beside the dropper's own, every one when in
+check (`searchableDrops`). The capture search generates captures alone
+(`Chess.legalCaptures`), stops eight captures deep, and skips a bigger piece
+taking a smaller one on a defended square, since there a captured piece only
+changes hands and the recaptures never end. Advanced's median Crazyhouse move
+is about 2 s (slowest 17 s). Each level beat the one below it in every
+self-play game tried. The levels'
 ratings were measured against Stockfish in standard chess, which plays no
 variant but Chess960 and wasn't measured there, so everywhere but standard
 chess a level goes by its name alone ("Casual", not "Casual (~1000)":

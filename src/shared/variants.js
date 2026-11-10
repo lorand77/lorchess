@@ -49,7 +49,7 @@ const VARIANTS = [
   // from the standard setup, but takes no handicap until odds have been tried
   // with pockets, so standardSetup is false. Casual while it is new.
   { key: 'crazyhouse', label: 'Crazyhouse', standardSetup: false, reviewable: false, rateable: false,
-    materialBadges: false, moveBadges: true, bot: false },
+    materialBadges: false, moveBadges: true, bot: true },
   // The aim is to lose every piece, captures are compulsory and there is no
   // castling: the ordinary setup without castling rights, ANTICHESS_START in
   // chess.js (a test holds them together). Casual while it is new.

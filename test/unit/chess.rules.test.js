@@ -1,12 +1,14 @@
 "use strict";
 
-// Game-end detection, castling and en passant rules, and undo in
-// src/shared/chess.js. Move generation itself is covered by the perft tests.
+// Game-end detection, castling and en passant rules, undo, and the captures-only
+// move list in src/shared/chess.js. Move generation itself is covered by the
+// perft tests.
 
 const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Chess } = require("../../src/shared/chess");
 const { START_FEN, fromFen, sq, uci, moveOf, play } = require("../helpers/board");
+const positions = require("../fixtures/perft.json");
 
 // Knights out and back: the start position recurs after every four plies.
 const SHUFFLE = ["g1f3", "g8f6", "f3g1", "f6g8"];
@@ -310,5 +312,28 @@ describe("undo", () => {
     const chess = new Chess();
     chess.undoMove();
     assert.equal(chess.fen(), START_FEN);
+  });
+});
+
+describe("legalCaptures", () => {
+  const key = (m) => `${m.from}-${m.to}-${m.promo || ""}`;
+  const same = (chess, label) => assert.deepEqual(
+    chess.legalCaptures().map(key).sort(),
+    chess.legalMoves().filter((m) => m.capture || m.enpassant).map(key).sort(),
+    label
+  );
+
+  test("is exactly legalMoves' captures, en passant and promotions included", () => {
+    for (const pos of positions) same(fromFen(pos.fen), pos.name);
+    // Pinned pieces may not capture, and in check only a capture that answers it.
+    same(fromFen("4k3/8/8/1b6/8/3R4/4R3/r3K3 w - - 0 1"), "in check");
+    same(fromFen("4r1k1/8/8/8/8/8/4N3/4K2q w - - 0 1"), "pinned knight, in check");
+  });
+
+  test("in Crazyhouse it holds no drop, and in the other variants their own captures", () => {
+    same(fromFen("r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/8/PPP2PPP/RNBQKBNR[QNp] w KQkq - 0 1", "crazyhouse"), "crazyhouse");
+    same(fromFen("4k3/4p3/8/8/8/8/8/K3R3 w - - 0 1", "atomic"), "atomic");
+    same(fromFen("rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w - - 0 1", "antichess"), "antichess");
+    same(fromFen("8/8/8/3p4/4P3/8/8/8 w - - 0 1", "pawnwars"), "pawn wars");
   });
 });

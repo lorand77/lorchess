@@ -120,15 +120,17 @@ const LorFish = {
   },
 
   // Sum of non-pawn piece weights across both sides.
-  // 24 at the starting position; 0 in a pure pawn endgame.
+  // 24 at the starting position; 0 in a pure pawn endgame. A Crazyhouse
+  // pocket counts: a captured piece is still in play, a drop away.
+  PHASE_WEIGHTS: { n: 1, b: 1, r: 2, q: 4 },
   gamePhase(chess) {
     let phase = 0;
     for (let i = 0; i < 64; i++) {
       const p = chess.squares[i];
-      if (!p) continue;
-      if (p.t === 'n' || p.t === 'b') phase += 1;
-      else if (p.t === 'r')           phase += 2;
-      else if (p.t === 'q')           phase += 4;
+      if (p) phase += this.PHASE_WEIGHTS[p.t] || 0;
+    }
+    if (chess.pockets) {
+      for (const c of [W, B]) for (const t in chess.pockets[c]) phase += (this.PHASE_WEIGHTS[t] || 0) * chess.pockets[c][t];
     }
     return phase;
   },
@@ -209,12 +211,29 @@ const LorFish = {
     return baseDepth;
   },
 
-  orderMoves(chess, moves) {
+  // Killer moves: the quiet moves that last cut the search off at each ply,
+  // two per ply, tried right after the captures. A move that refuted one
+  // line often refutes its siblings, so cutoffs come sooner. Ordering never
+  // changes a score that counts, only how soon it is found.
+  KILLER_BONUS: 950,   // after any capture of a pawn or more (MVV-LVA >= 991)
+  moveKey(m) {
+    return m.drop ? m.drop + '@' + m.to : m.from * 64 + m.to + (m.promo || '');
+  },
+  addKiller(ply, m) {
+    const k = this.moveKey(m), slot = this.killers[ply] || (this.killers[ply] = []);
+    if (slot[0] !== k) { slot[1] = slot[0]; slot[0] = k; }
+  },
+
+  orderMoves(chess, moves, killers) {
     // MVV-LVA + promotion bonus. Skipping gives_check bonus for performance.
     const scored = new Array(moves.length);
     for (let i = 0; i < moves.length; i++) {
       const m = moves[i];
       let s = 0;
+      if (killers && !m.capture && !m.enpassant) {
+        const k = this.moveKey(m);
+        if (k === killers[0] || k === killers[1]) s += this.KILLER_BONUS;
+      }
       const victim = m.enpassant ? { t: 'p' } : chess.squares[m.to];
       const attacker = chess.squares[m.from];
       // Atomic: a capture costs the capturer, so it ranks by its blast.
@@ -260,6 +279,37 @@ const LorFish = {
       if (sq !== king && p && p.c === c && chess.isAttacked(sq, enemy, true)) n++;
     }
     return n;
+  },
+
+  // Crazyhouse: a king is as safe as the squares around it. Each one the
+  // enemy attacks is a way in — an empty one doubly, as a piece can be
+  // dropped there with support — and each counts for more the more the enemy
+  // holds in hand. White-positive danger to `c`'s king.
+  KING_ZONE_BASE: 10,
+  kingZoneDanger(chess, c) {
+    const king = chess.findKing(c);
+    if (king === -1) return 0;
+    const enemy = c === W ? B : W;
+    let hand = 0;
+    for (const t in chess.pockets[enemy]) hand += this.pieceValues[t] * chess.pockets[enemy][t];
+    let doors = 0;
+    for (const sq of chess.explosionSquares(king)) {
+      if (sq !== king && chess.isAttacked(sq, enemy)) doors += chess.squares[sq] ? 1 : 2;
+    }
+    return doors * (this.KING_ZONE_BASE + hand / 25);
+  },
+
+  CRAZYHOUSE_QDEPTH: 8,
+
+  // Crazyhouse: below the root, a drop is searched only where it can hurt a
+  // king — within two squares of the enemy's, or beside the dropper's own to
+  // shield it. The rest (most of a hundred-odd) are left to the root, which
+  // searches every move. Out of check every drop is a block, and all stay.
+  searchableDrops(chess, moves) {
+    if (chess.inCheck()) return moves;
+    const mine = chess.findKing(chess.turn), theirs = chess.findKing(chess.turn === W ? B : W);
+    const dist = (a, b) => Math.max(Math.abs((a & 7) - (b & 7)), Math.abs((a >> 3) - (b >> 3)));
+    return moves.filter(m => !m.drop || dist(m.to, theirs) <= 2 || dist(m.to, mine) <= 1);
   },
 
   // Pawn Wars: nothing but pawns at the start, no kings, and the side left
@@ -334,6 +384,14 @@ const LorFish = {
       score += p.c === W ? v : -v;
     }
     if (lk) score += this.loneKingMateTerm(chess, lk);
+    // Crazyhouse: a piece in hand is material like any other, and a king
+    // with ways in around it is in danger.
+    if (chess.pockets) {
+      for (const t in chess.pockets[W]) {
+        score += this.pieceValues[t] * (chess.pockets[W][t] - chess.pockets[B][t]);
+      }
+      score += Math.round(this.kingZoneDanger(chess, B) - this.kingZoneDanger(chess, W));
+    }
     if (chess.isAtomic) {
       const danger = this.ATOMIC_DANGER * this.blastThreats(chess, chess.turn);
       score += chess.turn === W ? -danger : danger;
@@ -374,8 +432,13 @@ const LorFish = {
     if (qdepth > this.maxQ) this.maxQ = qdepth;
 
     if ((chess.positionCounts.get(chess.positionKey()) || 0) >= 2) return 0;
-    const moves = chess.legalMoves();
-    if (moves.length === 0) return this.endScore(chess);
+    // Crazyhouse offers a hundred-odd drops in most positions, none of them a
+    // capture. Out of check only captures are searched here, so only they
+    // are generated; a side out of check with a drop in hand always has a
+    // move, so no mate or stalemate goes unseen that way.
+    const capturesOnly = chess.isCrazyhouse && !chess.inCheck();
+    const moves = capturesOnly ? null : chess.legalMoves();
+    if (moves && moves.length === 0) return this.endScore(chess);
     if (chess.isInsufficientMaterial()) return 0;
 
     // Antichess: a capture on the board must be made, so there is no standing
@@ -399,7 +462,21 @@ const LorFish = {
     if (standPat >= beta) return beta;
     if (standPat > alpha) alpha = standPat;
 
-    const captures = this.orderMoves(chess, moves.filter(m => m.capture || m.enpassant));
+    let captures = this.orderMoves(chess, capturesOnly
+      ? chess.legalCaptures()
+      : moves.filter(m => m.capture || m.enpassant));
+    // Crazyhouse: no capture ever takes a piece out of the game, it only
+    // changes hands, so recaptures run on and on. Chains stop at a depth, and
+    // a capture that plainly loses — a bigger piece taking a smaller one on a
+    // defended square — is not followed at all.
+    if (chess.isCrazyhouse) {
+      if (qdepth >= this.CRAZYHOUSE_QDEPTH) return alpha;
+      const enemy = chess.turn === W ? B : W;
+      captures = captures.filter(m => {
+        const victim = m.enpassant ? 'p' : chess.squares[m.to].t;
+        return this.pieceValues[chess.squares[m.from].t] <= this.pieceValues[victim] || !chess.isAttacked(m.to, enemy);
+      });
+    }
     for (const m of captures) {
       chess.makeMove(m);
       const score = -this.quiescence(chess, -beta, -alpha, qdepth + 1);
@@ -427,7 +504,9 @@ const LorFish = {
       else return this.quiescence(chess, alpha, beta, 0);
     }
 
-    const ordered = this.orderMoves(chess, moves);
+    const ply = chess.history.length - this.rootPly;
+    const ordered = this.orderMoves(chess, chess.isCrazyhouse ? this.searchableDrops(chess, moves) : moves,
+      this.killers[ply]);
     let best = -Infinity;
     for (const m of ordered) {
       chess.makeMove(m);
@@ -435,7 +514,10 @@ const LorFish = {
       chess.undoMove();
       if (v > best) best = v;
       if (best > alpha) alpha = best;
-      if (alpha >= beta) break;
+      if (alpha >= beta) {
+        if (!m.capture && !m.enpassant) this.addKiller(ply, m);
+        break;
+      }
     }
     return best;
   },
@@ -447,13 +529,25 @@ const LorFish = {
   // always yields the same verdict. `temperature` (centipawns) replaces the
   // jitter with sample() below, for the weaker levels. `rng` stands in for
   // Math.random so tests and calibration runs can be replayed.
+  //
+  // `prune` (play without a temperature) gives up the exact scores, not the
+  // choice. Only a move that can still come out on top — within the jitter's
+  // reach of the best score so far — needs its exact score; any other is
+  // searched in a window it fails low out of quickly, and its `raw` is then
+  // only a bound above its score. It could never have been picked, so the
+  // move played is the same, found much sooner, most of all where moves are
+  // many (Crazyhouse's drops).
   searchRoot(chess, depth, opts) {
     const o = opts || {};
     const rng = o.rng || Math.random;
     const hot = o.temperature > 0;
     const noise = !!o.noise && !hot;
+    const prune = !!o.prune && !hot;
+    const reach = noise ? 20 : 0;   // the jitter is -10..+10
+    let top = -Infinity;
     this.nodes = 0;
     this.rootPly = chess.history.length;
+    this.killers = [];
     this.maxQ = 0;
     const effDepth = this.adaptiveDepth(chess, this.clampDepth(depth));
     const moves = this.orderMoves(chess, chess.legalMoves());
@@ -463,8 +557,10 @@ const LorFish = {
       // SAN must be built BEFORE makeMove (needs pre-move state).
       const san = chess.moveToSan(m);
       chess.makeMove(m);
-      const raw = -this.negamax(chess, effDepth - 1, -Infinity, Infinity);
+      const floor = prune ? top - reach - 1 : -Infinity;
+      const raw = -this.negamax(chess, effDepth - 1, -Infinity, -floor);
       chess.undoMove();
+      if (raw > top) top = raw;
       // Skip the jitter on mate scores so the fastest mate is always chosen.
       const jitter = (noise && raw < 99000) ? Math.floor(rng() * 21) - 10 : 0;
       const v = raw + jitter;
@@ -495,7 +591,7 @@ const LorFish = {
 
   getBestMove(chess, depth, opts) {
     const t0 = performance.now();
-    const { evals, best, effDepth } = this.searchRoot(chess, depth, Object.assign({ noise: true }, opts));
+    const { evals, best, effDepth } = this.searchRoot(chess, depth, Object.assign({ noise: true, prune: true }, opts));
     const dt = ((performance.now() - t0) / 1000).toFixed(3);
     const sorted = evals.slice().sort((a, b) => b.v - a.v);
     const side = chess.turn === W ? 'White' : 'Black';

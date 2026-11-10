@@ -525,3 +525,100 @@ describe("LorFish plays Atomic", () => {
     assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
   });
 });
+
+describe("LorFish's pruned root and killer moves", () => {
+  // Both only change how soon a score is found, never the move played: the
+  // pruned root gives up exact scores for moves that could not be picked, and
+  // killers only reorder. Checked against the plain full-window search.
+  const POSITIONS = [
+    [START_FEN],
+    ...[positions[2], positions[3]].map((p) => [p.fen]),
+    ["r1b1kbnr/ppp2ppp/2n5/q7/3P4/2N2N2/PPP2PPP/R1BQKB1R[NPnp] w KQkq - 0 6", "crazyhouse"],
+    ["rnbqkbnr/1ppppppp/p7/8/3P4/5N2/PPP1PPPP/RNBQKB1R b KQkq - 1 2", "atomic"],
+    ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1", "antichess"],
+  ];
+
+  test("the move played is the one the full search plays", (t) => {
+    t.mock.property(LorFish, "KILLER_BONUS", 0);
+    const plain = POSITIONS.map(([fen, variant], i) =>
+      LorFish.searchRoot(fromFen(fen, variant), 2, { noise: true, rng: seeded(i) }).best);
+    t.mock.restoreAll();
+    POSITIONS.forEach(([fen, variant], i) => {
+      const fast = LorFish.searchRoot(fromFen(fen, variant), 2, { noise: true, prune: true, rng: seeded(i) }).best;
+      assert.deepEqual([fast.san, fast.raw], [plain[i].san, plain[i].raw], fen);
+    });
+  });
+
+  test("searches fewer positions to find it", () => {
+    const chess = new Chess();
+    LorFish.searchRoot(chess, 3, {});
+    const full = LorFish.nodes;
+    LorFish.searchRoot(chess, 3, { prune: true });
+    assert.ok(LorFish.nodes < full / 2, `${LorFish.nodes} of ${full}`);
+  });
+
+  test("a killer is tried after the captures, ahead of the other quiet moves", () => {
+    const chess = fromFen("4k3/8/8/3p4/4P3/8/8/R3K3 w - - 0 1");
+    const killer = chess.findMove(sq("a1"), sq("a7"));
+    const ordered = LorFish.orderMoves(chess, chess.legalMoves(), [LorFish.moveKey(killer)]);
+    assert.deepEqual(ordered.slice(0, 2).map((m) => chess.moveToSan(m)), ["exd5", "Ra7"]);
+  });
+});
+
+describe("LorFish plays Crazyhouse", () => {
+  const zh = (fen) => fromFen(fen || START_FEN, "crazyhouse");
+
+  test("a piece in hand is material, and still counts towards the game's phase", () => {
+    assert.equal(LorFish.evaluate(zh("k7/8/8/8/8/8/8/7K[N] w - - 0 1")) - LorFish.evaluate(zh("k7/8/8/8/8/8/8/7K[] w - - 0 1")),
+      LorFish.pieceValues.n);
+    assert.equal(LorFish.gamePhase(zh("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R[N] w KQkq - 0 1")), 24);
+  });
+
+  test("a square the enemy attacks beside the king is a way in, worth more the more they hold", () => {
+    // The h5 queen hits f7 beside the black king.
+    const fen = (hand) => `rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR[${hand}] b KQkq - 0 2`;
+    const none = LorFish.kingZoneDanger(zh(fen("")), B);
+    assert.ok(none > 0);
+    assert.ok(LorFish.kingZoneDanger(zh(fen("N")), B) > none, "a knight in White's hand");
+    assert.equal(LorFish.kingZoneDanger(zh(fen("n")), B), none, "one in Black's own changes nothing");
+  });
+
+  test("follows capture chains only so deep: pieces only change hands", () => {
+    // A position from self-play where they ran past twenty captures.
+    const chess = zh("r1qqkbr1/2pbn1p1/p2p3p/1p1Npp2/2PPP3/P3B1P1/1PKNNP1q~/2R2BR1[] w q - 2 24");
+    LorFish.searchRoot(chess, 1, {});
+    assert.ok(LorFish.maxQ <= LorFish.CRAZYHOUSE_QDEPTH, String(LorFish.maxQ));
+  });
+
+  test("drops a knight to mate", () => {
+    const a = LorFish.analyse(zh("6rk/6pp/8/8/8/8/8/4K3[N] w - - 0 1"), 1);
+    assert.equal(a.san, "N@f7#");
+    assert.ok(a.score > LorFish.MATE - 10);
+  });
+
+  test("below the root, searches only the drops near a king; in check, every one", () => {
+    const quiet = zh("4k3/8/8/8/8/8/8/4K3[N] w - - 0 1");
+    const kept = LorFish.searchableDrops(quiet, quiet.legalMoves());
+    assert.ok(kept.some((m) => m.drop && m.to === sq("e6")), "two squares from the black king");
+    assert.ok(kept.some((m) => m.drop && m.to === sq("d2")), "beside the white king");
+    assert.ok(!kept.some((m) => m.drop && m.to === sq("a4")), "nowhere near either");
+    assert.ok(kept.some((m) => !m.drop && m.to === sq("d1")), "king moves all stay");
+    const checked = zh("4k3/8/8/8/8/8/8/r3K3[N] w - - 0 1");
+    assert.equal(LorFish.searchableDrops(checked, checked.legalMoves()).length, checked.legalMoves().length);
+  });
+
+  test("plays a whole game to a finish, every move legal", (t) => {
+    silence(t);
+    const chess = zh();
+    const rng = seeded(3);
+    let plies = 0;
+    while (!chess.isGameOver() && plies < 400) {
+      const m = LorFish.getBestMove(chess, 1, { temperature: 30, rng });
+      const legal = m.drop ? chess.findDrop(m.drop, m.to) : chess.findMove(m.from, m.to, m.promo);
+      assert.ok(legal, `ply ${plies + 1}`);
+      chess.makeMove(m);
+      plies++;
+    }
+    assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
+  });
+});

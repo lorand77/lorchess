@@ -184,12 +184,19 @@ describe("AI games in a variant", () => {
     assert.match(res.body.error, /^An Atomic game starts from its own position/);
   });
 
+  test("a Crazyhouse game starts from the standard setup, pockets empty", async () => {
+    const created = await newGame({ humanColor: "w", variant: "crazyhouse" });
+    const game = (await me.get(`/api/games/${created.gameId}`)).body;
+    assert.deepEqual([game.variant, game.start_fen], ["crazyhouse", STANDARD_START]);
+    const res = await me.post("/api/games", { humanColor: "w", variant: "crazyhouse", startFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[Q] w KQkq - 0 1" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /^A Crazyhouse game starts from its own position/);
+  });
+
   test("a variant LorFish doesn't play yet is refused, and an unknown one is standard", async () => {
-    for (const variant of ["crazyhouse", "infinite"]) {
-      const res = await me.post("/api/games", { humanColor: "w", variant });
-      assert.equal(res.status, 400, variant);
-      assert.match(res.body.error, /LorFish doesn't play/);
-    }
+    const res = await me.post("/api/games", { humanColor: "w", variant: "infinite" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /LorFish doesn't play Infinite Chess yet/);
     const created = await newGame({ humanColor: "w", variant: "nope" });
     assert.equal(created.variant, "standard");
   });
