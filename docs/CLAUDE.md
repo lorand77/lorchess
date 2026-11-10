@@ -33,6 +33,8 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
 - `public/js/vendor/stockfish/` — vendored Stockfish 19 (WebAssembly), used by
   game review and the analysis board. Third-party files: replace them, never edit them.
 - `public/*.html` pages with their scripts in `public/js/`; `ui.js` is the game page.
+  It draws the board only through a board view: `gridBoardView.js` (8x8) or
+  `infiniteBoardView.js` (infinite chess, a window onto a board with no edges).
 - `test/unit`, `test/integration` — `node --test`. `test/browser/*.test.cjs` —
   optional Chromium tests through an existing `playwright-core`, not part of
   `npm test`; how to run them is in `test/browser/README.md`.

@@ -7,10 +7,11 @@ repo are in `docs/CLAUDE.md`.
 
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
-standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse or Antichess. Around
-the games: puzzles, an analysis board, achievements, friends, a leaderboard,
-spectating, in-game chat and a promo-code membership. Node.js + SQLite on the
-server, vanilla JS in the browser, no build step.
+standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess or
+infinite chess, on a board with no edges. Around the games: puzzles, an
+analysis board, achievements, friends, a leaderboard, spectating, in-game chat
+and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
+browser, no build step.
 
 ## Tech stack
 
@@ -28,9 +29,11 @@ server, vanilla JS in the browser, no build step.
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
 squares, and the Atomic, Pawn Wars, Crazyhouse and Antichess rule sets.
-`src/shared/lorfish.js` is **LorFish**, a synchronous search engine ported from
-a sunfish-derived Python original; its five levels are labelled from about 200
-to 1800 (see below). It depends tightly on `chess.js`.
+Infinite chess, whose board has no edges, has an engine of its own,
+`src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
+its variant needs. `src/shared/lorfish.js` is **LorFish**, a synchronous search
+engine ported from a sunfish-derived Python original; its five levels are
+labelled from about 200 to 1800 (see below). It depends tightly on `chess.js`.
 
 Weaker play comes from choosing, not from a broken search. The root already
 scores every move exactly, so a `temperature` option picks among them at random,
@@ -235,10 +238,11 @@ written from these rules.
   mates.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
-`timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, and `uci.js`,
-which reads and writes stored moves) live **only** in `src/shared/` and load
-three ways: as a browser `<script>` global, via `importScripts` in the engine
-Web Worker, and as a Node `require`. The UMD tail
+`timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,
+which reads and writes stored moves, and `infiniteChess.js` and `engines.js`)
+live **only** in `src/shared/` and load three ways: as a browser `<script>`
+global, via `importScripts` in the engine Web Worker, and as a Node `require`.
+The UMD tail
 (`if (typeof module !== 'undefined' && module.exports) module.exports = {...}`)
 makes one file serve all three; Express mounts `src/shared/` at `/js/` ahead of
 `public/`, so `/js/chess.js` resolves there while `/js/ui.js` falls through.
@@ -701,7 +705,8 @@ in the member's browser, so reviews cost the server nothing.
   short games against it in a child process.
 
 Only Standard and Chess960 are reviewable (`reviewable` in `variants.js`);
-Stockfish does not know the Atomic, Pawn Wars, Crazyhouse or Antichess rules.
+Stockfish does not know the Atomic, Pawn Wars, Crazyhouse, Antichess or
+infinite-chess rules.
 
 ## Analysis board
 
@@ -730,8 +735,8 @@ above it and the score formatting are the replay's.
   does not keep a core busy. Finished positions are scored without asking
   Stockfish, as in the review.
 - Standard rules only. A Chess960 FEN loads; Atomic, Pawn Wars, Crazyhouse and
-  Antichess positions would get standard-chess answers, so there is no variant
-  picker.
+  Antichess positions would get standard-chess answers, and an infinite-chess
+  position doesn't load at all, so there is no variant picker.
 - **A Practice tab** (`#practice`, beside `#analysis`) is the same board with
   the engine off and the bar hidden: both sides are played by hand, the board
   turns to face the side to move, and Undo takes the last move back rather
