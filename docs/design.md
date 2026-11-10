@@ -637,7 +637,7 @@ shows them; New Game and Load FEN keep them, and changing one means going back
 to the lobby.
 
 **LorFish in the variants.** The catalogue's `bot` flag says which variants
-LorFish plays (so far standard chess, Chess960 and Pawn Wars); the lobby
+LorFish plays (so far standard chess, Chess960, Pawn Wars and Antichess); the lobby
 offers only those, and `POST /api/games` refuses the rest. A variant starts from its own
 position: standard chess from any position the player pastes, Chess960 from a
 back rank the page draws for each game (`chess960.randomFen`) and the route
@@ -653,7 +653,13 @@ worth its usual value, and the search sees promoting the last pawn lose. With
 no pieces on the board the search always takes the endgame depth bonus; even
 so, Advanced answers the opening position in under two seconds, and LorFish
 playing itself finishes games by capturing the last pawn rather than
-shuffling to a draw. The levels'
+shuffling to a draw. Antichess has one too (`evaluateAntichess`): every
+piece still on the board, a queen no more than a pawn, counts against its
+owner. Its capture search has no standing pat while a capture is on the board,
+since that capture is compulsory: every one is searched, ten captures deep at
+most, and only a quiet position is evaluated. Advanced's slowest Antichess
+moves take about a second and a half; self-play games end with a side's last
+piece gone or its moves run out. The levels'
 ratings were measured against Stockfish in standard chess, which plays no
 variant but Chess960 and wasn't measured there, so everywhere but standard
 chess a level goes by its name alone ("Casual", not "Casual (~1000)":

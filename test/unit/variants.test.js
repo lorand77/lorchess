@@ -114,8 +114,8 @@ describe("variant catalogue", () => {
     assert.equal(hasMaterialBadges("nope"), true, "unknown means standard");
   });
 
-  test("LorFish plays standard chess, Chess960 and Pawn Wars so far", () => {
-    for (const v of VARIANTS) assert.equal(hasBot(v.key), ["standard", "chess960", "pawnwars"].includes(v.key), v.key);
+  test("LorFish plays standard chess, Chess960, Pawn Wars and Antichess so far", () => {
+    for (const v of VARIANTS) assert.equal(hasBot(v.key), ["standard", "chess960", "pawnwars", "antichess"].includes(v.key), v.key);
     assert.equal(hasBot("nope"), true, "unknown means standard");
   });
 

@@ -258,8 +258,23 @@ const LorFish = {
     return chess.turn === W ? score : -score;
   },
 
+  // Antichess: the side that loses all its pieces (or runs out of moves)
+  // wins, so every piece still on the board counts against its owner, a
+  // queen no more than a pawn: each is one more thing to be rid of.
+  evaluateAntichess(chess) {
+    let score = 0;
+    for (const p of chess.squares) if (p) score += p.c === W ? -100 : 100;
+    return chess.turn === W ? score : -score;
+  },
+
+  // How many captures deep the Antichess capture search may go: a capture is
+  // compulsory there, so a chain runs until a side has none, and could run
+  // for most of the pieces on the board.
+  ANTICHESS_QDEPTH: 10,
+
   evaluate(chess) {
     if (chess.isPawnWars) return this.evaluatePawnWars(chess);
+    if (chess.isAntichess) return this.evaluateAntichess(chess);
     const lk = this.isLoneKingMate(chess);
     const phase = this.gamePhase(chess);   // 0..24
     const eg = 24 - phase;
@@ -324,6 +339,23 @@ const LorFish = {
     const moves = chess.legalMoves();
     if (moves.length === 0) return this.endScore(chess);
     if (chess.isInsufficientMaterial()) return 0;
+
+    // Antichess: a capture on the board must be made, so there is no standing
+    // pat while there is one — every capture is searched, and a quiet position
+    // is simply evaluated.
+    if (chess.isAntichess) {
+      if (!moves[0].capture || qdepth >= this.ANTICHESS_QDEPTH) return this.evaluate(chess);
+      let best = -Infinity;
+      for (const m of this.orderMoves(chess, moves)) {
+        chess.makeMove(m);
+        const score = -this.quiescence(chess, -beta, -alpha, qdepth + 1);
+        chess.undoMove();
+        if (score > best) best = score;
+        if (best > alpha) alpha = best;
+        if (alpha >= beta) break;
+      }
+      return best;
+    }
 
     const standPat = this.evaluate(chess);
     if (standPat >= beta) return beta;

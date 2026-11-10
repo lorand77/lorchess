@@ -22,7 +22,7 @@ test("a Chess960 game against LorFish, from the lobby to a resumed game", async 
 
   // Only the variants LorFish plays; the levels lose their ratings outside standard.
   const variants = await page.locator("#aiVariantSelect option").evaluateAll((os) => os.map((o) => o.value));
-  assert.deepEqual(variants, ["standard", "chess960", "pawnwars"]);
+  assert.deepEqual(variants, ["standard", "chess960", "pawnwars", "antichess"]);
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual (~1000)");
   await page.locator("#aiVariantSelect").selectOption("chess960");
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual");
@@ -84,3 +84,33 @@ test("a Pawn Wars game against LorFish starts from its own position, and LorFish
   assert.equal(await page.locator("#status").textContent(), "Game Over: 1-0 — White wins: no black pawns left!");
 });
 
+test("an Antichess game against LorFish: it must take what it is given", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.locator("#aiVariantSelect").selectOption("antichess");
+  await page.locator("#aiLevelSelect").selectOption("advanced");
+  await page.locator("#aiPlayBtn").click();
+  await page.waitForURL(/variant=antichess/);
+  await ready(page);
+  const ANTICHESS = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1";
+  assert.equal(await page.evaluate(() => chess.fen()), ANTICHESS);
+  assert.equal(await page.locator("#aiLevelText").textContent(), "Advanced · Antichess");
+  const id = await page.evaluate(() => gameStore.currentId());
+  assert.deepEqual(db().prepare("SELECT variant, start_fen FROM games WHERE id = ?").get(id),
+    { variant: "antichess", start_fen: ANTICHESS });
+
+  // e4, then (unless LorFish's reply left us something we must take) Ba6
+  // offers the bishop: a capture on the board is compulsory for LorFish too.
+  await page.locator('#board [data-sq="12"]').click();  // e2
+  await page.locator('#board [data-sq="28"]').click();  // e4
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  const mustTake = await page.evaluate(() => chess.legalMoves().some((m) => m.capture));
+  if (!mustTake) {
+    await page.locator('#board [data-sq="5"]').click();   // f1
+    await page.locator('#board [data-sq="40"]').click();  // a6
+    await page.waitForFunction(() => chess.history.length === 4 && !thinking, null, { timeout: 15000 });
+    const reply = await page.evaluate(() => chess.history[3].move);
+    assert.ok(reply.capture, "a capture on the board must be made");
+  }
+  assert.match(await page.locator("#history").textContent(), /\[Variant "Antichess"\]/);
+});

@@ -54,7 +54,7 @@ const VARIANTS = [
   // castling: the ordinary setup without castling rights, ANTICHESS_START in
   // chess.js (a test holds them together). Casual while it is new.
   { key: 'antichess', label: 'Antichess', standardSetup: false, reviewable: false, rateable: false,
-    materialBadges: false, moveBadges: true, bot: false, startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1' },
+    materialBadges: false, moveBadges: true, bot: true, startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1' },
   // A board with no edges (infinitechess.org's Classical rules), played by its
   // own engine (engines.js). Its start is an ICN position, the same as
   // infiniteChess.js's Classical setup (a test holds them together). Casual

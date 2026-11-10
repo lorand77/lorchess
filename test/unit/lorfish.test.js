@@ -443,3 +443,38 @@ describe("LorFish plays Pawn Wars", () => {
   });
 });
 
+
+describe("LorFish plays Antichess", () => {
+  const antichess = (fen) => fromFen(fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1", "antichess");
+
+  test("every piece counts against its owner, a queen no more than a pawn", () => {
+    const queen = LorFish.evaluate(antichess("4k3/8/8/8/8/8/8/Q3K3 w - - 0 1"));
+    assert.ok(queen < 0, String(queen));
+    assert.equal(LorFish.evaluate(antichess("4k3/8/8/8/8/8/P7/4K3 w - - 0 1")), queen);
+    assert.equal(LorFish.evaluate(antichess("4k3/8/8/8/8/8/P7/4K3 b - - 0 1")), -queen, "from the side to move");
+  });
+
+  test("follows a forced capture chain to its end", () => {
+    // Rb1 must be taken, and the h1 rook must then take back: White is left
+    // with a piece and Black with none, which wins for Black. A stand-pat
+    // would have stopped after the first capture and missed it.
+    const chess = play(antichess("1r6/8/8/8/8/8/8/R6R w - - 0 1"), "a1b1");
+    assert.ok(LorFish.quiescence(chess, -Infinity, Infinity, 0) > LorFish.MATE - 10);
+    assert.notEqual(LorFish.analyse(antichess("1r6/8/8/8/8/8/8/R6R w - - 0 1"), 1).san, "Rb1");
+  });
+
+  test("plays a whole game to a finish, every move legal", (t) => {
+    silence(t);
+    const chess = antichess();
+    const rng = seeded(7);
+    let plies = 0;
+    while (!chess.isGameOver() && plies < 400) {
+      const m = LorFish.getBestMove(chess, 1, { temperature: 30, rng });
+      assert.ok(chess.findMove(m.from, m.to, m.promo), `ply ${plies + 1}`);
+      chess.makeMove(m);
+      plies++;
+    }
+    assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
+    assert.ok(["all pieces lost", "no moves", "insufficient", "threefold", "fifty-move"].includes(chess.termination()));
+  });
+});
