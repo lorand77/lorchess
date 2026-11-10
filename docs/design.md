@@ -245,6 +245,21 @@ written from these rules.
   box the pieces occupy, so trying every square there gives the true answer,
   and the two agree on thousands of positions, half of them mates or
   stalemates.
+- *Moves worth searching* (`candidateMoves()`, for the bot to come) is a
+  finite list chosen from moves that can be infinitely many. It holds every
+  pawn, knight and king move and every capture. In check it holds every legal
+  move: only a king step, a capture or a block answers a check, and the last
+  two are the squares `hasLegalMove` already solves for. Out of check a slider
+  gets, along each ray (`rayTargets`): its first step, every square next to
+  another piece, the enemy piece the ray runs into, and every square where the
+  ray crosses a line through the enemy king or a square beside it, along which
+  the slider would then attack. So it holds every check given from a new line,
+  however far off, and every flight square it can take away. It leaves out a
+  slide to an empty stretch with nothing near and no line onto the king, and
+  part of a slide along a line it already checks on. Brute force over the same
+  window as above holds it to those promises on several hundred positions, in
+  check exactly. It is never empty while a move exists. In random games it
+  runs median 81 moves, never more than 127, at about 0.4 ms a call.
 - *Dead material* uses infinitechess.org's table, its 30 standard-piece rows
   checked against their source by a script, with their bishop colour pairing,
   their pawn expansion (up to two pawns, as every piece they could become) and

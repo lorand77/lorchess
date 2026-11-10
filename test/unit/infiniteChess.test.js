@@ -397,6 +397,151 @@ describe("infinite chess, whether any move is left", () => {
   });
 });
 
+// Every legal move landing within two squares of the box around all the
+// pieces. That holds every capture, every pawn, knight and king move, and in
+// check every legal move, since a block lies between two pieces.
+function windowMoves(inf) {
+  const ps = [...inf.board.values()];
+  const xs = ps.map((p) => p.x), ys = ps.map((p) => p.y);
+  const [x0, x1, y0, y1] = [Math.min(...xs) - 2, Math.max(...xs) + 2, Math.min(...ys) - 2, Math.max(...ys) + 2];
+  const out = [];
+  for (const p of ps) {
+    if (p.c !== inf.turn) continue;
+    for (let x = x0; x <= x1; x++) {
+      for (let y = y0; y <= y1; y++) {
+        for (const promo of p.t === "p" ? [null, ...InfiniteChess.PROMOTIONS] : [null]) {
+          const m = inf.findMove({ x: p.x, y: p.y }, { x, y }, promo);
+          if (m) out.push(m);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+const keyOfMove = (m) => text(m.from, m.to, m.promo);
+
+// Positions from random games played with the candidate list itself.
+function playedPositions(seed, games, plies) {
+  const random = rng(seed);
+  const out = [];
+  for (let g = 0; g < games; g++) {
+    const inf = new InfiniteChess();
+    for (let i = 0; i < plies && !inf.isGameOver(); i++) {
+      const moves = inf.candidateMoves();
+      inf.makeMove(moves[Math.floor(random() * moves.length)]);
+      if (i % 4 === 3) {
+        const copy = new InfiniteChess();
+        copy.loadFen(inf.fen());
+        out.push(copy);
+      }
+    }
+  }
+  return out;
+}
+
+describe("infinite chess, candidate moves", () => {
+  const POSITIONS = [
+    new InfiniteChess(),
+    ...scatteredPositions(11, 250),
+    ...cagePositions(5, 150),
+    ...playedPositions(13, 4, 32),
+  ];
+
+  test("every candidate is legal, and none is listed twice", () => {
+    for (const inf of POSITIONS) {
+      const keys = new Set();
+      for (const m of inf.candidateMoves()) {
+        assert.deepEqual(inf.findMove(m.from, m.to, m.promo), m, inf.fen());
+        assert.ok(!keys.has(keyOfMove(m)), `${keyOfMove(m)} twice in ${inf.fen()}`);
+        keys.add(keyOfMove(m));
+      }
+    }
+  });
+
+  test("holds every pawn, knight and king move, every capture, and in check every move", () => {
+    let checked = 0;
+    for (const inf of POSITIONS) {
+      const listed = new Set(inf.candidateMoves().map(keyOfMove));
+      const all = windowMoves(inf);
+      const inCheck = inf.inCheck();
+      if (inCheck) {
+        checked++;
+        assert.deepEqual([...listed].sort(), all.map(keyOfMove).sort(), inf.fen());
+        continue;
+      }
+      for (const m of all) {
+        if (m.piece === "p" || m.piece === "n" || m.piece === "k" || m.capture) {
+          assert.ok(listed.has(keyOfMove(m)), `${keyOfMove(m)} missing from ${inf.fen()}`);
+        }
+      }
+    }
+    assert.ok(checked > 50, `${checked} positions in check`);
+  });
+
+  test("holds every check a slider gives from a line it was not already on", () => {
+    let checks = 0;
+    for (const inf of POSITIONS) {
+      if (inf.inCheck()) continue;
+      const listed = new Set(inf.candidateMoves().map(keyOfMove));
+      const enemy = inf.kingOf(inf.turn === "w" ? "b" : "w");
+      for (const m of windowMoves(inf)) {
+        if (m.piece === "p" || m.piece === "n" || m.piece === "k") continue;
+        inf.makeMove(m, false);
+        const gives = inf.attacks(inf.pieceAt(m.to.x, m.to.y), enemy.x, enemy.y);
+        inf.undoMove();
+        // Sliding along the line it already checks on gives check from every
+        // square of it, and only some of those are listed.
+        const along = (m.to.x - m.from.x) * (enemy.y - m.to.y) === (m.to.y - m.from.y) * (enemy.x - m.to.x);
+        if (!gives || along) continue;
+        checks++;
+        assert.ok(listed.has(keyOfMove(m)), `check ${keyOfMove(m)} missing from ${inf.fen()}`);
+      }
+    }
+    assert.ok(checks > 100, `${checks} checks`);
+  });
+
+  test("is empty exactly when there is no legal move", () => {
+    let none = 0;
+    for (const inf of cagePositions(3, 400)) {
+      const has = inf.hasLegalMove();
+      assert.equal(inf.candidateMoves().length > 0, has, inf.fen());
+      if (!has) none++;
+    }
+    assert.ok(none > 100, `${none} positions with no move`);
+  });
+
+  test("a free slider gets its first step, the squares beside pieces, and the lines onto the king", () => {
+    const rookMoves = (pieces) => anon(pieces).candidateMoves()
+      .filter((m) => m.piece === "r").map((m) => `${m.to.x},${m.to.y}`).sort();
+    // Lines through the black king and the squares beside it: files 9-11 to
+    // the right, ranks 9-11 up. The white pawn at 3,1 stands beside 2,0-4,0.
+    assert.deepEqual(rookMoves([P("r", "w", 0, 0), P("k", "b", 10, 10), P("k", "w", -5, -5), P("p", "w", 3, 1)]),
+      ["-1,0", "0,-1", "0,1", "0,10", "0,11", "0,9", "1,0", "10,0", "11,0", "2,0", "3,0", "4,0", "9,0"]);
+    // However far away the king, and no further than the limit.
+    const far = rookMoves([P("r", "w", 0, 0), P("k", "b", 500000, 3), P("k", "w", -5, -5)]);
+    assert.ok(far.includes("500000,0") && far.includes("0,3"), far.join(" "));
+    const edge = rookMoves([P("r", "w", LIMIT - 1, 0), P("k", "b", 10, 10), P("k", "w", -5, -5)]);
+    assert.ok(edge.includes(`${LIMIT},0`) && !edge.some((s) => Number(s.split(",")[0]) > LIMIT), edge.join(" "));
+  });
+
+  test("a far block or capture is listed, and a pinned piece's moves stay on the pin", () => {
+    const cage = [P("k", "b", 5, 5), P("r", "w", 4, 100), P("r", "w", 6, 100), P("r", "w", 100, 4),
+      P("r", "w", 100, 6), P("r", "w", 100, 5), P("k", "w", -50, -50)];
+    const listed = (inf) => inf.candidateMoves().map(keyOfMove);
+    assert.ok(listed(anon([...cage, P("r", "b", 50, 900)], { turn: "b" })).includes("50,900>50,5"));
+    assert.ok(listed(anon([...cage, P("b", "b", 100 - 70000, 5 - 70000)], { turn: "b" })).includes(`${100 - 70000},${5 - 70000}>100,5`));
+    const pinned = anon([P("k", "b", 5, 5), P("r", "b", 5, 8), P("r", "w", 5, 40), P("k", "w", -50, -50)], { turn: "b" });
+    const rook = pinned.candidateMoves().filter((m) => m.piece === "r");
+    assert.ok(rook.length > 0 && rook.every((m) => m.to.x === 5), rook.map(keyOfMove).join(" "));
+    assert.ok(rook.some((m) => m.capture), "taking the pinner");
+  });
+
+  test("offers about as many moves as ordinary chess from the start", () => {
+    assert.equal(new InfiniteChess().candidateMoves().length, 45);
+  });
+});
+
 describe("infinite chess, how a game ends", () => {
   test("a game in progress is undecided", () => {
     const inf = new InfiniteChess();

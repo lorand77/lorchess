@@ -508,6 +508,117 @@ const InfiniteChess = (function () {
       return out.filter((to) => isCoord(to.x) && isCoord(to.y));
     },
 
+    // ---- moves worth a search's time ----
+
+    // A finite list of the side to move's legal moves, for a search to choose
+    // from, since the whole list can be infinite. It holds:
+    //   - every move a pawn, knight or king has, every promotion included;
+    //   - every capture;
+    //   - in check, every legal move: only a king step, a capture or a block
+    //     answers a check, and those are finitely many (as in hasLegalMove);
+    //   - for a slider out of check, along each ray (rayTargets): its first
+    //     step, every square next to another piece, and every square where
+    //     the ray crosses a line through the enemy king or a square beside it
+    //     along which the slider would then attack — a check, or a flight
+    //     square taken.
+    // What it leaves out is a slider's move to a square with nothing near it
+    // and no line onto the enemy king: one more like it is always in the list.
+    // Never empty while the side to move has a legal move: it holds every move
+    // hasLegalMove tries.
+    candidateMoves() {
+      const c = this.turn;
+      const king = this.kingOf(c);
+      const enemyKing = this.kingOf(opp(c));
+      const checked = this.inCheck(c);
+      const out = [];
+      for (const p of [...this.board.values()]) {
+        if (p.c !== c) continue;
+        const from = { x: p.x, y: p.y };
+        if (!SLIDES[p.t]) {
+          for (const to of this.stepTargets(p)) {
+            const promos = p.t === 'p' && to.y === PROMOTION_RANK[c] ? PROMOTIONS : [null];
+            for (const promo of promos) {
+              const move = this.findMove(from, to, promo);
+              if (move) out.push(move);
+            }
+          }
+          continue;
+        }
+        // With no enemy piece aimed at the king through it, and no check,
+        // every square the slider reaches is a legal move as it stands.
+        const attackers = this.attackersWithout(p, king);
+        for (const [dx, dy] of SLIDES[p.t]) {
+          const helping = attackers.length ? this.helpingSquares(p, dx, dy, king, attackers) : [];
+          const squares = checked ? helping : this.rayTargets(p, dx, dy, enemyKing).concat(helping);
+          const seen = new Set();
+          for (const to of squares) {
+            const key = keyOf(to.x, to.y);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const move = attackers.length ? this.findMove(from, to) : this.pseudoMove(p, to.x, to.y, null);
+            if (move) out.push(move);
+          }
+        }
+      }
+      return out;
+    },
+
+    // The squares rayTargets picks along `p`'s ray (dx, dy), described at
+    // candidateMoves, nearest first, stopping where the ray runs into a piece
+    // (its square included if that piece is an enemy) or reaches ±LIMIT.
+    rayTargets(p, dx, dy, enemyKing) {
+      // How far the ray goes: to the nearest piece on it, or to the limit.
+      let end = Infinity;
+      for (const [d, at] of [[dx, p.x], [dy, p.y]]) {
+        if (d) end = Math.min(end, d > 0 ? LIMIT - at : at + LIMIT);
+      }
+      let blocker = null;
+      for (const q of this.board.values()) {
+        const t = dx ? (q.x - p.x) / dx : (q.y - p.y) / dy;
+        if (t > 0 && Number.isInteger(t) && q.x === p.x + t * dx && q.y === p.y + t * dy && t <= end) {
+          if (!blocker || t < blocker.t) blocker = { t, piece: q };
+        }
+      }
+      const last = blocker ? blocker.t - 1 : end;
+      const steps = new Set();
+      const add = (t) => { if (t >= 1 && t <= last) steps.add(t); };
+      add(1);
+      // Next to another piece: both coordinates within one of it.
+      for (const q of this.board.values()) {
+        if (q === p) continue;
+        let lo = 1, hi = last;
+        for (const [d, from, to] of [[dx, p.x, q.x], [dy, p.y, q.y]]) {
+          if (!d) {
+            if (Math.abs(to - from) > 1) { lo = Infinity; break; }
+            continue;
+          }
+          const a = (to - from - 1) / d, b = (to - from + 1) / d;
+          lo = Math.max(lo, Math.ceil(Math.min(a, b)));
+          hi = Math.min(hi, Math.floor(Math.max(a, b)));
+        }
+        for (let t = lo; t <= hi; t++) add(t);
+      }
+      // Onto a line through the enemy king or a square beside it, along one
+      // of the slider's own directions: where the ray crosses it.
+      if (enemyKing) {
+        const lines = SLIDES[p.t].filter(([lx, ly]) => lx > 0 || (lx === 0 && ly > 0));
+        for (let ox = -1; ox <= 1; ox++) {
+          for (let oy = -1; oy <= 1; oy++) {
+            const sx = enemyKing.x + ox, sy = enemyKing.y + oy;
+            for (const [lx, ly] of lines) {
+              const det = dx * ly - dy * lx;
+              if (!det) continue; // the ray runs along that line, or beside it
+              const t = ((sx - p.x) * ly - (sy - p.y) * lx) / det;
+              if (Number.isInteger(t)) add(t);
+            }
+          }
+        }
+      }
+      const out = [...steps].sort((a, b) => a - b).map((t) => ({ x: p.x + t * dx, y: p.y + t * dy }));
+      if (blocker && blocker.piece.c !== p.c) out.push({ x: blocker.piece.x, y: blocker.piece.y });
+      return out;
+    },
+
     // ---- how a game ends ----
 
     isCheckmate() {
