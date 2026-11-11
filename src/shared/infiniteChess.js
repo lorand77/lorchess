@@ -524,8 +524,9 @@ const InfiniteChess = (function () {
     // What it leaves out is a slider's move to a square with nothing near it
     // and no line onto the enemy king: one more like it is always in the list.
     // Never empty while the side to move has a legal move: it holds every move
-    // hasLegalMove tries.
-    candidateMoves() {
+    // hasLegalMove tries. `capturesOnly` keeps just the captures (a search's
+    // capture search), at a fraction of the cost.
+    candidateMoves(capturesOnly) {
       const c = this.turn;
       const king = this.kingOf(c);
       const enemyKing = this.kingOf(opp(c));
@@ -536,6 +537,8 @@ const InfiniteChess = (function () {
         const from = { x: p.x, y: p.y };
         if (!SLIDES[p.t]) {
           for (const to of this.stepTargets(p)) {
+            if (capturesOnly && !this.pieceAt(to.x, to.y) &&
+                !(p.t === 'p' && this.ep && this.ep.x === to.x && this.ep.y === to.y)) continue;
             const promos = p.t === 'p' && to.y === PROMOTION_RANK[c] ? PROMOTIONS : [null];
             for (const promo of promos) {
               const move = this.findMove(from, to, promo);
@@ -549,14 +552,14 @@ const InfiniteChess = (function () {
         const attackers = this.attackersWithout(p, king);
         for (const [dx, dy] of SLIDES[p.t]) {
           const helping = attackers.length ? this.helpingSquares(p, dx, dy, king, attackers) : [];
-          const squares = checked ? helping : this.rayTargets(p, dx, dy, enemyKing).concat(helping);
+          const squares = checked ? helping : this.rayTargets(p, dx, dy, capturesOnly ? null : enemyKing, capturesOnly).concat(helping);
           const seen = new Set();
           for (const to of squares) {
             const key = keyOf(to.x, to.y);
             if (seen.has(key)) continue;
             seen.add(key);
             const move = attackers.length ? this.findMove(from, to) : this.pseudoMove(p, to.x, to.y, null);
-            if (move) out.push(move);
+            if (move && (!capturesOnly || move.capture)) out.push(move);
           }
         }
       }
@@ -566,7 +569,8 @@ const InfiniteChess = (function () {
     // The squares rayTargets picks along `p`'s ray (dx, dy), described at
     // candidateMoves, nearest first, stopping where the ray runs into a piece
     // (its square included if that piece is an enemy) or reaches ±LIMIT.
-    rayTargets(p, dx, dy, enemyKing) {
+    // `captureOnly`: that last square alone.
+    rayTargets(p, dx, dy, enemyKing, captureOnly) {
       // How far the ray goes: to the nearest piece on it, or to the limit.
       let end = Infinity;
       for (const [d, at] of [[dx, p.x], [dy, p.y]]) {
@@ -579,6 +583,7 @@ const InfiniteChess = (function () {
           if (!blocker || t < blocker.t) blocker = { t, piece: q };
         }
       }
+      if (captureOnly) return blocker && blocker.piece.c !== p.c ? [{ x: blocker.piece.x, y: blocker.piece.y }] : [];
       const last = blocker ? blocker.t - 1 : end;
       const steps = new Set();
       const add = (t) => { if (t >= 1 && t <= last) steps.add(t); };

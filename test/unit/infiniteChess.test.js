@@ -501,6 +501,14 @@ describe("infinite chess, candidate moves", () => {
     assert.ok(checks > 100, `${checks} checks`);
   });
 
+  test("captures only: the full list's captures, no more and no fewer", () => {
+    for (const inf of POSITIONS) {
+      if (inf.inCheck()) continue;
+      assert.deepEqual(inf.candidateMoves(true).map(keyOfMove).sort(),
+        inf.candidateMoves().filter((m) => m.capture).map(keyOfMove).sort(), inf.fen());
+    }
+  });
+
   test("is empty exactly when there is no legal move", () => {
     let none = 0;
     for (const inf of cagePositions(3, 400)) {

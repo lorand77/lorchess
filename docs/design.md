@@ -260,6 +260,19 @@ written from these rules.
   window as above holds it to those promises on several hundred positions, in
   check exactly. It is never empty while a move exists. In random games it
   runs median 81 moves, never more than 127, at about 0.4 ms a call.
+- *The bot's search* (`src/shared/lorfishInfinite.js`, not yet offered) is
+  LorFish's search over that list, since LorFish itself lists every move and
+  reads a 64-square board. It has the same alpha-beta, mate scores in plies
+  from the root, the pruned root and killer moves. Its interface
+  (`searchRoot`, `getBestMove`, `analyse`) and its scores are LorFish's, and
+  it borrows `LorFish.sample`, so a temperature means the same in both. Its
+  capture search takes the engine's captures alone
+  (`candidateMoves(true)`), every answer to a check, and stops eight deep. A
+  position with no move left is mate or stalemate, read from whether the side
+  is in check. Repetition, the 50-move rule and dead material are draws. The
+  board is a `Map` whose order moves made and taken back change, so the root
+  sorts its moves first: the same position always gets the same verdict. The
+  evaluation is material alone for now.
 - *Dead material* uses infinitechess.org's table, its 30 standard-piece rows
   checked against their source by a script, with their bishop colour pairing,
   their pawn expansion (up to two pawns, as every piece they could become) and
