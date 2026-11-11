@@ -303,6 +303,31 @@ written from these rules.
   Casual 2 in 6, Casual over Beginner 4 in 6, Beginner over Novice 4 in 6),
   and of the undecided games the stronger level led on material or held a
   draw.
+- *Mating a bare king.* A king can run for ever on a board without edges,
+  and the mates that exist need it caged first: ranks and files held on
+  every side, the cage made smaller, then the king brought up. That plan is
+  far beyond the search's horizon. So once one side has a bare king and the
+  other two rooks or queens or more (`loneKingMate`), the evaluation is
+  material plus a bonus (`mateEval`):
+  - 10 for every square the cage is smaller, measured as the distance from
+    the lone king to the nearest rank or file a rook or queen holds, each way,
+    a side with no wall counting as 16;
+  - 8 for every square the mating king is nearer, within 48.
+
+  It is a bonus, not a penalty, so a rook lost (and with it the mate) loses
+  it too. A term for the lone king's flight squares was tried and made things
+  worse. From scattered starts against a bare king defending at depth 2, over
+  ten games each:
+
+  | Material | Advanced | Intermediate | Before, either depth |
+  |---|---|---|---|
+  | Two queens | 10 mates | 10 mates | 2 of 6 games at depth 4 mated (both two-queen); 0 of 12 at depth 2 |
+  | Queen and rook | 10 | 4 | |
+  | Two rooks | 4 | 0 | |
+
+  The two-rook mate needs the rooks to build artificial edges, a plan longer
+  than the 50-move rule leaves room to find by search, so most of those end
+  in a draw.
 - *Contempt.* A draw scores 20 below level for the side LorFish plays
   (`CONTEMPT`, `drawScore`). On a board this open both sides can nearly
   always shuffle, so a level draw would otherwise be taken whenever nothing

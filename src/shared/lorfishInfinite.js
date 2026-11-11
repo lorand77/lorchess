@@ -30,11 +30,15 @@ const LorFishInfinite = {
   evaluate(chess) {
     const kings = { w: null, b: null };
     const sliders = { w: { line: 0, diag: 0 }, b: { line: 0, diag: 0 } };
+    const pieces = { w: 0, b: 0 };
     for (const p of chess.board.values()) {
+      pieces[p.c]++;
       if (p.t === 'k') kings[p.c] = p;
       if (p.t === 'r' || p.t === 'q') sliders[p.c].line++;
       if (p.t === 'b' || p.t === 'q') sliders[p.c].diag++;
     }
+    const lone = this.loneKingMate(pieces, sliders);
+    if (lone) return this.mateEval(chess, lone, kings);
     let score = 0;
     for (const p of chess.board.values()) {
       let v = this.pieceValues[p.t];
@@ -45,6 +49,51 @@ const LorFishInfinite = {
     score -= this.kingDanger(chess, kings.w, sliders.b);
     score += this.kingDanger(chess, kings.b, sliders.w);
     return chess.turn === 'w' ? score : -score;
+  },
+
+  // ---- mating a bare king ----
+  //
+  // On a board without edges a king can run for ever, and the mates that
+  // exist (two rooks, a queen and a rook, two queens, each with the king's
+  // help; one rook or one queen never mates) need it caged first: ranks and
+  // files held by rooks or queens on every side, the cage made smaller, then
+  // the king brought up. Far beyond any search's horizon, so the evaluation
+  // steers instead, as LorFish's lone-king term does in standard chess.
+
+  // The side mating, when the other has its king alone and it has two rooks
+  // or queens at least; else null.
+  loneKingMate(pieces, sliders) {
+    if (pieces.b === 1 && sliders.w.line >= 2) return 'w';
+    if (pieces.w === 1 && sliders.b.line >= 2) return 'b';
+    return null;
+  },
+
+  // Material, plus a bonus for the cage and the king's approach. A bonus
+  // rather than a penalty, so that losing a rook (and with it the means to
+  // mate) loses the bonus too.
+  CAGE_OPEN: 16,     // a side of the cage with no wall, or one further off
+  CAGE_STEP: 10,     // per square the cage is smaller
+  APPROACH: 8,       // per square the mating king is nearer, within APPROACH_FROM
+  APPROACH_FROM: 48,
+  mateEval(chess, side, kings) {
+    const lone = kings[side === 'w' ? 'b' : 'w'];
+    const own = kings[side];
+    // The nearest rank or file a rook or queen holds, each way from the king.
+    let up = this.CAGE_OPEN, down = this.CAGE_OPEN, left = this.CAGE_OPEN, right = this.CAGE_OPEN;
+    let material = 0;
+    for (const p of chess.board.values()) {
+      if (p.c !== side) continue;
+      material += this.pieceValues[p.t];
+      if (p.t !== 'r' && p.t !== 'q') continue;
+      const dy = p.y - lone.y, dx = p.x - lone.x;
+      if (dy > 0) up = Math.min(up, dy); else if (dy < 0) down = Math.min(down, -dy);
+      if (dx > 0) right = Math.min(right, dx); else if (dx < 0) left = Math.min(left, -dx);
+    }
+    const cage = up + down + left + right;
+    const apart = Math.max(Math.abs(own.x - lone.x), Math.abs(own.y - lone.y));
+    const bonus = this.CAGE_STEP * (4 * this.CAGE_OPEN - cage) + this.APPROACH * Math.max(0, this.APPROACH_FROM - apart);
+    const score = material + bonus;
+    return chess.turn === side ? score : -score;
   },
 
   // A pawn is worth more the nearer it is to promoting (rank 8 for White, 1

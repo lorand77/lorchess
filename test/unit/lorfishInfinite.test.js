@@ -185,3 +185,52 @@ test("a pawn is worth more the nearer it is to promoting, and more again when pa
   assert.equal(at(5, "|p4,3"), at(5), "one behind does not");
   assert.equal(E.pawnBonus(pos("b", "k5,8|K5,1|p3,3"), { t: "p", c: "b", x: 3, y: 3 }), at(6), "Black's run the other way");
 });
+
+// Mating a bare king: the cage, the king's approach, and whole mates played out.
+const play = (c, depth, rng, max) => {
+  let n = 0;
+  while (!c.isGameOver() && n < max) {
+    c.makeMove(E.getBestMove(c, c.turn === "w" ? depth : 2, { temperature: 0, rng }));
+    n++;
+  }
+  return n;
+};
+
+test("a bare king against two rooks or queens is a mate to work for; one rook or a defender's pawn is not", () => {
+  const mode = (pieces) => {
+    const c = pos("w", pieces);
+    const count = { w: 0, b: 0 }, sliders = { w: { line: 0 }, b: { line: 0 } };
+    for (const p of c.board.values()) {
+      count[p.c]++;
+      if (p.t === "r" || p.t === "q") sliders[p.c].line++;
+    }
+    return E.loneKingMate(count, sliders);
+  };
+  assert.equal(mode("k0,0|K3,-12|R1,12|R12,-5"), "w");
+  assert.equal(mode("k0,0|K3,-12|Q1,12|R12,-5"), "w");
+  assert.equal(mode("K0,0|k3,-12|q1,12|q12,-5"), "b");
+  assert.equal(mode("k0,0|K3,-12|R1,12"), null, "one rook can't mate here");
+  assert.equal(mode("k0,0|p5,5|K3,-12|R1,12|R12,-5"), null, "the defender has more than its king");
+});
+
+test("a smaller cage and a nearer king score higher, and a rook lost costs the whole bonus", () => {
+  const ev = (pieces) => E.evaluate(pos("w", pieces));
+  // Rooks holding rank 12 and file 12, then rank 3 and file 3 instead.
+  assert.ok(ev("k0,0|K-20,-20|R1,12|R12,-5") < ev("k0,0|K-20,-20|R1,3|R3,-5"));
+  assert.ok(ev("k0,0|K-20,-20|R1,12|R12,-5") < ev("k0,0|K-5,-5|R1,12|R12,-5"), "the king nearer");
+  // With one rook gone there is no mate to steer towards, and no bonus.
+  assert.ok(ev("k0,0|K-20,-20|R1,12|R12,-5") - ev("k0,0|K-20,-20|R1,12") > E.pieceValues.r);
+});
+
+test("mates a bare king with two queens", () => {
+  const c = load("w 0/100 1 (8|1) checkmate K3,-12|Q1,12|Q12,-5|k0,0");
+  const plies = play(c, 2, seeded(1), 60);
+  assert.equal(c.termination(), "checkmate", `${plies} plies: ${c.fen()}`);
+  assert.equal(c.result(), "1-0");
+});
+
+test("mates a bare king with a queen and a rook, at Advanced's depth", () => {
+  const c = load("w 0/100 1 (8|1) checkmate K3,-12|Q1,12|R12,-5|k0,0");
+  const plies = play(c, 4, seeded(1), 100);
+  assert.equal(c.termination(), "checkmate", `${plies} plies: ${c.fen()}`);
+});
