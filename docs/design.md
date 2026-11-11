@@ -260,7 +260,7 @@ written from these rules.
   window as above holds it to those promises on several hundred positions, in
   check exactly. It is never empty while a move exists. In random games it
   runs median 81 moves, never more than 127, at about 0.4 ms a call.
-- *The bot's search* (`src/shared/lorfishInfinite.js`, not yet offered) is
+- *The bot's search* (`src/shared/lorfishInfinite.js`) is
   LorFish's search over that list, since LorFish itself lists every move and
   reads a 64-square board. It has the same alpha-beta, mate scores in plies
   from the root, the pruned root and killer moves. Its interface
@@ -704,7 +704,7 @@ shows them; New Game and Load FEN keep them, and changing one means going back
 to the lobby.
 
 **LorFish in the variants.** The catalogue's `bot` flag says which variants
-LorFish plays (all but Infinite Chess so far); the lobby
+LorFish plays (every one, now that infinite chess has its own); the lobby
 offers only those, and `POST /api/games` refuses the rest. A variant starts from its own
 position: standard chess from any position the player pastes, Chess960 from a
 back rank the page draws for each game (`chess960.randomFen`) and the route
@@ -1055,6 +1055,10 @@ was earned lives in `src/achievements/service.js`:
   …; `MATERIAL_CHECKS` in the service) are not checked where the catalogue says
   `materialBadges: false`: Crazyhouse, where a captured piece is in the
   capturer's hand, not gone, and Antichess, where losing material is the aim.
+  Infinite chess (`moveBadges: false`) is not replayed at all: its board is
+  not 8x8. The feats that need only the record — beating LorFish at
+  Intermediate or Advanced (`RECORD_CHECKS`) — run for every variant, from
+  the result where nothing was replayed, so they count there too.
 - **Stats** are aggregate queries (games, wins per time control and per
   variant, castles, puzzle streaks, rating, chat count, anniversary)
   re-evaluated after every game, puzzle, chat message, login and visit to the

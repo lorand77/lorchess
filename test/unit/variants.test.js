@@ -114,8 +114,8 @@ describe("variant catalogue", () => {
     assert.equal(hasMaterialBadges("nope"), true, "unknown means standard");
   });
 
-  test("LorFish plays every variant but Infinite Chess so far", () => {
-    for (const v of VARIANTS) assert.equal(hasBot(v.key), v.key !== "infinite", v.key);
+  test("LorFish plays every variant", () => {
+    for (const v of VARIANTS) assert.equal(hasBot(v.key), true, v.key);
     assert.equal(hasBot("nope"), true, "unknown means standard");
   });
 

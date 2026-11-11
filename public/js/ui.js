@@ -1889,7 +1889,8 @@ function showReviewLink(id) {
   if (!wrap || !link || !id) return;
   // The engine can't review a game whose rules it doesn't know, so don't dangle a
   // link that the replay viewer will only refuse.
-  if (!isReviewable(chess.variant)) return;
+  // The game's variant, not the engine's: infinite chess's engine has none.
+  if (!isReviewable(gameVariant)) return;
   // authGuard resolved window.currentUser long before any game could end, so
   // membership is already known here — no extra request.
   const member = !!(window.currentUser && window.currentUser.member_since);

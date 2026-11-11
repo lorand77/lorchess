@@ -302,9 +302,6 @@ const GAME_CHECKS = {
   mate_castle: (c) => c.mated && !!c.last.castle,
 
   // formats
-  // LorFish levels by key (src/shared/aiLevels.js); the weaker three earn nothing.
-  beat_fish_2: (c) => c.won && c.game.mode === "ai" && c.game.ai_level === "intermediate",
-  fish_slayer: (c) => c.won && c.game.mode === "ai" && c.game.ai_level === "advanced",
   giving_odds: (c) => (c.won ? oddsTier(c.a.changes, c.me) : 0),
   handicap_hustler: (c) => c.won && c.game.mode === "pvp" && oddsTier(c.a.changes, c.me) === 4,
   iron_man: (c) => c.plies >= 199,
@@ -383,12 +380,25 @@ function evaluateGame(userId, game, analysis, extra) {
     resignReactionMs: extra && extra.resignReactionMs != null ? extra.resignReactionMs : null,
   };
   const ref = { gameId: game.id, at: extra && extra.at };
+  return runChecks(userId, game, { ...GAME_CHECKS, ...RECORD_CHECKS }, ctx, ref);
+}
+
+// The feats that need nothing but the game's record — who won, against what
+// — so every variant earns them, one whose moves aren't replayed included.
+// `c` is evaluateGame's context, or recordContext's when nothing was replayed.
+const RECORD_CHECKS = {
+  // LorFish levels by key (src/shared/aiLevels.js); the weaker three earn nothing.
+  beat_fish_2: (c) => c.won && c.game.mode === "ai" && c.game.ai_level === "intermediate",
+  fish_slayer: (c) => c.won && c.game.mode === "ai" && c.game.ai_level === "advanced",
+};
+
+function runChecks(userId, game, checks, ctx, ref) {
   const earned = [];
-  for (const key of Object.keys(GAME_CHECKS)) {
+  for (const key of Object.keys(checks)) {
     if (MATERIAL_CHECKS.has(key) && !hasMaterialBadges(game.variant)) continue;
     let r;
     try {
-      r = GAME_CHECKS[key](ctx);
+      r = checks[key](ctx);
     } catch (e) {
       log.error("achievements.check_failed", { check: key, game: game.id, user: userId, err: e });
       continue;
@@ -397,6 +407,15 @@ function evaluateGame(userId, game, analysis, extra) {
     if (got) earned.push(got);
   }
   return earned;
+}
+
+// The record checks for a game whose moves weren't replayed (infinite chess),
+// winner read from its result. Its start is the variant's own: the routes and
+// the socket refuse any other.
+function evaluateRecord(userId, game, extra) {
+  const me = game.white_id === userId ? "w" : "b";
+  const won = game.result === (me === "w" ? "1-0" : "0-1");
+  return runChecks(userId, game, RECORD_CHECKS, { game, won }, { gameId: game.id, at: extra && extra.at });
 }
 
 // Both players' ratings going into a game. Rated games have a history row;
@@ -536,7 +555,7 @@ function onGameFinished(gameId, extra) {
   const out = {};
   if (!game || game.status !== "finished") return out;
   // Game feats replay the moves on an 8x8 board; a variant whose board isn't
-  // one (infinite chess) earns only the stats below.
+  // one (infinite chess) earns only the feats its record shows, and the stats.
   const analysis = hasMoveBadges(game.variant) ? analyze(game, queries.getMovesForGame.all(gameId)) : null;
   const humans = [game.white_id, game.black_id].filter((id) => id != null && isHuman(id));
   for (const uid of humans) {
@@ -545,6 +564,8 @@ function onGameFinished(gameId, extra) {
     // from the standard position or a server-built handicap.
     if (analysis && (game.mode === "pvp" || analysis.trustedStart)) {
       earned.push(...evaluateGame(uid, game, analysis, extra));
+    } else if (!analysis) {
+      earned.push(...evaluateRecord(uid, game, extra));
     }
     if (!(extra && extra.skipStats)) earned.push(...evaluateStats(uid, { gameId, at: extra && extra.at }));
     out[uid] = earned;

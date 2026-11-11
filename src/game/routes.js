@@ -33,7 +33,13 @@ const VALID_TERMINATIONS = new Set([
   "explosion", "pawns captured", "all pieces lost", "no moves",
 ]);
 
-const turnOf = (fen) => (String(fen).split(/\s+/)[1] === "b" ? "b" : "w");
+// The side to move: FEN's second field, or an infinite-chess position's first
+// (ICN puts it first; a FEN's first field is the whole board, never "w" or "b").
+const turnOf = (fen) => {
+  const fields = String(fen).split(/\s+/);
+  if (fields[0] === "w" || fields[0] === "b") return fields[0];
+  return fields[1] === "b" ? "b" : "w";
+};
 // "A Chess960 game", "An Atomic game".
 const aGame = (variant) => `${/^[AEIOU]/.test(variantLabel(variant)) ? "An" : "A"} ${variantLabel(variant)} game`;
 

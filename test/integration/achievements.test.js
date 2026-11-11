@@ -234,6 +234,22 @@ describe("AI games", () => {
     assert.ok(lacks(second, "fools_mate", "beat_fish_2"), "already earned, so not reported again");
   });
 
+  test("beating LorFish counts in infinite chess too, from the record alone", () => {
+    // Its moves are never replayed (no move badges), so only the result says
+    // who won.
+    const me = makeUser("inf");
+    const game = (aiLevel, result) => keysOf(achievements.onGameFinished(recordGame({
+      white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel, variant: "infinite",
+      start: new InfiniteChess().fen(), moves: ["5,2>5,4", "5,7>5,5"], result, termination: "resign",
+      initialMs: null, rated: 0,
+    })), me.id);
+    assert.ok(lacks(game("advanced", "0-1"), "fish_slayer"), "a loss earns nothing");
+    assert.ok(lacks(game("casual", "1-0"), "beat_fish_2", "fish_slayer"), "nor a win against Casual");
+    const won = game("advanced", "1-0");
+    assert.ok(has(won, "fish_slayer"), won);
+    assert.ok(has(game("intermediate", "1-0"), "beat_fish_2"));
+  });
+
   test("beating the weaker levels, or a game from before levels with no level, earns neither", () => {
     const me = makeUser("h");
     const games = [

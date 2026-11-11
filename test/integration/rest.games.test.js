@@ -7,6 +7,7 @@ const { describe, test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { startServer, registerUser } = require("../helpers/server");
 const { Chess, STANDARD_START } = require("../../src/shared/chess");
+const { InfiniteChess } = require("../../src/shared/infiniteChess");
 const { moveOf } = require("../helpers/board");
 const { makeUser, recordGame } = require("../helpers/games");
 
@@ -193,10 +194,26 @@ describe("AI games in a variant", () => {
     assert.match(res.body.error, /^A Crazyhouse game starts from its own position/);
   });
 
-  test("a variant LorFish doesn't play yet is refused, and an unknown one is standard", async () => {
-    const res = await me.post("/api/games", { humanColor: "w", variant: "infinite" });
+  test("an infinite chess game starts from the Classical setup, and its turn is read from ICN", async () => {
+    const start = new InfiniteChess().fen();
+    const created = await newGame({ humanColor: "w", variant: "infinite", startFen: start });
+    assert.deepEqual([created.variant, created.turn], ["infinite", "w"]);
+    const game = (await me.get(`/api/games/${created.gameId}`)).body;
+    assert.deepEqual([game.variant, game.start_fen], ["infinite", start]);
+    // A move: ICN puts the side to move first, where FEN has the board.
+    const inf = new InfiniteChess();
+    const move = inf.findMove({ x: 5, y: 2 }, { x: 5, y: 4 });
+    const san = inf.moveToSan(move);
+    inf.makeMove(move);
+    assert.equal((await me.post(`/api/games/${created.gameId}/moves`,
+      { ply: 1, san, uci: "5,2>5,4", fenAfter: inf.fen(), byColor: "w" })).status, 201);
+    assert.equal((await me.get(`/api/games/${created.gameId}`)).body.turn, "b");
+    const res = await me.post("/api/games", { humanColor: "w", variant: "infinite", startFen: "w 0/100 1 (8|1) checkmate K5,1|k5,8|Q1,1" });
     assert.equal(res.status, 400);
-    assert.match(res.body.error, /LorFish doesn't play Infinite Chess yet/);
+    assert.match(res.body.error, /^An Infinite Chess game starts from its own position/);
+  });
+
+  test("an unknown variant is standard", async () => {
     const created = await newGame({ humanColor: "w", variant: "nope" });
     assert.equal(created.variant, "standard");
   });

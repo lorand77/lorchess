@@ -22,7 +22,7 @@ test("a Chess960 game against LorFish, from the lobby to a resumed game", async 
 
   // Only the variants LorFish plays; the levels lose their ratings outside standard.
   const variants = await page.locator("#aiVariantSelect option").evaluateAll((os) => os.map((o) => o.value));
-  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "crazyhouse", "antichess"]);
+  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "crazyhouse", "antichess", "infinite"]);
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual (~1000)");
   await page.locator("#aiVariantSelect").selectOption("chess960");
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual");
@@ -189,32 +189,50 @@ test("the worker plays infinite chess: it replays ICN moves and mates from far o
   assert.ok(inf.findMove(reply.move.from, reply.move.to, reply.move.promo), JSON.stringify(reply.move));
 });
 
-test("the game page plays LorFish on the infinite board, and takes moves back", async (t) => {
+test("an infinite chess game against LorFish, from the lobby to a resumed game", async (t) => {
   const { page } = await signedInPage(browser, srv.baseUrl, t);
-  // Until the catalogue offers LorFish for infinite chess, this page is told it does.
-  await page.route("**/js/variants.js", async (route) => {
-    const body = (await (await route.fetch()).text())
-      .replace(/(key: 'infinite'[^}]*?)bot: false/, "$1bot: true");
-    await route.fulfill({ body, contentType: "application/javascript" });
-  });
   await page.setViewportSize({ width: 1400, height: 1000 });
-  await page.goto(srv.baseUrl + "/game.html?mode=ai&level=casual&color=w&variant=infinite");
-  await page.waitForFunction(() => chess instanceof InfiniteChess && !thinking);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.locator("#aiVariantSelect").selectOption("infinite");
+  await page.locator("#aiLevelSelect").selectOption("casual");
+  await page.locator("#aiPlayBtn").click();
+  await page.waitForURL(/variant=infinite/);
+  await page.waitForFunction(() => chess instanceof InfiniteChess && gameStore.currentId() != null && !thinking);
   assert.equal(await page.locator("#aiLevelText").textContent(), "Casual · Infinite Chess");
   assert.equal(await page.locator("#historyTitle").textContent(), "ICN");
+  const id = await page.evaluate(() => gameStore.currentId());
+  const START = await page.evaluate(() => new InfiniteChess().fen());
+  assert.deepEqual(db().prepare("SELECT variant, start_fen FROM games WHERE id = ?").get(id),
+    { variant: "infinite", start_fen: START });
 
   await page.locator('#board .square[data-sq="5,2"]').click();
   await page.locator('#board .square[data-sq="5,4"]').click();
   await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
-  const reply = await page.evaluate(() => chess.history[1].move);
-  assert.equal(reply.color, "b");
+  assert.equal(await page.evaluate(() => chess.history[1].move.color), "b");
   assert.match(await page.locator("#history").textContent(), /5,2>5,4/);
+  // Stored as ICN, with the turn read from it: White to move again.
+  await page.waitForFunction((gid) => fetch("/api/games/" + gid).then((r) => r.json()).then((g) => g.moves.length === 2), id);
+  const row = db().prepare("SELECT turn FROM games WHERE id = ?").get(id);
+  assert.equal(row.turn, "w");
+  assert.deepEqual(db().prepare("SELECT uci FROM moves WHERE game_id = ? ORDER BY ply").all(id)[0], { uci: "5,2>5,4" });
 
-  // Undo takes back both moves, LorFish's included, and the board is the start again.
+  // Undo takes back both moves, LorFish's included; play on, then reload.
   await page.locator("#undoBtn").click();
   await page.waitForFunction(() => chess.history.length === 0);
-  assert.equal(await page.evaluate(() => chess.fen()), await page.evaluate(() => new InfiniteChess().fen()));
-  assert.equal(await page.locator('#board .square[data-sq="5,2"] img.piece').getAttribute("alt") !== null, true);
+  assert.equal(await page.evaluate(() => chess.fen()), START);
+  await page.locator('#board .square[data-sq="4,2"]').click();
+  await page.locator('#board .square[data-sq="4,4"]').click();
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  const fen = await page.evaluate(() => chess.fen());
+  await page.waitForLoadState("networkidle");
+  await page.reload();
+  await page.waitForFunction(() => chess instanceof InfiniteChess && gameStore.currentId() != null && !thinking);
+  assert.deepEqual(await page.evaluate(() => [gameStore.currentId(), gameVariant, chess.fen(), chess.history.length]),
+    [id, "infinite", fen, 2]);
+
+  // Stockfish can't review infinite chess: no review link for it.
+  await page.evaluate(() => showReviewLink(gameStore.currentId()));
+  assert.equal(await page.locator("#reviewLinkWrap").isVisible(), false);
   // Taking a move back slides its pieces home on the infinite board's own
   // squares ("x,y"), a castling rook included.
   const slides = await page.evaluate(() => {
