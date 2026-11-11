@@ -16,15 +16,95 @@
 // temperature means the same in both), and as a Node `require`.
 
 const LorFishInfinite = {
-  // Material, from the side to move's point of view: the evaluation for now.
-  pieceValues: { p: 100, n: 300, b: 320, r: 500, q: 900, k: 0 },
+  // ---- evaluation ----
+  //
+  // From the side to move's point of view, in centipawns, like LorFish's. Each
+  // term is one pass over the pieces: attack tests here walk every piece, and
+  // the evaluation runs at every leaf.
+  //
+  // Material, valued for a board without edges: a knight can't reach anything
+  // far off and a slider reaches everything, so knights are worth less than
+  // usual and rooks and queens, the pieces that mate here, more.
+  pieceValues: { p: 100, n: 250, b: 400, r: 600, q: 1150, k: 0 },
 
   evaluate(chess) {
+    const kings = { w: null, b: null };
+    const sliders = { w: { line: 0, diag: 0 }, b: { line: 0, diag: 0 } };
+    for (const p of chess.board.values()) {
+      if (p.t === 'k') kings[p.c] = p;
+      if (p.t === 'r' || p.t === 'q') sliders[p.c].line++;
+      if (p.t === 'b' || p.t === 'q') sliders[p.c].diag++;
+    }
     let score = 0;
     for (const p of chess.board.values()) {
-      score += p.c === 'w' ? this.pieceValues[p.t] : -this.pieceValues[p.t];
+      let v = this.pieceValues[p.t];
+      if (p.t === 'p') v += this.pawnBonus(chess, p);
+      else if (p.t !== 'k') v -= this.strayPenalty(p, kings[p.c === 'w' ? 'b' : 'w']);
+      score += p.c === 'w' ? v : -v;
     }
+    score -= this.kingDanger(chess, kings.w, sliders.b);
+    score += this.kingDanger(chess, kings.b, sliders.w);
     return chess.turn === 'w' ? score : -score;
+  },
+
+  // A pawn is worth more the nearer it is to promoting (rank 8 for White, 1
+  // for Black), and more again with no enemy pawn ahead of it on its own file
+  // or either beside it.
+  PAWN_STEP: 8,
+  PASSED: [0, 10, 20, 35, 55, 80],
+  pawnBonus(chess, pawn) {
+    const up = pawn.c === 'w' ? 1 : -1;
+    const adv = Math.max(0, Math.min(5, pawn.c === 'w' ? pawn.y - 2 : 7 - pawn.y));
+    let passed = true;
+    for (const q of chess.board.values()) {
+      if (q.t === 'p' && q.c !== pawn.c && Math.abs(q.x - pawn.x) <= 1 && (q.y - pawn.y) * up > 0) {
+        passed = false;
+        break;
+      }
+    }
+    return this.PAWN_STEP * adv + (passed ? this.PASSED[adv] : 0);
+  },
+
+  // A piece gone far from the enemy king does nothing on a board this size,
+  // and a slider's candidate moves can take it a long way. A knight or bishop
+  // pays beyond 8 squares, a rook or queen beyond 16; the cost stops growing
+  // at 40 squares further, as by then the piece is simply out of play.
+  STRAY: { n: [8, 2], b: [8, 1], r: [16, 1], q: [16, 1] },
+  strayPenalty(p, enemyKing) {
+    const [free, rate] = this.STRAY[p.t];
+    const d = Math.max(Math.abs(p.x - enemyKing.x), Math.abs(p.y - enemyKing.y));
+    return rate * Math.min(40, Math.max(0, d - free));
+  },
+
+  // The danger to `king`: each of its eight lines with nothing close along it
+  // (no piece within two squares) is an open road for an enemy slider coming
+  // from any distance — ranks and files for rooks and queens, diagonals for
+  // bishops and queens — counted only if the enemy has such a slider, and
+  // twice if it has two. Pieces of its own beside it shelter it.
+  OPEN_LINE: 30,
+  OPEN_DIAG: 20,
+  SHELTER: 8,
+  kingDanger(chess, king, enemySliders) {
+    const near = new Map();   // direction -> distance of the nearest piece on it
+    let shelter = 0;
+    for (const p of chess.board.values()) {
+      if (p === king) continue;
+      const dx = p.x - king.x, dy = p.y - king.y;
+      const d = Math.max(Math.abs(dx), Math.abs(dy));
+      if (d === 1 && p.c === king.c) shelter++;
+      if (dx && dy && Math.abs(dx) !== Math.abs(dy)) continue;
+      const dir = Math.sign(dx) + ',' + Math.sign(dy);
+      if (!near.has(dir) || d < near.get(dir)) near.set(dir, d);
+    }
+    let danger = 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const d = near.get(dx + ',' + dy);
+      if (d !== undefined && d <= 2) continue;
+      danger += dx && dy
+        ? this.OPEN_DIAG * Math.min(2, enemySliders.diag)
+        : this.OPEN_LINE * Math.min(2, enemySliders.line);
+    }
+    return danger - this.SHELTER * shelter;
   },
 
   MATE: 100000,

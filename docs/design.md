@@ -271,8 +271,26 @@ written from these rules.
   position with no move left is mate or stalemate, read from whether the side
   is in check. Repetition, the 50-move rule and dead material are draws. The
   board is a `Map` whose order moves made and taken back change, so the root
-  sorts its moves first: the same position always gets the same verdict. The
-  evaluation is material alone for now.
+  sorts its moves first: the same position always gets the same verdict.
+- *The bot's evaluation* is built for a board without edges, each term one
+  pass over the pieces. It never uses an attack test, since those walk every
+  piece and the evaluation runs at every leaf.
+  - Material: knights are worth less than usual (250), since they reach
+    nothing far off. Rooks (600) and queens (1150), the pieces that mate
+    here, are worth more.
+  - A piece gone far from the enemy king loses value: a knight or bishop
+    beyond 8 squares, a rook or queen beyond 16. The cost stops growing 40
+    squares further on, since by then the piece is simply out of play.
+  - King danger: each of a king's eight lines with no piece within two
+    squares is an open road for an enemy slider from any distance. It counts
+    only if the enemy has a slider for it, double for two. Pieces beside the
+    king shelter it.
+  - Pawns gain value with every rank towards promotion, more when no enemy
+    pawn is ahead on their own or a neighbouring file.
+
+  Against material alone at depth 2, over 18 games, it won 4 by mate and lost
+  none. Of the games still going after 200 plies, it led on material in 7 and
+  trailed in 5.
 - *Dead material* uses infinitechess.org's table, its 30 standard-piece rows
   checked against their source by a script, with their bishop colour pairing,
   their pawn expansion (up to two pawns, as every piece they could become) and

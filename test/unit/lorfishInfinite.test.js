@@ -38,9 +38,10 @@ test("looks past the horizon: a pawn guarded from far off is left alone", () => 
 test("moves its queen out of an attack rather than lose it", () => {
   // (A white rook as well: a queen against a rook alone is dead material on
   // a board without edges, and every line scores a draw.)
+  // Moving it, or first a check the rook on 1,20 must answer: either way the
+  // queen is still White's when the search ends.
   const a = E.analyse(pos("w", "k5,8|r1,20|Q30,20|R-40,-40|K-50,-50"), 2);
-  assert.ok(a.san.startsWith("Q30,20"), a.san);
-  assert.ok(a.score > 0, String(a.score));
+  assert.ok(a.score > E.pieceValues.q / 2, `${a.san} ${a.score}`);
 });
 
 test("sees the mate coming and stops it, however far the defender", () => {
@@ -108,4 +109,63 @@ test("a hot level plays legal, varied moves", () => {
   }
   for (let s = 0; s < 8; s++) firsts.add(E.moveKey(E.getBestMove(new InfiniteChess(), 1, { temperature: 100, rng: seeded(s) })));
   assert.ok(firsts.size > 3, `${firsts.size} different first moves`);
+});
+
+// The same position with the colours swapped and the board turned over
+// (rank y becomes 9 - y): it must look the same to the side to move.
+const mirror = (chess) => {
+  const flip = (s) => {
+    const [, letter, x, y, right] = /^([a-zA-Z])(-?\d+),(-?\d+)(\+?)$/.exec(s);
+    const other = letter === letter.toUpperCase() ? letter.toLowerCase() : letter.toUpperCase();
+    return `${other}${x},${9 - Number(y)}${right}`;
+  };
+  return pos(chess.turn === "w" ? "b" : "w", chess.pieceList().map(flip).join("|"));
+};
+
+test("the evaluation is the same for either colour, and level at the start", () => {
+  assert.equal(E.evaluate(new InfiniteChess()), 0);
+  const random = seeded(21);
+  const c = new InfiniteChess();
+  for (let i = 0; i < 40 && !c.isGameOver(); i++) {
+    const ms = c.candidateMoves();
+    c.makeMove(ms[Math.floor(random() * ms.length)]);
+    if (c.ep) continue;   // the mirror leaves out the en passant square
+    assert.equal(E.evaluate(mirror(c)), E.evaluate(c), c.fen());
+  }
+});
+
+test("a rook outweighs a bishop, and a bishop a knight, on a board without edges", () => {
+  const v = E.pieceValues;
+  assert.ok(v.q > v.r && v.r > v.b && v.b > v.n && v.n > v.p);
+});
+
+test("a piece far from the enemy king counts for less", () => {
+  const near = E.evaluate(pos("w", "k5,8|p1,7|P1,2|N6,5|K5,1"));
+  const far = E.evaluate(pos("w", "k5,8|p1,7|P1,2|N60,5|K5,1"));
+  const outOfPlay = E.evaluate(pos("w", "k5,8|p1,7|P1,2|N6000,5|K5,1"));
+  assert.ok(near > far, `${near} vs ${far}`);
+  assert.equal(far - outOfPlay, 0, "past forty squares it is simply out of play");
+  assert.equal(E.strayPenalty({ t: "r", x: 5, y: 20 }, { x: 5, y: 8 }), 0, "a rook within 16 squares pays nothing");
+});
+
+test("a king with open lines around it is in danger, if the enemy has sliders to use them", () => {
+  const sheltered = pos("w", "k5,8|r1,8|K5,1|P4,2|P5,2|P6,2|P4,0|P5,0|P6,0|B4,1|B6,1");
+  const open = pos("w", "k5,8|r1,8|K5,1|P4,2|P5,2|P6,2|B4,1|B6,1");
+  const rooks = { line: 1, diag: 0 }, none = { line: 0, diag: 0 };
+  const kOf = (c) => c.kingOf("w");
+  assert.ok(E.kingDanger(open, kOf(open), rooks) > E.kingDanger(sheltered, kOf(sheltered), rooks));
+  // Open below: the file down is a road for the rook; the diagonals are not,
+  // since Black has no bishop or queen.
+  assert.equal(E.kingDanger(open, kOf(open), rooks) - E.kingDanger(open, kOf(open), none), E.OPEN_LINE);
+  // A piece far off along a line closes nothing: something can come between.
+  const distant = pos("w", "k5,8|r1,8|K5,1|P4,2|P5,2|P6,2|P5,-30|B4,1|B6,1");
+  assert.equal(E.kingDanger(distant, kOf(distant), rooks), E.kingDanger(open, kOf(open), rooks));
+});
+
+test("a pawn is worth more the nearer it is to promoting, and more again when passed", () => {
+  const at = (y, blockers = "") => E.pawnBonus(pos("w", `k5,8|K5,1|P3,${y}${blockers}`), { t: "p", c: "w", x: 3, y });
+  assert.ok(at(6) > at(4) && at(4) > at(2));
+  assert.ok(at(5) > at(5, "|p4,7"), "an enemy pawn ahead on the next file stops it being passed");
+  assert.equal(at(5, "|p4,3"), at(5), "one behind does not");
+  assert.equal(E.pawnBonus(pos("b", "k5,8|K5,1|p3,3"), { t: "p", c: "b", x: 3, y: 3 }), at(6), "Black's run the other way");
 });
