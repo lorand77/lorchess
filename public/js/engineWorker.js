@@ -5,25 +5,31 @@
 // "scanner" sound to mask a freeze, because the freeze no longer happens.
 //
 // Pick a move — { id, startFen, moves, depth, temperature }
-//   startFen : starting position FEN, or null for the standard start
-//   moves    : [{from,to,promo}] applied since startFen, replayed here so
-//              positionCounts / threefold repetition is rebuilt correctly
-//              (loadFen and reset both wipe it).
+//   startFen : starting position FEN (ICN for infinite chess), or null for
+//              the variant's own start
+//   variant  : the catalogue key; infinite chess has an engine and a LorFish
+//              of its own (infiniteChess.js, lorfishInfinite.js)
+//   moves    : the moves since startFen as stored ("e2e4", "N@e4",
+//              "5,2>5,4"), replayed here so positionCounts / threefold
+//              repetition is rebuilt correctly (loadFen and reset both wipe it).
 //   depth, temperature : the game's level (src/shared/aiLevels.js); a
 //              temperature of 0 is the plain search with its tiebreak jitter.
-// Reply: { id, move|null, error? }  move = {from,to,promo}
+// Reply: { id, move|null, error? }  move = {from,to,promo,drop}, squares as
+// the variant's engine numbers them: 0-63, or { x, y } in infinite chess.
 //
 // Game review used to run here too; it is Stockfish's job now (gameReview.js).
 
-importScripts("/js/chess.js", "/js/uci.js", "/js/lorfish.js");
+importScripts("/js/chess.js", "/js/infiniteChess.js", "/js/engines.js", "/js/uci.js",
+  "/js/lorfish.js", "/js/lorfishInfinite.js");
 
 self.onmessage = (e) => {
   const { id, startFen, variant, moves, depth, temperature } = e.data || {};
   try {
-    // The variant's rules first, then its position: loading never changes them.
-    const chess = new Chess().setVariant(variant || "standard");
+    // The variant's engine, at its own start, then the game's start if it has
+    // one: loading never changes the rules.
+    const chess = createEngine(variant || "standard");
     if (startFen) chess.loadFen(startFen);
-    else chess.reset();
+    const bot = variant === "infinite" ? LorFishInfinite : LorFish;
 
     for (const text of moves || []) {
       const match = moveFromUci(chess, text);
@@ -34,12 +40,14 @@ self.onmessage = (e) => {
       chess.makeMove(match);
     }
 
-    const move = LorFish.getBestMove(chess, depth, { temperature });
+    const move = bot.getBestMove(chess, depth, { temperature });
     self.postMessage({
       id,
       // Castling spelled by the rook square: on a shuffled back rank the king's
       // destination alone can also be a plain king step (see Chess.findMove).
-      // A Crazyhouse drop names its piece and has no square it leaves.
+      // A Crazyhouse drop names its piece and has no square it leaves. An
+      // infinite-chess castling is the king's two-square step, which its
+      // findMove reads as castling (it has no rookFrom).
       move: move
         ? {
             from: move.from,

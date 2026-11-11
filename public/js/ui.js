@@ -453,6 +453,14 @@ function planUndoAnimation(moves) {
   if (reducedMotion || moves.length === 0) return;
   const pieces = [];
   for (const move of moves) {
+    // Infinite chess: squares are { x, y }, which its board view knows as
+    // "x,y", and a castling move carries both of the rook's squares.
+    if (move.from && typeof move.from === 'object') {
+      const key = (p) => p.x + ',' + p.y;
+      pieces.push({ from: key(move.to), to: key(move.from) });
+      if (move.castle) pieces.push({ from: key(move.castle.rookTo), to: key(move.castle.rookFrom) });
+      continue;
+    }
     pieces.push({ from: move.to, to: move.from });
     if (move.castle) {
       const home = rankOf(move.from);
@@ -650,6 +658,25 @@ const sameSquare = (a, b) =>
   a === b || (!!a && !!b && typeof a === 'object' && a.x === b.x && a.y === b.y);
 // The piece on a square, whichever engine holds it.
 const pieceOn = (sq) => (isInfinite() ? chess.pieceAt(sq.x, sq.y) : chess.squares[sq]);
+
+// Set the board up for `variant`'s rules, before any position is loaded:
+// loading never changes them. Infinite chess is another engine and another
+// board, a window onto a board with no edges; every other variant is chess.js
+// with its rule set chosen (Atomic, say, changes what a capture does). A
+// page holds one game, so the swap only ever goes the one way.
+function useVariant(variant) {
+  const historyTitle = document.getElementById('historyTitle');
+  if (historyTitle) historyTitle.textContent = variant === 'infinite' ? 'ICN' : 'PGN';
+  if (variant === 'infinite') {
+    if (!isInfinite()) {
+      chess = createEngine('infinite');
+      boardView.destroy();
+      boardView = InfiniteBoardView.create(boardEl, boardHandlers);
+    }
+  } else {
+    chess.setVariant(variant || 'standard');
+  }
+}
 
 // May the user pick up whatever is standing on this square right now? Shared by
 // click-to-move and drag-and-drop, so the two can never disagree.
@@ -1173,7 +1200,7 @@ function initAi(params) {
   // Only a variant LorFish plays; anything else is a standard game.
   const variant = resolveVariant(params.get('variant'));
   gameVariant = hasBot(variant) ? variant : 'standard';
-  chess.setVariant(gameVariant);
+  useVariant(gameVariant);
   showAiLayout();
   moveSource = createAiMoveSource(env);
   startNewGame();
@@ -1188,9 +1215,8 @@ function resumeAiGame(game) {
   // Restore the level, if the game has one: a game from before levels whose
   // depth matched none plays the default.
   if (AI_LEVELS_BY_KEY.has(game.ai_level)) aiLevel = game.ai_level;
-  // Its rules before its position: loading never changes them.
   gameVariant = game.variant || 'standard';
-  chess.setVariant(gameVariant);
+  useVariant(gameVariant);
 
   showAiLayout();
   resetSoundState();
@@ -1762,20 +1788,7 @@ function applyPvpState(socket, state) {
   lastPvpState = state;
   renderFriendRow();
   setChatHistory(state.chat);
-  // Atomic changes the rules, not just the position — tell the board before
-  // loading anything, or captures will be applied the standard way.
-  const historyTitle = document.getElementById('historyTitle');
-  if (historyTitle) historyTitle.textContent = state.variant === 'infinite' ? 'ICN' : 'PGN';
-  if (state.variant === 'infinite') {
-    // Another engine and another board: a window onto a board with no edges.
-    if (!(chess instanceof InfiniteChess)) {
-      chess = createEngine('infinite');
-      boardView.destroy();
-      boardView = InfiniteBoardView.create(boardEl, boardHandlers);
-    }
-  } else {
-    chess.setVariant(state.variant || 'standard');
-  }
+  useVariant(state.variant);
   gameVariant = state.variant || 'standard';
   rebuildFromRecord(state);
   startFullmove = 1;

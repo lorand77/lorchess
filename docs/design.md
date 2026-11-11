@@ -667,11 +667,17 @@ Design notes:
 LorFish's search is synchronous and blocks whatever thread runs it. It runs in
 `public/js/engineWorker.js`, so the page never freezes. (The original UI hid the
 freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
-needed.) The worker `importScripts` the engine, receives
-`{ id, startFen, variant, moves, depth, temperature }` — the moves as they are
-stored (`e2e4`, `N@e4`), read through `uci.js` — sets the variant's rules and
-**replays the moves** instead of loading the current FEN, because `loadFen` and
-`reset` wipe `positionCounts` and threefold repetition would be wrong.
+needed.) The worker `importScripts` both engines and both LorFishes,
+receives `{ id, startFen, variant, moves, depth, temperature }` — the moves as
+they are stored (`e2e4`, `N@e4`, `5,2>5,4`), read through `uci.js` — takes
+the variant's engine from `createEngine` and **replays the moves** instead of
+loading the current FEN, because `loadFen` and `reset` wipe `positionCounts`
+and threefold repetition would be wrong. Infinite chess is searched by
+`LorFishInfinite`, everything else by `LorFish`; the reply's squares are the
+engine's own (0–63, or `{ x, y }`). On the page, `useVariant` sets up a
+variant's engine and board before any position loads, for AI and PvP games
+alike: infinite chess swaps in its engine and the infinite board view, every
+other variant sets chess.js's rules.
 
 The browser is authoritative for its own AI game. `public/js/gameStore.js`
 mirrors it to the server (`POST /api/games`, `/:id/moves`, `/:id/end`,

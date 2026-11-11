@@ -165,3 +165,61 @@ test("a Crazyhouse game against LorFish, and the worker drops a piece to mate", 
   }));
   assert.deepEqual(move, { from: null, to: 13, promo: null, drop: "n" });
 });
+
+test("the worker plays infinite chess: it replays ICN moves and mates from far off", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  const ask = (msg) => page.evaluate((m) => new Promise((resolve) => {
+    const w = new Worker("/js/engineWorker.js");
+    w.onmessage = (e) => { w.terminate(); resolve(e.data); };
+    w.postMessage(m);
+  }), msg);
+  // A boxed-in king and a rook 45 squares off: mate on the king's file or rank.
+  const mate = await ask({ id: 1, variant: "infinite", moves: [], depth: 1, temperature: 0,
+    startFen: "w 0/100 1 (8|1) checkmate k5,5|R4,100|R6,100|R100,4|R100,6|K-50,-50|R200,50" });
+  assert.ok(["5,50", "200,5"].includes(`${mate.move.to.x},${mate.move.to.y}`), JSON.stringify(mate));
+  assert.deepEqual([mate.move.from, mate.move.promo, mate.move.drop], [{ x: 200, y: 50 }, null, null]);
+  // From the Classical start (no startFen: the engine's own), after two moves.
+  const reply = await ask({ id: 2, variant: "infinite", startFen: null, moves: ["5,2>5,4", "5,7>5,5"], depth: 1, temperature: 0 });
+  assert.equal(reply.error, undefined);
+  const { InfiniteChess } = require("../../src/shared/infiniteChess");
+  const inf = new InfiniteChess();
+  inf.makeMove(inf.findMove({ x: 5, y: 2 }, { x: 5, y: 4 }));
+  inf.makeMove(inf.findMove({ x: 5, y: 7 }, { x: 5, y: 5 }));
+  assert.ok(inf.findMove(reply.move.from, reply.move.to, reply.move.promo), JSON.stringify(reply.move));
+});
+
+test("the game page plays LorFish on the infinite board, and takes moves back", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  // Until the catalogue offers LorFish for infinite chess, this page is told it does.
+  await page.route("**/js/variants.js", async (route) => {
+    const body = (await (await route.fetch()).text())
+      .replace(/(key: 'infinite'[^}]*?)bot: false/, "$1bot: true");
+    await route.fulfill({ body, contentType: "application/javascript" });
+  });
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await page.goto(srv.baseUrl + "/game.html?mode=ai&level=casual&color=w&variant=infinite");
+  await page.waitForFunction(() => chess instanceof InfiniteChess && !thinking);
+  assert.equal(await page.locator("#aiLevelText").textContent(), "Casual · Infinite Chess");
+  assert.equal(await page.locator("#historyTitle").textContent(), "ICN");
+
+  await page.locator('#board .square[data-sq="5,2"]').click();
+  await page.locator('#board .square[data-sq="5,4"]').click();
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  const reply = await page.evaluate(() => chess.history[1].move);
+  assert.equal(reply.color, "b");
+  assert.match(await page.locator("#history").textContent(), /5,2>5,4/);
+
+  // Undo takes back both moves, LorFish's included, and the board is the start again.
+  await page.locator("#undoBtn").click();
+  await page.waitForFunction(() => chess.history.length === 0);
+  assert.equal(await page.evaluate(() => chess.fen()), await page.evaluate(() => new InfiniteChess().fen()));
+  assert.equal(await page.locator('#board .square[data-sq="5,2"] img.piece').getAttribute("alt") !== null, true);
+  // Taking a move back slides its pieces home on the infinite board's own
+  // squares ("x,y"), a castling rook included.
+  const slides = await page.evaluate(() => {
+    planUndoAnimation([{ from: { x: 5, y: 1 }, to: { x: 7, y: 1 }, castle: { rookFrom: { x: 8, y: 1 }, rookTo: { x: 6, y: 1 } } }]);
+    return moveAnim && moveAnim.pieces;
+  });
+  assert.deepEqual(slides, [{ from: "7,1", to: "5,1" }, { from: "6,1", to: "8,1" }]);
+});
