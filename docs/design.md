@@ -291,6 +291,22 @@ written from these rules.
   Against material alone at depth 2, over 18 games, it won 4 by mate and lost
   none. Of the games still going after 200 plies, it led on material in 7 and
   trailed in 5.
+- *The bot's speed and levels.* The capture search checks its stand-pat
+  before listing captures, since most capture-search nodes are cut off there
+  and the list was most of the cost. `rayTargets` is plain arithmetic with no
+  allocation. Repetition reuses the key `makeMove` stored. Together these took
+  depth 4 from the opening from 9 s to 2 s. Over whole self-play games
+  Advanced's median move is 2.1 s and its slowest 12 s, quicker than
+  Advanced in standard chess, so the levels keep their usual depths. The
+  levels play in order: each beat the one below in every game that was
+  decided (Advanced over Intermediate 3 mates in 4 games, Intermediate over
+  Casual 2 in 6, Casual over Beginner 4 in 6, Beginner over Novice 4 in 6),
+  and of the undecided games the stronger level led on material or held a
+  draw.
+- *Contempt.* A draw scores 20 below level for the side LorFish plays
+  (`CONTEMPT`, `drawScore`). On a board this open both sides can nearly
+  always shuffle, so a level draw would otherwise be taken whenever nothing
+  better showed. A worse position still takes a perpetual check.
 - *Dead material* uses infinitechess.org's table, its 30 standard-piece rows
   checked against their source by a script, with their bishop colour pairing,
   their pawn expansion (up to two pawns, as every piece they could become) and

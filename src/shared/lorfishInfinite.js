@@ -117,14 +117,28 @@ const LorFishInfinite = {
   // (The engine's result() would say the same, after asking again whether a
   // move is left; the search already knows there is none.)
   endScore(chess) {
-    return chess.inCheck() ? -(this.MATE - (chess.history.length - this.rootPly)) : 0;
+    return chess.inCheck() ? -(this.MATE - (chess.history.length - this.rootPly)) : this.drawScore(chess);
+  },
+
+  // A draw, from the side to move's point of view, with contempt: a little
+  // worse than level for the side LorFish is playing, a little better for its
+  // opponent. On a board this open both sides can nearly always shuffle, and
+  // a draw scored as level would be taken from any level position; this way
+  // the search plays on unless every other line is worse. A worse position
+  // still takes a perpetual check, as it should.
+  CONTEMPT: 20,
+  drawScore(chess) {
+    return chess.turn === this.rootSide ? -this.CONTEMPT : this.CONTEMPT;
   },
 
   // Drawn whatever is played: repeated in the game and this line (one more
   // pass would make threefold), the 50-move rule, or material nobody can mate
   // with.
   isDraw(chess) {
-    return (chess.positionCounts.get(chess.positionKey()) || 0) >= 2
+    // The key makeMove just counted, rather than building it again.
+    const last = chess.history[chess.history.length - 1];
+    const key = (last && last.key) || chess.positionKey();
+    return (chess.positionCounts.get(key) || 0) >= 2
       || chess.halfmove >= 100 || chess.isInsufficientMaterial();
   },
 
@@ -163,16 +177,18 @@ const LorFishInfinite = {
   quiescence(chess, alpha, beta, qdepth) {
     this.nodes++;
     if (qdepth > this.maxQ) this.maxQ = qdepth;
-    if (this.isDraw(chess)) return 0;
+    if (this.isDraw(chess)) return this.drawScore(chess);
     const checked = chess.inCheck();
-    const moves = chess.candidateMoves(!checked);
-    if (checked && !moves.length) return this.endScore(chess);
+    // Out of check, the stand-pat first: when it already beats beta, the
+    // captures are never needed, and listing them is most of the cost.
     if (!checked) {
       const standPat = this.evaluate(chess);
       if (standPat >= beta) return beta;
       if (standPat > alpha) alpha = standPat;
       if (qdepth >= this.QDEPTH) return alpha;
     }
+    const moves = chess.candidateMoves(!checked);
+    if (checked && !moves.length) return this.endScore(chess);
     let best = checked ? -Infinity : alpha;
     for (const m of this.orderMoves(chess, moves)) {
       chess.makeMove(m);
@@ -190,7 +206,7 @@ const LorFishInfinite = {
 
   negamax(chess, depth, alpha, beta) {
     this.nodes++;
-    if (this.isDraw(chess)) return 0;
+    if (this.isDraw(chess)) return this.drawScore(chess);
     if (depth <= 0 && !chess.inCheck()) return this.quiescence(chess, alpha, beta, 0);
     const moves = chess.candidateMoves();
     if (!moves.length) return this.endScore(chess);
@@ -225,6 +241,7 @@ const LorFishInfinite = {
     this.nodes = 0;
     this.maxQ = 0;
     this.rootPly = chess.history.length;
+    this.rootSide = chess.turn;
     this.killers = [];
     const effDepth = this.clampDepth(depth);
     const evals = [];

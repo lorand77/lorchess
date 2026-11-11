@@ -53,10 +53,26 @@ test("sees the mate coming and stops it, however far the defender", () => {
 test("a mated side scores a loss, a stalemated one a draw", () => {
   const mated = pos("b", `${CAGE}|R100,5`);
   E.rootPly = mated.history.length;
+  E.rootSide = "b";
   assert.equal(E.negamax(mated, 1, -Infinity, Infinity), -E.MATE);
   const stalemated = pos("b", CAGE);
-  assert.equal(E.negamax(stalemated, 1, -Infinity, Infinity), 0);
+  assert.equal(E.negamax(stalemated, 1, -Infinity, Infinity), -E.CONTEMPT, "a draw, a little worse for LorFish");
+  E.rootSide = "w";
+  assert.equal(E.negamax(stalemated, 1, -Infinity, Infinity), E.CONTEMPT, "and a little better for its opponent");
   assert.equal(E.analyse(stalemated, 1), null, "nothing to search");
+});
+
+test("plays on rather than repeat, unless every other line is worse", () => {
+  // White has just shuffled its king out and back; going out again would
+  // repeat the position a second time in the game.
+  const c = pos("w", "k5,8|r1,8|p8,7|R1,1|P8,2|K-50,-50");
+  for (const [f, t] of [[[-50, -50], [-50, -49]], [[5, 8], [5, 9]], [[-50, -49], [-50, -50]], [[5, 9], [5, 8]]]) {
+    c.makeMove(c.findMove({ x: f[0], y: f[1] }, { x: t[0], y: t[1] }));
+  }
+  const { evals } = E.searchRoot(c, 1, {});
+  const repeat = evals.find((e) => e.san === "K-50,-50>-50,-49");
+  assert.equal(repeat.raw, -E.CONTEMPT, "repeating scores below level for LorFish");
+  assert.notEqual(E.analyse(c, 1).san, "K-50,-50>-50,-49");
 });
 
 test("a repeated position and the 50-move rule are draws", () => {

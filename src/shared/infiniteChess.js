@@ -34,6 +34,8 @@ const InfiniteChess = (function () {
   const ORTHOGONAL = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const DIAGONAL = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
   const SLIDES = { b: DIAGONAL, r: ORTHOGONAL, q: ORTHOGONAL.concat(DIAGONAL) };
+  // Each slider's lines, one direction apiece: what rayTargets crosses.
+  const KING_LINES = { b: [[1, 1], [1, -1]], r: [[1, 0], [0, 1]], q: [[1, 0], [0, 1], [1, 1], [1, -1]] };
   const PIECE_TYPES = ['p', 'n', 'b', 'r', 'q', 'k'];
   // Pawns promote on arriving at this rank, and nowhere else.
   const PROMOTION_RANK = { [W]: 8, [B]: 1 };
@@ -571,56 +573,63 @@ const InfiniteChess = (function () {
     // (its square included if that piece is an enemy) or reaches ±LIMIT.
     // `captureOnly`: that last square alone.
     rayTargets(p, dx, dy, enemyKing, captureOnly) {
+      // Called for every ray of every slider at every node of a search, so
+      // plain arithmetic, no allocation in the loops: a step along a ray is
+      // ±1 or 0 on each axis.
       // How far the ray goes: to the nearest piece on it, or to the limit.
       let end = Infinity;
-      for (const [d, at] of [[dx, p.x], [dy, p.y]]) {
-        if (d) end = Math.min(end, d > 0 ? LIMIT - at : at + LIMIT);
-      }
-      let blocker = null;
+      if (dx) end = dx > 0 ? LIMIT - p.x : p.x + LIMIT;
+      if (dy) end = Math.min(end, dy > 0 ? LIMIT - p.y : p.y + LIMIT);
+      let blockT = Infinity, blocker = null;
       for (const q of this.board.values()) {
-        const t = dx ? (q.x - p.x) / dx : (q.y - p.y) / dy;
-        if (t > 0 && Number.isInteger(t) && q.x === p.x + t * dx && q.y === p.y + t * dy && t <= end) {
-          if (!blocker || t < blocker.t) blocker = { t, piece: q };
+        const t = dx ? (q.x - p.x) * dx : (q.y - p.y) * dy;
+        if (t > 0 && t < blockT && t <= end && q.x === p.x + t * dx && q.y === p.y + t * dy) {
+          blockT = t;
+          blocker = q;
         }
       }
-      if (captureOnly) return blocker && blocker.piece.c !== p.c ? [{ x: blocker.piece.x, y: blocker.piece.y }] : [];
-      const last = blocker ? blocker.t - 1 : end;
-      const steps = new Set();
-      const add = (t) => { if (t >= 1 && t <= last) steps.add(t); };
-      add(1);
+      const capture = blocker && blocker.c !== p.c ? { x: blocker.x, y: blocker.y } : null;
+      if (captureOnly) return capture ? [capture] : [];
+      const last = blocker ? blockT - 1 : end;
+      const steps = [];
+      if (last >= 1) steps.push(1);
       // Next to another piece: both coordinates within one of it.
       for (const q of this.board.values()) {
         if (q === p) continue;
         let lo = 1, hi = last;
-        for (const [d, from, to] of [[dx, p.x, q.x], [dy, p.y, q.y]]) {
-          if (!d) {
-            if (Math.abs(to - from) > 1) { lo = Infinity; break; }
-            continue;
-          }
-          const a = (to - from - 1) / d, b = (to - from + 1) / d;
-          lo = Math.max(lo, Math.ceil(Math.min(a, b)));
-          hi = Math.min(hi, Math.floor(Math.max(a, b)));
-        }
-        for (let t = lo; t <= hi; t++) add(t);
+        if (dx) {
+          const c = (q.x - p.x) * dx;
+          if (c - 1 > lo) lo = c - 1;
+          if (c + 1 < hi) hi = c + 1;
+        } else if (q.x - p.x > 1 || p.x - q.x > 1) continue;
+        if (dy) {
+          const c = (q.y - p.y) * dy;
+          if (c - 1 > lo) lo = c - 1;
+          if (c + 1 < hi) hi = c + 1;
+        } else if (q.y - p.y > 1 || p.y - q.y > 1) continue;
+        for (let t = lo; t <= hi; t++) steps.push(t);
       }
       // Onto a line through the enemy king or a square beside it, along one
       // of the slider's own directions: where the ray crosses it.
       if (enemyKing) {
-        const lines = SLIDES[p.t].filter(([lx, ly]) => lx > 0 || (lx === 0 && ly > 0));
-        for (let ox = -1; ox <= 1; ox++) {
-          for (let oy = -1; oy <= 1; oy++) {
-            const sx = enemyKing.x + ox, sy = enemyKing.y + oy;
-            for (const [lx, ly] of lines) {
-              const det = dx * ly - dy * lx;
-              if (!det) continue; // the ray runs along that line, or beside it
-              const t = ((sx - p.x) * ly - (sy - p.y) * lx) / det;
-              if (Number.isInteger(t)) add(t);
+        for (const [lx, ly] of KING_LINES[p.t]) {
+          const det = dx * ly - dy * lx;
+          if (!det) continue; // the ray runs along that line, or beside it
+          for (let ox = -1; ox <= 1; ox++) {
+            for (let oy = -1; oy <= 1; oy++) {
+              const t = ((enemyKing.x + ox - p.x) * ly - (enemyKing.y + oy - p.y) * lx) / det;
+              if (t >= 1 && t <= last && Number.isInteger(t)) steps.push(t);
             }
           }
         }
       }
-      const out = [...steps].sort((a, b) => a - b).map((t) => ({ x: p.x + t * dx, y: p.y + t * dy }));
-      if (blocker && blocker.piece.c !== p.c) out.push({ x: blocker.piece.x, y: blocker.piece.y });
+      steps.sort((a, b) => a - b);
+      const out = [];
+      for (let i = 0; i < steps.length; i++) {
+        if (i && steps[i] === steps[i - 1]) continue;
+        out.push({ x: p.x + steps[i] * dx, y: p.y + steps[i] * dy });
+      }
+      if (capture) out.push(capture);
       return out;
     },
 
