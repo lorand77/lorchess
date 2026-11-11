@@ -18,7 +18,7 @@ test("infinite chess gets the infinite engine, at the Classical start", () => {
 test("every other variant gets chess.js with its rules, at its own start", () => {
   for (const [variant, fen] of [
     ["standard", STANDARD_START], ["chess960", STANDARD_START], ["atomic", STANDARD_START],
-    ["pawnwars", PAWN_WARS_START], ["antichess", ANTICHESS_START],
+    ["pawnwars", PAWN_WARS_START], ["antichess", ANTICHESS_START], ["kingofthehill", STANDARD_START],
     ["crazyhouse", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[] w KQkq - 0 1"],
   ]) {
     const engine = createEngine(variant);

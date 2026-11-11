@@ -22,7 +22,7 @@ test("a Chess960 game against LorFish, from the lobby to a resumed game", async 
 
   // Only the variants LorFish plays; the levels lose their ratings outside standard.
   const variants = await page.locator("#aiVariantSelect option").evaluateAll((os) => os.map((o) => o.value));
-  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "crazyhouse", "antichess", "infinite"]);
+  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "infinite"]);
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual (~1000)");
   await page.locator("#aiVariantSelect").selectOption("chess960");
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual");
@@ -240,4 +240,29 @@ test("an infinite chess game against LorFish, from the lobby to a resumed game",
     return moveAnim && moveAnim.pieces;
   });
   assert.deepEqual(slides, [{ from: "7,1", to: "5,1" }, { from: "6,1", to: "8,1" }]);
+});
+
+test("a King of the Hill game against LorFish marks the centre, and a king there wins", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.locator("#aiVariantSelect").selectOption("kingofthehill");
+  await page.locator("#aiLevelSelect").selectOption("intermediate");
+  await page.locator("#aiPlayBtn").click();
+  await page.waitForURL(/variant=kingofthehill/);
+  await ready(page);
+  assert.equal(await page.locator("#aiLevelText").textContent(), "Intermediate · King of the Hill");
+  const id = await page.evaluate(() => gameStore.currentId());
+  assert.equal(db().prepare("SELECT variant FROM games WHERE id = ?").get(id).variant, "kingofthehill");
+  // d4, e4, d5, e5: squares 27, 28, 35, 36.
+  const hill = await page.locator("#board .square.hill").evaluateAll((els) => els.map((e) => Number(e.dataset.sq)).sort((a, b) => a - b));
+  assert.deepEqual(hill, [27, 28, 35, 36]);
+
+  await page.locator('#board [data-sq="12"]').click();  // e2
+  await page.locator('#board [data-sq="28"]').click();  // e4
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  assert.match(await page.locator("#history").textContent(), /\[Variant "King of the Hill"\]/);
+
+  // How a won game reads: a white king in the centre.
+  await page.evaluate(() => { chess.loadFen("7k/7p/8/8/3K4/8/P7/8 b - - 0 1"); render(); });
+  assert.equal(await page.locator("#status").textContent(), "Game Over: 1-0 — White wins: king in the centre!");
 });

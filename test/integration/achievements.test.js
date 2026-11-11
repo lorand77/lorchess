@@ -329,6 +329,8 @@ describe("aggregate achievements", () => {
     assert.ok(has(keys, "antichess_wins") && lacks(keys, "every_variant"), keys);
     keys = win("infinite", new InfiniteChess().fen(), ["5,2>5,4", "5,7>5,5"]);
     assert.ok(has(keys, "infinite_wins") && lacks(keys, "every_variant"), keys);
+    keys = win("kingofthehill");
+    assert.ok(has(keys, "kingofthehill_wins") && lacks(keys, "every_variant"), keys);
     // A win against LorFish is a standard win too.
     const ai = recordGame({
       white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",
@@ -338,6 +340,18 @@ describe("aggregate achievements", () => {
     for (let i = 0; i < 9; i++) win("atomic");
     assert.equal(tiersOf(me.id).atomic_wins, 2, "10 Atomic wins: Silver");
     assert.equal(tiersOf(me.id).chess960_wins, 1);
+  });
+
+  test("King of the Hill: a king walked to the centre wins, and is no mate", () => {
+    const me = makeUser("hill");
+    const foe = makeUser("valley");
+    const keys = keysOf(achievements.onGameFinished(recordGame({
+      white: me.id, black: foe.id, variant: "kingofthehill",
+      moves: ["e2e4", "a7a6", "e1e2", "a6a5", "e2e3", "a5a4", "e3d4"],
+      result: "1-0", termination: "king in the centre",
+    })), me.id);
+    assert.ok(has(keys, "kingofthehill_wins"), keys);
+    assert.ok(lacks(keys, "mate_king"), "the king's last step won, but mated no one");
   });
 
   test("Crazyhouse: drops replay, and the feats that read material are not checked", () => {

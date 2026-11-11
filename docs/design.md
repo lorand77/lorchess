@@ -7,8 +7,8 @@ repo are in `docs/CLAUDE.md`.
 
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
-standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess or
-infinite chess, on a board with no edges. Around the games: puzzles, an
+standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of
+the Hill or infinite chess, on a board with no edges. Around the games: puzzles, an
 analysis board, achievements, friends, a leaderboard, spectating, in-game chat
 and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
 browser, no build step.
@@ -28,7 +28,8 @@ browser, no build step.
 
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
-squares, and the Atomic, Pawn Wars, Crazyhouse and Antichess rule sets.
+squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess and King of the Hill
+rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
 its variant needs. `src/shared/lorfish.js` is **LorFish**, a synchronous search
@@ -161,6 +162,20 @@ in `ui.js`: the status line says "You must capture" and the pieces that can are
 ringed (`.must-capture`) until the selection changes. A win reads "White wins
 with no pieces left" / "with no moves left" on the game page and in the replay,
 and neither page shows a material count, since being up material is no help.
+
+**King of the Hill** follows Lichess's rules: ordinary chess, and a king that
+reaches the centre (d4, e4, d5 or e5, `HILL_SQUARES`) by a legal move wins on
+the spot, recorded as `"king in the centre"`. The move list ends there, so the
+game is over ahead of any draw, and a check the king uncovers on its way in is
+written `+`, not `#`: it is not mate. Mate still wins and the usual draws
+apply, except that material never runs out, since a bare king can still walk
+to the centre: `isInsufficientMaterial` is always false, and a flag always
+loses. Move generation is standard chess's (the perft counts match until a
+king can reach the centre). It opens from the standard setup and takes a
+handicap like Atomic, since a handicap leaves the rule alone. It is casual
+while it is new, and Stockfish's review can't judge it. The game page rings
+the four centre squares in gold (`.hill`) and says "White wins: king in the
+centre!".
 
 **Infinite chess** follows infinitechess.org's "Classical" variant, checked
 against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,
@@ -790,7 +805,13 @@ check (`searchableDrops`). The capture search generates captures alone
 taking a smaller one on a defended square, since there a captured piece only
 changes hands and the recaptures never end. Advanced's median Crazyhouse move
 is about 2 s (slowest 17 s). Each level beat the one below it in every
-self-play game tried. The levels'
+self-play game tried. King of the Hill adds a bonus for a king one, two or
+three steps from the centre (`hillTerm`: 200, 75, 25), half of it with the
+board full and all of it in an endgame. The search sees a king actually
+arriving, as a win (`endScore`); the bonus gives it a reason to set out.
+Against itself without it, over 24 games at depth 2: 80/30/10 scored 15,
+twice that 18.5, three times 19, four times 17, and these values (two and a
+half times) 17.5. Each level beat the one below in every game tried. The levels'
 ratings were measured against Stockfish in standard chess, which plays no
 variant but Chess960 and wasn't measured there, so everywhere but standard
 chess a level goes by its name alone ("Casual", not "Casual (~1000)":
@@ -869,8 +890,8 @@ in the member's browser, so reviews cost the server nothing.
   short games against it in a child process.
 
 Only Standard and Chess960 are reviewable (`reviewable` in `variants.js`);
-Stockfish does not know the Atomic, Pawn Wars, Crazyhouse, Antichess or
-infinite-chess rules.
+Stockfish does not know the Atomic, Pawn Wars, Crazyhouse, Antichess, King of
+the Hill or infinite-chess rules.
 
 ## Analysis board
 
@@ -898,8 +919,8 @@ above it and the score formatting are the replay's.
   one another. Each search stops at depth 22 or after 15 s, so a page left open
   does not keep a core busy. Finished positions are scored without asking
   Stockfish, as in the review.
-- Standard rules only. A Chess960 FEN loads; Atomic, Pawn Wars, Crazyhouse and
-  Antichess positions would get standard-chess answers, and an infinite-chess
+- Standard rules only. A Chess960 FEN loads; Atomic, Pawn Wars, Crazyhouse,
+  Antichess and King of the Hill positions would get standard-chess answers, and an infinite-chess
   position doesn't load at all, so there is no variant picker.
 - **A Practice tab** (`#practice`, beside `#analysis`) is the same board with
   the engine off and the bar hidden: both sides are played by hand, the board
@@ -1029,7 +1050,8 @@ one `boardDrag.js` already has: `.square[data-sq]`.
 
 **The board is a view.** `ui.js` never touches the board's DOM. It decides
 what the board should show — pieces, last move, premove, selection, the king
-in check, Antichess's capture ring, hint dots, the move to animate — and what
+in check, Antichess's capture ring, King of the Hill's centre, hint dots, the
+move to animate — and what
 a click, drag or right-click means, and hands the first to a board view's
 `render(state)` while the view hands back the second. The view owns the DOM,
 drag-and-drop, arrows and the move animation's playback. Today's view is

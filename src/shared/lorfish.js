@@ -342,6 +342,23 @@ const LorFish = {
     return chess.turn === W ? score : -score;
   },
 
+  // King of the Hill: a king one, two or three steps from the centre is that
+  // close to winning, worth half as much with the board full (a king walked
+  // out early can be mated on the way) and the whole of it in an endgame.
+  // The search sees a king actually reaching the centre (endScore); this
+  // gives it a reason to set out. White-positive.
+  HILL_BONUS: [0, 200, 75, 25],
+  hillTerm(chess, eg) {
+    let score = 0;
+    for (const sq of [chess.findKing(W), chess.findKing(B)]) {
+      const f = sq & 7, r = sq >> 3;
+      const d = Math.max(Math.max(3 - f, f - 4, 0), Math.max(3 - r, r - 4, 0));
+      const v = (((this.HILL_BONUS[d] || 0) * (24 + eg)) / 48) | 0;
+      score += chess.squares[sq].c === W ? v : -v;
+    }
+    return score;
+  },
+
   // Antichess: the side that loses all its pieces (or runs out of moves)
   // wins, so every piece still on the board counts against its owner, a
   // queen no more than a pawn: each is one more thing to be rid of.
@@ -384,6 +401,7 @@ const LorFish = {
       score += p.c === W ? v : -v;
     }
     if (lk) score += this.loneKingMateTerm(chess, lk);
+    if (chess.isKingOfTheHill) score += this.hillTerm(chess, eg);
     // Crazyhouse: a piece in hand is material like any other, and a king
     // with ways in around it is in danger.
     if (chess.pockets) {

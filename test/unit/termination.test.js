@@ -28,6 +28,7 @@ test("each variant names its own ending", () => {
   assert.equal(ended("8/8/8/p7/P7/8/8/8 w - - 0 1", "pawnwars"), "stalemate", "pawns locked, both still there");
   assert.equal(ended("8/8/8/8/8/8/8/R7 b - - 0 1", "antichess"), "all pieces lost");
   assert.equal(ended("8/8/8/p7/P7/8/8/8 w - - 0 1", "antichess"), "no moves");
+  assert.equal(ended("7k/8/8/8/4K3/8/8/8 b - - 0 1", "kingofthehill"), "king in the centre");
 });
 
 test("infinite chess names its endings as standard chess does", () => {

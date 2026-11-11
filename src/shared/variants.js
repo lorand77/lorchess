@@ -55,6 +55,11 @@ const VARIANTS = [
   // chess.js (a test holds them together). Casual while it is new.
   { key: 'antichess', label: 'Antichess', standardSetup: false, reviewable: false, rateable: false,
     materialBadges: false, moveBadges: true, bot: true, startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1' },
+  // Ordinary chess, and a king that reaches the centre (d4, e4, d5, e5) wins.
+  // It opens from the standard setup and a handicap leaves the rule alone.
+  // Stockfish's review only knows the ordinary win. Casual while it is new.
+  { key: 'kingofthehill', label: 'King of the Hill', standardSetup: true, reviewable: false, rateable: false,
+    materialBadges: true, moveBadges: true, bot: true },
   // A board with no edges (infinitechess.org's Classical rules), played by its
   // own engine (engines.js). Its start is an ICN position, the same as
   // infiniteChess.js's Classical setup (a test holds them together). Casual

@@ -37,7 +37,7 @@ describe("variant catalogue", () => {
         continue;
       }
       const rules = new Chess().setVariant(v.key).variant;
-      const expected = ["atomic", "pawnwars", "crazyhouse", "antichess"].includes(v.key) ? v.key : "standard";
+      const expected = ["atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill"].includes(v.key) ? v.key : "standard";
       assert.equal(rules, expected, v.key);
     }
   });
@@ -61,6 +61,7 @@ describe("variant catalogue", () => {
     assert.equal(variantLabel("pawnwars"), "Pawn Wars");
     assert.equal(variantLabel("crazyhouse"), "Crazyhouse");
     assert.equal(variantLabel("antichess"), "Antichess");
+    assert.equal(variantLabel("kingofthehill"), "King of the Hill");
     assert.equal(variantLabel("infinite"), "Infinite Chess");
     assert.equal(variantLabel("nope"), "Standard");
   });
@@ -72,6 +73,7 @@ describe("variant catalogue", () => {
     assert.equal(usesStandardSetup("pawnwars"), false);
     assert.equal(usesStandardSetup("crazyhouse"), false, "not until odds have been tried with pockets");
     assert.equal(usesStandardSetup("antichess"), false, "no castling rights: a start of its own");
+    assert.equal(usesStandardSetup("kingofthehill"), true, "a handicap leaves the centre rule alone");
     assert.equal(usesStandardSetup("infinite"), false);
     assert.equal(usesStandardSetup("nope"), true, "unknown means standard");
   });
@@ -83,6 +85,7 @@ describe("variant catalogue", () => {
     assert.equal(startOf("pawnwars"), PAWN_WARS_START);
     assert.equal(startOf("crazyhouse"), null, "the ordinary setup, with empty pockets");
     assert.equal(startOf("antichess"), ANTICHESS_START);
+    assert.equal(startOf("kingofthehill"), null);
     assert.equal(startOf("infinite"), new InfiniteChess().fen(), "the Classical setup, in ICN");
     assert.equal(startOf("nope"), null, "unknown means standard");
     for (const v of VARIANTS) {
@@ -98,12 +101,13 @@ describe("variant catalogue", () => {
     assert.equal(isReviewable("pawnwars"), false);
     assert.equal(isReviewable("crazyhouse"), false);
     assert.equal(isReviewable("antichess"), false);
+    assert.equal(isReviewable("kingofthehill"), false, "Stockfish knows nothing of the centre win");
     assert.equal(isReviewable("infinite"), false);
     assert.equal(isReviewable("nope"), true, "unknown means standard");
   });
 
-  test("only Crazyhouse, Antichess and Infinite Chess are casual-only", () => {
-    for (const v of VARIANTS) assert.equal(isRateable(v.key), !["crazyhouse", "antichess", "infinite"].includes(v.key), v.key);
+  test("only Crazyhouse, Antichess, King of the Hill and Infinite Chess are casual-only", () => {
+    for (const v of VARIANTS) assert.equal(isRateable(v.key), !["crazyhouse", "antichess", "kingofthehill", "infinite"].includes(v.key), v.key);
     assert.equal(isRateable("nope"), true, "unknown means standard");
   });
 

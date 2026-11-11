@@ -525,6 +525,8 @@ function render() {
     check: !inCheckNow ? null : infinite ? king.x + ',' + king.y : king,
     // Antichess: where the compulsory captures can be made from.
     mustCapture: captureHint ? new Set(chess.legalMoves().map(m => m.from)) : null,
+    // King of the Hill: the four squares a king wins on.
+    hill: !infinite && chess.isKingOfTheHill ? new Set(HILL_SQUARES) : null,
     hints: infinite ? infiniteHints() : selectionHints(),
     animation: moveAnim,
   });
@@ -553,6 +555,9 @@ function render() {
       // Pawn Wars is won by taking every pawn the other side has.
       const winner = chess.pawnCount(W) ? 'White' : 'Black';
       s += chess.pawnCount(W) || chess.pawnCount(B) ? ` — ${winner} wins: no ${winner === 'White' ? 'black' : 'white'} pawns left!` : ' — no pawns left on either side';
+    } else if (chess.isKingOfTheHill && chess.kingOnHill()) {
+      // King of the Hill: a king in the centre has won, ahead of any check.
+      s += ` — ${chess.kingOnHill() === W ? 'White' : 'Black'} wins: king in the centre!`;
     } else if (chess.isAntichess && chess.legalMoves().length === 0) {
       // Antichess is won by running out: the side to move has won.
       const how = chess.pieceCount(chess.turn) === 0 ? 'no pieces' : 'no moves';

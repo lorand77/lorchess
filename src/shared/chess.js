@@ -16,6 +16,8 @@ const squaresTouch = (a, b) =>
 const PIECE_NAMES = { p:'pawn', n:'knight', b:'bishop', r:'rook', q:'queen', k:'king' };
 // What a Crazyhouse pocket can hold, in the order FEN writes it. Never a king.
 const POCKET_TYPES = ['q', 'r', 'b', 'n', 'p'];
+// King of the Hill's centre: d4, e4, d5, e5.
+const HILL_SQUARES = [27, 28, 35, 36];
 const emptyPockets = () => ({
   [W]: { q: 0, r: 0, b: 0, n: 0, p: 0 },
   [B]: { q: 0, r: 0, b: 0, n: 0, p: 0 },
@@ -26,7 +28,7 @@ class Chess {
     // Which rule set is in force. 'standard' covers Chess960 too — that only
     // changes the starting position. 'atomic' changes what a capture does;
     // 'crazyhouse' keeps what you capture in a pocket; 'antichess' makes you
-    // try to lose everything. Set it with
+    // try to lose everything; 'kingofthehill' adds a win in the centre. Set it with
     // setVariant(), then reset() or loadFen(): those two deliberately leave the
     // rules alone, so loading a position never silently changes them, and they
     // are what set up the position state a variant carries (the pockets).
@@ -35,7 +37,7 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess'].includes(name) ? name : 'standard';
+    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill'].includes(name) ? name : 'standard';
     return this;
   }
 
@@ -47,6 +49,22 @@ class Chess {
   // is no castling. The side to move wins if it has no piece left or no legal
   // move; otherwise the usual draws (50 moves, threefold) apply.
   get isAntichess() { return this.variant === 'antichess'; }
+
+  // King of the Hill (Lichess's rules): ordinary chess, and a king that
+  // reaches one of the four centre squares wins on the spot, by any legal
+  // move. Mate wins too and the usual draws apply, except that material never
+  // runs out: a bare king can still walk to the centre.
+  get isKingOfTheHill() { return this.variant === 'kingofthehill'; }
+
+  // The colour whose king stands in the centre, or null. (The four squares
+  // all touch, so two kings can never both be there.)
+  kingOnHill() {
+    for (const sq of HILL_SQUARES) {
+      const p = this.squares[sq];
+      if (p && p.t === 'k') return p.c;
+    }
+    return null;
+  }
 
   pieceCount(c) {
     let n = 0;
@@ -630,6 +648,8 @@ class Chess {
     // With a king already gone the game is over; offering moves would let a
     // search play on past the end.
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return [];
+    // Same in King of the Hill once a king has reached the centre.
+    if (this.isKingOfTheHill && this.kingOnHill()) return [];
     // Same in Pawn Wars once a side has been wiped out.
     if (this.isPawnWars && (this.pawnCount(W) === 0 || this.pawnCount(B) === 0)) return [];
     if (this.isAntichess) return this.antichessMoves(c);
@@ -904,7 +924,7 @@ class Chess {
   }
 
   isInsufficientMaterial() {
-    if (this.isPawnWars) return false;
+    if (this.isPawnWars || this.isKingOfTheHill) return false;
     if (this.pockets) return this.crazyhouseMaterialDead();
     if (this.isAntichess) return this.antichessMaterialDead();
     const ps = [];
@@ -959,7 +979,8 @@ class Chess {
   // Pawn Wars win by other means (an explosion, the last pawn), so there the
   // answer is always yes.
   hasMatingMaterial(c) {
-    if (this.isAtomic || this.isPawnWars) return true;
+    // A king can always win King of the Hill by walking to the centre.
+    if (this.isAtomic || this.isPawnWars || this.isKingOfTheHill) return true;
     // Antichess has no mate: a flag loses unless the game could no longer be
     // won by anyone. (Lichess also draws some knight endings on a flag.)
     if (this.isAntichess) return !this.antichessMaterialDead();
@@ -1027,6 +1048,8 @@ class Chess {
   // Atomic ends the moment a king is destroyed, however that happened.
   isCheckmate() {
     if (this.isPawnWars || this.isAntichess) return false;
+    // A king in the centre has won, whatever check it left behind it.
+    if (this.isKingOfTheHill && this.kingOnHill()) return false;
     if (this.isAtomic) {
       if (this.kingMissing(this.turn)) return true;          // ours went up: we lost
       if (this.kingMissing(opp(this.turn))) return false;    // theirs did: a win, not mate
@@ -1037,6 +1060,7 @@ class Chess {
   // In Antichess having no move is a win, not a stalemate: see result().
   isStalemate() {
     if (this.isAntichess) return false;
+    if (this.isKingOfTheHill && this.kingOnHill()) return false;
     if (this.isPawnWars) {
       if (this.pawnCount(W) === 0 || this.pawnCount(B) === 0) return false;
       return this.legalMoves().length === 0;
@@ -1058,6 +1082,7 @@ class Chess {
           || this.isThreefoldRepetition();
     }
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return true;
+    if (this.isKingOfTheHill && this.kingOnHill()) return true;
     // In Antichess an empty move list includes having no pieces left.
     return this.legalMoves().length === 0
         || this.isInsufficientMaterial()
@@ -1071,6 +1096,7 @@ class Chess {
     // In Atomic a game usually ends with a king blown off the board rather
     // than mated, and "checkmate" would be a misleading thing to record.
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return 'explosion';
+    if (this.isKingOfTheHill && this.kingOnHill()) return 'king in the centre';
     // Pawn Wars is decided by pawns, not by mate.
     if (this.isPawnWars) {
       if (this.pawnCount(W) === 0 || this.pawnCount(B) === 0) return 'pawns captured';
@@ -1104,6 +1130,10 @@ class Chess {
       if (b === 0) return '1-0';
       if (this.isGameOver()) return '1/2-1/2';  // nothing to move, or a rule draw
       return '*';
+    }
+    if (this.isKingOfTheHill) {
+      const hill = this.kingOnHill();
+      if (hill) return hill === W ? '1-0' : '0-1';
     }
     if (this.isAtomic) {
       // Whoever still has a king has won.
@@ -1148,7 +1178,10 @@ class Chess {
       }
     }
     this.makeMove(m);
-    if (this.inCheck()) san += this.legalMoves().length === 0 ? '#' : '+';
+    // A king stepping into the centre ends the game with no moves left, but a
+    // check it uncovers on the way is only a check.
+    const won = this.isKingOfTheHill && this.kingOnHill();
+    if (this.inCheck()) san += this.legalMoves().length === 0 && !won ? '#' : '+';
     this.undoMove();
     return san;
   }

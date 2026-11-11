@@ -622,3 +622,44 @@ describe("LorFish plays Crazyhouse", () => {
     assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
   });
 });
+
+describe("LorFish plays King of the Hill", () => {
+  const hill = (fen) => fromFen(fen, "kingofthehill");
+
+  test("walks into the centre when it can", () => {
+    const a = LorFish.analyse(hill("7k/7p/8/8/8/3K4/P7/8 w - - 0 1"), 1);
+    assert.ok(["Kd4", "Ke4"].includes(a.san), a.san);
+    assert.equal(a.score, LorFish.MATE - 1);
+  });
+
+  test("keeps the enemy king out: a rook onto the fifth rank, where it would step in", () => {
+    // Black's king on e6 is a step from d5 and e5; White's rook can hold the rank.
+    const a = LorFish.analyse(hill("8/7p/4k3/8/8/8/P7/K6R w - - 0 1"), 2);
+    assert.ok(a.score > -LorFish.MATE + 100, `${a.san} ${a.score}`);
+    assert.equal(a.san, "Rh5");
+  });
+
+  test("a king nearer the centre is worth more, the more so in an endgame", () => {
+    const far = LorFish.evaluate(hill("7k/7p/8/8/8/8/P7/K7 w - - 0 1"));
+    const near = LorFish.evaluate(hill("7k/7p/8/8/8/2K5/P7/8 w - - 0 1"));
+    assert.ok(near > far, `${near} vs ${far}`);
+    assert.equal(LorFish.hillTerm(new Chess(), 0), 0, "both kings at home: level");
+    const step = (eg) => LorFish.hillTerm(hill("7k/8/8/8/8/3K4/8/8 w - - 0 1"), eg);
+    assert.ok(step(24) > step(0));
+  });
+
+  test("plays a whole game to a finish, every move legal", (t) => {
+    silence(t);
+    const chess = hill("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    const rng = seeded(5);
+    let plies = 0;
+    while (!chess.isGameOver() && plies < 400) {
+      const m = LorFish.getBestMove(chess, 1, { temperature: 30, rng });
+      assert.ok(chess.findMove(m.from, m.to, m.promo), `ply ${plies + 1}`);
+      chess.makeMove(m);
+      plies++;
+    }
+    assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
+    assert.equal(chess.termination(), "king in the centre");
+  });
+});

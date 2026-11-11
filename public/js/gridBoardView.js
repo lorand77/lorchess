@@ -21,6 +21,7 @@
 //     selected     the selected square, or null
 //     check        the square of a king in check, or null
 //     mustCapture  squares to ring (Antichess), or null
+//     hill         the centre squares to mark (King of the Hill), or null
 //     hints        Map of square -> 'move' | 'capture' | 'premove'
 //     animation    the move to animate, as ui.js planned it, or null
 //   and returns whether that animation is still running.
@@ -55,7 +56,7 @@ window.GridBoardView = (function () {
 
     function render(state) {
       boardEl.innerHTML = '';
-      const { pieces, flip, lastMove, premove, selected, check, mustCapture, hints } = state;
+      const { pieces, flip, lastMove, premove, selected, check, mustCapture, hill, hints } = state;
       for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
           // row/col are visual indices (0=top/left). Translate to board r/f.
@@ -68,6 +69,7 @@ window.GridBoardView = (function () {
 
           if (lastMove && (lastMove.from === sq || lastMove.to === sq)) div.classList.add('last-move');
           if (mustCapture && mustCapture.has(sq)) div.classList.add('must-capture');
+          if (hill && hill.has(sq)) div.classList.add('hill');
           if (premove && (premove.from === sq || premove.to === sq)) div.classList.add('premove');
           if (selected === sq) div.classList.add('selected');
           if (check === sq) div.classList.add('check');
