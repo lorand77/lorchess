@@ -28,8 +28,8 @@ browser, no build step.
 
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
-squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill and
-Three-check rule sets.
+squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill,
+Three-check and Bughouse rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
 its variant needs. `src/shared/lorfish.js` is **LorFish**, a synchronous search
@@ -194,6 +194,25 @@ kings are dead material, and a side with one can still win on a flag. It
 opens from the standard setup and takes a handicap, is casual while new, and
 can't be reviewed. The game page shows "Checks: White 1 of 3 · Black 0 of 3"
 under the turn line.
+
+**Bughouse** is being built in steps. So far only the rules of one board
+exist (`setVariant('bughouse')`); there is no catalogue entry yet, since that
+would offer it as an ordinary two-player game, and it will be casual only.
+The rules are chess.com's. Pockets, drops and promoted pieces work as in
+Crazyhouse (`hasPockets` covers both), but a capture is not the capturer's:
+`makeMove` records it on the history entry (`passed: { t, c }`, a promoted
+piece as a pawn) for the partner on the other board, who plays the other
+colour, and takes it off this board. Pieces arrive from the other board by
+`receive(c, t)`, an event from outside that `undoMove` never takes back. A
+check that a dropped piece could block is not mate, even with an empty hand
+(`dropCouldAnswerCheck` tries one of everything): the side waits for its
+partner to send a piece, its clock running. Having no move and no check is
+waiting too, not stalemate (`isWaiting`). No rule draws a board — threefold,
+fifty moves and dead material all play on, since the pockets keep changing
+from outside — so a board ends only in mate, and the rest (flag, resignation,
+agreement, the result for both boards) is the match's, on the server. With
+empty pockets a board moves exactly as standard chess, which the perft tests
+hold it to.
 
 **Infinite chess** follows infinitechess.org's "Classical" variant, checked
 against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,

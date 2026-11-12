@@ -29,7 +29,8 @@ class Chess {
     // changes the starting position. 'atomic' changes what a capture does;
     // 'crazyhouse' keeps what you capture in a pocket; 'antichess' makes you
     // try to lose everything; 'kingofthehill' adds a win in the centre;
-    // 'threecheck' a win by giving check three times. Set it with
+    // 'threecheck' a win by giving check three times; 'bughouse' is one board
+    // of a two-board team game, its captures passed to a partner. Set it with
     // setVariant(), then reset() or loadFen(): those two deliberately leave the
     // rules alone, so loading a position never silently changes them, and they
     // are what set up the position state a variant carries (the pockets).
@@ -38,7 +39,7 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck'].includes(name) ? name : 'standard';
+    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'bughouse'].includes(name) ? name : 'standard';
     return this;
   }
 
@@ -99,6 +100,45 @@ class Chess {
   // to be dropped back on the board later. A promoted piece goes back as the
   // pawn it was, so promotions are marked (`promoted: true` on the piece).
   get isCrazyhouse() { return this.variant === 'crazyhouse'; }
+
+  // Bughouse (chess.com's rules), one board of the two. Pockets and drops work
+  // as in Crazyhouse, except that what a side captures is not its own: it goes
+  // to its partner on the other board, who plays the other colour, so a black
+  // knight taken here is a black knight there. makeMove records it on the
+  // history entry (`passed: { t, c }`, a promoted piece passed as a pawn) and
+  // takes it off this board; what arrives from the other board comes in by
+  // receive(). A check a dropped piece could block is not mate — the side may
+  // wait for its partner to send one, its clock running — and with no move a
+  // side waits rather than being stalemated (isWaiting). No rule draws a
+  // board: threefold, fifty moves and dead material all play on, since the
+  // pockets keep changing from outside. The match is the server's business.
+  get isBughouse() { return this.variant === 'bughouse'; }
+
+  // Pockets and drops: Crazyhouse and Bughouse.
+  get hasPockets() { return this.isCrazyhouse || this.isBughouse; }
+
+  // Bughouse: a piece arrives from the partner's board, into `c`'s pocket. An
+  // event from outside this board, so undoMove never takes it back.
+  receive(c, t) {
+    if (!this.isBughouse) throw new Error('Only a Bughouse board receives pieces');
+    if (c !== W && c !== B) throw new Error(`receive: no such colour "${c}"`);
+    if (!POCKET_TYPES.includes(t)) throw new Error(`receive: no such pocket piece "${t}"`);
+    this.pockets[c][t]++;
+  }
+
+  // Bughouse: the side to move has no move, but it is not mate: it waits for
+  // a piece to drop. Its clock runs meanwhile.
+  isWaiting() {
+    return this.isBughouse && !this.isCheckmate() && this.legalMoves().length === 0;
+  }
+
+  // Bughouse: could a piece dropped somewhere (whether or not the side holds
+  // one) answer the check? Tried with one of everything in hand.
+  dropCouldAnswerCheck() {
+    const held = this.pockets[this.turn];
+    this.pockets[this.turn] = { q: 1, r: 1, b: 1, n: 1, p: 1 };
+    try { return this.legalMoves().some((m) => m.drop); } finally { this.pockets[this.turn] = held; }
+  }
 
   // The pockets as FEN writes them inside the brackets: White's pieces in
   // upper case, then Black's, queens first ("Qnp").
@@ -162,7 +202,7 @@ class Chess {
       this.squares[sqIdx(f,7)] = { t: back[f], c: B };
     }
     }
-    this.pockets = this.isCrazyhouse ? emptyPockets() : null;
+    this.pockets = this.hasPockets ? emptyPockets() : null;
     this.checks = this.isThreeCheck ? { [W]: 0, [B]: 0 } : null;
     this.turn = W;
     // Nothing to castle with in Pawn Wars, and claiming rights would put a
@@ -192,7 +232,7 @@ class Chess {
     // pockets, so the standard start FEN opens a Crazyhouse game too.
     let boardField = parts[0];
     let pockets = null;
-    if (this.isCrazyhouse) {
+    if (this.hasPockets) {
       const split = /^([^[\]]*)(?:\[([^[\]]*)\])?$/.exec(boardField);
       if (!split) throw new Error('FEN: the pockets must be one [...] after the board');
       boardField = split[1];
@@ -222,7 +262,7 @@ class Chess {
           last = { t: ch.toLowerCase(), c };
           newSquares[sqIdx(f, r)] = last;
           f++;
-        } else if (ch === '~' && this.isCrazyhouse) {
+        } else if (ch === '~' && this.hasPockets) {
           // Only a piece a pawn could have become can be marked, and only once.
           if (!last || last.t === 'p' || last.t === 'k' || last.promoted) {
             throw new Error(`FEN rank ${8 - i}: "~" must follow a queen, rook, bishop or knight`);
@@ -841,7 +881,7 @@ class Chess {
       let landed = piece;
       if (m.promo) {
         landed = { t: m.promo, c: piece.c };
-        if (this.isCrazyhouse) landed.promoted = true;
+        if (this.hasPockets) landed.promoted = true;
       }
       this.squares[m.to] = landed;
       if (m.enpassant) {
@@ -850,11 +890,16 @@ class Chess {
     }
 
     // Crazyhouse: what was taken goes into the mover's pocket — a promoted
-    // piece as the pawn it started as. Recorded for undoMove.
+    // piece as the pawn it started as. Recorded for undoMove. Bughouse: it
+    // goes to the partner's board instead, its colour unchanged.
     if (this.pockets && captured) {
       const type = captured.promoted ? 'p' : captured.t;
-      this.pockets[piece.c][type]++;
-      histEntry.pocketed = type;
+      if (this.isBughouse) {
+        histEntry.passed = { t: type, c: captured.c };
+      } else {
+        this.pockets[piece.c][type]++;
+        histEntry.pocketed = type;
+      }
     }
 
     // Castling rights updates
@@ -975,7 +1020,7 @@ class Chess {
   }
 
   isInsufficientMaterial() {
-    if (this.isPawnWars || this.isKingOfTheHill) return false;
+    if (this.isPawnWars || this.isKingOfTheHill || this.isBughouse) return false;
     // Three-check: any piece but a king can give check, so only bare kings.
     if (this.isThreeCheck) return this.squares.every((p) => !p || p.t === 'k');
     if (this.pockets) return this.crazyhouseMaterialDead();
@@ -1033,7 +1078,8 @@ class Chess {
   // answer is always yes.
   hasMatingMaterial(c) {
     // A king can always win King of the Hill by walking to the centre.
-    if (this.isAtomic || this.isPawnWars || this.isKingOfTheHill) return true;
+    // Nor can a Bughouse side ever run out: its partner can send it anything.
+    if (this.isAtomic || this.isPawnWars || this.isKingOfTheHill || this.isBughouse) return true;
     // Three-check: a side that can still give check can still win.
     if (this.isThreeCheck) return this.squares.some((p) => p && p.c === c && p.t !== 'k');
     // Antichess has no mate: a flag loses unless the game could no longer be
@@ -1107,6 +1153,8 @@ class Chess {
     if (this.isKingOfTheHill && this.kingOnHill()) return false;
     // The third check may be mate too: ask for the moves there would be.
     if (this.isThreeCheck) return this.inCheck() && this.movesPastTheEnd().length === 0;
+    // Bughouse: not while a drop could block it.
+    if (this.isBughouse) return this.inCheck() && this.legalMoves().length === 0 && !this.dropCouldAnswerCheck();
     if (this.isAtomic) {
       if (this.kingMissing(this.turn)) return true;          // ours went up: we lost
       if (this.kingMissing(opp(this.turn))) return false;    // theirs did: a win, not mate
@@ -1116,7 +1164,7 @@ class Chess {
   }
   // In Antichess having no move is a win, not a stalemate: see result().
   isStalemate() {
-    if (this.isAntichess) return false;
+    if (this.isAntichess || this.isBughouse) return false;
     if (this.isKingOfTheHill && this.kingOnHill()) return false;
     if (this.isThreeCheck && this.threeCheckWinner()) return false;
     if (this.isPawnWars) {
@@ -1142,6 +1190,8 @@ class Chess {
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return true;
     if (this.isKingOfTheHill && this.kingOnHill()) return true;
     if (this.isThreeCheck && this.threeCheckWinner()) return true;
+    // A Bughouse board ends only in mate; anything else is the match's.
+    if (this.isBughouse) return this.isCheckmate();
     // In Antichess an empty move list includes having no pieces left.
     return this.legalMoves().length === 0
         || this.isInsufficientMaterial()
@@ -1152,6 +1202,7 @@ class Chess {
   // it goes on. The server records PvP games with it and the game page reports
   // AI games with it, so the two can't name the same ending differently.
   termination() {
+    if (this.isBughouse) return this.isCheckmate() ? 'checkmate' : null;
     // In Atomic a game usually ends with a king blown off the board rather
     // than mated, and "checkmate" would be a misleading thing to record.
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return 'explosion';
@@ -1241,8 +1292,9 @@ class Chess {
     this.makeMove(m);
     // A king stepping into the centre, or a third check, ends the game with no
     // moves left, but is only mate if it would be anyway (isCheckmate knows).
+    // So is a Bughouse check with no move but a drop that could block it.
     const over = (this.isKingOfTheHill && this.kingOnHill()) || (this.isThreeCheck && this.threeCheckWinner());
-    if (this.inCheck()) san += (over ? this.isCheckmate() : this.legalMoves().length === 0) ? '#' : '+';
+    if (this.inCheck()) san += (over || this.isBughouse ? this.isCheckmate() : this.legalMoves().length === 0) ? '#' : '+';
     this.undoMove();
     return san;
   }
