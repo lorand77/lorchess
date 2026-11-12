@@ -331,6 +331,8 @@ describe("aggregate achievements", () => {
     assert.ok(has(keys, "infinite_wins") && lacks(keys, "every_variant"), keys);
     keys = win("kingofthehill");
     assert.ok(has(keys, "kingofthehill_wins") && lacks(keys, "every_variant"), keys);
+    keys = win("threecheck");
+    assert.ok(has(keys, "threecheck_wins") && lacks(keys, "every_variant"), keys);
     // A win against LorFish is a standard win too.
     const ai = recordGame({
       white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",
@@ -352,6 +354,18 @@ describe("aggregate achievements", () => {
     })), me.id);
     assert.ok(has(keys, "kingofthehill_wins"), keys);
     assert.ok(lacks(keys, "mate_king"), "the king's last step won, but mated no one");
+  });
+
+  test("Three-check: a game won by the third check replays, and is no mate", () => {
+    const me = makeUser("checker");
+    const foe = makeUser("checked");
+    const keys = keysOf(achievements.onGameFinished(recordGame({
+      white: me.id, black: foe.id, variant: "threecheck",
+      moves: ["e2e4", "e7e5", "f1c4", "a7a6", "c4f7", "e8f7", "d1h5", "g7g6", "h5g6"],
+      result: "1-0", termination: "three checks",
+    })), me.id);
+    assert.ok(has(keys, "threecheck_wins"), keys);
+    assert.ok(lacks(keys, "mate_queen"), "the queen's third check won, but mated no one");
   });
 
   test("Crazyhouse: drops replay, and the feats that read material are not checked", () => {

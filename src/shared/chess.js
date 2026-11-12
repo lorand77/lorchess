@@ -28,7 +28,8 @@ class Chess {
     // Which rule set is in force. 'standard' covers Chess960 too — that only
     // changes the starting position. 'atomic' changes what a capture does;
     // 'crazyhouse' keeps what you capture in a pocket; 'antichess' makes you
-    // try to lose everything; 'kingofthehill' adds a win in the centre. Set it with
+    // try to lose everything; 'kingofthehill' adds a win in the centre;
+    // 'threecheck' a win by giving check three times. Set it with
     // setVariant(), then reset() or loadFen(): those two deliberately leave the
     // rules alone, so loading a position never silently changes them, and they
     // are what set up the position state a variant carries (the pockets).
@@ -37,7 +38,7 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill'].includes(name) ? name : 'standard';
+    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck'].includes(name) ? name : 'standard';
     return this;
   }
 
@@ -64,6 +65,28 @@ class Chess {
       if (p && p.t === 'k') return p.c;
     }
     return null;
+  }
+
+  // Three-check (Lichess's rules): ordinary chess, and giving check a third
+  // time wins. Mate still wins, and comes first when the third check mates.
+  // `checks` counts the checks each side has given; FEN writes the checks
+  // still to give, Lichess's way ("3+3" after the en passant square). A side
+  // with any piece but its king can still check, so only bare kings are dead.
+  get isThreeCheck() { return this.variant === 'threecheck'; }
+
+  // The colour that has given its third check, or null.
+  threeCheckWinner() {
+    if (!this.checks) return null;
+    if (this.checks[W] >= 3) return W;
+    if (this.checks[B] >= 3) return B;
+    return null;
+  }
+
+  // Once the third check is given the move list is empty, like any finished
+  // game's; whether it was also mate asks for the moves there would be.
+  movesPastTheEnd() {
+    this.ignoreCheckLimit = true;
+    try { return this.legalMoves(); } finally { this.ignoreCheckLimit = false; }
   }
 
   pieceCount(c) {
@@ -140,6 +163,7 @@ class Chess {
     }
     }
     this.pockets = this.isCrazyhouse ? emptyPockets() : null;
+    this.checks = this.isThreeCheck ? { [W]: 0, [B]: 0 } : null;
     this.turn = W;
     // Nothing to castle with in Pawn Wars, and claiming rights would put a
     // meaningless "KQkq" in every FEN it produces. Antichess forbids it.
@@ -260,8 +284,25 @@ class Chess {
       }
     }
 
+    // Three-check: the checks each side still has to give, "3+3", may follow
+    // the en passant square (Lichess's FEN); without it, none given yet.
+    let checks = null;
+    let counters = parts.slice(4);
+    if (this.isThreeCheck) {
+      checks = { [W]: 0, [B]: 0 };
+      const left = /^([0-3])\+([0-3])$/.exec(parts[4] || '');
+      if (!left && /\+/.test(parts[4] || '')) {
+        throw new Error(`FEN: bad check count "${parts[4]}" (the checks each side has left to give, 0-3, as "3+3")`);
+      }
+      if (left) {
+        checks = { [W]: 3 - Number(left[1]), [B]: 3 - Number(left[2]) };
+        counters = parts.slice(5);
+      }
+    }
+
     this.squares = newSquares;
     this.pockets = pockets;
+    this.checks = checks;
     this.turn = turn;
     // Antichess has no castling, whatever the FEN claims.
     const cr = this.isAntichess ? '-' : parts[2] || '-';
@@ -273,8 +314,8 @@ class Chess {
     };
     this.deriveCastlingLayout(cr);
     this.ep = ep;
-    this.halfmove = parts[4] ? parseInt(parts[4], 10) || 0 : 0;
-    this.fullmove = parts[5] ? parseInt(parts[5], 10) || 1 : 1;
+    this.halfmove = counters[0] ? parseInt(counters[0], 10) || 0 : 0;
+    this.fullmove = counters[1] ? parseInt(counters[1], 10) || 1 : 1;
     this.history = [];
     this.positionCounts = new Map();
     this.positionCounts.set(this.positionKey(), 1);
@@ -402,6 +443,9 @@ class Chess {
     // with a knight to drop is not the same position as without one. Whether a
     // piece is promoted is too, since it decides what capturing it pockets.
     if (this.pockets) s += '|' + this.pocketText();
+    // In Three-check the checks given are too: one check from winning is not
+    // the same position as three.
+    if (this.checks) s += '|' + this.checks[W] + this.checks[B];
     s += '|' + this.turn;
     s += '|' + (this.castling.K ? 'K' : '') + (this.castling.Q ? 'Q' : '')
             + (this.castling.k ? 'k' : '') + (this.castling.q ? 'q' : '');
@@ -433,7 +477,8 @@ class Chess {
     if (!cr) cr = '-';
     const ep = this.ep != null ? algOf(this.ep) : '-';
     const turn = this.turn === W ? 'w' : 'b';
-    return `${board} ${turn} ${cr} ${ep} ${this.halfmove} ${this.fullmove}`;
+    const left = this.checks ? ` ${3 - this.checks[W]}+${3 - this.checks[B]}` : '';
+    return `${board} ${turn} ${cr} ${ep}${left} ${this.halfmove} ${this.fullmove}`;
   }
 
   pseudoMovesFrom(sq, c) {
@@ -650,6 +695,8 @@ class Chess {
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return [];
     // Same in King of the Hill once a king has reached the centre.
     if (this.isKingOfTheHill && this.kingOnHill()) return [];
+    // Same in Three-check once the third check is given.
+    if (this.isThreeCheck && !this.ignoreCheckLimit && this.threeCheckWinner()) return [];
     // Same in Pawn Wars once a side has been wiped out.
     if (this.isPawnWars && (this.pawnCount(W) === 0 || this.pawnCount(B) === 0)) return [];
     if (this.isAntichess) return this.antichessMoves(c);
@@ -770,6 +817,7 @@ class Chess {
       halfmove: this.halfmove,
       fullmove: this.fullmove,
       turn: this.turn,
+      checks: this.checks ? { [W]: this.checks[W], [B]: this.checks[B] } : null,
       tracked: trackPosition,
       newKey: null,
     };
@@ -865,6 +913,8 @@ class Chess {
 
     if (this.turn === B) this.fullmove++;
     this.turn = opp(this.turn);
+    // Three-check: a move that leaves the other side in check counts.
+    if (this.checks && this.inCheck()) this.checks[histEntry.turn]++;
 
     if (trackPosition) {
       const key = this.positionKey();
@@ -885,6 +935,7 @@ class Chess {
     }
 
     if (h.pocketed) this.pockets[h.turn][h.pocketed]--;
+    if (h.checks) this.checks = h.checks;
     this.castling = h.castling;
     this.ep = h.ep;
     this.halfmove = h.halfmove;
@@ -925,6 +976,8 @@ class Chess {
 
   isInsufficientMaterial() {
     if (this.isPawnWars || this.isKingOfTheHill) return false;
+    // Three-check: any piece but a king can give check, so only bare kings.
+    if (this.isThreeCheck) return this.squares.every((p) => !p || p.t === 'k');
     if (this.pockets) return this.crazyhouseMaterialDead();
     if (this.isAntichess) return this.antichessMaterialDead();
     const ps = [];
@@ -981,6 +1034,8 @@ class Chess {
   hasMatingMaterial(c) {
     // A king can always win King of the Hill by walking to the centre.
     if (this.isAtomic || this.isPawnWars || this.isKingOfTheHill) return true;
+    // Three-check: a side that can still give check can still win.
+    if (this.isThreeCheck) return this.squares.some((p) => p && p.c === c && p.t !== 'k');
     // Antichess has no mate: a flag loses unless the game could no longer be
     // won by anyone. (Lichess also draws some knight endings on a flag.)
     if (this.isAntichess) return !this.antichessMaterialDead();
@@ -1050,6 +1105,8 @@ class Chess {
     if (this.isPawnWars || this.isAntichess) return false;
     // A king in the centre has won, whatever check it left behind it.
     if (this.isKingOfTheHill && this.kingOnHill()) return false;
+    // The third check may be mate too: ask for the moves there would be.
+    if (this.isThreeCheck) return this.inCheck() && this.movesPastTheEnd().length === 0;
     if (this.isAtomic) {
       if (this.kingMissing(this.turn)) return true;          // ours went up: we lost
       if (this.kingMissing(opp(this.turn))) return false;    // theirs did: a win, not mate
@@ -1061,6 +1118,7 @@ class Chess {
   isStalemate() {
     if (this.isAntichess) return false;
     if (this.isKingOfTheHill && this.kingOnHill()) return false;
+    if (this.isThreeCheck && this.threeCheckWinner()) return false;
     if (this.isPawnWars) {
       if (this.pawnCount(W) === 0 || this.pawnCount(B) === 0) return false;
       return this.legalMoves().length === 0;
@@ -1083,6 +1141,7 @@ class Chess {
     }
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return true;
     if (this.isKingOfTheHill && this.kingOnHill()) return true;
+    if (this.isThreeCheck && this.threeCheckWinner()) return true;
     // In Antichess an empty move list includes having no pieces left.
     return this.legalMoves().length === 0
         || this.isInsufficientMaterial()
@@ -1108,6 +1167,7 @@ class Chess {
       return this.pieceCount(this.turn) === 0 ? 'all pieces lost' : 'no moves';
     }
     if (this.isCheckmate()) return 'checkmate';
+    if (this.isThreeCheck && this.threeCheckWinner()) return 'three checks';
     if (this.isStalemate()) return 'stalemate';
     if (this.isInsufficientMaterial()) return 'insufficient';
     if (this.isThreefoldRepetition()) return 'threefold';
@@ -1141,6 +1201,7 @@ class Chess {
       if (this.kingMissing(B)) return '1-0';
     }
     if (this.isCheckmate()) return this.turn === W ? '0-1' : '1-0';
+    if (this.isThreeCheck && this.threeCheckWinner()) return this.threeCheckWinner() === W ? '1-0' : '0-1';
     if (this.isGameOver()) return '1/2-1/2';
     return '*';
   }
@@ -1178,10 +1239,10 @@ class Chess {
       }
     }
     this.makeMove(m);
-    // A king stepping into the centre ends the game with no moves left, but a
-    // check it uncovers on the way is only a check.
-    const won = this.isKingOfTheHill && this.kingOnHill();
-    if (this.inCheck()) san += this.legalMoves().length === 0 && !won ? '#' : '+';
+    // A king stepping into the centre, or a third check, ends the game with no
+    // moves left, but is only mate if it would be anyway (isCheckmate knows).
+    const over = (this.isKingOfTheHill && this.kingOnHill()) || (this.isThreeCheck && this.threeCheckWinner());
+    if (this.inCheck()) san += (over ? this.isCheckmate() : this.legalMoves().length === 0) ? '#' : '+';
     this.undoMove();
     return san;
   }

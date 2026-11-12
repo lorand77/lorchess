@@ -359,6 +359,13 @@ const LorFish = {
     return score;
   },
 
+  // Three-check: each check given is a step towards winning, the second most
+  // of all — one more and the game is over. White-positive.
+  CHECKS_BONUS: [0, 240, 700],
+  checksTerm(chess) {
+    return (this.CHECKS_BONUS[chess.checks[W]] || 0) - (this.CHECKS_BONUS[chess.checks[B]] || 0);
+  },
+
   // Antichess: the side that loses all its pieces (or runs out of moves)
   // wins, so every piece still on the board counts against its owner, a
   // queen no more than a pawn: each is one more thing to be rid of.
@@ -402,6 +409,7 @@ const LorFish = {
     }
     if (lk) score += this.loneKingMateTerm(chess, lk);
     if (chess.isKingOfTheHill) score += this.hillTerm(chess, eg);
+    if (chess.isThreeCheck) score += this.checksTerm(chess);
     // Crazyhouse: a piece in hand is material like any other, and a king
     // with ways in around it is in danger.
     if (chess.pockets) {
@@ -474,6 +482,17 @@ const LorFish = {
         if (alpha >= beta) break;
       }
       return best;
+    }
+
+    // Three-check: with two checks given, any check wins on the spot, quiet or
+    // not; a capture search that only looked at captures would stand still.
+    if (chess.isThreeCheck && chess.checks[chess.turn] === 2) {
+      for (const m of moves) {
+        chess.makeMove(m);
+        const won = chess.threeCheckWinner() ? this.mateScore(chess) : 0;
+        chess.undoMove();
+        if (won) return won;
+      }
     }
 
     const standPat = this.evaluate(chess);

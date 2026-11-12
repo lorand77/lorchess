@@ -663,3 +663,44 @@ describe("LorFish plays King of the Hill", () => {
     assert.equal(chess.termination(), "king in the centre");
   });
 });
+
+describe("LorFish plays Three-check", () => {
+  const three = (fen) => fromFen(fen, "threecheck");
+
+  test("gives the third check when it can", () => {
+    // White has given two; Re1-e8 is a quiet rook check, and the third.
+    const a = LorFish.analyse(three("6k1/8/8/8/8/8/5PPP/4R1K1 w - - 1+3 0 30"), 1);
+    assert.ok(a.san.endsWith("+") || a.san.endsWith("#"), a.san);
+    assert.equal(a.score, LorFish.MATE - 1);
+  });
+
+  test("its capture search sees a quiet third check, not only captures", () => {
+    // Black to move has given two checks and can give a third with ...Rd1+.
+    const chess = three("3r2k1/8/8/8/8/8/5PPP/6K1 b - - 3+1 0 30");
+    LorFish.rootPly = chess.history.length;
+    assert.ok(LorFish.quiescence(chess, -Infinity, Infinity, 0) > LorFish.MATE - 10);
+    // With only one given, a check is just a check: the stand-pat holds.
+    const one = three("3r2k1/8/8/8/8/8/5PPP/6K1 b - - 3+2 0 30");
+    assert.ok(LorFish.quiescence(one, -Infinity, Infinity, 0) < LorFish.MATE - 10);
+  });
+
+  test("each check given is worth more than the last", () => {
+    const at = (left) => LorFish.checksTerm(three(`4k3/8/8/8/8/8/8/R3K3 w - - ${left}+3 0 1`));
+    assert.equal(at(3), 0);
+    assert.ok(at(1) - at(2) > at(2) - at(3), "the second check counts most");
+  });
+
+  test("plays a whole game to a finish, every move legal", (t) => {
+    silence(t);
+    const chess = three("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 3+3 0 1");
+    const rng = seeded(5);
+    let plies = 0;
+    while (!chess.isGameOver() && plies < 400) {
+      const m = LorFish.getBestMove(chess, 1, { temperature: 30, rng });
+      assert.ok(chess.findMove(m.from, m.to, m.promo), `ply ${plies + 1}`);
+      chess.makeMove(m);
+      plies++;
+    }
+    assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
+  });
+});

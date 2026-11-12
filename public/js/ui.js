@@ -59,6 +59,7 @@ let clockTimer = null;
 const boardEl       = document.getElementById('board');
 const turnEl        = document.getElementById('turn');
 const statusEl      = document.getElementById('status');
+const checksLineEl  = document.getElementById('checksLine');
 const historyEl     = document.getElementById('history');
 const promoEl       = document.getElementById('promo');
 const promoOpts     = document.getElementById('promoOptions');
@@ -548,6 +549,12 @@ function render() {
     turnEl.className = '';
   }
 
+  // Three-check: the checks given so far (once a position is loaded: the
+  // rules are set before it, and the count comes with it).
+  const counted = !infinite && chess.isThreeCheck && !!chess.checks;
+  checksLineEl.hidden = !counted;
+  if (counted) checksLineEl.textContent = `Checks: White ${chess.checks[W]} of 3 · Black ${chess.checks[B]} of 3`;
+
   // Status line
   if (chess.isGameOver()) {
     let s = `Game Over: ${chess.result()}`;
@@ -555,6 +562,9 @@ function render() {
       // Pawn Wars is won by taking every pawn the other side has.
       const winner = chess.pawnCount(W) ? 'White' : 'Black';
       s += chess.pawnCount(W) || chess.pawnCount(B) ? ` — ${winner} wins: no ${winner === 'White' ? 'black' : 'white'} pawns left!` : ' — no pawns left on either side';
+    } else if (chess.isThreeCheck && chess.threeCheckWinner() && !chess.isCheckmate()) {
+      // Three-check: the third check has won (a mating one reads as mate).
+      s += ` — ${chess.threeCheckWinner() === W ? 'White' : 'Black'} wins: three checks!`;
     } else if (chess.isKingOfTheHill && chess.kingOnHill()) {
       // King of the Hill: a king in the centre has won, ahead of any check.
       s += ` — ${chess.kingOnHill() === W ? 'White' : 'Black'} wins: king in the centre!`;

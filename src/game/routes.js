@@ -30,7 +30,7 @@ const VALID_RESULTS = new Set(["1-0", "0-1", "1/2-1/2"]);
 // Every ending Chess.termination() can name, the variants' own included.
 const VALID_TERMINATIONS = new Set([
   "checkmate", "stalemate", "insufficient", "threefold", "fifty-move",
-  "explosion", "pawns captured", "all pieces lost", "no moves", "king in the centre",
+  "explosion", "pawns captured", "all pieces lost", "no moves", "king in the centre", "three checks",
 ]);
 
 // The side to move: FEN's second field, or an infinite-chess position's first

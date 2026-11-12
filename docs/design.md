@@ -8,7 +8,7 @@ repo are in `docs/CLAUDE.md`.
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
 standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of
-the Hill or infinite chess, on a board with no edges. Around the games: puzzles, an
+the Hill, Three-check or infinite chess, on a board with no edges. Around the games: puzzles, an
 analysis board, achievements, friends, a leaderboard, spectating, in-game chat
 and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
 browser, no build step.
@@ -28,8 +28,8 @@ browser, no build step.
 
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
-squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess and King of the Hill
-rule sets.
+squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill and
+Three-check rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
 its variant needs. `src/shared/lorfish.js` is **LorFish**, a synchronous search
@@ -176,6 +176,24 @@ handicap like Atomic, since a handicap leaves the rule alone. It is casual
 while it is new, and Stockfish's review can't judge it. The game page rings
 the four centre squares in gold (`.hill`) and says "White wins: king in the
 centre!".
+
+**Three-check** follows Lichess's rules: ordinary chess, and giving check a
+third time wins, recorded as `"three checks"`. Mate still wins, and names the
+ending when the third check also mates, as on Lichess. The checks are part of
+the position. `checks` counts each side's, `makeMove` adds one whenever a move
+leaves the other side in check, `undoMove` takes it back, and `positionKey`
+includes them, so one check from winning is not a repetition of the same board
+with none. FEN writes the checks each side has left to give, Lichess's way, as
+a field after the en passant square (`… KQkq - 3+3 0 1`). A FEN without the
+field has none given, so the standard start opens a game, and a malformed one
+is refused. Once the third check is given the move list is empty, like any
+finished game's; `isCheckmate` asks for the moves there would have been
+(`movesPastTheEnd`) to tell a mating third check from a plain one, and SAN
+writes `+` for the plain one. Any piece but a king can give check, so only bare
+kings are dead material, and a side with one can still win on a flag. It
+opens from the standard setup and takes a handicap, is casual while new, and
+can't be reviewed. The game page shows "Checks: White 1 of 3 · Black 0 of 3"
+under the turn line.
 
 **Infinite chess** follows infinitechess.org's "Classical" variant, checked
 against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,
@@ -811,7 +829,14 @@ board full and all of it in an endgame. The search sees a king actually
 arriving, as a win (`endScore`); the bonus gives it a reason to set out.
 Against itself without it, over 24 games at depth 2: 80/30/10 scored 15,
 twice that 18.5, three times 19, four times 17, and these values (two and a
-half times) 17.5. Each level beat the one below in every game tried. The levels'
+half times) 17.5. Each level beat the one below in every game tried.
+Three-check adds a bonus for the checks a side has given (`checksTerm`: 240
+for one, 700 for two). Over 24 games at depth 2 against itself without it,
+half that bonus scored 16, these values 19, half again more 13, twice 15.
+And with two checks given, any check wins on the spot, quiet or not, so the
+capture search, which otherwise looks only at captures, first tries every
+move for one (15 of 24 against LorFish without that rule). Each level beat
+the one below in every game tried. The levels'
 ratings were measured against Stockfish in standard chess, which plays no
 variant but Chess960 and wasn't measured there, so everywhere but standard
 chess a level goes by its name alone ("Casual", not "Casual (~1000)":
@@ -891,7 +916,7 @@ in the member's browser, so reviews cost the server nothing.
 
 Only Standard and Chess960 are reviewable (`reviewable` in `variants.js`);
 Stockfish does not know the Atomic, Pawn Wars, Crazyhouse, Antichess, King of
-the Hill or infinite-chess rules.
+the Hill, Three-check or infinite-chess rules.
 
 ## Analysis board
 
@@ -920,7 +945,8 @@ above it and the score formatting are the replay's.
   does not keep a core busy. Finished positions are scored without asking
   Stockfish, as in the review.
 - Standard rules only. A Chess960 FEN loads; Atomic, Pawn Wars, Crazyhouse,
-  Antichess and King of the Hill positions would get standard-chess answers, and an infinite-chess
+  Antichess, King of the Hill and Three-check positions would get
+  standard-chess answers, and an infinite-chess
   position doesn't load at all, so there is no variant picker.
 - **A Practice tab** (`#practice`, beside `#analysis`) is the same board with
   the engine off and the bar hidden: both sides are played by hand, the board

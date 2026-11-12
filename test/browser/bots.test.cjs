@@ -22,7 +22,7 @@ test("a Chess960 game against LorFish, from the lobby to a resumed game", async 
 
   // Only the variants LorFish plays; the levels lose their ratings outside standard.
   const variants = await page.locator("#aiVariantSelect option").evaluateAll((os) => os.map((o) => o.value));
-  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "infinite"]);
+  assert.deepEqual(variants, ["standard", "chess960", "atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "threecheck", "infinite"]);
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual (~1000)");
   await page.locator("#aiVariantSelect").selectOption("chess960");
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual");
@@ -265,4 +265,29 @@ test("a King of the Hill game against LorFish marks the centre, and a king there
   // How a won game reads: a white king in the centre.
   await page.evaluate(() => { chess.loadFen("7k/7p/8/8/3K4/8/P7/8 b - - 0 1"); render(); });
   assert.equal(await page.locator("#status").textContent(), "Game Over: 1-0 — White wins: king in the centre!");
+});
+
+test("a Three-check game against LorFish counts the checks, and the third wins", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await page.goto(srv.baseUrl + "/lobby.html");
+  await page.locator("#aiVariantSelect").selectOption("threecheck");
+  await page.locator("#aiLevelSelect").selectOption("intermediate");
+  await page.locator("#aiPlayBtn").click();
+  await page.waitForURL(/variant=threecheck/);
+  await ready(page);
+  assert.equal(await page.locator("#aiLevelText").textContent(), "Intermediate · Three-check");
+  assert.equal(await page.locator("#checksLine").textContent(), "Checks: White 0 of 3 · Black 0 of 3");
+  const id = await page.evaluate(() => gameStore.currentId());
+  assert.equal(db().prepare("SELECT variant FROM games WHERE id = ?").get(id).variant, "threecheck");
+
+  await page.locator('#board [data-sq="12"]').click();  // e2
+  await page.locator('#board [data-sq="28"]').click();  // e4
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  assert.match(await page.locator("#history").textContent(), /\[Variant "Three-check"\]/);
+
+  // Two checks given, then how a won game reads.
+  await page.evaluate(() => { chess.loadFen("4k3/8/8/8/8/8/5PPP/4R1K1 w - - 1+3 0 30"); render(); });
+  assert.equal(await page.locator("#checksLine").textContent(), "Checks: White 2 of 3 · Black 0 of 3");
+  await page.evaluate(() => { chess.loadFen("4k3/8/8/8/8/8/5PPP/4R1K1 b - - 0+3 0 30"); render(); });
+  assert.equal(await page.locator("#status").textContent(), "Game Over: 1-0 — White wins: three checks!");
 });

@@ -222,13 +222,22 @@ describe("AI games in a variant", () => {
     assert.match(res.body.error, /^A King of the Hill game starts from its own position/);
   });
 
+  test("a Three-check game starts from the standard setup, and no other", async () => {
+    const created = await newGame({ humanColor: "w", variant: "threecheck" });
+    const game = (await me.get(`/api/games/${created.gameId}`)).body;
+    assert.deepEqual([game.variant, game.start_fen], ["threecheck", STANDARD_START]);
+    const res = await me.post("/api/games", { humanColor: "w", variant: "threecheck", startFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 1+1 0 1" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /^A Three-check game starts from its own position/);
+  });
+
   test("an unknown variant is standard", async () => {
     const created = await newGame({ humanColor: "w", variant: "nope" });
     assert.equal(created.variant, "standard");
   });
 
   test("a variant's endings can be recorded", async () => {
-    for (const termination of ["explosion", "pawns captured", "all pieces lost", "no moves", "king in the centre"]) {
+    for (const termination of ["explosion", "pawns captured", "all pieces lost", "no moves", "king in the centre", "three checks"]) {
       const { gameId } = await newGame({ humanColor: "w" });
       assert.equal((await me.post(`/api/games/${gameId}/end`, { result: "1-0", termination })).status, 200, termination);
       assert.equal((await me.get(`/api/games/${gameId}`)).body.termination, termination);

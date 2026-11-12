@@ -19,6 +19,7 @@ test("every other variant gets chess.js with its rules, at its own start", () =>
   for (const [variant, fen] of [
     ["standard", STANDARD_START], ["chess960", STANDARD_START], ["atomic", STANDARD_START],
     ["pawnwars", PAWN_WARS_START], ["antichess", ANTICHESS_START], ["kingofthehill", STANDARD_START],
+    ["threecheck", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 3+3 0 1"],
     ["crazyhouse", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[] w KQkq - 0 1"],
   ]) {
     const engine = createEngine(variant);

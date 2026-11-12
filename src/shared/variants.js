@@ -60,6 +60,11 @@ const VARIANTS = [
   // Stockfish's review only knows the ordinary win. Casual while it is new.
   { key: 'kingofthehill', label: 'King of the Hill', standardSetup: true, reviewable: false, rateable: false,
     materialBadges: true, moveBadges: true, bot: true },
+  // Ordinary chess, and giving check a third time wins. Opens from the standard
+  // setup (with no checks given, which its FEN writes as "3+3"), and a
+  // handicap leaves the rule alone. Casual while it is new.
+  { key: 'threecheck', label: 'Three-check', standardSetup: true, reviewable: false, rateable: false,
+    materialBadges: true, moveBadges: true, bot: true },
   // A board with no edges (infinitechess.org's Classical rules), played by its
   // own engine (engines.js). Its start is an ICN position, the same as
   // infiniteChess.js's Classical setup (a test holds them together). Casual

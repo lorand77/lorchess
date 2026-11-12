@@ -494,6 +494,7 @@ function evaluateStats(userId, ref) {
     ["crazyhouse_wins", tierFor("crazyhouse_wins", byVariant.crazyhouse || 0)],
     ["antichess_wins", tierFor("antichess_wins", byVariant.antichess || 0)],
     ["kingofthehill_wins", tierFor("kingofthehill_wins", byVariant.kingofthehill || 0)],
+    ["threecheck_wins", tierFor("threecheck_wins", byVariant.threecheck || 0)],
     ["infinite_wins", tierFor("infinite_wins", byVariant.infinite || 0)],
     ["every_variant", VARIANTS.every((v) => (byVariant[v.key] || 0) > 0)],
     ["both_colours", g.wins_white > 0 && g.wins_black > 0],
