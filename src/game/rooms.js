@@ -2,7 +2,10 @@
 
 // In-memory authoritative state for live PvP games. The server owns a Chess
 // instance per active game; clients are never trusted for legality. Rooms are
-// keyed by gameId and map 1:1 to the Socket.IO room `game:<id>`.
+// keyed by gameId and map 1:1 to the Socket.IO room `game:<id>`. A Bughouse
+// match is two rooms, one per board, that know each other (matchId, boardIds):
+// they are created together, rebuilt together from the match's moves, and
+// ended together (socket.js concludeMatch).
 
 const { STANDARD_START } = require("../shared/chess");
 const { createEngine } = require("../shared/engines");
@@ -13,13 +16,15 @@ const { describeTimeControl } = require("../shared/timeControls");
 const handicap = require("../shared/handicap");
 const { moveFromUci } = require("../shared/uci");
 const { usesStandardSetup } = require("../shared/variants");
+const { Bughouse } = require("../shared/bughouse");
+const matches = require("./matches");
 
 const rooms = new Map(); // gameId -> room
 
 function createRoom(
   gameId,
   { whiteId, blackId, whiteName, blackName, startFen, initialMs, incrementMs, rated,
-    clockW, clockB, rehydrated, variant }
+    clockW, clockB, rehydrated, variant, matchId, board, boardIds }
 ) {
   // Games created before per-game time controls existed have NULL clock
   // columns; fall back to the server-wide default so they still run.
@@ -82,6 +87,11 @@ function createRoom(
     // Socket ids of non-players watching this game (they sit in the same
     // Socket.IO room and receive every broadcast, but can never act).
     spectators: new Set(),
+    // Bughouse: the match, this board (0 or 1) and both boards' game ids. Null
+    // for every other game.
+    matchId: matchId || null,
+    board: matchId ? board : null,
+    boardIds: matchId ? boardIds : null,
   };
   rooms.set(gameId, room);
   return room;
@@ -145,10 +155,21 @@ function sweepUnresumed() {
   let aborted = 0;
   for (const g of queries.listActivePvpGames.all()) {
     if (rooms.has(g.id)) continue; // somebody reconnected and rebuilt it
-    queries.abortGame.run("server-restart", g.id);
+    // A Bughouse board goes with its match: both boards are aborted at once
+    // (the second one is then no longer active when the loop reaches it).
+    if (g.match_id) matches.abortMatch(g.match_id, "server-restart");
+    else queries.abortGame.run("server-restart", g.id);
     aborted++;
   }
   return aborted;
+}
+
+// Both rooms of a Bughouse match, board 0's first, or null for a room that
+// isn't one (or whose partner board is gone).
+function matchRooms(room) {
+  if (!room || !room.matchId) return null;
+  const both = room.boardIds.map((id) => rooms.get(id));
+  return both.every(Boolean) ? both : null;
 }
 
 function getRoom(gameId) {
@@ -170,6 +191,10 @@ function listRooms() {
 function loadRoomFromDb(gameId) {
   const game = queries.getGameById.get(gameId);
   if (!game || game.mode !== "pvp") return null;
+  if (game.match_id) {
+    const both = loadMatchRoomsFromDb(game.match_id);
+    return both ? both[game.board] : null;
+  }
 
   const room = createRoom(gameId, {
     whiteId: game.white_id,
@@ -209,6 +234,55 @@ function loadRoomFromDb(gameId) {
   return room;
 }
 
+// Rebuild both rooms of a Bughouse match: a board's pockets depend on what
+// was taken on the other, so neither can be replayed alone. Both boards' moves
+// are replayed in the order they were made, each capture passed across as it
+// happened (Bughouse.play). A room already live is kept; a stored move the
+// rules refuse aborts the whole match, as loadRoomFromDb does a game.
+function loadMatchRoomsFromDb(matchId) {
+  const games = queries.getMatchBoards.all(matchId);
+  if (games.length !== 2) return null;
+  const live = games.map((g) => rooms.get(g.id));
+  if (live.every(Boolean)) return live;
+  const boardIds = games.map((g) => g.id);
+  const both = games.map((game) => createRoom(game.id, {
+    whiteId: game.white_id,
+    blackId: game.black_id,
+    whiteName: nameOf(game.white_id),
+    blackName: nameOf(game.black_id),
+    startFen: game.start_fen,
+    initialMs: game.initial_ms,
+    incrementMs: game.increment_ms,
+    rated: game.rated,
+    variant: game.variant,
+    clockW: game.clock_w_ms,
+    clockB: game.clock_b_ms,
+    rehydrated: true,
+    matchId,
+    board: game.board,
+    boardIds,
+  }));
+  const engines = both.map((r) => r.chess);
+  for (const m of queries.getMovesForMatch.all(matchId)) {
+    const mv = moveFromUci(engines[m.board], m.uci);
+    if (!mv) {
+      log.error("game.corrupt_record", { match: matchId, board: m.board, ply: m.ply, move: m.uci, fen: engines[m.board].fen() });
+      for (const g of games) deleteRoom(g.id);
+      matches.abortMatch(matchId, "corrupt-record");
+      return null;
+    }
+    Bughouse.play(engines, m.board, mv);
+    both[m.board].sans.push(m.san);
+  }
+  games.forEach((game, i) => {
+    both[i].clockStarted = !!game.clock_started;
+    both[i].status = game.status;
+    both[i].result = game.result;
+    both[i].termination = game.termination;
+  });
+  return both;
+}
+
 function nameOf(userId) {
   const u = queries.getUserById.get(userId);
   return u ? u.username : "?";
@@ -220,6 +294,8 @@ module.exports = {
   deleteRoom,
   listRooms,
   loadRoomFromDb,
+  loadMatchRoomsFromDb,
+  matchRooms,
   clearTimers,
   clockSnapshot,
   resumableGames,

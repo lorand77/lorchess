@@ -16,6 +16,8 @@ const rooms = require("./rooms");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
 const chess960 = require("../shared/chess960");
 const { resolveVariant, startOf, isRateable } = require("../shared/variants");
+const matches = require("./matches");
+const { Bughouse } = require("../shared/bughouse");
 
 // Every authenticated socket joins its user's room (see socket.js), so a game
 // can be announced to the PERSON rather than to one guessed socket. A user
@@ -173,4 +175,49 @@ function startMatch(io, white, black, opts) {
   return gameId;
 }
 
-module.exports = { join, leave, startMatch, onMatchStarted, userRoom };
+// Start a Bughouse match between two teams of connected sockets, each
+// [player on board 0, player on board 1] (team A plays White on board 0 and
+// Black on board 1). Two boards, two rooms that know each other, both casual;
+// each player is sent their own board. The start hooks run once per board, so
+// the lobby withdraws everyone's offers and socket.js starts the absence clock
+// against every seat. Returns { matchId, boards }.
+function startBughouse(io, { teamA, teamB }, opts) {
+  const tc = resolveTimeControl(DEFAULT_TC);
+  const initialMs = opts && opts.initialMs != null ? opts.initialMs : tc.initialMs;
+  const incrementMs = opts && opts.incrementMs != null ? opts.incrementMs : tc.incrementMs;
+  const { matchId, boards } = matches.createMatch({
+    teamA: teamA.map((s) => s.userId), teamB: teamB.map((s) => s.userId), initialMs, incrementMs,
+  });
+  const seat = (board, color) => (Bughouse.teamOf(board, color) === "A" ? teamA : teamB)[board];
+  for (const board of [0, 1]) {
+    const white = seat(board, "w"), black = seat(board, "b");
+    rooms.createRoom(boards[board], {
+      whiteId: white.userId, blackId: black.userId, whiteName: white.username, blackName: black.username,
+      startFen: rooms.STANDARD_START, variant: "bughouse", initialMs, incrementMs, rated: false,
+      matchId, board, boardIds: boards,
+    });
+  }
+  for (const s of [...teamA, ...teamB]) leaveUser(s.userId);
+  for (const board of [0, 1]) {
+    for (const fn of startHooks) fn(io, boards[board], seat(board, "w").userId, seat(board, "b").userId);
+  }
+  for (const board of [0, 1]) {
+    for (const color of ["w", "b"]) {
+      const me = seat(board, color);
+      const partner = Bughouse.partnerOf(board, color);
+      io.to(userRoom(me.userId)).emit("game:start", {
+        gameId: boards[board], color, matchId, board,
+        opponent: { username: seat(board, color === "w" ? "b" : "w").username },
+        partner: { username: seat(partner.board, partner.color).username },
+      });
+    }
+  }
+  log.info("match.start", {
+    match: matchId, boards: boards.join(","),
+    team_a: teamA.map((s) => s.userId).join(","), team_b: teamB.map((s) => s.userId).join(","),
+    tc: `${initialMs / 60000}+${incrementMs / 1000}`,
+  });
+  return { matchId, boards };
+}
+
+module.exports = { join, leave, startMatch, startBughouse, onMatchStarted, userRoom };

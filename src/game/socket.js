@@ -24,6 +24,8 @@ const handicap = require("../shared/handicap");
 const { formatUci } = require("../shared/uci");
 const { InfiniteChess } = require("../shared/infiniteChess");
 const { usesStandardSetup } = require("../shared/variants");
+const { Bughouse } = require("../shared/bughouse");
+const matches = require("./matches");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
 
@@ -212,10 +214,23 @@ function colorOf(room, userId) {
 
 // ---- clocks ----
 
-// Start the clock once both players have joined for the first time.
+// Start the clock once both players have joined for the first time. A
+// Bughouse board waits for all four players, and then both boards start
+// together: neither team gets a head start on the other board.
 function startClocksIfReady(io, room) {
   if (room.started) return;
-  if (!room.everJoined.w || !room.everJoined.b) return;
+  const seated = (r) => r.everJoined.w && r.everJoined.b;
+  if (room.matchId) {
+    const both = rooms.matchRooms(room);
+    if (!both || !both.every(seated)) return;
+    for (const r of both) if (!r.started) startClock(io, r);
+    return;
+  }
+  if (!seated(room)) return;
+  startClock(io, room);
+}
+
+function startClock(io, room) {
   room.started = true;
   // Remembered on the games row too: after a restart it is the only record
   // that both players ever took their seats (see onGraceExpired).
@@ -257,6 +272,8 @@ function onFlag(io, gameId, turn) {
 // Finalize a game: persist, rate (Elo), notify the room, clear timers, drop the
 // room. result '*' means an abort (no winner, no rating change).
 function concludeGame(io, room, result, termination) {
+  // A Bughouse board never ends alone: whatever ended it ends the match.
+  if (room.matchId) return concludeMatch(io, room, result, termination);
   // Snapshot before the status flips: clockSnapshot only charges the side to
   // move while the game is still active, and a resignation should record the
   // time the resigning player had actually burned.
@@ -285,6 +302,49 @@ function concludeGame(io, room, result, termination) {
   rooms.deleteRoom(room.gameId);
   lobby.refresh(io); // both players are free again
   log.info("game.over", { game: room.gameId, result, termination });
+}
+
+// End a Bughouse match because one of its boards ended (`room`, with that
+// board's result: a mate, a flag, a resignation, a forfeit or an abort). The
+// team that won there wins the match, and both boards are finished with the
+// results that follow for their players (matches.finishMatch), the other
+// board's ending "on the other board". Each board's players and spectators
+// hear their own board's result and the match's. Always casual: no Elo.
+function concludeMatch(io, room, result, termination) {
+  const both = rooms.matchRooms(room) || [room];
+  const clocks = both.map((r) => rooms.clockSnapshot(r));
+  const aborted = result === "*";
+  const team = aborted ? null
+    : result === "1/2-1/2" ? "draw"
+      : Bughouse.teamOf(room.board, result === "1-0" ? "w" : "b");
+  db.transaction(() => {
+    both.forEach((r, i) => queries.updateGameClocks.run(clocks[i].w, clocks[i].b, r.gameId));
+    if (aborted) matches.abortMatch(room.matchId, termination);
+    else matches.finishMatch(room.matchId, { result: team, termination, decidedOn: room.board });
+  })();
+  const results = aborted ? null : Bughouse.boardResults(team);
+  both.forEach((r, i) => {
+    r.status = aborted ? "aborted" : "finished";
+    rooms.clearTimers(r);
+    io.to(`game:${r.gameId}`).emit("game:over", {
+      result: aborted ? "*" : results[r.board],
+      termination: r === room || aborted ? termination : matches.OTHER_BOARD,
+      ratings: null,
+      clocks: clocks[i],
+      match: { id: room.matchId, result: team, termination, decidedOn: room.board },
+    });
+  });
+  if (!aborted) for (const r of both) notifyAchievements(r, {});
+  for (const r of both) rooms.deleteRoom(r.gameId);
+  lobby.refresh(io); // all four players are free again
+  log.info("match.over", { match: room.matchId, result: aborted ? "*" : team, termination, board: room.board });
+}
+
+// How many moves a game has seen: for a Bughouse board, both boards' together,
+// since a match one board has moved in has been played.
+function pliesPlayed(room) {
+  const both = rooms.matchRooms(room);
+  return both ? both[0].sans.length + both[1].sans.length : room.sans.length;
 }
 
 // Evaluate achievements for both players now that the game is in the database,
@@ -405,7 +465,8 @@ function handleGameJoin(io, socket, payload, ack) {
   // ever deletes rooms, and for this game it has already run.
   if (room.status !== "active") {
     const state = stateOf(room, color);
-    rooms.deleteRoom(gameId);
+    // A Bughouse board was rebuilt with its partner board: drop both.
+    for (const r of rooms.matchRooms(room) || [room]) rooms.deleteRoom(r.gameId);
     return reply(ack, { ok: true, state });
   }
 
@@ -431,6 +492,12 @@ function handleGameJoin(io, socket, payload, ack) {
   // Without this a restart would leave the game hanging for ever when the
   // opponent simply closed their tab.
   if (room.rehydrated) armAbsence(io, room, other(color), REJOIN_SETTLE_MS);
+  // A Bughouse board brings its partner board back with it, which nobody may
+  // ever rejoin: run the same clock against both of its players.
+  if (room.rehydrated && room.matchId) {
+    const partnerRoom = (rooms.matchRooms(room) || [])[1 - room.board];
+    if (partnerRoom) for (const c of ["w", "b"]) armAbsence(io, partnerRoom, c, REJOIN_SETTLE_MS);
+  }
 
   // Start the clock once both sides are present. Neither player is charged for
   // the downtime: the clock resumes from the stored values only once the game
@@ -476,6 +543,11 @@ function stateOf(room, color) {
     startFen: room.startFen && room.startFen !== rooms.STANDARD_START ? room.startFen : null,
     handicap: room.handicap,
     variant: room.variant,
+    // Bughouse: the match, this board, both boards' game ids, and (for a
+    // player) their team. Null for every other game.
+    match: room.matchId
+      ? { id: room.matchId, board: room.board, boards: room.boardIds, team: color ? Bughouse.teamOf(room.board, color) : null }
+      : null,
     spectators: room.spectators.size,
     // Only this recipient's side of the conversation. `color` is null for a
     // spectator, which is exactly the audience distinction we need.
@@ -669,6 +741,21 @@ function handleMove(io, socket, payload, ack) {
     throw err;
   }
 
+  // Bughouse: what this move captured goes to the partner on the other board,
+  // now that the move is recorded. Nothing is stored for it: a restart passes
+  // it again by replaying both boards in order. Only the other board's shown
+  // position (its pockets) is written, and its players and watchers are told.
+  const passed = room.matchId ? room.chess.history[room.chess.history.length - 1].passed || null : null;
+  if (passed) {
+    const partnerRoom = (rooms.matchRooms(room) || [])[1 - room.board];
+    if (partnerRoom) {
+      partnerRoom.chess.receive(passed.c, passed.t);
+      const partnerFen = partnerRoom.chess.fen();
+      queries.updateGamePosition.run(partnerFen, partnerRoom.chess.turn, partnerRoom.gameId);
+      io.to(`game:${partnerRoom.gameId}`).emit("bughouse:received", { piece: passed, fen: partnerFen });
+    }
+  }
+
   // An outstanding draw offer lapses as soon as a move is played.
   if (room.drawOffer) {
     room.drawOffer = null;
@@ -690,6 +777,8 @@ function handleMove(io, socket, payload, ack) {
     turn,
     ply,
     clocks: rooms.clockSnapshot(room),
+    // Bughouse: the piece this capture sent to the other board.
+    passed,
   });
 
   lobby.nudge(io); // keep the lobby's board previews roughly current
@@ -705,10 +794,11 @@ function handleMove(io, socket, payload, ack) {
 // ---- draw offers ----
 // An offer is stored on the room as the offering colour. Offering while the
 // opponent already has an offer outstanding counts as accepting it.
+// Not in Bughouse for now: a draw there would need all four players' word.
 function handleDrawOffer(io, socket, payload) {
   const gameId = Number(payload && payload.gameId) || socket.gameId;
   const room = rooms.getRoom(gameId);
-  if (!room || room.status !== "active") return;
+  if (!room || room.status !== "active" || room.matchId) return;
   const color = colorOf(room, socket.userId);
   if (!color) return;
 
@@ -723,7 +813,7 @@ function handleDrawOffer(io, socket, payload) {
 function handleDrawRespond(io, socket, payload) {
   const gameId = Number(payload && payload.gameId) || socket.gameId;
   const room = rooms.getRoom(gameId);
-  if (!room || room.status !== "active") return;
+  if (!room || room.status !== "active" || room.matchId) return;
   const color = colorOf(room, socket.userId);
   if (!color) return;
   // Only the side that did NOT offer can answer.
@@ -744,7 +834,9 @@ function handleRematchOffer(io, socket, payload) {
   const gameId = Number(payload && payload.gameId) || socket.gameId;
   if (!gameId) return;
   const game = queries.getGameById.get(gameId);
-  if (!game || game.mode !== "pvp" || game.status === "active") return;
+  // A Bughouse rematch needs all four players, which this two-player offer
+  // can't ask: not yet.
+  if (!game || game.mode !== "pvp" || game.status === "active" || game.match_id) return;
   const uid = socket.userId;
   if (game.white_id !== uid && game.black_id !== uid) return;
   // One game at a time applies here too: a rematch accepted from another game
@@ -827,7 +919,7 @@ function handleResign(io, socket, payload) {
   if (!color) return;
   // Before the first move there is nothing to concede: this is an abort, as
   // when a player never turns up, never a rated loss for a game not played.
-  if (room.sans.length === 0) return concludeGame(io, room, "*", "aborted");
+  if (pliesPlayed(room) === 0) return concludeGame(io, room, "*", "aborted");
   // How long after the opponent's last move the resignation came (the "Rage
   // Quit" achievement wants to know). Only meaningful once the clock runs.
   room.resignReactionMs =
@@ -868,7 +960,7 @@ function onGraceExpired(io, gameId, color) {
   // marked as joined, so there the games row answers instead: the clock only
   // ever started once both had joined.
   const neverCame = !room.everJoined[color] && !(room.rehydrated && room.clockStarted);
-  if (room.sans.length === 0 || neverCame) concludeGame(io, room, "*", "aborted");
+  if (pliesPlayed(room) === 0 || neverCame) concludeGame(io, room, "*", "aborted");
   else concludeGame(io, room, winResult(other(color)), "disconnect");
 }
 

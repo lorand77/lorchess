@@ -223,6 +223,30 @@ both from a match's moves in the order they were made, and refuses a drop
 that comes before the capture that supplied it. How a match is stored is
 under "Database".
 
+On the server a match is two ordinary rooms, one per board, that know each
+other (`matchId`, `board`, `boardIds`), so legality, clocks, premoves, chat
+and spectating are a board's as for any game. `matchmaking.startBughouse`
+creates one (nothing in the lobby offers it yet) and sends each of the four
+players their board, colour, opponent and partner. What joins the boards:
+
+- After a capture is recorded, the piece goes into the other room's pocket
+  (`receive`); that board's shown position is written and its players and
+  watchers get `bughouse:received`. The move itself carries `passed`. Nothing
+  else is stored for it: a restart passes it again by replaying both boards.
+- Both boards' clocks start together, once all four players have joined.
+- Every way a board ends goes through `concludeGame`, which for a board hands
+  over to `concludeMatch`: the team that won there wins the match and both
+  boards (`matches.finishMatch`), each board's room hears its own result and
+  the match's, and both rooms go. A mate, a flag, a resignation and a forfeit
+  for absence all end a match that way; before anyone has moved on either
+  board (`pliesPlayed`), a resignation or a no-show aborts it.
+- Loading either board's room rebuilds both (`rooms.loadMatchRoomsFromDb`), and
+  the first player back starts the absence clock against the partner board's
+  players too, since nobody may ever rejoin it. The restart sweep aborts a
+  match whole.
+- No draw offers and no rematch yet: a draw would need all four players' word,
+  and a rematch a way to gather all four again.
+
 **Infinite chess** follows infinitechess.org's "Classical" variant, checked
 against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,
 `insufficientmaterial.ts`, `wincondition.ts` and `gamemanager.ts` in
@@ -672,7 +696,10 @@ Events:
   `black`/`black_name`, `tc`, `rated`, `variant`), `game.over` (`result`,
   `termination`), `game.rematch` (`game`, `new_game`),
   `game.restart_sweep` (`aborted` count), `game.corrupt_record` (`error`:
-  `ply`, `move`, `fen`).
+  `ply`, `move`, `fen`; a Bughouse board's adds `match` and `board`). A
+  Bughouse match: `match.start` (`match`, `boards`, `team_a`/`team_b` as user
+  ids, `tc`) and `match.over` (`match`, `result` as the team or `*`,
+  `termination`, `board`).
 - **Background and data:** `db.migrated` (`added=<table>.<column>` or
   `backfilled=<table>.<column>`), `db.case_duplicates` (`warn`, `names`),
   `chat.retention` (`removed`, `days`) and `chat.retention_failed` (`error`),

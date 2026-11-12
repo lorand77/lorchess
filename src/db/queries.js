@@ -221,8 +221,9 @@ module.exports = {
   // PvP games still 'active' — after a restart these are the ones waiting to
   // be resumed. AI games are deliberately excluded: they hold no server-side
   // state, so a restart never interrupts them.
+  // With match_id, so the restart sweep aborts a Bughouse board's match whole.
   listActivePvpGames: db.prepare(
-    "SELECT id FROM games WHERE status = 'active' AND mode = 'pvp'"
+    "SELECT id, match_id FROM games WHERE status = 'active' AND mode = 'pvp'"
   ),
 
   // Both sides of every live PvP game; the lobby marks these users as busy.
