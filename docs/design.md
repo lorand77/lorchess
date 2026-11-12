@@ -214,6 +214,15 @@ agreement, the result for both boards) is the match's, on the server. With
 empty pockets a board moves exactly as standard chess, which the perft tests
 hold it to.
 
+The two boards are joined in `src/shared/bughouse.js`, shared by the server
+and, later, the pages: team A plays White on board 0 and Black on board 1,
+team B the other two seats (`teamOf`, `partnerOf`, `seatsOf`), so partners
+always play opposite colours and a piece passed keeps its colour. `play`
+makes a move and hands what it captured to the other board; `replay` rebuilds
+both from a match's moves in the order they were made, and refuses a drop
+that comes before the capture that supplied it. How a match is stored is
+under "Database".
+
 **Infinite chess** follows infinitechess.org's "Classical" variant, checked
 against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,
 `insufficientmaterial.ts`, `wincondition.ts` and `gamemanager.ts` in
@@ -710,6 +719,18 @@ Design notes:
   Position from `moves`, clocks from the row: that is all a room needs.
   `clock_started` records that both players once took their seats, so a
   rebuilt room still knows that a player who never came cannot be forfeited.
+- **A Bughouse match is two ordinary games.** Each board is a `games` row
+  (variant `bughouse`, unrated, its own players, moves and clocks), so it
+  shows in history and the win counts like any game; `games.match_id` and
+  `games.board` tie it to a `matches` row, which holds what belongs to the
+  match: its status, the winning team (`A`, `B` or `draw`), how it ended and on
+  which board (`decided_on`). Finishing a match finishes both boards with the
+  results that follow for their players, the other board's termination `"on
+  the other board"` (`src/game/matches.js`). Both boards' moves are replayed in
+  `moves.id` order, which only ever grows and is the order one server process
+  recorded them in, so no sequence column is needed; a drop can only follow
+  the capture on the other board that supplied it. Account deletion leaves the
+  boards like any PvP game.
 - **The AI side is a real user.** A reserved `LorFish` account
   (`config.AI_USERNAME`, `password_hash NULL` so it can never log in) owns the
   AI side of games, so foreign keys and queries stay uniform.

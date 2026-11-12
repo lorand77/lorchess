@@ -92,6 +92,13 @@ addColumnIfMissing("moves", "think_ms", "INTEGER");
 addColumnIfMissing("moves", "premove", "INTEGER NOT NULL DEFAULT 0");
 // When the account was deactivated (src/db/deactivate.js); NULL = active.
 addColumnIfMissing("users", "deactivated_at", "TEXT");
+// Bughouse: a board belongs to a match (see `matches` in schema.sql). The index
+// is made here, not in schema.sql, because there it would run before an older
+// database had the column.
+addColumnIfMissing("games", "match_id", "INTEGER REFERENCES matches(id)");
+addColumnIfMissing("games", "board", "INTEGER CHECK (board IN (0, 1))");
+db.exec("CREATE INDEX IF NOT EXISTS idx_games_match ON games (match_id)");
+
 // The LorFish level an AI game was played at (src/shared/aiLevels.js). Older
 // games stored only a depth; give them the level that depth stood for, so the
 // strength achievements keep counting them. A depth no level matches stays NULL.

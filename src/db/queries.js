@@ -444,6 +444,29 @@ module.exports = {
     FROM puzzle_attempts WHERE user_id = ? ORDER BY id
   `),
 
+  // --- Bughouse matches (src/game/matches.js) ---
+  createMatch: db.prepare("INSERT INTO matches (kind) VALUES ('bughouse')"),
+  getMatchById: db.prepare("SELECT * FROM matches WHERE id = ?"),
+  setGameMatch: db.prepare("UPDATE games SET match_id = ?, board = ? WHERE id = ?"),
+  getMatchBoards: db.prepare("SELECT * FROM games WHERE match_id = ? ORDER BY board"),
+  // Both boards' moves in the order they were made: moves.id only ever grows,
+  // and one server process records them as they happen.
+  getMovesForMatch: db.prepare(`
+    SELECT g.board, m.ply, m.san, m.uci, m.fen_after, m.by_user, m.think_ms, m.premove, m.created_at
+    FROM moves m JOIN games g ON g.id = m.game_id
+    WHERE g.match_id = ?
+    ORDER BY m.id
+  `),
+  finishMatch: db.prepare(`
+    UPDATE matches
+    SET status = 'finished', result = ?, termination = ?, decided_on = ?, finished_at = datetime('now')
+    WHERE id = ? AND status = 'active'
+  `),
+  abortMatch: db.prepare(`
+    UPDATE matches SET status = 'aborted', termination = ?, finished_at = datetime('now')
+    WHERE id = ? AND status = 'active'
+  `),
+
   // --- moves ---
   insertMove: db.prepare(`
     INSERT INTO moves (game_id, ply, san, uci, fen_after, by_user, premove)

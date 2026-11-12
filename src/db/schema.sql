@@ -49,6 +49,30 @@ CREATE TABLE IF NOT EXISTS games (
   clock_b_ms   INTEGER,
   -- 1 once both players have joined and the clock has run (see socket.js).
   clock_started INTEGER NOT NULL DEFAULT 0,
+  -- Bughouse: the match this board belongs to, and which board it is (see
+  -- `matches` below). NULL on every other game. Its index is made in
+  -- db/index.js, after an older database has had the column added.
+  match_id    INTEGER REFERENCES matches(id),
+  board       INTEGER CHECK (board IN (0, 1)),
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  finished_at TEXT
+);
+
+-- A Bughouse match: two boards played at once by two teams of two. Each board
+-- is an ordinary games row (variant 'bughouse', its own players, moves and
+-- clocks) pointing here by games.match_id, with games.board 0 or 1. Team A
+-- plays White on board 0 and Black on board 1; team B the other two seats, so
+-- partners always play opposite colours (src/shared/bughouse.js). The two
+-- boards' moves interleave in moves.id order, which is how both are replayed.
+-- Always casual: the boards are unrated.
+CREATE TABLE IF NOT EXISTS matches (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind        TEXT    NOT NULL DEFAULT 'bughouse' CHECK (kind IN ('bughouse')),
+  status      TEXT    NOT NULL DEFAULT 'active'
+                      CHECK (status IN ('active', 'finished', 'aborted')),
+  result      TEXT    CHECK (result IN ('A', 'B', 'draw')),
+  termination TEXT,                         -- how the deciding board ended
+  decided_on  INTEGER CHECK (decided_on IN (0, 1)),   -- that board
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   finished_at TEXT
 );
