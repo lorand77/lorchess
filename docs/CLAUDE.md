@@ -77,5 +77,6 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
 - Time controls, variants, AI levels and achievements are allowlists in `src/shared/`.
   Add entries there, not in ad-hoc lists elsewhere.
 - Native modules need a rebuild after `npm ci` / `npm install` because
-  `ignore-scripts` is on globally, and it must be `\npm rebuild`: the socket
-  alias's rebuild silently does nothing. See "run the app" in `docs/setup.md`.
+  `ignore-scripts` is on globally: the `npm rebuild` line in "run the app" in
+  `docs/setup.md`. Never through `socket npm`: its rebuild silently does
+  nothing, and its `npm audit` always reports 0 vulnerabilities.

@@ -13,7 +13,7 @@ pm2 restart lorchess
 
 Never `npm install` or `npm audit fix` on the server: change dependencies in
 dev, commit the lockfile, deploy. If ignore-scripts is ever set here, add the
-`\npm rebuild ...` line from "run the app" in `setup.md` before restarting.
+`npm rebuild ...` line from "run the app" in `setup.md` before restarting.
 
 ## pm2
 ```
@@ -32,13 +32,28 @@ ls -lh ~/.pm2/logs/             # live and rotated log files with their sizes
 ### Node and socket (dev)
 ```
 sudo apt update && sudo apt install --only-upgrade nodejs
-npm install -g @socketsecurity/cli   # if it fails replacing itself: \npm install -g ...
+npm install -g @socketsecurity/cli   # if it fails replacing itself: command npm install -g ...
 
 # check
-npm ci    # look for "Socket npm found no risks"
-\npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
-\npm test
+npm ci    # look for "Socket npm found no new risks"
+npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
+npm test
 ```
+
+### npm packages (dev)
+
+Check for vulnerabilities, fix them, then have Socket scan the whole tree:
+```
+npm audit                        # plain npm: the advisories in the current lockfile
+npm audit fix                    # plain npm; only versions older than 7 days (min-release-age)
+rm -rf node_modules && npm ci    # full Socket scan, expect "Socket npm found no risks"
+npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false
+npm test
+```
+
+The full scan stops ("exiting due to risks") on any known vulnerability, not
+only malware, so run it after `npm audit` is clean. Then commit
+`package-lock.json` and deploy.
 
 ### Node (prod)
 ```

@@ -35,22 +35,31 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 # close terminal and open a new terminal
 
 npm install -g @socketsecurity/cli
-
-
-socket wrapper on
-npm install PACKAGE_NAME     ## routed via socket now
-
-
-# if needed:
-npm install PACKAGE_NAME --ignore-scripts=false
 ```
 
-The wrapper aliases `npm` to `socket npm`; `\npm` runs plain npm without it.
-- Full scan: `rm -rf node_modules && npm ci`, expect `Socket npm found no risks`.
-- `npm audit fix` fixes nothing through the wrapper: use `npm audit fix --audit`.
-- `npm rebuild` through the wrapper silently does nothing: use `\npm rebuild`.
-- Scripts fail through the wrapper with `ERR_ACCESS_DENIED`: use `\npm test`
-  or `node --run test`.
+Socket checks packages for malware before npm installs them. Only the commands
+that bring packages in go through it; everything else is plain npm, because
+Socket's npm breaks `npm audit` (always "found 0 vulnerabilities"),
+`npm audit fix` (fixes nothing), `npm rebuild` (runs no scripts) and `npm test`
+(`ERR_ACCESS_DENIED`). Add to `~/.bashrc`, then open a new terminal:
+```bash
+# Socket scans packages when npm brings new versions into the tree; everything
+# else is plain npm, because Socket's npm breaks audit, rebuild and scripts.
+npm() {
+  case "$1" in
+    install|i|in|ins|add|update|up|upgrade|ci|clean-install|ic) socket npm "$@" ;;
+    *) command npm "$@" ;;
+  esac
+}
+alias npx="socket npx"
+```
+
+- Don't use `socket wrapper on`: it aliases all of `npm` to `socket npm`, and
+  an alias beats the function. `type npm` must say "npm is a function".
+- `command npm ...` skips Socket for one command; `\npm` does not (it only
+  skips aliases).
+- A package that really needs its install script:
+  `npm install PACKAGE_NAME --ignore-scripts=false`.
 
 ## install claude code
 ```
@@ -62,7 +71,7 @@ or install the VSC extension
 ## run the app
 ```
 npm ci
-\npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false   # after every npm ci
+npm rebuild better-sqlite3 argon2 --foreground-scripts --ignore-scripts=false   # after every npm ci
 npm start
 ```
 
