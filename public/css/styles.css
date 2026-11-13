@@ -623,15 +623,16 @@ a.player-link:hover { text-decoration: underline; }
 .lb-table tr.me td:first-child { border-radius: 4px 0 0 4px; }
 .lb-table tr.me td:last-child { border-radius: 0 4px 4px 0; }
 .lb-table .tag.you { margin-left: 6px; }
-/* Sortable headings: a bare button that looks like the heading text. */
-.lb-table .lb-sort {
+/* Sortable headings (the leaderboard, a profile's games): a bare button that
+   looks like the heading text. */
+.lb-table .lb-sort, .history-table .lb-sort {
   margin: 0; padding: 0;
   background: none; border: 0; border-radius: 0;
   color: inherit; font: inherit; text-transform: inherit;
   cursor: pointer;
 }
-.lb-table .lb-sort:hover { background: none; color: var(--text-2); }
-.lb-table th.sorted { color: var(--text); }
+.lb-table .lb-sort:hover, .history-table .lb-sort:hover { background: none; color: var(--text-2); }
+.lb-table th.sorted, .history-table th.sorted { color: var(--text); }
 .lb-arrow { margin-left: 4px; font-size: 9px; }
 /* "vs players" / "vs LorFish" over their Games/W/L/D columns. */
 .lb-table tr.lb-groups th { padding-bottom: 0; border-bottom: 0; }
