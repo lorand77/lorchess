@@ -195,12 +195,15 @@ opens from the standard setup and takes a handicap, is casual while new, and
 can't be reviewed. The game page shows "Checks: White 1 of 3 · Black 0 of 3"
 under the turn line.
 
-**Bughouse** starts from the lobby's Bughouse panel: at once against LorFish
-(you and LorFish against two more), or at a table people sit at (below). Its
-catalogue entry has `teams: true` (`isTeamGame`), which keeps it out
-of everything that seats two players: the lobby's offer picker, and on the
-server quick match, seeks and challenges (which refuse it) and `startMatch`
-(which throws). It is casual, has no move or material badges (a board can't
+**Bughouse** is a variant in the lobby like any other, picked from the same
+Variant lists. Picked in "Play the computer" it starts a match at once, you
+and LorFish against two more, with a clock instead of a colour. Picked in the
+Play panel it turns Quick Match and Post Challenge into "Open a table" and
+hides colour, Rated and handicap; the table (below) is listed with the open
+challenges, and the players list's Challenge buttons are off. Its catalogue
+entry has `teams: true` (`isTeamGame`), which is what the lobby page switches
+on, and keeps it out of everything that seats two players on the server:
+quick match, seeks and challenges refuse it, and `startMatch` throws. It is casual, has no move or material badges (a board can't
 be replayed alone, and pieces change hands), and `bot` is off, since LorFish
 plays its seats on the server rather than as an AI game. It has a
 `bughouse_wins` badge, but "Jack of All Trades" skips team games, which need
@@ -276,7 +279,7 @@ a match's seats (a board can be LorFish against LorFish); every other player
 sits once. Its level is kept on the boards it plays (`games.ai_level`), so a
 restart knows it. It takes whatever seats are empty when a table's host
 starts the match (see "Tables" above), at the table's level; and the
-`bughouse:bots` socket event (the panel's "Play with LorFish") starts one with
+`bughouse:bots` socket event ("Play the computer" with Bughouse) starts one with
 it in all three other seats: the player on board 0 with White, LorFish their
 partner, two more against them, at a time control and level from the
 allowlists.

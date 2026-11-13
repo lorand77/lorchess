@@ -33,11 +33,15 @@ test("a Bughouse match against LorFish, from the lobby to a lost match", async (
   const { page } = await signedInPage(browser, srv.baseUrl, t);
   await page.setViewportSize({ width: 1400, height: 1000 });
   await page.goto(srv.baseUrl + "/lobby.html");
-  // Not a choice for two-player offers; a panel of its own instead.
-  const offerVariants = await page.locator("#variantSelect option").evaluateAll((os) => os.map((o) => o.value));
-  assert.ok(!offerVariants.includes("bughouse"), offerVariants.join(" "));
-  await page.locator("#bughouseLevelSelect").selectOption("novice");
-  await page.locator("#bughousePlayBtn").click();
+  // Bughouse in "Play the computer": no colour to pick, a clock instead, and
+  // a match with LorFish rather than an AI game.
+  await page.locator("#aiVariantSelect").selectOption("bughouse");
+  assert.equal(await page.locator("#aiColorSelect").isVisible(), false);
+  assert.equal(await page.locator("#aiClockSelect").isVisible(), true);
+  assert.match(await page.locator("#aiNote").textContent(), /two more LorFish/);
+  assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual", "named, not rated");
+  await page.locator("#aiLevelSelect").selectOption("novice");
+  await page.locator("#aiPlayBtn").click();
   await page.waitForURL(/game\.html\?id=\d+/);
   const gameId = Number(new URL(page.url()).searchParams.get("id"));
 
@@ -106,8 +110,19 @@ test("a table: a friend sits as partner, the host starts, and calls cross betwee
     await page.setViewportSize({ width: 1400, height: 1000 });
     await page.goto(srv.baseUrl + "/lobby.html");
   }
-  await host.page.locator("#bughouseLevelSelect").selectOption("novice");
+  // Bughouse in the Play panel: a table instead of a quick match or an offer,
+  // and no one-to-one challenge from the players list either.
+  await host.page.locator("#variantSelect").selectOption("bughouse");
+  for (const id of ["quickMatchBtn", "seekBtn", "colorSelect", "ratedCheck", "handicapBtn"]) {
+    assert.equal(await host.page.locator("#" + id).isVisible(), false, id);
+  }
+  const challenge = host.page.locator("#playerList button", { hasText: "Challenge" });
+  await challenge.waitFor();
+  assert.equal(await challenge.isDisabled(), true, "Bughouse isn't offered one to one");
+  await host.page.locator("#tableLevelSelect").selectOption("novice");
   await host.page.locator("#tableOpenBtn").click();
+  // Listed with the open challenges, which count it.
+  await friend.page.locator("#seekCount", { hasText: "(1)" }).waitFor();
   // The friend sees the table and takes the host's partner seat: Black on board 2.
   const seat = friend.page.locator('#tableList [data-seat="A1"] button');
   await seat.waitFor();
@@ -143,8 +158,9 @@ test("a match watched with both boards, and its boards replayed with the match",
   await player.page.setViewportSize({ width: 1400, height: 1000 });
   await watcher.page.setViewportSize({ width: 1400, height: 1000 });
   await player.page.goto(srv.baseUrl + "/lobby.html");
-  await player.page.locator("#bughouseLevelSelect").selectOption("novice");
-  await player.page.locator("#bughousePlayBtn").click();
+  await player.page.locator("#aiVariantSelect").selectOption("bughouse");
+  await player.page.locator("#aiLevelSelect").selectOption("novice");
+  await player.page.locator("#aiPlayBtn").click();
   await player.page.waitForURL(/game\.html\?id=\d+/);
   const board0 = Number(new URL(player.page.url()).searchParams.get("id"));
   const board1 = boardOf(board0, 1);

@@ -180,11 +180,20 @@ body {
 }
 /* Antichess: the pieces that can make the compulsory capture (ui.js captureHint). */
 .square.must-capture { box-shadow: inset 0 0 0 4px var(--orange); }
-/* Bughouse tables in the lobby: four seats over two boards. */
-.table-card { padding: 8px 0; border-top: 1px solid var(--border, #444); }
-.table-board { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
-.table-seat { display: inline-flex; flex-direction: column; }
-.table-controls { display: flex; gap: 6px; margin-top: 4px; }
+/* Bughouse tables, listed with the open challenges: a row whose second line
+   is the two boards' seats, "Board 1 · White seat · Black seat" twice. */
+.table-list:not(:empty) { margin-top: 6px; }
+.row.table-row { flex-direction: column; align-items: stretch; }
+.table-seats {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  align-items: center;
+  gap: 4px 12px;
+  padding-left: 2px;
+}
+.table-seat { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+/* Label and field kept together inside the lobby's wrapping forms. */
+.offer-form .field { display: inline-flex; align-items: center; gap: 8px; }
 /* Bughouse: the partner's board beside yours, and the calls to them. */
 .bughouse-panel { margin: 8px 0 12px; }
 .bughouse-panel h3 { margin: 0 0 4px; }
@@ -559,6 +568,7 @@ select {
   min-width: 0;
 }
 .row button { margin: 0; padding: 4px 12px; font-size: 12px; }
+.row button:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: default; }
 .row .primary { background: #3d6098; }
 .row .primary:hover { background: #4a73b5; }
 .name { font-weight: bold; color: var(--text); }

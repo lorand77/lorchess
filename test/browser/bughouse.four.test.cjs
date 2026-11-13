@@ -31,6 +31,7 @@ test("four people: a table that starts itself, a piece passed and dropped, a cal
     await seats[seat].page.goto(srv.baseUrl + "/lobby.html");
   }
   const name = (seat) => seats[seat].user.user.username;
+  await seats.A0.page.locator("#variantSelect").selectOption("bughouse");
   await seats.A0.page.locator("#tableOpenBtn").click();
   for (const seat of ["A1", "B0", "B1"]) {
     const sit = seats[seat].page.locator(`#tableList [data-seat="${seat}"] button`);
