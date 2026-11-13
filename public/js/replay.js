@@ -3,7 +3,10 @@
 // Read-only game replay. Loads a game (GET /api/games/:id), reconstructs each
 // position by replaying the stored UCI moves into a Chess instance (which gives
 // us captured pieces + last-move highlight for free), and lets the user step
-// through with buttons, arrow keys, or by clicking a move.
+// through with buttons, arrow keys, or by clicking a move. A Bughouse board is
+// replayed with its match (game.match): its pockets fill from the other board,
+// so both are played in the order the moves were made, and the other board is
+// shown beside it as it stood at the move shown.
 
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const CAPTURE_ORDER = ["p", "n", "b", "r", "q"];
@@ -42,6 +45,12 @@ let variant = "standard";
 let isMember = false; // game review is a membership perk
 let review = null;   // GameReview summary once the analysis finishes
 let reviewJob = null; // the running job, so it can be cancelled
+// Bughouse: the match (outcome, both boards' players and moves), this board's
+// number, which way up to show the other board, and the other board itself.
+let match = null;
+let myBoard = 0;
+let otherFlip = false;
+let other = null;
 
 
 init();
@@ -75,13 +84,20 @@ async function init() {
     chess.setVariant(variant);
   }
   startFen = game.start_fen || STANDARD_START;
-  uciList = normaliseUci(game.moves.map((m) => m.uci));
+  // A Bughouse board can't be replayed alone, so not re-spelled either: its
+  // moves are as the server stored them.
+  match = game.match || null;
+  myBoard = game.board || 0;
+  uciList = match ? game.moves.map((m) => m.uci) : normaliseUci(game.moves.map((m) => m.uci));
   sanList = game.moves.map((m) => m.san);
   // Orient from your side if you played it, else from the side of the player
   // whose profile you came from; otherwise White is at the bottom.
   const played = (id) => id === game.white_id || id === game.black_id;
   const side = played(me.id) ? me.id : played(asId) ? asId : null;
   flip = side != null && side === game.black_id;
+  // The other board from your partner's side when it is your match (they play
+  // the other colour), else the same way up as this one.
+  otherFlip = played(me.id) ? !flip : flip;
   if (!played(me.id) && played(asId)) backTo(asId, asId === game.white_id ? game.white_username : game.black_username);
 
   isMember = !!me.member_since;
@@ -94,10 +110,11 @@ async function init() {
     if (game.ai_color === "w") whiteName += ` (${strength.short})`;
     else blackName += ` (${strength.short})`;
   }
-  titleEl.textContent = game.mode !== "ai" ? "PvP game" : strength ? `vs LorFish · ${strength.full}` : "vs LorFish";
+  titleEl.textContent = match ? `Bughouse · board ${myBoard + 1} of 2`
+    : game.mode !== "ai" ? "PvP game" : strength ? `vs LorFish · ${strength.full}` : "vs LorFish";
   metaEl.textContent =
     `White: ${game.white_username}  ·  Black: ${game.black_username}  ·  ${fmtDate(game.created_at)}`;
-  statusEl.textContent = outcomeText(game);
+  statusEl.textContent = outcomeText(game) + (match ? matchText(match) : "");
   statusEl.className = "game-over";
 
   buildMoveList();
@@ -132,6 +149,7 @@ function fail(msg) {
 // Rebuild the position after `i` plies and render.
 function goto(i) {
   idx = Math.max(0, Math.min(uciList.length, i));
+  if (match) return gotoInMatch();
   chess.loadFen(startFen);
   lastMove = null;
   for (let k = 0; k < idx; k++) {
@@ -144,6 +162,65 @@ function goto(i) {
   highlightMoveList();
   renderMoveVerdict();
   renderEvalBar();
+}
+
+// Bughouse: both boards played from the start, in the order the moves were
+// made, up to this board's idx-th move — or to the end of the match at the last
+// one, the other board included. Captures pass across as they happened.
+function gotoInMatch() {
+  const boards = Bughouse.createBoards();
+  let seen = 0;
+  lastMove = null;
+  for (const m of match.moves) {
+    if (m.board === myBoard && seen === idx && idx < uciList.length) break;
+    const mv = moveFromUci(boards[m.board], m.uci);
+    if (!mv) break;
+    Bughouse.play(boards, m.board, mv);
+    if (m.board === myBoard) { seen++; lastMove = mv; }
+  }
+  chess = boards[myBoard];
+  other = boards[1 - myBoard];
+  renderBoard();
+  renderOther();
+  highlightMoveList();
+  renderMoveVerdict();
+  renderEvalBar();
+}
+
+// The other board beside this one: who plays it, the position, the last move
+// there, and what each side holds.
+function renderOther() {
+  const panel = document.getElementById("otherBoard");
+  panel.hidden = false;
+  const info = match.boards.find((b) => b.board !== myBoard);
+  const link = document.getElementById("otherBoardLink");
+  link.href = "/replay.html?id=" + info.id + (asId ? "&as=" + asId : "");
+  document.getElementById("otherTop").textContent = otherFlip ? `White: ${info.white_username}` : `Black: ${info.black_username}`;
+  document.getElementById("otherBottom").textContent = otherFlip ? `Black: ${info.black_username}` : `White: ${info.white_username}`;
+  const last = other.history[other.history.length - 1];
+  MiniBoard.render(document.getElementById("otherBoardView"), other.fen(), {
+    flip: otherFlip,
+    lastMove: last ? { from: last.move.drop ? null : last.move.from, to: last.move.to } : null,
+  });
+  document.getElementById("otherPockets").textContent =
+    `In hand: White ${pocketText(other, W)} · Black ${pocketText(other, B)}`;
+}
+
+const POCKET_GLYPHS = {
+  w: { q: "♕", r: "♖", b: "♗", n: "♘", p: "♙" },
+  b: { q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" },
+};
+function pocketText(board, color) {
+  let s = "";
+  for (const t of ["q", "r", "b", "n", "p"]) s += POCKET_GLYPHS[color][t].repeat(board.pockets[color][t]);
+  return s || "nothing";
+}
+
+// " · team A won the match", or how a match ended without a winner.
+function matchText(m) {
+  if (m.status === "active") return "";
+  if (m.status === "aborted") return " · match aborted";
+  return m.result === "draw" ? " · match drawn" : ` · team ${m.result} won the match`;
 }
 
 // Older AI games stored castling by the king's destination ("e1g1"); the
@@ -356,7 +433,9 @@ function outcomeText(g) {
   if (g.status === "aborted") return "Aborted" + (g.termination ? ` (${g.termination})` : "");
   if (g.result === "1/2-1/2") return "Draw" + (g.termination ? ` (${g.termination})` : "");
   const whiteWon = g.result === "1-0";
-  const how = ANTICHESS_WINS[g.termination] || (g.termination ? `by ${g.termination}` : "");
+  // A Bughouse board decided on the other board was won there, not "by" it.
+  const how = ANTICHESS_WINS[g.termination]
+    || (g.termination === "on the other board" ? g.termination : g.termination ? `by ${g.termination}` : "");
   return `${whiteWon ? "White" : "Black"} wins` + (how ? " " + how : "");
 }
 

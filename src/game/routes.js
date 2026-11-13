@@ -163,8 +163,31 @@ router.get("/:id", (req, res) => {
     white_username: white ? white.username : "?",
     black_username: black ? black.username : "?",
     moves: queries.getMovesForGame.all(game.id),
+    match: game.match_id ? matchOf(game.match_id) : null,
   });
 });
+
+// A Bughouse board's match, for the replay: its outcome, both boards' players,
+// and both boards' moves in the order they were made — a board can't be
+// replayed alone, since its pockets fill from the other.
+function matchOf(matchId) {
+  const match = queries.getMatchById.get(matchId);
+  const name = (id) => {
+    const u = queries.getUserById.get(id);
+    return u ? u.username : "?";
+  };
+  return {
+    id: match.id,
+    status: match.status,
+    result: match.result,
+    termination: match.termination,
+    decidedOn: match.decided_on,
+    boards: queries.getMatchBoards.all(matchId).map((g) => ({
+      id: g.id, board: g.board, white_username: name(g.white_id), black_username: name(g.black_id), result: g.result,
+    })),
+    moves: queries.getMovesForMatch.all(matchId).map((m) => ({ board: m.board, uci: m.uci, san: m.san })),
+  };
+}
 
 // POST /api/games/:id/moves — append one move and advance the position.
 router.post("/:id/moves", (req, res) => {

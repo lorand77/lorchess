@@ -321,3 +321,45 @@ describe("the other board, as each player sees it", () => {
     assert.deepEqual(await emitAck(m.b0, "bughouse:call", { gameId: 999999, call: "go" }), { ok: false, error: "No match to call in." });
   });
 });
+
+describe("a Bughouse board, looked at from outside", () => {
+  let m;
+  before(async () => { m = await startMatch(); });
+  after(() => close(m));
+
+  test("the lobby lists both boards, each with its number", async () => {
+    const watcher = await connectSocket(srv.baseUrl, users[0].c.cookie());
+    const state = waitFor(watcher, "lobby:state");
+    watcher.emit("lobby:enter");
+    const games = (await state).games.filter((g) => m.boards.includes(g.gameId));
+    assert.deepEqual(games.map((g) => [g.gameId, g.variant, g.board]).sort((a, b) => a[2] - b[2]),
+      [[m.boards[0], "bughouse", 0], [m.boards[1], "bughouse", 1]]);
+    watcher.close();
+  });
+
+  test("a board's record carries its match: both boards' players and moves, in order", async () => {
+    await play(m, 0, "w", "e2e4");
+    await play(m, 1, "w", "g1f3");
+    await play(m, 0, "b", "d7d5");
+    await play(m, 0, "w", "e4d5");
+    await play(m, 1, "b", "P@e5");
+    const over = waitFor(m.w0, "game:over");
+    m.b0.emit("game:resign", { gameId: m.boards[0] });
+    await over;
+    const res = await users[1].c.get(`/api/games/${m.boards[1]}`);
+    assert.equal(res.status, 200);
+    const { match, board } = res.body;
+    assert.equal(board, 1);
+    assert.deepEqual([match.id, match.status, match.result, match.termination, match.decidedOn],
+      [m.matchId, "finished", "A", "resign", 0]);
+    assert.deepEqual(match.boards.map((b) => [b.id, b.board, b.white_username, b.black_username, b.result]), [
+      [m.boards[0], 0, users[0].user.username, users[2].user.username, "1-0"],
+      [m.boards[1], 1, users[3].user.username, users[1].user.username, "0-1"],
+    ]);
+    assert.deepEqual(match.moves.map((x) => [x.board, x.uci]),
+      [[0, "e2e4"], [1, "g1f3"], [0, "d7d5"], [0, "e4d5"], [1, "P@e5"]]);
+    // Any other game has none.
+    const created = await users[1].c.post("/api/games", { humanColor: "w" });
+    assert.equal((await users[1].c.get(`/api/games/${created.body.gameId}`)).body.match, null);
+  });
+});

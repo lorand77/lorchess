@@ -29,6 +29,14 @@
     <h2 id="replayTitle">Replay</h2>
     <p id="replayMeta" class="muted"></p>
     <p id="replayStatus"></p>
+    <!-- Bughouse: the match's other board, as it stood at the move shown. -->
+    <section id="otherBoard" class="bughouse-panel" hidden>
+      <h3>The other board · <a id="otherBoardLink" href="#">replay it</a></h3>
+      <p class="small" id="otherTop"></p>
+      <div class="mini-board-wrap partner-board-wrap"><div class="mini-board" id="otherBoardView"></div></div>
+      <p class="small" id="otherBottom"></p>
+      <p class="small" id="otherPockets"></p>
+    </section>
     <!-- Game review. Stockfish walks the whole game in its own worker (loaded
          on the first click); the summary and per-move verdicts appear here
          when it finishes. -->
@@ -68,6 +76,8 @@
 <script src="/js/infiniteChess.js"></script>
 <script src="/js/engines.js"></script>
 <script src="/js/uci.js"></script>
+<script src="/js/bughouse.js"></script>
+<script src="/js/miniBoard.js"></script>
 <script src="/js/variants.js"></script>
 <script src="/js/aiLevels.js"></script>
 <script src="/js/boardArrows.js"></script>

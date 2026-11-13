@@ -400,6 +400,7 @@ function renderGames() {
     tags.appendChild(el("span", "tag", g.tc));
     tags.appendChild(el("span", "tag " + (g.rated ? "rated" : "casual"), g.rated ? "rated" : "casual"));
     if (g.variant && g.variant !== "standard") tags.appendChild(el("span", "tag variant", variantLabel(g.variant)));
+    if (g.board != null) tags.appendChild(el("span", "tag", "board " + (g.board + 1)));
     if (g.handicap) tags.appendChild(el("span", "tag handicap", g.handicap));
     meta.appendChild(tags);
 

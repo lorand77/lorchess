@@ -204,6 +204,8 @@ function snapshot() {
       tc: r.timeControl,
       rated: r.rated,
       variant: r.variant,
+      // Bughouse: which of its match's two boards this is.
+      board: r.matchId ? r.board : null,
       spectators: r.spectators.size,
       // For the lobby's board previews. Kept fresh by nudge() below rather
       // than by a broadcast on every single move.

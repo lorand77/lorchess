@@ -12,6 +12,16 @@ const rooms = require("../../src/game/rooms");
 const bots = require("../../src/game/bots");
 
 let srv, browser;
+
+// LorFish on the other board can end the whole match at any moment (a novice
+// LorFish mates, and is mated, quickly). Once a test has seen it play, its
+// seats are taken off it, so the steps that follow can't be cut short.
+const boardOf = (gameId, board) =>
+  db().prepare("SELECT id FROM games WHERE match_id = (SELECT match_id FROM games WHERE id = ?) AND board = ?").get(gameId, board).id;
+function stopBots(gameId) {
+  const room = rooms.getRoom(gameId);
+  if (room) room.bots = null;
+}
 before(async () => { srv = await startServer(); browser = await openBrowser(); });
 after(async () => {
   if (browser) await browser.close();
@@ -41,6 +51,7 @@ test("a Bughouse match against LorFish, from the lobby to a lost match", async (
 
   // LorFish plays the other board by itself; it shows beside ours.
   await page.waitForFunction(() => partner && partner.san, null, { timeout: 10000 });
+  stopBots(boardOf(gameId, 1));
   assert.ok(await page.locator("#partnerBoard img").count() > 20, "the other board is drawn");
   assert.match(await page.locator("#partnerPockets").textContent(), /^In hand: White .* · Black /);
 
@@ -123,4 +134,52 @@ test("a table: a friend sits as partner, the host starts, and calls cross betwee
   await host.page.locator("#resignBtn").click();
   await friend.page.waitForFunction(() => pvpResult && pvpResult.match);
   assert.match(await friend.page.locator("#status").textContent(), /on the other board · your team loses the match/);
+});
+
+test("a match watched with both boards, and its boards replayed with the match", async (t) => {
+  const player = await signedInPage(browser, srv.baseUrl, t);
+  const watcher = await signedInPage(browser, srv.baseUrl, t);
+  const me = player.user.user.username;
+  await player.page.setViewportSize({ width: 1400, height: 1000 });
+  await watcher.page.setViewportSize({ width: 1400, height: 1000 });
+  await player.page.goto(srv.baseUrl + "/lobby.html");
+  await player.page.locator("#bughouseLevelSelect").selectOption("novice");
+  await player.page.locator("#bughousePlayBtn").click();
+  await player.page.waitForURL(/game\.html\?id=\d+/);
+  const board0 = Number(new URL(player.page.url()).searchParams.get("id"));
+  const board1 = boardOf(board0, 1);
+  await player.page.waitForFunction(() => chess.isBughouse && partner);
+  await player.page.locator('#board [data-sq="12"]').click();  // e2
+  await player.page.locator('#board [data-sq="28"]').click();  // e4
+
+  // Watching board 2 — LorFish against LorFish — shows board 1 beside it.
+  await watcher.page.goto(srv.baseUrl + "/game.html?watch=" + board1);
+  await watcher.page.waitForFunction(() => chess.isBughouse && partner && spectating);
+  assert.equal(await watcher.page.locator("#partnerBottomWho").textContent(), me, "board 1's White, from White's side");
+  assert.equal(await watcher.page.locator("#bughouseCalls").isVisible(), false, "a watcher calls nobody");
+  await watcher.page.waitForFunction(() => chess.history.length >= 4, null, { timeout: 15000 });
+  stopBots(board1);
+
+  player.page.once("dialog", (d) => d.accept());
+  await player.page.locator("#resignBtn").click();
+  await watcher.page.waitForFunction(() => pvpResult && pvpResult.match);
+  assert.match(await watcher.page.locator("#status").textContent(), /on the other board · team B wins the match/);
+
+  // Both boards replay with the match, to the position the server stored at the end.
+  for (const [id, n] of [[board0, 1], [board1, 2]]) {
+    await player.page.goto(srv.baseUrl + "/replay.html?id=" + id);
+    await player.page.waitForFunction(() => match && other);
+    assert.equal(await player.page.locator("#replayTitle").textContent(), `Bughouse · board ${n} of 2`);
+    assert.equal(await player.page.locator("#otherBoard").isVisible(), true);
+    const stored = db().prepare("SELECT current_fen FROM games WHERE id = ?").get(id).current_fen;
+    assert.equal(await player.page.evaluate(() => chess.fen()), stored, `board ${n} ends where the server says`);
+    assert.match(await player.page.locator("#replayStatus").textContent(), /team B won the match$/);
+    const otherId = n === 1 ? board1 : board0;
+    assert.equal(await player.page.locator("#otherBoardLink").getAttribute("href"), "/replay.html?id=" + otherId);
+    // Before this board's first move: the starting position, with whatever
+    // the other board had already passed across by then.
+    await player.page.locator("#firstBtn").click();
+    assert.match(await player.page.evaluate(() => chess.fen()), /^rnbqkbnr\/pppppppp\/8\/8\/8\/8\/PPPPPPPP\/RNBQKBNR\[[A-Za-z]*\] w KQkq - 0 1$/);
+  }
+  assert.match(await player.page.locator("#replayStatus").textContent(), /^White wins on the other board/);
 });

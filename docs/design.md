@@ -328,6 +328,20 @@ other board. Beside it:
   piece and that the clock is running. No draw or rematch buttons. A finished
   board's status adds the match's outcome ("your team loses the match").
 
+**Watching and replaying.** A spectator watches one board and sees the other
+beside it, as a player does (the `partner` view and its updates go to the
+whole room), from White's side, with no calls. The lobby's live games list
+both boards, each tagged with its number. A finished board's record
+(`GET /api/games/:id`) carries its match: the outcome, both boards' players,
+and both boards' moves in the order they were made. The replay page plays
+both boards from the start in that order up to the move shown on this one
+(`gotoInMatch`), captures passed across as they happened, so the pockets are
+right and the other board appears beside it as it stood then, with a link to
+replay it; the last step shows the end of the match. Before this board's first
+move it may already hold pieces the other board passed. A board decided on the
+other one reads "White wins on the other board", followed by the match's
+outcome.
+
 **Infinite chess** follows infinitechess.org's "Classical" variant, checked
 against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,
 `insufficientmaterial.ts`, `wincondition.ts` and `gamemanager.ts` in
