@@ -180,6 +180,11 @@ body {
 }
 /* Antichess: the pieces that can make the compulsory capture (ui.js captureHint). */
 .square.must-capture { box-shadow: inset 0 0 0 4px var(--orange); }
+/* Bughouse tables in the lobby: four seats over two boards. */
+.table-card { padding: 8px 0; border-top: 1px solid var(--border, #444); }
+.table-board { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
+.table-seat { display: inline-flex; flex-direction: column; }
+.table-controls { display: flex; gap: 6px; margin-top: 4px; }
 /* Bughouse: the partner's board beside yours, and the calls to them. */
 .bughouse-panel { margin: 8px 0 12px; }
 .bughouse-panel h3 { margin: 0 0 4px; }

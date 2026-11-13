@@ -87,3 +87,40 @@ test("a Bughouse match against LorFish, from the lobby to a lost match", async (
   });
   assert.equal(waiting, "No move: wait for your partner to send a piece. Your clock is running.");
 });
+
+test("a table: a friend sits as partner, the host starts, and calls cross between them", async (t) => {
+  const host = await signedInPage(browser, srv.baseUrl, t);
+  const friend = await signedInPage(browser, srv.baseUrl, t);
+  for (const { page } of [host, friend]) {
+    await page.setViewportSize({ width: 1400, height: 1000 });
+    await page.goto(srv.baseUrl + "/lobby.html");
+  }
+  await host.page.locator("#bughouseLevelSelect").selectOption("novice");
+  await host.page.locator("#tableOpenBtn").click();
+  // The friend sees the table and takes the host's partner seat: Black on board 2.
+  const seat = friend.page.locator('#tableList [data-seat="A1"] button');
+  await seat.waitFor();
+  assert.equal(await seat.textContent(), "Sit: Black, team A");
+  await seat.click();
+  await host.page.locator('#tableList [data-seat="A1"]', { hasText: friend.user.user.username }).waitFor();
+  await host.page.locator("#tableList button", { hasText: "Start now" }).click();
+
+  for (const { page } of [host, friend]) {
+    await page.waitForURL(/game\.html\?id=\d+/);
+    await page.waitForFunction(() => chess.isBughouse && partner);
+  }
+  assert.deepEqual(await host.page.evaluate(() => [lastPvpState.match.board, humanColor]), [0, "w"]);
+  assert.deepEqual(await friend.page.evaluate(() => [lastPvpState.match.board, humanColor]), [1, "b"]);
+  // Each sees the other at the bottom of the board beside theirs.
+  assert.equal(await host.page.locator("#partnerBottomWho").textContent(), friend.user.user.username);
+  assert.equal(await friend.page.locator("#partnerBottomWho").textContent(), host.user.user.username);
+
+  await host.page.locator('#bughouseCalls button[data-call="sit"]').click();
+  await friend.page.waitForFunction((name) => document.getElementById("bughouseHeard").textContent === `${name}: I'm stalling`,
+    host.user.user.username);
+
+  host.page.once("dialog", (d) => d.accept());
+  await host.page.locator("#resignBtn").click();
+  await friend.page.waitForFunction(() => pvpResult && pvpResult.match);
+  assert.match(await friend.page.locator("#status").textContent(), /on the other board · your team loses the match/);
+});

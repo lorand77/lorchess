@@ -195,9 +195,9 @@ opens from the standard setup and takes a handicap, is casual while new, and
 can't be reviewed. The game page shows "Checks: White 1 of 3 · Black 0 of 3"
 under the turn line.
 
-**Bughouse** is being built in steps; so far it is played against LorFish (you
-and LorFish against two more), from the lobby's "Bughouse with LorFish"
-panel. Its catalogue entry has `teams: true` (`isTeamGame`), which keeps it out
+**Bughouse** starts from the lobby's Bughouse panel: at once against LorFish
+(you and LorFish against two more), or at a table people sit at (below). Its
+catalogue entry has `teams: true` (`isTeamGame`), which keeps it out
 of everything that seats two players: the lobby's offer picker, and on the
 server quick match, seeks and challenges (which refuse it) and `startMatch`
 (which throws). It is casual, has no move or material badges (a board can't
@@ -230,10 +230,25 @@ both from a match's moves in the order they were made, and refuses a drop
 that comes before the capture that supplied it. How a match is stored is
 under "Database".
 
+**Tables** (`src/game/lobby.js`) seat four people for a match, the way seeks
+offer a two-player game: in memory, in every lobby's `lobby:state`, dying
+with their owners' sockets. Seats are named by team and board — A0 is White
+on board 1 and A1 Black on board 2 (team A), B0 and B1 the other two — and
+whoever opens a table sits A0 and hosts it, choosing the clock and the level
+LorFish plays any empty seat at. Anyone else picks a seat; sitting in the
+host's team is how a friend partners you. A player holds one seat anywhere,
+sitting elsewhere gives up the old one (a host may move round their own
+table), and a seat goes when its sitter leaves, goes offline or starts
+another game (`dropOffersFor`). A host leaving closes the table. The fourth
+person to sit starts the match; the host may start it sooner, LorFish taking
+the empty seats. Either way everyone seated must still be online and free,
+or they lose the seat and the host hears why. Events: `table:create`,
+`table:sit`, `table:leave`, `table:start`.
+
 On the server a match is two ordinary rooms, one per board, that know each
 other (`matchId`, `board`, `boardIds`), so legality, clocks, premoves, chat
 and spectating are a board's as for any game. `matchmaking.startBughouse`
-creates one (nothing in the lobby offers it yet) and sends each of the four
+creates one (from a table, or `bughouse:bots`) and sends each of the four
 players their board, colour, opponent and partner. What joins the boards:
 
 - After a capture is recorded, the piece goes into the other room's pocket

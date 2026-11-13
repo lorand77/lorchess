@@ -299,6 +299,7 @@ socket.on("lobby:state", (state) => {
   renderSeeks();
   renderGames();
   renderPlayers();
+  renderTables();
 });
 
 socket.on("challenge:list", (list) => {
@@ -581,10 +582,13 @@ async function loadTrainCard() {
   }
 }
 
-// --- Bughouse with LorFish ---
-// You and LorFish as a team against two more, on two boards: the server seats
-// you on board 0 with White and plays the other three seats, and game:start
-// (below) takes you to your board.
+// --- Bughouse ---
+// Play with LorFish: you and LorFish as a team against two more, the server
+// seating you on board 1 with White and playing the other three seats. Or
+// open a table (rendered with the lobby state, renderTables): people pick
+// seats, the fourth to sit starts the match, or the host starts it sooner with
+// LorFish in the empty seats. Either way game:start (below) takes you to your
+// board.
 const bughouseTcSelect = document.getElementById("bughouseTcSelect");
 const bughouseLevelSelect = document.getElementById("bughouseLevelSelect");
 for (const tc of TIME_CONTROLS) {
@@ -602,6 +606,69 @@ document.getElementById("bughouseForm").addEventListener("submit", (e) => {
     if (!resp || !resp.ok) errEl.textContent = (resp && resp.error) || "Could not start the match.";
   });
 });
+document.getElementById("tableOpenBtn").addEventListener("click", () => {
+  socket.emit("table:create", { tc: bughouseTcSelect.value, level: bughouseLevelSelect.value });
+});
+
+// The seats, as the boards show them: board 1 is A0 (White) against B0, board 2
+// B1 (White) against A1. Team A is A0 and A1, team B the other two.
+const TABLE_BOARDS = [["A0", "B0"], ["B1", "A1"]];
+
+function renderTables() {
+  const listEl = document.getElementById("tableList");
+  const tables = lastState.tables || [];
+  listEl.innerHTML = "";
+  const me = myId();
+  const mine = lastState.players.find((p) => p.userId === me);
+  const playing = !!(mine && mine.playing);
+  for (const t of tables) {
+    const card = el("div", "table-card");
+    card.dataset.table = t.id;
+    // The host is always seated somewhere (A0 to begin with).
+    const host = Object.values(t.seats).find((p) => p && p.userId === t.hostId);
+    const head = el("div", "row-main");
+    head.appendChild(el("strong", null, `${host ? host.username : "?"}'s table`));
+    head.appendChild(el("span", "tag", tcLabel(t.tc)));
+    head.appendChild(el("span", "muted small", "empty seats: LorFish " + aiLevelLabel(t.level, "bughouse")));
+    card.appendChild(head);
+    TABLE_BOARDS.forEach((pair, board) => {
+      const line = el("div", "table-board");
+      line.appendChild(el("span", "muted small", `Board ${board + 1}:`));
+      pair.forEach((seat, i) => {
+        if (i) line.appendChild(el("span", "muted small", "vs"));
+        line.appendChild(seatCell(t, seat, i === 0 ? "White" : "Black", playing));
+      });
+      card.appendChild(line);
+    });
+    const controls = el("div", "table-controls");
+    const seated = Object.values(t.seats).some((p) => p && p.userId === me);
+    if (t.hostId === me) {
+      controls.appendChild(button("Start now", "primary", () => socket.emit("table:start", { id: t.id })));
+      controls.appendChild(button("Close", "", () => socket.emit("table:leave")));
+    } else if (seated) {
+      controls.appendChild(button("Leave", "", () => socket.emit("table:leave")));
+    }
+    card.appendChild(controls);
+    listEl.appendChild(card);
+  }
+}
+
+// One seat: who sits there, or a Sit button (team A or B, from the seat's name).
+function seatCell(table, seat, colour, playing) {
+  const p = table.seats[seat];
+  const cell = el("span", "table-seat");
+  cell.dataset.seat = seat;
+  const team = "team " + seat[0];
+  if (p) {
+    cell.appendChild(el("span", null, `${p.username}${p.userId === myId() ? " (you)" : ""}`));
+    cell.appendChild(el("span", "muted small", `${colour}, ${team}`));
+  } else {
+    const b = button(`Sit: ${colour}, ${team}`, "", () => socket.emit("table:sit", { id: table.id, seat }));
+    b.disabled = playing;
+    cell.appendChild(b);
+  }
+  return cell;
+}
 
 // --- starting a game ---
 

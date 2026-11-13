@@ -179,6 +179,10 @@ function attachSockets(httpServer) {
     on("challenge:decline", (p) => lobby.declineChallenge(io, socket, p));
     on("challenge:cancel", (p) => lobby.cancelChallenge(io, socket, p));
     on("bughouse:bots", (payload, ack) => handleBughouseBots(io, socket, payload, ack));
+    on("table:create", (p) => lobby.createTable(io, socket, p));
+    on("table:sit", (p) => lobby.sitAtTable(io, socket, p));
+    on("table:leave", () => lobby.leaveTable(io, socket));
+    on("table:start", (p) => lobby.startTableNow(io, socket, p));
     on("bughouse:call", (payload, ack) => handleBughouseCall(io, socket, payload, ack));
 
     on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
