@@ -26,7 +26,9 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
 - `src/<area>/routes.js` — Express routers mounted at `/api/<area>` in `app.js`
   (auth is mounted at `/api` itself; the leaderboard router is `src/game/leaderboard.js`).
   `src/game/socket.js` owns every Socket.IO event, `src/game/rooms.js` the
-  in-memory PvP state. `src/log.js` is the logger; `src/health.js` answers
+  in-memory PvP state. Bughouse: `src/game/matches.js` stores a match (two
+  boards), `src/game/bots.js` runs LorFish on the server, in worker threads,
+  for the seats it fills. `src/log.js` is the logger; `src/health.js` answers
   `GET /health` for the uptime check, ahead of the session middleware.
 - `src/shared/` — engine and catalogues loaded by browser, Web Worker and Node
   alike; served at `/js/`. The only place LorFish and the rules live.

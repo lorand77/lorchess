@@ -274,9 +274,12 @@ board between people can't trust a browser to play a seat, and three bots
 need somewhere to run. The reserved `LorFish` account may hold any number of
 a match's seats (a board can be LorFish against LorFish); every other player
 sits once. Its level is kept on the boards it plays (`games.ai_level`), so a
-restart knows it. The `bughouse:bots` socket event starts the only kind there
-is so far: the player on board 0 with White, LorFish their partner, two more
-LorFish against them, at a time control and level from the allowlists.
+restart knows it. It takes whatever seats are empty when a table's host
+starts the match (see "Tables" above), at the table's level; and the
+`bughouse:bots` socket event (the panel's "Play with LorFish") starts one with
+it in all three other seats: the player on board 0 with White, LorFish their
+partner, two more against them, at a time control and level from the
+allowlists.
 
 - **Off the main thread.** Its search is synchronous and can take seconds, and
   the event loop runs every live game, so it runs in worker threads
@@ -903,10 +906,10 @@ Design notes:
 ## AI games: client-side Web Worker
 
 LorFish's search is synchronous and blocks whatever thread runs it. It runs in
-`public/js/engineWorker.js`, so the page never freezes. (The one exception is
-a Bughouse seat, which the server plays: see "LorFish in Bughouse seats".) (The original UI hid the
-freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
-needed.) The worker `importScripts` both engines and both LorFishes,
+`public/js/engineWorker.js`, so the page never freezes. (The original UI hid
+the freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
+needed. The one place LorFish runs elsewhere is a Bughouse seat, which the
+server plays: see "LorFish in Bughouse seats".) The worker `importScripts` both engines and both LorFishes,
 receives `{ id, startFen, variant, moves, depth, temperature }` — the moves as
 they are stored (`e2e4`, `N@e4`, `5,2>5,4`), read through `uci.js` — takes
 the variant's engine from `createEngine` and **replays the moves** instead of
