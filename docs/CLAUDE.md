@@ -2,8 +2,9 @@
 
 Chess web app: Node 24, Express 5, Socket.IO and better-sqlite3 on the server;
 vanilla JS in the browser. No bundler, no framework, no build step.
-The reasoning behind the architecture is in `docs/design.md`; running and
-deploying is in `docs/setup.md`. Read `docs/design.md` before changing anything
+The reasoning behind the architecture is in `docs/design.md`; installing and
+running is in `docs/setup.md`; deploying, updates, users, backups and restore
+are in `docs/operations.md`. Read `docs/design.md` before changing anything
 under `src/game/`, `src/shared/` or `public/js/ui.js`.
 
 ## Commands

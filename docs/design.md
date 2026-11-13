@@ -2,7 +2,8 @@
 
 What the code does and, more importantly, why. This describes the **current
 state**, not a plan: when a decision changes, change it here in the same
-commit. How to run and deploy is in `setup.md`; conventions for working in the
+commit. How to install and run is in `setup.md`, how to deploy and
+maintain it in `operations.md`; conventions for working in the
 repo are in `docs/CLAUDE.md`.
 
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in

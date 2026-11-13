@@ -57,7 +57,8 @@ nightly cron ──► backup.sh ──► Backblaze B2
   `public/` holds pages and browser code, `test/` the tests, `scripts/` the
   ops scripts, `tools/` developer tools such as LorFish's rating harness and
   `experiments/` dated experiment reports with their data. The docs split into [design.md](../design.md) (why),
-  [setup.md](../setup.md) (how to run) and [CLAUDE.md](../CLAUDE.md) (rules).
+  [setup.md](../setup.md) (how to install and run), [operations.md](../operations.md)
+  (how to deploy and maintain) and [CLAUDE.md](../CLAUDE.md) (rules).
 
 ## 3. The architecture decisions and their trade-offs
 
@@ -270,7 +271,7 @@ The hosting options in general, and how this app's needs rule each one in or out
   fill it.
 - **Monitoring:** Better Stack checks `/health` (process, database, free
   disk) and expects a heartbeat from the nightly backup; see "monitoring" in
-  [setup.md](../setup.md). 💬 Who gets the alerts, and what do they do first?
+  [operations.md](../operations.md). 💬 Who gets the alerts, and what do they do first?
 - **Updates:**
   - Ubuntu security patches (💬 unattended-upgrades?).
   - Node minor and LTS versions.
@@ -282,7 +283,8 @@ The hosting options in general, and how this app's needs rule each one in or out
   - The disk fills up.
   - The certificate fails to renew.
   - The instance dies completely: rebuild from [setup.md](../setup.md) plus a B2
-    restore. That is the strongest argument for keeping setup.md accurate.
+    restore ([operations.md](../operations.md)). That is the strongest argument
+    for keeping both accurate.
   - `SESSION_SECRET` leaks.
   - Somebody hammers the login endpoint.
 - **Incident habit:** reproduce locally, read logs and stack traces, write a
