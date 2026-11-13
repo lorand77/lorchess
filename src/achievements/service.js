@@ -495,8 +495,10 @@ function evaluateStats(userId, ref) {
     ["antichess_wins", tierFor("antichess_wins", byVariant.antichess || 0)],
     ["kingofthehill_wins", tierFor("kingofthehill_wins", byVariant.kingofthehill || 0)],
     ["threecheck_wins", tierFor("threecheck_wins", byVariant.threecheck || 0)],
+    ["bughouse_wins", tierFor("bughouse_wins", byVariant.bughouse || 0)],
     ["infinite_wins", tierFor("infinite_wins", byVariant.infinite || 0)],
-    ["every_variant", VARIANTS.every((v) => (byVariant[v.key] || 0) > 0)],
+    // A team game needs three other people: not part of "every variant".
+    ["every_variant", VARIANTS.every((v) => v.teams || (byVariant[v.key] || 0) > 0)],
     ["both_colours", g.wins_white > 0 && g.wins_black > 0],
     ["black_is_ok", tierFor("black_is_ok", g.wins_black)],
     ["castled_both_ways", mv.long_castles > 0 && mv.short_castles > 0],

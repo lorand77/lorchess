@@ -338,7 +338,10 @@ describe("aggregate achievements", () => {
       white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",
       moves: ["e2e4", "e7e5"], result: "1-0", termination: "resign", initialMs: null, rated: 0,
     });
+    // Earned with no Bughouse win: a team game needs three other people, so
+    // "Jack of All Trades" doesn't wait for one.
     assert.ok(has(keysOf(achievements.onGameFinished(ai), me.id), "every_variant"));
+    assert.ok(has(win("bughouse"), "bughouse_wins"));
     for (let i = 0; i < 9; i++) win("atomic");
     assert.equal(tiersOf(me.id).atomic_wins, 2, "10 Atomic wins: Silver");
     assert.equal(tiersOf(me.id).chess960_wins, 1);

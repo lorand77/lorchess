@@ -179,6 +179,7 @@ function attachSockets(httpServer) {
     on("challenge:decline", (p) => lobby.declineChallenge(io, socket, p));
     on("challenge:cancel", (p) => lobby.cancelChallenge(io, socket, p));
     on("bughouse:bots", (payload, ack) => handleBughouseBots(io, socket, payload, ack));
+    on("bughouse:call", (payload, ack) => handleBughouseCall(io, socket, payload, ack));
 
     on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
     on("game:watch", (payload, ack) => handleWatch(io, socket, payload, ack));
@@ -247,6 +248,7 @@ function startClock(io, room) {
   io.to(`game:${room.gameId}`).emit("clock:started", {
     clocks: rooms.clockSnapshot(room),
   });
+  tellPartner(io, (rooms.matchRooms(room) || [])[1 - room.board] || room); // its clocks now run
   botTurn(io, room); // a LorFish with White moves first
 }
 
@@ -553,6 +555,9 @@ function stateOf(room, color) {
     match: room.matchId
       ? { id: room.matchId, board: room.board, boards: room.boardIds, team: color ? Bughouse.teamOf(room.board, color) : null }
       : null,
+    // Bughouse: the other board as it stands, for the small board beside this
+    // one (kept current by bughouse:partner).
+    partner: room.matchId ? partnerView(room) : null,
     spectators: room.spectators.size,
     // Only this recipient's side of the conversation. `color` is null for a
     // spectator, which is exactly the audience distinction we need.
@@ -772,6 +777,8 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
       const partnerFen = partnerRoom.chess.fen();
       queries.updateGamePosition.run(partnerFen, partnerRoom.chess.turn, partnerRoom.gameId);
       io.to(`game:${partnerRoom.gameId}`).emit("bughouse:received", { piece: passed, fen: partnerFen });
+      // This board's audience sees the other board's pockets change.
+      tellPartner(io, room);
       // A LorFish there waiting for a piece may have a move now.
       botTurn(io, partnerRoom);
     }
@@ -803,6 +810,11 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
   });
 
   lobby.nudge(io); // keep the lobby's board previews roughly current
+  // Bughouse: the other board's audience sees this move on its small board.
+  if (room.matchId) {
+    const partnerRoom = (rooms.matchRooms(room) || [])[1 - room.board];
+    if (partnerRoom) tellPartner(io, partnerRoom);
+  }
 
   // (7) Game over? Otherwise re-arm the flag timer for the new side to move,
   // which may be a LorFish's.
@@ -812,6 +824,61 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     scheduleFlag(io, room);
     botTurn(io, room);
   }
+}
+
+// ---- Bughouse: the other board, and calls to a partner ----
+
+// The board beside `room`'s in its match, as its players and watchers see it:
+// the position (pockets and all), who plays it, its clocks, and the last move.
+function partnerView(room) {
+  const other = (rooms.matchRooms(room) || [])[1 - room.board];
+  if (!other) return null;
+  const last = other.chess.history[other.chess.history.length - 1];
+  return {
+    gameId: other.gameId,
+    board: other.board,
+    fen: other.chess.fen(),
+    turn: other.chess.turn,
+    white: other.names.w,
+    black: other.names.b,
+    clocks: rooms.clockSnapshot(other),
+    running: other.started && other.status === "active",
+    lastMove: last ? { from: last.move.drop ? null : last.move.from, to: last.move.to } : null,
+    san: other.sans[other.sans.length - 1] || null,
+  };
+}
+
+// Tell `room`'s players and watchers how the other board now stands.
+function tellPartner(io, room) {
+  if (!room.matchId) return;
+  const view = partnerView(room);
+  if (view) io.to(`game:${room.gameId}`).emit("bughouse:partner", view);
+}
+
+// A call to your partner (one of Bughouse.CALLS): passed on live to them
+// alone — every tab they have open — and never stored or logged. A LorFish
+// partner doesn't listen. Rate-limited like chat.
+function handleBughouseCall(io, socket, payload, ack) {
+  const gameId = Number(payload && payload.gameId);
+  const room = rooms.getRoom(gameId);
+  if (!room || !room.matchId || room.status !== "active") return reply(ack, { ok: false, error: "No match to call in." });
+  const color = colorOf(room, socket.userId);
+  if (!color) return reply(ack, { ok: false, error: "You are not a player in this game." });
+  const call = payload && payload.call;
+  if (!Bughouse.callText(call)) return reply(ack, { ok: false, error: "Unknown call." });
+  const now = Date.now();
+  socket.callTimes = (socket.callTimes || []).filter((t) => now - t < CHAT_WINDOW_MS);
+  if (socket.callTimes.length >= CHAT_BURST) return reply(ack, { ok: false, error: "Slow down a little." });
+  socket.callTimes.push(now);
+  const seat = Bughouse.partnerOf(room.board, color);
+  const partnerRoom = (rooms.matchRooms(room) || [])[seat.board];
+  const partnerId = partnerRoom && partnerRoom.players[seat.color];
+  if (partnerRoom && !(partnerRoom.bots && partnerRoom.bots[seat.color])) {
+    io.to(matchmaking.userRoom(partnerId)).emit("bughouse:call", {
+      gameId: partnerRoom.gameId, from: socket.username, call,
+    });
+  }
+  reply(ack, { ok: true });
 }
 
 // A Bughouse match against LorFish: the player on board 0 with White, LorFish

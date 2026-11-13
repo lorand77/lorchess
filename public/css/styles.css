@@ -180,6 +180,14 @@ body {
 }
 /* Antichess: the pieces that can make the compulsory capture (ui.js captureHint). */
 .square.must-capture { box-shadow: inset 0 0 0 4px var(--orange); }
+/* Bughouse: the partner's board beside yours, and the calls to them. */
+.bughouse-panel { margin: 8px 0 12px; }
+.bughouse-panel h3 { margin: 0 0 4px; }
+.partner-board-wrap { max-width: 220px; margin: 4px 0; }
+.partner-pockets { margin: 4px 0 8px; }
+.bughouse-calls { display: flex; flex-wrap: wrap; gap: 4px; }
+.bughouse-calls[hidden] { display: none; }   /* flex would override [hidden] */
+.bughouse-calls button { font-size: 12px; padding: 3px 8px; }
 /* King of the Hill: the centre squares a king wins on (ui.js hill). */
 .square.hill { box-shadow: inset 0 0 0 3px var(--gold); }
 .square.check {

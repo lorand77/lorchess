@@ -71,6 +71,23 @@
       </form>
     </section>
 
+    <!-- Bughouse against LorFish: you and LorFish as a team against two more,
+         on two boards. Filled in and sent by lobby.js (bughouse:bots). -->
+    <section class="panel ai-panel" id="bughouseBotPanel">
+      <div class="ai-panel-text">
+        <h2>Bughouse with LorFish</h2>
+        <p class="small">You and LorFish against two more LorFish, on two boards. Casual.</p>
+      </div>
+      <form class="offer-form ai-form" id="bughouseForm">
+        <button type="submit" id="bughousePlayBtn" class="mode-link primary">Play Bughouse</button>
+        <label for="bughouseTcSelect">Clock</label>
+        <select id="bughouseTcSelect"></select>
+        <label for="bughouseLevelSelect">Level</label>
+        <select id="bughouseLevelSelect"></select>
+      </form>
+      <p class="lobby-error" id="bughouseError"></p>
+    </section>
+
     <section class="panel">
       <h2>Open challenges <span class="count" id="seekCount"></span></h2>
       <div id="seekList" class="list"></div>

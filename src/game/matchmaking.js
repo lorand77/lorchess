@@ -15,7 +15,7 @@ const log = require("../log");
 const rooms = require("./rooms");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
 const chess960 = require("../shared/chess960");
-const { resolveVariant, startOf, isRateable } = require("../shared/variants");
+const { resolveVariant, startOf, isRateable, isTeamGame } = require("../shared/variants");
 const matches = require("./matches");
 const { Bughouse } = require("../shared/bughouse");
 
@@ -61,6 +61,9 @@ function join(io, socket, payload) {
 
   const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
   const variant = resolveVariant(payload && payload.variant);
+  if (isTeamGame(variant)) {
+    return socket.emit("lobby:error", { error: "Bughouse is played by two teams of two, not matched one to one." });
+  }
   // A casual-only variant pools with everyone who asked for it, rated or not.
   const rated = (!payload || payload.rated !== false) && isRateable(variant);
   const key = poolKey(tc.key, rated, variant);
@@ -117,6 +120,8 @@ function leaveUser(userId) {
 // challenges (offerer's preference), and by rematch (colours swapped).
 function startMatch(io, white, black, opts) {
   const variant = resolveVariant(opts && opts.variant);
+  // A team game is two boards and four players: startBughouse.
+  if (isTeamGame(variant)) throw new Error(`startMatch: ${variant} is a team game`);
   // The catalogue says where a variant opens; only the shuffled kind needs a
   // generator. A handicap offer carries its own start position, built from the
   // standard setup. Everything downstream just sees a start position.

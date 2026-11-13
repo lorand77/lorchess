@@ -51,6 +51,23 @@
     <p id="blackLabel">Black: LorFish</p>
     <!-- PvP only: friend control for the opponent (filled by ui.js). -->
     <p id="friendRow" class="friend-row" style="display:none;"></p>
+    <!-- Bughouse only: the partner's board beside yours, and the calls you can
+         make to your partner (ui.js renderPartner, initBughouseCalls). -->
+    <div id="bughousePanel" class="bughouse-panel" hidden>
+      <h3 id="partnerTitle">Partner's board</h3>
+      <div class="clock-row">
+        <span class="clock-who" id="partnerTopWho"></span>
+        <span class="clock" id="partnerTopClock">--:--</span>
+      </div>
+      <div class="mini-board-wrap partner-board-wrap"><div class="mini-board" id="partnerBoard"></div></div>
+      <div class="clock-row">
+        <span class="clock-who" id="partnerBottomWho"></span>
+        <span class="clock" id="partnerBottomClock">--:--</span>
+      </div>
+      <p id="partnerPockets" class="partner-pockets small"></p>
+      <div id="bughouseCalls" class="bughouse-calls"></div>
+      <p id="bughouseHeard" class="pvp-info" aria-live="polite"></p>
+    </div>
     <p id="turn">Turn: White</p>
     <!-- Three-check only: how many checks each side has given (ui.js). -->
     <p id="checksLine" hidden></p>
@@ -125,6 +142,8 @@
 <script src="/js/infiniteChess.js"></script>
 <script src="/js/engines.js"></script>
 <script src="/js/uci.js"></script>
+<script src="/js/bughouse.js"></script>
+<script src="/js/miniBoard.js"></script>
 <script src="/js/variants.js"></script>
 <script src="/js/aiLevels.js"></script>
 <script src="/socket.io/socket.io.js"></script>

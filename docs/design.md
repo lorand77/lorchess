@@ -195,9 +195,16 @@ opens from the standard setup and takes a handicap, is casual while new, and
 can't be reviewed. The game page shows "Checks: White 1 of 3 · Black 0 of 3"
 under the turn line.
 
-**Bughouse** is being built in steps. So far only the rules of one board
-exist (`setVariant('bughouse')`); there is no catalogue entry yet, since that
-would offer it as an ordinary two-player game, and it will be casual only.
+**Bughouse** is being built in steps; so far it is played against LorFish (you
+and LorFish against two more), from the lobby's "Bughouse with LorFish"
+panel. Its catalogue entry has `teams: true` (`isTeamGame`), which keeps it out
+of everything that seats two players: the lobby's offer picker, and on the
+server quick match, seeks and challenges (which refuse it) and `startMatch`
+(which throws). It is casual, has no move or material badges (a board can't
+be replayed alone, and pieces change hands), and `bot` is off, since LorFish
+plays its seats on the server rather than as an AI game. It has a
+`bughouse_wins` badge, but "Jack of All Trades" skips team games, which need
+three other people.
 The rules are chess.com's. Pockets, drops and promoted pieces work as in
 Crazyhouse (`hasPockets` covers both), but a capture is not the capturer's:
 `makeMove` records it on the history entry (`passed: { t, c }`, a promoted
@@ -282,6 +289,29 @@ LorFish against them, at a time control and level from the allowlists.
 Its play is the Crazyhouse search (`hasPockets` covers both), with no notion
 of a partner: it neither asks for pieces nor stalls for one. A side with no
 move scores level, as `result()` has the board undecided.
+
+**On the game page** a Bughouse board is played like any PvP board, with
+pockets and drops as in Crazyhouse, and loads from the FEN rather than by
+replaying its moves (`rebuildFromRecord`), since its pockets fill from the
+other board. Beside it:
+
+- **The other board**, small, from the partner's side (a spectator sees both
+  from White's), with both its players' names, ticking clocks and pockets.
+  The join state carries it as `partner`, and `bughouse:partner` keeps it
+  current: after a move there, when a capture changes its pockets, and when
+  the clocks start. Players don't watch the other board as spectators: one
+  socket in both boards' rooms would get both boards' `move:made`.
+- **Pieces passing**: `bughouse:received` puts a piece in a pocket here, and
+  the notice line says whose; a capture here says where its piece went.
+- **Calls** to your partner: a fixed list (`Bughouse.CALLS`: "Need a knight",
+  "Don't trade", "I'm stalling", …) rather than free text, so there is
+  nothing to store or moderate. `bughouse:call` passes one on, live, to the
+  partner's sockets alone (none to a LorFish partner), rate-limited like chat
+  and never logged. Calls show under the buttons, out of the notice line,
+  which the passing pieces keep busy.
+- **Waiting**: with no move on your turn, the status line says to wait for a
+  piece and that the clock is running. No draw or rematch buttons. A finished
+  board's status adds the match's outcome ("your team loses the match").
 
 **Infinite chess** follows infinitechess.org's "Classical" variant, checked
 against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,

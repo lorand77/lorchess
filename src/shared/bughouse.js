@@ -78,7 +78,24 @@ const Bughouse = (function () {
     return boards;
   }
 
-  return { teamOf, partnerOf, seatsOf, boardResults, createBoards, play, replay };
+  // What a player can call to their partner, by key. Fixed phrases rather
+  // than free text: they say what Bughouse players say, need no storing or
+  // moderating, and the server only ever passes on one of these.
+  const CALLS = [
+    { key: 'need-p', text: 'Need a pawn' },
+    { key: 'need-n', text: 'Need a knight' },
+    { key: 'need-b', text: 'Need a bishop' },
+    { key: 'need-r', text: 'Need a rook' },
+    { key: 'need-q', text: 'Need a queen' },
+    { key: 'no-trades', text: "Don't trade" },
+    { key: 'trade', text: 'Trade!' },
+    { key: 'sit', text: "I'm stalling" },
+    { key: 'go', text: 'Go!' },
+    { key: 'mate', text: 'I have mate' },
+  ];
+  const callText = (key) => (CALLS.find((c) => c.key === key) || {}).text || null;
+
+  return { teamOf, partnerOf, seatsOf, boardResults, createBoards, play, replay, CALLS, callText };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

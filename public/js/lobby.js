@@ -136,7 +136,8 @@ function restoreAiLevel(games) {
 // be combined. Whichever you pick second disables the other.
 // The picker comes from the shared catalogue, so a new variant appears here the
 // moment it is added to src/shared/variants.js.
-for (const v of VARIANTS) {
+// A team game (Bughouse) seats four, so it is not a choice for these.
+for (const v of VARIANTS.filter((v) => !v.teams)) {
   const opt = document.createElement("option");
   opt.value = v.key;
   opt.textContent = v.label;
@@ -579,6 +580,28 @@ async function loadTrainCard() {
     card.style.display = "none";
   }
 }
+
+// --- Bughouse with LorFish ---
+// You and LorFish as a team against two more, on two boards: the server seats
+// you on board 0 with White and plays the other three seats, and game:start
+// (below) takes you to your board.
+const bughouseTcSelect = document.getElementById("bughouseTcSelect");
+const bughouseLevelSelect = document.getElementById("bughouseLevelSelect");
+for (const tc of TIME_CONTROLS) {
+  bughouseTcSelect.add(new Option(tc.label, tc.key, tc.key === DEFAULT_TC, tc.key === DEFAULT_TC));
+}
+for (const level of AI_LEVELS) {
+  const selected = level.key === DEFAULT_AI_LEVEL;
+  bughouseLevelSelect.add(new Option(aiLevelLabel(level.key, "bughouse"), level.key, selected, selected));
+}
+document.getElementById("bughouseForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("bughouseError");
+  errEl.textContent = "";
+  socket.emit("bughouse:bots", { tc: bughouseTcSelect.value, level: bughouseLevelSelect.value }, (resp) => {
+    if (!resp || !resp.ok) errEl.textContent = (resp && resp.error) || "Could not start the match.";
+  });
+});
 
 // --- starting a game ---
 

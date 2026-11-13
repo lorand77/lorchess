@@ -588,8 +588,13 @@ function render() {
   } else if (pvpResult) {
     let s = `Game Over: ${pvpResult.result}`;
     if (pvpResult.termination) s += ` — ${pvpResult.termination}`;
+    if (pvpResult.match && pvpResult.match.result) s += ' · ' + matchOutcome(pvpResult.match.result);
     statusEl.textContent = s;
     statusEl.className = 'game-over';
+  } else if (pvpMode && !spectating && chess.isBughouse && chess.turn === humanColor && chess.isWaiting()) {
+    // Bughouse: nothing to play until the partner sends a piece.
+    statusEl.textContent = 'No move: wait for your partner to send a piece. Your clock is running.';
+    statusEl.className = 'check-text';
   } else if (captureHint) {
     statusEl.textContent = 'You must capture';
     statusEl.className = 'check-text';
@@ -1334,8 +1339,125 @@ function hideOffer() {
 function setOfferButtons(over) {
   const drawBtn = document.getElementById('drawBtn');
   const rematchBtn = document.getElementById('rematchBtn');
-  if (drawBtn) drawBtn.style.display = over ? 'none' : '';
-  if (rematchBtn) rematchBtn.style.display = over ? '' : 'none';
+  // No draw offers or rematches in Bughouse yet: they would need all four.
+  const team = !!(lastPvpState && lastPvpState.match);
+  if (drawBtn) drawBtn.style.display = over || team ? 'none' : '';
+  if (rematchBtn) rematchBtn.style.display = over && !team ? '' : 'none';
+}
+
+// ---- Bughouse: the partner's board, passed pieces, calls ----
+// A Bughouse board is played here like any PvP board, plus the other board,
+// shown small beside it from the partner's side and kept current by
+// bughouse:partner; the pieces that arrive from it (bughouse:received); and
+// the calls a player can make to their partner (Bughouse.CALLS).
+const bughousePanelEl = document.getElementById('bughousePanel');
+let partner = null;     // the other board as last sent, or null
+let partnerBase = 0;    // when it was sent, so its clocks can tick
+let heardTimer = null;
+
+function applyPartner(view) {
+  partner = view || null;
+  partnerBase = Date.now();
+  renderPartner();
+}
+
+// The side shown at the bottom of the other board: the partner's, the colour
+// other than yours. A spectator sees both boards from White's side.
+const partnerSide = () => (spectating ? W : humanColor === W ? B : W);
+
+function renderPartner() {
+  if (!bughousePanelEl) return;
+  bughousePanelEl.hidden = !partner;
+  if (!partner) return;
+  const bottom = partnerSide();
+  const top = bottom === W ? B : W;
+  const name = (c) => (c === W ? partner.white : partner.black);
+  document.getElementById('partnerTopWho').textContent = name(top);
+  document.getElementById('partnerBottomWho').textContent = name(bottom);
+  MiniBoard.render(document.getElementById('partnerBoard'), partner.fen, { flip: bottom === B, lastMove: partner.lastMove });
+  document.getElementById('partnerPockets').textContent = pocketLine(partner.fen);
+  document.getElementById('bughouseCalls').hidden = spectating || gameIsOver();
+  renderPartnerClocks();
+}
+
+function renderPartnerClocks() {
+  if (!partner) return;
+  const running = partner.running && !gameIsOver();
+  const valOf = (c) => partner.clocks[c] - (running && partner.turn === c ? Date.now() - partnerBase : 0);
+  const bottom = partnerSide();
+  const top = bottom === W ? B : W;
+  paintClock('partnerTopClock', valOf(top), running && partner.turn === top);
+  paintClock('partnerBottomClock', valOf(bottom), running && partner.turn === bottom);
+}
+
+// "In hand: White ♘♙ · Black nothing", from a FEN's pockets.
+const POCKET_GLYPHS = {
+  w: { q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
+  b: { q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
+};
+function pocketLine(fen) {
+  const m = /\[([A-Za-z]*)\]/.exec(fen || '');
+  const held = { w: '', b: '' };
+  for (const ch of m ? m[1] : '') {
+    const c = ch === ch.toUpperCase() ? W : B;
+    held[c] += POCKET_GLYPHS[c][ch.toLowerCase()] || '';
+  }
+  return `In hand: White ${held.w || 'nothing'} · Black ${held.b || 'nothing'}`;
+}
+
+// "your team wins the match" — or, for a spectator, which team did.
+function matchOutcome(result) {
+  if (result === 'draw') return 'match drawn';
+  const team = lastPvpState && lastPvpState.match && lastPvpState.match.team;
+  if (!team) return `team ${result} wins the match`;
+  return result === team ? 'your team wins the match' : 'your team loses the match';
+}
+
+// A piece arrived from the other board, for one side of this one.
+function receivePiece(info) {
+  if (!info || !info.piece || !chess.isBughouse) return;
+  chess.receive(info.piece.c, info.piece.t);
+  const what = PIECE_NAMES[info.piece.t];
+  if (!spectating) {
+    pvpNotice(info.piece.c === humanColor ? `Your partner sent you a ${what}.` : `Your opponent got a ${what}.`, 'info', 4000);
+  }
+  render();
+}
+
+// A capture of yours, or your opponent's, has gone to the other board.
+function notePassed(m) {
+  if (!m || !m.passed || spectating) return;
+  const what = PIECE_NAMES[m.passed.t];
+  pvpNotice(m.passed.c === humanColor ? `A ${what} goes to your opponent's partner.` : `A ${what} goes to your partner.`, 'info', 4000);
+}
+
+// The calls to your partner, as buttons (once: a reconnect runs this again).
+function initBughouseCalls(socket, gameId) {
+  const box = document.getElementById('bughouseCalls');
+  if (!box || box.childElementCount) return;
+  for (const call of Bughouse.CALLS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = call.text;
+    b.dataset.call = call.key;
+    b.addEventListener('click', () => {
+      socket.emit('bughouse:call', { gameId, call: call.key }, (resp) => {
+        if (!resp || !resp.ok) pvpNotice((resp && resp.error) || 'Call not sent.', null, 3000);
+        else showCall({ from: 'You', call: call.key });
+      });
+    });
+    box.appendChild(b);
+  }
+}
+
+// A call, yours or your partner's, shown under the buttons for a few seconds
+// (not in the notice line, which the pieces passing to and fro keep busy).
+function showCall(info) {
+  const el = document.getElementById('bughouseHeard');
+  if (!el || !info) return;
+  el.textContent = `${info.from}: ${Bughouse.callText(info.call)}`;
+  clearTimeout(heardTimer);
+  heardTimer = setTimeout(() => { el.textContent = ''; }, 8000);
 }
 
 // ---- clocks ----
@@ -1363,6 +1485,7 @@ function paintClock(id, ms, active) {
 }
 
 function renderClocks() {
+  renderPartnerClocks();
   if (!pvpMode || !clocks) return;
   const youColor = humanColor;                 // 'w' | 'b'
   const oppColor = youColor === W ? B : W;
@@ -1530,6 +1653,7 @@ function initSpectate(gameId) {
     if (info.clocks) setClocks(info.clocks, false);
     showRatingChange(info.ratings);
     render();
+    renderPartner(); // no more calls; the other board's clocks stop
   });
   socket.on('opponent:disconnected', (info) => {
     const secs = Math.round((info.graceMs || 0) / 1000);
@@ -1540,6 +1664,8 @@ function initSpectate(gameId) {
   });
   socket.on('spectators', showSpectators);
   socket.on('friends:changed', () => renderFriendRow());
+  socket.on('bughouse:partner', applyPartner);
+  socket.on('bughouse:received', receivePiece);
   // A spectator can still earn something — "Chatty", say — by talking here.
   socket.on('achievements:earned', (info) => {
     if (info && typeof AchievementToast !== 'undefined') AchievementToast.show(info.list);
@@ -1686,8 +1812,14 @@ function initPvp(gameId) {
       }
       applyPvpState(socket, resp.state);
       initChat(socket, gameId);
+      if (resp.state.match) initBughouseCalls(socket, gameId);
     });
   });
+
+  // Bughouse: the other board, the pieces that arrive from it, and calls.
+  socket.on('bughouse:partner', applyPartner);
+  socket.on('bughouse:received', receivePiece);
+  socket.on('bughouse:call', showCall);
 
   // Game-event listeners registered ONCE; they dispatch to the *current*
   // moveSource so a reconnect (which rebuilds the source) never stacks them.
@@ -1699,6 +1831,7 @@ function initPvp(gameId) {
   socket.on('move:made', (m) => {
     if (moveSource && moveSource.onServerMove) moveSource.onServerMove(m);
     setClocks(m.clocks, true);
+    notePassed(m);
   });
   socket.on('game:over', (info) => {
     pvpResult = info;
@@ -1713,6 +1846,7 @@ function initPvp(gameId) {
     setOfferButtons(true);
     showRatingChange(info.ratings);
     render();
+    renderPartner(); // no more calls; the other board's clocks stop
   });
   // Sent to each player individually once the result is in the database.
   socket.on('achievements:earned', (info) => {
@@ -1776,7 +1910,10 @@ function renderFriendRow() {
 // side of the king that names the wrong one. The FEN stays as the fallback.
 function rebuildFromRecord(state) {
   lastMove = null;
-  if (!Array.isArray(state.moves)) { chess.loadFen(state.fen); return; }
+  // A Bughouse board can't be replayed alone: its pockets fill from the other
+  // board. The position as sent carries them (and the board has no
+  // repetition rule for a replay to keep).
+  if (!Array.isArray(state.moves) || state.variant === 'bughouse') { chess.loadFen(state.fen); return; }
   if (state.startFen) chess.loadFen(state.startFen); else chess.reset();
   for (const uci of state.moves) {
     const mv = moveFromUci(chess, uci);
@@ -1827,6 +1964,8 @@ function applyPvpState(socket, state) {
   // game shows Rematch, and a draw offer made before we joined is re-surfaced.
   const over = state.status !== 'active';
   setOfferButtons(over);
+  // Bughouse: the other board, beside this one.
+  applyPartner(state.partner || null);
   hideOffer();
   drawOfferedByMe = false;
   const drawBtnEl = document.getElementById('drawBtn');

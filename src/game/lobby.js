@@ -25,7 +25,7 @@ const { resolveTimeControl } = require("../shared/timeControls");
 const { Chess } = require("../shared/chess");
 const handicap = require("../shared/handicap");
 const chess960 = require("../shared/chess960");
-const { resolveVariant, usesStandardSetup, isRateable } = require("../shared/variants");
+const { resolveVariant, variantLabel, usesStandardSetup, isRateable, isTeamGame } = require("../shared/variants");
 
 const LOBBY_ROOM = "lobby";
 
@@ -291,6 +291,9 @@ function normalizeOffer(payload) {
   const color = p.color === "w" || p.color === "b" ? p.color : "random";
 
   const variant = resolveVariant(p.variant);
+  if (isTeamGame(variant)) {
+    return { ok: false, error: `${variantLabel(variant)} is played by two teams of two, not offered one to one.` };
+  }
 
   let odds = null;
   if (p.handicap) {

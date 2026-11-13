@@ -266,3 +266,58 @@ describe("a Bughouse match whose record won't replay", () => {
     close(m);
   });
 });
+
+describe("Bughouse is never a two-player game", () => {
+  test("quick match, seeks and challenges refuse it", async () => {
+    const s = await connectSocket(srv.baseUrl, users[0].c.cookie());
+    const refused = waitFor(s, "lobby:error");
+    s.emit("lobby:join", { variant: "bughouse" });
+    assert.match((await refused).error, /two teams of two/);
+    const seekRefused = waitFor(s, "lobby:error");
+    s.emit("seek:create", { variant: "bughouse" });
+    assert.match((await seekRefused).error, /two teams of two/);
+    assert.throws(() => matchmaking.startMatch(srv.io, { userId: 1 }, { userId: 2 }, { variant: "bughouse" }), /team game/);
+    s.close();
+  });
+});
+
+describe("the other board, as each player sees it", () => {
+  let m;
+  before(async () => { m = await startMatch(); });
+  after(() => close(m));
+
+  test("comes with the join, and follows every move and every piece passed", async () => {
+    const view = m.states[0].partner;   // a0's view of board 1
+    assert.deepEqual([view.gameId, view.board, view.turn, view.lastMove, view.san],
+      [m.boards[1], 1, "w", null, null]);
+    assert.deepEqual([view.white, view.black], [users[3].user.username, users[1].user.username]);
+    const seen = waitFor(m.b1, "bughouse:partner");   // a1, on board 1, watches board 0
+    await play(m, 0, "w", "e2e4");
+    const after = await seen;
+    assert.deepEqual([after.board, after.san, after.turn, after.lastMove], [0, "e4", "b", { from: sq("e2"), to: sq("e4") }]);
+    await play(m, 0, "b", "d7d5");
+    // A capture on board 0 fills a pocket on board 1: board 0's players see it.
+    const pocketed = waitFor(m.w0, "bughouse:partner");
+    await play(m, 0, "w", "e4d5");
+    assert.match((await pocketed).fen, /\[p\]/);
+  });
+
+  test("a call reaches the partner alone, and only a known one", async () => {
+    const heard = waitFor(m.b1, "bughouse:call");   // a1, a0's partner
+    const opponents = [expectNo(m.b0, "bughouse:call"), expectNo(m.w1, "bughouse:call")];
+    assert.deepEqual(await emitAck(m.w0, "bughouse:call", { gameId: m.boards[0], call: "need-n" }), { ok: true });
+    assert.deepEqual(await heard, { gameId: m.boards[1], from: users[0].user.username, call: "need-n" });
+    await Promise.all(opponents);
+    assert.deepEqual(await emitAck(m.w0, "bughouse:call", { gameId: m.boards[0], call: "resign now" }), { ok: false, error: "Unknown call." });
+    assert.deepEqual(await emitAck(m.w0, "bughouse:call", { gameId: m.boards[1], call: "go" }),
+      { ok: false, error: "You are not a player in this game." }, "only from your own board");
+  });
+
+  test("calls are rate-limited like chat, and need a live match", async () => {
+    const replies = [];
+    for (let i = 0; i < 6; i++) replies.push(await emitAck(m.b0, "bughouse:call", { gameId: m.boards[0], call: "go" }));
+    assert.deepEqual(replies.at(-1), { ok: false, error: "Slow down a little." });
+    assert.ok(replies.slice(0, 5).every((r) => r.ok));
+    assert.deepEqual(await emitAck(m.b0, "bughouse:call", { gameId: 999999, call: "go" }), { ok: false, error: "No match to call in." });
+  });
+});

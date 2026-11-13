@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const { Chess } = require("../../src/shared/chess");
 const {
   VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
-  hasMaterialBadges, hasMoveBadges, hasBot, startOf,
+  hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, startOf,
 } = require("../../src/shared/variants");
 const { PAWN_WARS_START, ANTICHESS_START } = require("../../src/shared/chess");
 const { InfiniteChess } = require("../../src/shared/infiniteChess");
@@ -37,7 +37,7 @@ describe("variant catalogue", () => {
         continue;
       }
       const rules = new Chess().setVariant(v.key).variant;
-      const expected = ["atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "threecheck"].includes(v.key) ? v.key : "standard";
+      const expected = ["atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse"].includes(v.key) ? v.key : "standard";
       assert.equal(rules, expected, v.key);
     }
   });
@@ -48,7 +48,7 @@ describe("variant catalogue", () => {
 
   test("anything else resolves to standard", () => {
     const junk = [
-      "bughouse", "Atomic", "", undefined, null, 42, {},
+      "fourplayer", "Atomic", "", undefined, null, 42, {},
       "__proto__", "constructor", "toString", "hasOwnProperty",
     ];
     for (const value of junk) assert.equal(resolveVariant(value), "standard", String(value));
@@ -111,25 +111,31 @@ describe("variant catalogue", () => {
   });
 
   test("only the variants still new are casual-only", () => {
-    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "infinite"];
+    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse", "infinite"];
     for (const v of VARIANTS) assert.equal(isRateable(v.key), !casual.includes(v.key), v.key);
     assert.equal(isRateable("nope"), true, "unknown means standard");
   });
 
   test("material badges are off where material doesn't mean what it usually does", () => {
     for (const v of VARIANTS) {
-      assert.equal(hasMaterialBadges(v.key), !["crazyhouse", "antichess", "infinite"].includes(v.key), v.key);
+      assert.equal(hasMaterialBadges(v.key), !["crazyhouse", "antichess", "bughouse", "infinite"].includes(v.key), v.key);
     }
     assert.equal(hasMaterialBadges("nope"), true, "unknown means standard");
   });
 
-  test("LorFish plays every variant", () => {
-    for (const v of VARIANTS) assert.equal(hasBot(v.key), true, v.key);
+  test("LorFish plays every two-player variant as an AI game; Bughouse seats are the server's", () => {
+    for (const v of VARIANTS) assert.equal(hasBot(v.key), v.key !== "bughouse", v.key);
     assert.equal(hasBot("nope"), true, "unknown means standard");
   });
 
-  test("only Infinite Chess has no move badges: they replay moves on an 8x8 board", () => {
-    for (const v of VARIANTS) assert.equal(hasMoveBadges(v.key), v.key !== "infinite", v.key);
+  test("move badges replay a game on one 8x8 board: not Infinite Chess, nor a Bughouse board alone", () => {
+    for (const v of VARIANTS) assert.equal(hasMoveBadges(v.key), !["infinite", "bughouse"].includes(v.key), v.key);
     assert.equal(hasMoveBadges("nope"), true, "unknown means standard");
+  });
+
+  test("only Bughouse is a team game", () => {
+    for (const v of VARIANTS) assert.equal(isTeamGame(v.key), v.key === "bughouse", v.key);
+    assert.equal(isTeamGame("nope"), false);
+    assert.equal(variantLabel("bughouse"), "Bughouse");
   });
 });
