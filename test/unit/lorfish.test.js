@@ -704,3 +704,21 @@ describe("LorFish plays Three-check", () => {
     assert.equal(chess.isGameOver(), true, `still going after ${plies} plies: ${chess.fen()}`);
   });
 });
+
+describe("LorFish plays a Bughouse board", () => {
+  const bug = (fen) => fromFen(fen, "bughouse");
+
+  test("drops what it holds, and mates with it", () => {
+    // A knight in hand: N@f7 is smothered mate, and no drop can block it.
+    const a = LorFish.analyse(bug("6rk/6pp/8/8/8/8/8/K7[N] w - - 0 1"), 1);
+    assert.equal(a.san, "N@f7#");
+    assert.ok(a.score > LorFish.MATE - 10);
+  });
+
+  test("a side with no move waits: nothing to search, and not a loss", () => {
+    const waiting = bug("R6k/6pp/8/8/8/8/8/K7[] b - - 0 1");
+    assert.equal(LorFish.analyse(waiting, 1), null);
+    LorFish.rootPly = waiting.history.length;
+    assert.equal(LorFish.negamax(waiting, 1, -Infinity, Infinity), 0, "scored level, not as mate");
+  });
+});

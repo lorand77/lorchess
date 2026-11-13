@@ -33,6 +33,12 @@ module.exports = {
   // Grace period a disconnected PvP player has to reconnect before forfeiting.
   DISCONNECT_GRACE_MS: intEnv("GRACE_MS", 45000),
 
+  // LorFish in Bughouse seats searches on the server, in this many worker
+  // threads (src/game/bots.js), and never deeper than BOT_MAX_DEPTH whatever
+  // its level asks: up to three bots share the machine with every live game.
+  BOT_WORKERS: intEnv("BOT_WORKERS", 2),
+  BOT_MAX_DEPTH: intEnv("BOT_MAX_DEPTH", 2),
+
   // How often the server disconnects sockets of accounts deactivated from the
   // command line (see src/game/socket.js).
   DEACTIVATION_SWEEP_MS: intEnv("DEACTIVATION_SWEEP_MS", 30000),

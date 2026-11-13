@@ -24,7 +24,7 @@ const rooms = new Map(); // gameId -> room
 function createRoom(
   gameId,
   { whiteId, blackId, whiteName, blackName, startFen, initialMs, incrementMs, rated,
-    clockW, clockB, rehydrated, variant, matchId, board, boardIds }
+    clockW, clockB, rehydrated, variant, matchId, board, boardIds, botLevel }
 ) {
   // Games created before per-game time controls existed have NULL clock
   // columns; fall back to the server-wide default so they still run.
@@ -92,7 +92,26 @@ function createRoom(
     matchId: matchId || null,
     board: matchId ? board : null,
     boardIds: matchId ? boardIds : null,
+    // Bughouse seats LorFish holds, played by the server (socket.js botTurn),
+    // at its level; null when it holds none. A bot is always there: seated
+    // from the start, and online, so no absence clock ever runs against it.
+    bots: null,
+    botLevel: null,
+    botThinking: false,
   };
+  if (matchId) {
+    const ai = aiUserId();
+    const seats = { w: whiteId === ai, b: blackId === ai };
+    if (seats.w || seats.b) {
+      room.bots = seats;
+      room.botLevel = botLevel || null;
+      for (const c of ["w", "b"]) {
+        if (!seats[c]) continue;
+        room.everJoined[c] = true;
+        room.online[c].add("lorfish");
+      }
+    }
+  }
   rooms.set(gameId, room);
   return room;
 }
@@ -261,6 +280,7 @@ function loadMatchRoomsFromDb(matchId) {
     matchId,
     board: game.board,
     boardIds,
+    botLevel: game.ai_level,
   }));
   const engines = both.map((r) => r.chess);
   for (const m of queries.getMovesForMatch.all(matchId)) {
@@ -281,6 +301,13 @@ function loadMatchRoomsFromDb(matchId) {
     both[i].termination = game.termination;
   });
   return both;
+}
+
+// The reserved LorFish account's id (db/index.js seeds it).
+let aiId = null;
+function aiUserId() {
+  if (aiId == null) aiId = queries.getUserByUsername.get(config.AI_USERNAME).id;
+  return aiId;
 }
 
 function nameOf(userId) {

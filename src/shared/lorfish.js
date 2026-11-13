@@ -458,11 +458,11 @@ const LorFish = {
     if (qdepth > this.maxQ) this.maxQ = qdepth;
 
     if ((chess.positionCounts.get(chess.positionKey()) || 0) >= 2) return 0;
-    // Crazyhouse offers a hundred-odd drops in most positions, none of them a
-    // capture. Out of check only captures are searched here, so only they
+    // Crazyhouse (and Bughouse) offers a hundred-odd drops in most positions,
+    // none of them a capture. Out of check only captures are searched here, so only they
     // are generated; a side out of check with a drop in hand always has a
     // move, so no mate or stalemate goes unseen that way.
-    const capturesOnly = chess.isCrazyhouse && !chess.inCheck();
+    const capturesOnly = chess.hasPockets && !chess.inCheck();
     const moves = capturesOnly ? null : chess.legalMoves();
     if (moves && moves.length === 0) return this.endScore(chess);
     if (chess.isInsufficientMaterial()) return 0;
@@ -503,10 +503,11 @@ const LorFish = {
       ? chess.legalCaptures()
       : moves.filter(m => m.capture || m.enpassant));
     // Crazyhouse: no capture ever takes a piece out of the game, it only
-    // changes hands, so recaptures run on and on. Chains stop at a depth, and
+    // changes hands, so recaptures run on and on (in Bughouse it goes to the
+    // other board, and the same cut serves). Chains stop at a depth, and
     // a capture that plainly loses — a bigger piece taking a smaller one on a
     // defended square — is not followed at all.
-    if (chess.isCrazyhouse) {
+    if (chess.hasPockets) {
       if (qdepth >= this.CRAZYHOUSE_QDEPTH) return alpha;
       const enemy = chess.turn === W ? B : W;
       captures = captures.filter(m => {
@@ -542,7 +543,7 @@ const LorFish = {
     }
 
     const ply = chess.history.length - this.rootPly;
-    const ordered = this.orderMoves(chess, chess.isCrazyhouse ? this.searchableDrops(chess, moves) : moves,
+    const ordered = this.orderMoves(chess, chess.hasPockets ? this.searchableDrops(chess, moves) : moves,
       this.killers[ply]);
     let best = -Infinity;
     for (const m of ordered) {

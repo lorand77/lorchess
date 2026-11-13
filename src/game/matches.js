@@ -13,6 +13,7 @@
 
 const queries = require("../db/queries");
 const db = require("../db/index");
+const config = require("../config");
 const { STANDARD_START } = require("../shared/chess");
 const { Bughouse } = require("../shared/bughouse");
 
@@ -20,11 +21,16 @@ const { Bughouse } = require("../shared/bughouse");
 const OTHER_BOARD = "on the other board";
 
 // A new match between two teams, each [player on board 0, player on board 1]
-// by user id, at a time control. Returns { matchId, boards: [gameId, gameId] }.
-const createMatch = db.transaction(({ teamA, teamB, initialMs, incrementMs }) => {
+// by user id, at a time control. The reserved LorFish account may hold any
+// number of the seats (the server plays them), at `botLevel`, which is kept on
+// the boards it plays (games.ai_level) so a restart knows it; every other
+// player sits once. Returns { matchId, boards: [gameId, gameId] }.
+const createMatch = db.transaction(({ teamA, teamB, initialMs, incrementMs, botLevel }) => {
   const players = [...teamA, ...teamB];
-  if (players.length !== 4 || new Set(players).size !== 4) {
-    throw new Error("A Bughouse match needs four different players");
+  const ai = queries.getUserByUsername.get(config.AI_USERNAME).id;
+  const people = players.filter((id) => id !== ai);
+  if (players.length !== 4 || new Set(people).size !== people.length || !people.length) {
+    throw new Error("A Bughouse match needs four different players, or LorFish in some seats");
   }
   const matchId = Number(queries.createMatch.run().lastInsertRowid);
   const seat = (board, color) => {
@@ -32,8 +38,9 @@ const createMatch = db.transaction(({ teamA, teamB, initialMs, incrementMs }) =>
     return team[board];
   };
   const boards = [0, 1].map((board) => {
+    const bot = seat(board, "w") === ai || seat(board, "b") === ai;
     const info = queries.createGame.run(
-      seat(board, "w"), seat(board, "b"), "pvp", null, null, null,
+      seat(board, "w"), seat(board, "b"), "pvp", null, null, bot ? botLevel || null : null,
       STANDARD_START, STANDARD_START, "w", initialMs, incrementMs, 0, "bughouse"
     );
     const gameId = Number(info.lastInsertRowid);

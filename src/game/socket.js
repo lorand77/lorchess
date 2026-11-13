@@ -26,6 +26,9 @@ const { InfiniteChess } = require("../shared/infiniteChess");
 const { usesStandardSetup } = require("../shared/variants");
 const { Bughouse } = require("../shared/bughouse");
 const matches = require("./matches");
+const bots = require("./bots");
+const { aiLevelOf, resolveAiLevel } = require("../shared/aiLevels");
+const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
 
@@ -175,6 +178,7 @@ function attachSockets(httpServer) {
     on("challenge:accept", (p) => lobby.acceptChallenge(io, socket, p));
     on("challenge:decline", (p) => lobby.declineChallenge(io, socket, p));
     on("challenge:cancel", (p) => lobby.cancelChallenge(io, socket, p));
+    on("bughouse:bots", (payload, ack) => handleBughouseBots(io, socket, payload, ack));
 
     on("game:join", (payload, ack) => handleGameJoin(io, socket, payload, ack));
     on("game:watch", (payload, ack) => handleWatch(io, socket, payload, ack));
@@ -243,6 +247,7 @@ function startClock(io, room) {
   io.to(`game:${room.gameId}`).emit("clock:started", {
     clocks: rooms.clockSnapshot(room),
   });
+  botTurn(io, room); // a LorFish with White moves first
 }
 
 // Arm a timer to flag the side to move when their remaining time elapses.
@@ -697,6 +702,20 @@ function handleMove(io, socket, payload, ack) {
   const move = drop ? room.chess.findDrop(drop, to) : room.chess.findMove(from, to, promo);
   if (!move) return reply(ack, { ok: false, error: "Illegal move." });
 
+  playMove(io, room, color, move, {
+    byUser: socket.userId, premove: !!(payload && payload.premove), from, to, ack,
+  });
+}
+
+// Play a legal move for `color` — a player's (handleMove), or LorFish's in a
+// Bughouse seat (bots, below) — on the room's board: charge the clock, record
+// it, pass a capture to the other board, tell everyone, and end the game if it
+// is over. `from`/`to` are the squares as the player sent them (castling may
+// be spelled by the rook's square), echoed back so their board applies it the
+// same way; a bot sends none, and the move's own are used.
+function playMove(io, room, color, move, { byUser, premove: claimed, from, to, ack }) {
+  const gameId = room.gameId;
+
   // (3b) Clock: charge the mover for their think time; flag if they're out.
   let thinkMs = null;
   const clockBefore = { ms: room.clock[color], turnStartedAt: room.turnStartedAt };
@@ -727,9 +746,9 @@ function handleMove(io, socket, payload, ack) {
   // The client says whether this was a premove; believe it only if the move
   // really did arrive on the heels of the opponent's, so a crafted payload
   // can't claim a premove it had time to think about.
-  const premove = !!(payload && payload.premove) && (thinkMs == null || thinkMs < PREMOVE_MAX_MS);
+  const premove = !!claimed && (thinkMs == null || thinkMs < PREMOVE_MAX_MS);
   try {
-    persistMove(gameId, ply, san, uci, fen, turn, socket.userId, thinkMs, premove, room.clock);
+    persistMove(gameId, ply, san, uci, fen, turn, byUser, thinkMs, premove, room.clock);
   } catch (err) {
     // The database refused the move, so the room must not have it either: put
     // the board and the clock back exactly as they were, then let the
@@ -753,6 +772,8 @@ function handleMove(io, socket, payload, ack) {
       const partnerFen = partnerRoom.chess.fen();
       queries.updateGamePosition.run(partnerFen, partnerRoom.chess.turn, partnerRoom.gameId);
       io.to(`game:${partnerRoom.gameId}`).emit("bughouse:received", { piece: passed, fen: partnerFen });
+      // A LorFish there waiting for a piece may have a move now.
+      botTurn(io, partnerRoom);
     }
   }
 
@@ -768,8 +789,8 @@ function handleMove(io, socket, payload, ack) {
   // squares are the engine's own objects, not whatever the client's carried.
   const coords = typeof move.from === "object" && move.from !== null;
   io.to(`game:${gameId}`).emit("move:made", {
-    from: move.drop ? null : coords ? { x: move.from.x, y: move.from.y } : from,
-    to: coords ? { x: move.to.x, y: move.to.y } : to,
+    from: move.drop ? null : coords ? { x: move.from.x, y: move.from.y } : from === undefined ? move.from : from,
+    to: coords ? { x: move.to.x, y: move.to.y } : to === undefined ? move.to : to,
     promo: move.promo || null,
     drop: move.drop || null,
     san,
@@ -783,12 +804,70 @@ function handleMove(io, socket, payload, ack) {
 
   lobby.nudge(io); // keep the lobby's board previews roughly current
 
-  // (7) Game over? Otherwise re-arm the flag timer for the new side to move.
+  // (7) Game over? Otherwise re-arm the flag timer for the new side to move,
+  // which may be a LorFish's.
   if (room.chess.isGameOver()) {
     concludeGame(io, room, room.chess.result(), terminationOf(room.chess));
   } else {
     scheduleFlag(io, room);
+    botTurn(io, room);
   }
+}
+
+// A Bughouse match against LorFish: the player on board 0 with White, LorFish
+// their partner on board 1, and two more LorFish for the other team, at a time
+// control and a LorFish level from the allowlists. Until the lobby seats four
+// people, the way into Bughouse.
+function handleBughouseBots(io, socket, payload, ack) {
+  if (rooms.liveGameOf(socket.userId)) return reply(ack, { ok: false, error: "Finish your current game first." });
+  const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
+  const level = resolveAiLevel(payload && payload.level);
+  const ai = queries.getUserByUsername.get(config.AI_USERNAME);
+  const bot = { userId: ai.id, username: ai.username };
+  const me = { userId: socket.userId, username: socket.username };
+  const { matchId, boards } = matchmaking.startBughouse(io, { teamA: [me, bot], teamB: [bot, bot] },
+    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: level });
+  reply(ack, { ok: true, matchId, gameId: boards[0] });
+}
+
+// ---- LorFish in Bughouse seats ----
+// A seat held by the reserved LorFish account (room.bots) is played by the
+// server: whenever it is that seat's turn and the clock runs, the position goes
+// to a worker thread (bots.js) and the move that comes back is played through
+// playMove like anyone's. A bot is always present, so no absence clock ever
+// runs against it. With no move it waits, as a player would, until a piece
+// arrives from the other board (playMove calls back here). Its clock runs
+// while it thinks. The position can't change under it meanwhile — it is its
+// turn, and pockets only fill — but the game can end, and then the answer is
+// dropped.
+function botTurn(io, room) {
+  if (!room.bots || room.status !== "active" || !room.started) return;
+  const color = room.chess.turn;
+  if (!room.bots[color] || room.botThinking) return;
+  if (room.chess.legalMoves().length === 0) return; // waiting for a piece
+  room.botThinking = true;
+  const level = aiLevelOf(room.botLevel);
+  bots.think({
+    variant: room.variant,
+    fen: room.chess.fen(),
+    depth: Math.min(level.depth, config.BOT_MAX_DEPTH),
+    temperature: level.temperature,
+  }).then((answer) => safely("bot move", () => {
+    room.botThinking = false;
+    const live = rooms.getRoom(room.gameId);
+    if (live !== room || room.status !== "active" || room.chess.turn !== color || !answer) return;
+    const move = answer.drop
+      ? room.chess.findDrop(answer.drop, answer.to)
+      : room.chess.findMove(answer.from, answer.to, answer.promo);
+    if (!move) {
+      log.error("bot.bad_move", { game: room.gameId, move: JSON.stringify(answer), fen: room.chess.fen() });
+      return;
+    }
+    playMove(io, room, color, move, { byUser: null });
+  }), (err) => {
+    room.botThinking = false;
+    log.error("bot.failed", { game: room.gameId, err });
+  });
 }
 
 // ---- draw offers ----

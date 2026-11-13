@@ -247,6 +247,42 @@ players their board, colour, opponent and partner. What joins the boards:
 - No draw offers and no rematch yet: a draw would need all four players' word,
   and a rematch a way to gather all four again.
 
+**LorFish in Bughouse seats** is the one place LorFish runs on the server: a
+board between people can't trust a browser to play a seat, and three bots
+need somewhere to run. The reserved `LorFish` account may hold any number of
+a match's seats (a board can be LorFish against LorFish); every other player
+sits once. Its level is kept on the boards it plays (`games.ai_level`), so a
+restart knows it. The `bughouse:bots` socket event starts the only kind there
+is so far: the player on board 0 with White, LorFish their partner, two more
+LorFish against them, at a time control and level from the allowlists.
+
+- **Off the main thread.** Its search is synchronous and can take seconds, and
+  the event loop runs every live game, so it runs in worker threads
+  (`src/game/bots.js`, `botWorker.js`): `BOT_WORKERS` of them (2), started on
+  first use, one job each, the rest queued, a dead one replaced, unref'd so
+  they never hold the process open. A job is a FEN, pockets and all — a
+  Bughouse board can't be replayed alone, and has no repetition to lose — and
+  the search is `searchRoot` as `getBestMove` runs it, minus the console
+  output. It never searches deeper than `BOT_MAX_DEPTH` (2) whatever its
+  level, since up to three bots share the machine with every live game.
+- **Moves like anyone's.** `handleMove` checks a player's move and hands it to
+  `playMove`, which charges the clock, records it, passes a capture across,
+  broadcasts and ends the game if it is over; a bot's move goes through
+  `playMove` the same way, recorded as the AI's (`by_user` NULL).
+- **When it thinks** (`botTurn`): whenever it is a bot seat's turn and the
+  clock runs — when the clocks start, after every move on its board, and when
+  a piece arrives from the other board, which may give a waiting bot a move.
+  With no move it waits, as a player would. Its clock runs while it thinks.
+  The position can't change under it meanwhile (it is its turn; pockets only
+  fill), but the game can end, and then the answer is dropped.
+- **Always there.** A bot seat counts as joined from the start and is always
+  in the room's online set, so the clocks start as soon as the people have
+  joined and no absence clock ever runs against it.
+
+Its play is the Crazyhouse search (`hasPockets` covers both), with no notion
+of a partner: it neither asks for pieces nor stalls for one. A side with no
+move scores level, as `result()` has the board undecided.
+
 **Infinite chess** follows infinitechess.org's "Classical" variant, checked
 against its source (`variantdictionary.ts`, `variant.ts`, `specialdetect.ts`,
 `insufficientmaterial.ts`, `wincondition.ts` and `gamemanager.ts` in
@@ -699,7 +735,9 @@ Events:
   `ply`, `move`, `fen`; a Bughouse board's adds `match` and `board`). A
   Bughouse match: `match.start` (`match`, `boards`, `team_a`/`team_b` as user
   ids, `tc`) and `match.over` (`match`, `result` as the team or `*`,
-  `termination`, `board`).
+  `termination`, `board`). LorFish in its seats: `bot.failed` (`error`:
+  `game`, `err`), `bot.bad_move` (`error`: `game`, `move`, `fen`) and
+  `bot.worker_failed` (`error`: `err`).
 - **Background and data:** `db.migrated` (`added=<table>.<column>` or
   `backfilled=<table>.<column>`), `db.case_duplicates` (`warn`, `names`),
   `chat.retention` (`removed`, `days`) and `chat.retention_failed` (`error`),
@@ -806,7 +844,8 @@ Design notes:
 ## AI games: client-side Web Worker
 
 LorFish's search is synchronous and blocks whatever thread runs it. It runs in
-`public/js/engineWorker.js`, so the page never freezes. (The original UI hid the
+`public/js/engineWorker.js`, so the page never freezes. (The one exception is
+a Bughouse seat, which the server plays: see "LorFish in Bughouse seats".) (The original UI hid the
 freeze behind a `setTimeout` paint hack and a "scanner" sound; neither is
 needed.) The worker `importScripts` both engines and both LorFishes,
 receives `{ id, startFen, variant, moves, depth, temperature }` — the moves as
