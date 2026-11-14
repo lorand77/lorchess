@@ -530,7 +530,8 @@ written from these rules.
 (support.chess.com, "4 Player Chess"), in its own engine,
 `src/shared/fourPlayer.js`, since four colours, two teams and a turn that
 comes round in four are more than chess.js with more squares. So far it is
-the engine alone: no catalogue entry, no room, no page.
+the engine and its board view (see "The board is a view"): no catalogue
+entry, no room, no page.
 
 - *The board* is 14x14 with its 3x3 corners cut away, 160 squares numbered
   `y * 14 + x` (files a–n, ranks 1–14). Red sits at the bottom, Blue on the
@@ -572,6 +573,9 @@ the engine alone: no catalogue entry, no room, no page.
 - *Checked by*: perft from the start, 20, 395, 7800 and 152050. 395 rather
   than 400 because Red's f-pawn opening the g1 queen's diagonal pins Blue's
   b6 pawn to the king on a7, and d4 stops Blue's b4 from stepping twice.
+- *Square colours*: light on the right for Red and Yellow (k1 and d14 are
+  light), as in ordinary chess. A quarter turn of a board of even size swaps
+  the colours, so Blue's and Green's right-hand corners are dark.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,
@@ -1328,6 +1332,24 @@ the hint dots are asked for lazily: the view calls `hints.get("x,y")` for each
 square it draws, and `ui.js` answers with one `findMove` — so a slider's dots
 run along its rays as far as the window goes. A pawn reaching its last rank
 opens the usual promotion dialog. There are no premoves yet.
+
+Four-player chess's view is `public/js/fourBoardView.js`, the 14x14 cross,
+not yet on any page. Its `data-sq` are the engine's square numbers (0–195),
+so `boardDrag.js` and `boardArrows.js` work on it as on the grid; both now
+measure a square rather than assume eight across. The 3x3 corners are empty
+cells, not squares, so nothing lands or is drawn there. Instead of `flip`,
+`render` takes `bottom`, the colour whose army sits at the bottom: each of
+the four sees the board from their own side, as on chess.com, and the
+coordinates along the cross's edges follow the turn (files along the bottom
+for Red and Yellow, ranks for Blue and Green). `check` may be a set, since
+one move can check both opponents. The pieces in four colours are the
+ordinary white images under an SVG colour filter (`feColorMatrix`, white
+times the colour; the black outline stays black), the filters put in the
+page once by the view: no new artwork, and a user's own uploaded white
+pieces are tinted the same way. The colours are close to chess.com's, exported as
+`FourBoardView.COLOURS` for names and clocks. Tested in Chromium on its own
+page (`test/browser/fourBoard.test.cjs`), the tints by painting white and
+black through each filter.
 
 Elsewhere: the replay page uses the same view, read-only, without arrows
 (they are drawn on numbered 8x8 squares); the lobby's live-game thumbnail

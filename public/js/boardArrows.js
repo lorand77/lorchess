@@ -19,14 +19,16 @@
 // squares at draw time, so a flipped board needs nothing special.
 //
 // Host board requirements (as for boardDrag.js):
-//   - squares are `.square` elements inside the container, with `data-sq="<0-63>"`
+//   - squares are `.square` elements inside the container, with `data-sq` the
+//     square's number (0-63, or the four-player board's 0-195)
 //   - a piece is an <img> directly inside its square (img.ghost is ignored)
 
 window.BoardArrows = (function () {
   const NS = "http://www.w3.org/2000/svg";
   // Lichess's brushes.
   const BRUSHES = { green: "#15781b", red: "#882020", blue: "#003088", yellow: "#e68f00" };
-  // Geometry in squares (the overlay is 8 × 8 units).
+  // Geometry in squares (the overlay is one unit a square: 8 × 8, or 14 × 14
+  // on a four-player board).
   const LINE = 0.16;        // arrow shaft width
   const HEAD_LEN = 0.42;
   const HEAD_HALF = 0.26;   // half the arrowhead's width
@@ -142,6 +144,10 @@ window.BoardArrows = (function () {
       }
       position = now;
       if (svg.parentNode !== boardEl) boardEl.appendChild(svg);
+      // As many units across as the board has squares.
+      const one = boardEl.querySelector(".square");
+      const n = one && one.offsetWidth ? Math.round(boardEl.clientWidth / one.offsetWidth) : 8;
+      if (svg.getAttribute("viewBox") !== `0 0 ${n} ${n}`) svg.setAttribute("viewBox", `0 0 ${n} ${n}`);
       draw();
     }
 

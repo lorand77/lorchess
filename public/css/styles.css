@@ -178,6 +178,22 @@ body {
   border-radius: 4px; font-size: 16px; line-height: 1;
   background: rgba(0, 0, 0, 0.55); color: #fff;
 }
+/* Four-player chess (fourBoardView.js): a 14x14 grid whose 3x3 corners are
+   empty cells, so the page shows through them and the cross has no frame. */
+.board.four {
+  grid-template-columns: repeat(14, 1fr);
+  grid-template-rows: repeat(14, 1fr);
+  --sq: calc(var(--board) / 14);
+  border: none;
+}
+.board.four .void { pointer-events: none; }
+/* The four colours: the white piece images, tinted by the filters the view
+   puts in the page. */
+.four-tints { position: absolute; width: 0; height: 0; overflow: hidden; }
+.four-r { filter: url(#four-tint-r); }
+.four-b { filter: url(#four-tint-b); }
+.four-y { filter: url(#four-tint-y); }
+.four-g { filter: url(#four-tint-g); }
 /* Antichess: the pieces that can make the compulsory capture (ui.js captureHint). */
 .square.must-capture { box-shadow: inset 0 0 0 4px var(--orange); }
 /* Bughouse tables, listed with the open challenges: a row whose second line

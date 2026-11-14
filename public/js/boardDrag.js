@@ -17,7 +17,8 @@
 // image is a clone parented to <body>, which no re-render can touch.
 //
 // Host board requirements:
-//   - squares are `.square` elements inside the container, with `data-sq="<0-63>"`
+//   - squares are `.square` elements inside the container, with `data-sq` the
+//     square's number (0-63, or the four-player board's 0-195)
 //   - a piece is an `img.piece` inside its square
 //
 // Handlers:
@@ -85,7 +86,11 @@ window.BoardDrag = (function () {
       return Number.isInteger(n) ? n : null;
     }
 
-    const squareSize = () => boardEl.getBoundingClientRect().width / 8;
+    // Measured, not the board's width over 8: a four-player board is 14 across.
+    const squareSize = () => {
+      const sq = boardEl.querySelector(".square");
+      return sq ? sq.getBoundingClientRect().width : boardEl.getBoundingClientRect().width / 8;
+    };
 
     function onPointerDown(e) {
       // Any new press invalidates a pending click suppression. Dropping outside
