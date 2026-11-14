@@ -536,9 +536,9 @@ written from these rules.
 **Four-player chess** (Teams) follows chess.com's rules
 (support.chess.com, "4 Player Chess"), in its own engine,
 `src/shared/fourPlayer.js`, since four colours, two teams and a turn that
-comes round in four are more than chess.js with more squares. So far it is
-the engine, its board view (see "The board is a view"), the server's game
-(below) and seating at a lobby table (see "Tables"), but no game page yet. In
+comes round in four are more than chess.js with more squares. It has its
+board view (see "The board is a view"), the server's game and its own game
+page (below), and is seated at a lobby table (see "Tables"). In
 the catalogue it is `fourplayer`: a team game (`teams`), casual, no move or
 material badges, no `bot` and no `seatBots` (LorFish doesn't play it yet, so
 a table waits for four people), its start the engine's FEN4 (a test holds
@@ -618,6 +618,37 @@ them together). Its win badge is `fourplayer_wins`, "Four Corners".
     under live games, whose rows and previews are for two players.
   - A restart rebuilds the room from its moves and the seats' clocks
     (`rooms.loadFourRoomFromDb`), like any game.
+  - `GET /api/games/:id` lets any of the four seats read a game still in
+    progress, and carries the `seats` (each colour's id and name).
+- *The game page* is its own, `public/four.html` with `public/js/fourGame.js`,
+  not a mode of `ui.js`: that page's names, clocks, PGN, captured material,
+  undo, AI games, draws, rematches and review are all for two players, and
+  the four-player page needs none of them. `game.html` sends a four-player
+  game there, to play (`four.html?id=`, from the game's record) or to watch
+  (`four.html?watch=`, from the watch reply), so every link into a game —
+  the lobby, history, friends, the resume banner — works unchanged.
+  - The page uses the server's events as `ui.js` does (`game:join` or
+    `game:watch`, `move:make`, `move:made`, `clock:started`, `game:over`,
+    `game:resign`, `chat:send`). A move is drawn only when `move:made` comes
+    back, for the mover too. Its own engine, replayed from the start position
+    and the moves, says whose turn it is, where a piece may go and who is in
+    check. A `move:made` out of step with it brings a fresh `game:join`.
+  - Each player sees the board from their own side (`bottom`), a spectator
+    from Red's. The four plates sit in the board's empty 3x3 corners, each by
+    its player's king, on their right as they face the board: name (a profile
+    link), "(you)" or "(partner)", and a clock, edged in the player's colour
+    and lit while it is their move.
+  - The turn line says whose move it is, and whether it is yours, your
+    partner's, or an opponent's; until all four are in, that the game is
+    waiting for them. The status line names everyone in check ("Check: Blue
+    and Green"), or "Check!" when it is you. The result names the winning
+    team and how, the checkmated colour read from the board, and tells a
+    player whether their team won.
+  - A pawn reaching its 11th rank opens the promotion dialog, its pieces in
+    the player's colour. Moves are by click or drag, on your turn only: no
+    premoves. The move list has a line a round, Red's move first. Chat is
+    one conversation for all four players, the spectators' kept apart; the
+    sounds are the game page's.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,
@@ -1389,7 +1420,7 @@ run along its rays as far as the window goes. A pawn reaching its last rank
 opens the usual promotion dialog. There are no premoves yet.
 
 Four-player chess's view is `public/js/fourBoardView.js`, the 14x14 cross,
-not yet on any page. Its `data-sq` are the engine's square numbers (0–195),
+on the four-player game page (`four.html`). Its `data-sq` are the engine's square numbers (0–195),
 so `boardDrag.js` and `boardArrows.js` work on it as on the grid; both now
 measure a square rather than assume eight across. The 3x3 corners are empty
 cells, not squares, so nothing lands or is drawn there. Instead of `flip`,

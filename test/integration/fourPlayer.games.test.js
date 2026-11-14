@@ -173,6 +173,14 @@ describe("a four-player game", () => {
     assert.ok(seatRows(g.gameId).every((s) => Number.isInteger(s.clock_ms)), "every seat's clock written");
   });
 
+  test("its record is its four players' while it lasts, with the seats", async () => {
+    const yellow = await users[2].c.get(`/api/games/${g.gameId}`);
+    assert.equal(yellow.status, 200);
+    assert.equal(yellow.body.variant, "fourplayer");
+    assert.deepEqual(yellow.body.seats, Object.fromEntries(COLORS.map((c, i) => [c, { id: users[i].user.id, username: users[i].user.username }])));
+    assert.equal((await outsider.c.get(`/api/games/${g.gameId}`)).status, 403);
+  });
+
   test("anything but a legal move of the right shape is refused", async () => {
     const bad = [
       { from: sq("g13"), to: sq("g13") },

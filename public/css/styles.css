@@ -187,6 +187,47 @@ body {
   border: none;
 }
 .board.four .void { pointer-events: none; }
+/* The four-player game page (four.html): each player's plate in one of the
+   board's empty 3x3 corners, edged in their colour (--seat, set per plate). */
+.four-wrap .four-plate {
+  position: absolute;
+  width: calc(var(--board) * 3 / 14 - 10px);
+  height: calc(var(--board) * 3 / 14 - 10px);
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 2px solid var(--seat, var(--border));
+  border-radius: 6px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 13px;
+  overflow: hidden;
+}
+.four-wrap .four-plate:empty { display: none; }
+.four-plate.to-move { box-shadow: 0 0 0 3px var(--seat); }
+#plate-br { right: 5px; bottom: 5px; }
+#plate-bl { left: 5px; bottom: 5px; }
+#plate-tl { left: 5px; top: 5px; }
+#plate-tr { right: 5px; top: 5px; }
+.four-who { overflow-wrap: anywhere; line-height: 1.3; }
+.four-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--seat);
+}
+.four-plate .clock { align-self: flex-end; font-size: clamp(14px, calc(var(--board) / 30), 22px); }
+.four-moves {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 6px 8px;
+  background: var(--sunken);
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre;
+}
 /* The four colours: the white piece images, tinted by the filters the view
    puts in the page. */
 .four-tints { position: absolute; width: 0; height: 0; overflow: hidden; }

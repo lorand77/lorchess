@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four-Player Chess · LorChess</title>
+<link rel="stylesheet" href="/css/styles.css">
+<script src="/js/themeBoot.js"></script>
+</head>
+<body>
+<!-- The game page for four-player chess (fourGame.js). game.html sends a
+     four-player game here, to play (?id=) or to watch (?watch=). -->
+<div class="game">
+  <div class="board-wrap four-wrap">
+    <div class="board" id="board"></div>
+    <!-- One plate per player, in the board's empty corners: each by its
+         player's king, on their right as they face the board. -->
+    <div class="four-plate" id="plate-br"></div>
+    <div class="four-plate" id="plate-bl"></div>
+    <div class="four-plate" id="plate-tl"></div>
+    <div class="four-plate" id="plate-tr"></div>
+    <div class="promo" id="promo">
+      <div class="promo-box">
+        <div>Choose Promotion:</div>
+        <div class="options" id="promoOptions"></div>
+      </div>
+    </div>
+  </div>
+  <div class="info">
+    <div class="userbar" id="userbar"></div>
+    <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
+    <h2>Four-Player Chess</h2>
+    <p class="tc-line" id="tcLine"></p>
+    <p class="small" id="teams"></p>
+    <p id="turn"></p>
+    <p id="status"></p>
+    <p id="pvpNotice" class="check-text"></p>
+    <p id="watchInfo" class="muted small" style="display:none;"></p>
+    <p id="controls" style="display:none;">
+      <button id="resignBtn">Resign</button>
+    </p>
+    <h3>Moves</h3>
+    <div id="history" class="four-moves"></div>
+    <div id="chat" class="chat">
+      <h3 id="chatTitle">Chat</h3>
+      <p id="chatAudience" class="chat-audience"></p>
+      <div id="chatLog" class="chat-log" aria-live="polite"></div>
+      <form id="chatForm" class="chat-form" autocomplete="off">
+        <input id="chatInput" type="text" maxlength="300" placeholder="Say something…">
+        <button type="submit">Send</button>
+      </form>
+      <p id="chatError" class="lobby-error"></p>
+    </div>
+    <p style="color:var(--text-muted); font-size:12px;">Click or drag a piece to move, on your turn. Red and Yellow play Blue and Green; a partner's pieces can't be taken.</p>
+  </div>
+</div>
+
+<script src="/js/shell.js"></script>
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/fourPlayer.js"></script>
+<script src="/js/variants.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/net.js"></script>
+<script src="/js/boardDrag.js"></script>
+<script src="/js/boardArrows.js"></script>
+<script src="/js/fourBoardView.js"></script>
+<script src="/js/achievementToast.js"></script>
+<script src="/js/chatToast.js"></script>
+<script src="/js/fourGame.js"></script>
+</body>
+</html>
