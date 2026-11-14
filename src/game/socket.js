@@ -193,6 +193,7 @@ function attachSockets(httpServer) {
     on("challenge:decline", (p) => lobby.declineChallenge(io, socket, p));
     on("challenge:cancel", (p) => lobby.cancelChallenge(io, socket, p));
     on("bughouse:bots", (payload, ack) => handleBughouseBots(io, socket, payload, ack));
+    on("fourplayer:bots", (payload, ack) => handleFourPlayerBots(io, socket, payload, ack));
     on("table:create", (p) => lobby.createTable(io, socket, p));
     on("table:sit", (p) => lobby.sitAtTable(io, socket, p));
     on("table:leave", () => lobby.leaveTable(io, socket));
@@ -558,10 +559,11 @@ function stateOf(room, color) {
     result: room.result || null,
     termination: room.termination || null,
     // Who plays: White and Black, or a four-player game's seats, each colour's
-    // { id, name, member } in turn order.
+    // { id, name, member, bot } in turn order (bot: LorFish holds it).
     ...(room.four
       ? { seats: Object.fromEntries(room.colors.map((c) => [c, {
         id: room.players[c], name: room.names[c], member: members.has(room.players[c]),
+        bot: !!(room.bots && room.bots[c]),
       }])) }
       : {
         white: room.names.w,
@@ -936,13 +938,28 @@ function handleBughouseBots(io, socket, payload, ack) {
   reply(ack, { ok: true, matchId, gameId: boards[0] });
 }
 
-// ---- LorFish in Bughouse seats ----
+// A four-player game against LorFish: the player as Red, LorFish their
+// partner as Yellow, and two more LorFish as Blue and Green, at a time control
+// and a LorFish level from the allowlists.
+function handleFourPlayerBots(io, socket, payload, ack) {
+  if (rooms.liveGameOf(socket.userId)) return reply(ack, { ok: false, error: "Finish your current game first." });
+  const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
+  const level = resolveAiLevel(payload && payload.level);
+  const ai = queries.getUserByUsername.get(config.AI_USERNAME);
+  const bot = { userId: ai.id, username: ai.username };
+  const me = { userId: socket.userId, username: socket.username };
+  const gameId = matchmaking.startFourPlayer(io, { r: me, b: bot, y: bot, g: bot },
+    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: level });
+  reply(ack, { ok: true, gameId });
+}
+
+// ---- LorFish in Bughouse and four-player seats ----
 // A seat held by the reserved LorFish account (room.bots) is played by the
 // server: whenever it is that seat's turn and the clock runs, the position goes
 // to a worker thread (bots.js) and the move that comes back is played through
 // playMove like anyone's. A bot is always present, so no absence clock ever
-// runs against it. With no move it waits, as a player would, until a piece
-// arrives from the other board (playMove calls back here). Its clock runs
+// runs against it. With no move (Bughouse) it waits, as a player would, until
+// a piece arrives from the other board (playMove calls back here). Its clock runs
 // while it thinks. The position can't change under it meanwhile — it is its
 // turn, and pockets only fill — but the game can end, and then the answer is
 // dropped.

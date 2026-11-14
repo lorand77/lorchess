@@ -231,18 +231,20 @@ function startBughouse(io, { teamA, teamB }, opts) {
   return { matchId, boards };
 }
 
-// Start a four-player game (Teams) between four connected people, `seats`
-// mapping each colour to { userId, username }: Red and Yellow against Blue
-// and Green. One room, casual; each player is sent their colour and the
+// Start a four-player game (Teams), `seats` mapping each colour to
+// { userId, username }: Red and Yellow against Blue and Green. A seat may be
+// LorFish (its account's id and name), played by the server at
+// `opts.botLevel`. One room, casual; each person is sent their colour and the
 // others' names. The start hooks run once with all four user ids, so the
 // lobby withdraws everyone's offers and socket.js starts the absence clock
-// against every seat. Returns the game id.
+// against every seat a person holds. Returns the game id.
 function startFourPlayer(io, seats, opts) {
   const tc = resolveTimeControl(DEFAULT_TC);
   const initialMs = opts && opts.initialMs != null ? opts.initialMs : tc.initialMs;
   const incrementMs = opts && opts.incrementMs != null ? opts.incrementMs : tc.incrementMs;
   const each = (fn) => Object.fromEntries(FourPlayer.COLORS.map((c) => [c, fn(seats[c])]));
-  const gameId = fourGames.createGame({ seats: each((s) => s.userId), initialMs, incrementMs });
+  const botLevel = opts && opts.botLevel;
+  const gameId = fourGames.createGame({ seats: each((s) => s.userId), initialMs, incrementMs, botLevel });
   rooms.createRoom(gameId, {
     seats: each((s) => s.userId),
     seatNames: each((s) => s.username),
@@ -251,6 +253,7 @@ function startFourPlayer(io, seats, opts) {
     initialMs,
     incrementMs,
     rated: false,
+    botLevel,
   });
   const ids = FourPlayer.COLORS.map((c) => seats[c].userId);
   for (const id of ids) leaveUser(id);

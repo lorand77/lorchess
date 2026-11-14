@@ -289,13 +289,23 @@ const FourPlayer = (function () {
     // game drawn by a rule isn't also read as a side with nothing to play.
     movesAsIfOn() {
       const c = this.turn;
-      return this.pseudoMoves(c).filter((m) => {
-        if (m.capture && !m.enpassant && this.squares[m.to].t === 'k') return true;
-        this.makeMove(m, false);
-        const safe = !this.inCheck(c);
-        this.undoMove();
-        return safe;
-      });
+      return this.pseudoMoves(c).filter((m) => this.keepsKingSafe(m, c));
+    }
+
+    // The legal captures alone, for a search that looks at nothing else: the
+    // legality test, the costly part, is run on the captures only.
+    legalCaptures() {
+      if (this.isOver()) return [];
+      const c = this.turn;
+      return this.pseudoMoves(c).filter((m) => m.capture && this.keepsKingSafe(m, c));
+    }
+
+    keepsKingSafe(m, c) {
+      if (m.capture && !m.enpassant && this.squares[m.to].t === 'k') return true;
+      this.makeMove(m, false);
+      const safe = !this.inCheck(c);
+      this.undoMove();
+      return safe;
     }
 
     // The legal move from `from` to `to` (square numbers or names), promoting
@@ -546,7 +556,7 @@ const FourPlayer = (function () {
     }
   }
 
-  Object.assign(FourPlayer, { COLORS, NAMES, PROMOTIONS, FIFTY_MOVE_PLIES, onBoard, sqOf, nameOf, squareOf, rotate });
+  Object.assign(FourPlayer, { COLORS, NAMES, PROMOTIONS, FIFTY_MOVE_PLIES, onBoard, sqOf, nameOf, squareOf, rotate, frameOf });
   return FourPlayer;
 })();
 

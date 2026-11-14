@@ -133,7 +133,7 @@ describe("variant catalogue", () => {
   test("LorFish plays every two-player variant as an AI game; Bughouse seats are the server's", () => {
     for (const v of VARIANTS) assert.equal(hasBot(v.key), !v.teams, v.key);
     assert.equal(hasBot("nope"), true, "unknown means standard");
-    for (const v of VARIANTS) assert.equal(hasSeatBots(v.key), v.key === "bughouse", v.key);
+    for (const v of VARIANTS) assert.equal(hasSeatBots(v.key), !!v.teams, v.key);
     assert.equal(hasSeatBots("nope"), false);
   });
 

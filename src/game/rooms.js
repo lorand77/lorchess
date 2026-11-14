@@ -105,20 +105,21 @@ function createRoom(
     matchId: matchId || null,
     board: matchId ? board : null,
     boardIds: matchId ? boardIds : null,
-    // Bughouse seats LorFish holds, played by the server (socket.js botTurn),
+    // The Bughouse or four-player seats LorFish holds, played by the server (socket.js botTurn),
     // at its level; null when it holds none. A bot is always there: seated
     // from the start, and online, so no absence clock ever runs against it.
     bots: null,
     botLevel: null,
     botThinking: false,
   };
-  if (matchId) {
+  // LorFish's seats: a Bughouse board's, or a four-player game's.
+  if (matchId || four) {
     const ai = aiUserId();
-    const held = { w: whiteId === ai, b: blackId === ai };
-    if (held.w || held.b) {
+    const held = each((c) => room.players[c] === ai);
+    if (colors.some((c) => held[c])) {
       room.bots = held;
       room.botLevel = botLevel || null;
-      for (const c of ["w", "b"]) {
+      for (const c of colors) {
         if (!held[c]) continue;
         room.everJoined[c] = true;
         room.online[c].add("lorfish");
@@ -332,6 +333,7 @@ function loadFourRoomFromDb(game) {
     rated: false,
     variant: game.variant,
     rehydrated: true,
+    botLevel: game.ai_level,
   });
   for (const m of queries.getMovesForGame.all(game.id)) {
     const mv = room.chess.moveFromText(m.uci);

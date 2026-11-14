@@ -152,7 +152,7 @@ describe("a four-player game", () => {
     const s = joined.state;
     assert.deepEqual([s.yourColor, s.turn, s.variant, s.rated, s.fen], ["g", "r", "fourplayer", false, new FourPlayer().fen()]);
     assert.deepEqual(Object.keys(s.seats), COLORS);
-    assert.deepEqual(s.seats.y, { id: users[2].user.id, name: users[2].user.username, member: false });
+    assert.deepEqual(s.seats.y, { id: users[2].user.id, name: users[2].user.username, member: false, bot: false });
     assert.equal(s.white, undefined);
   });
 
@@ -341,15 +341,16 @@ describe("a seat, looked at from outside", () => {
   });
 });
 
-describe("four-player games are built from four different people", () => {
+describe("four-player games are built from four different people, or LorFish", () => {
   test("anything else is refused before a game is stored", () => {
     const seat = (i) => ({ userId: users[i].user.id, username: users[i].user.username });
     const count = () => db().prepare("SELECT COUNT(*) AS n FROM games").get().n;
     const n = count();
     assert.throws(() => matchmaking.startFourPlayer(srv.io, { r: seat(0), b: seat(1), y: seat(0), g: seat(3) }), /four different/);
-    const lorfish = db().prepare("SELECT id, username FROM users WHERE username = ?").get(require("../../src/config").AI_USERNAME);
-    assert.throws(() => matchmaking.startFourPlayer(srv.io,
-      { r: seat(0), b: seat(1), y: seat(2), g: { userId: lorfish.id, username: lorfish.username } }), /four different/);
+    const row = db().prepare("SELECT id, username FROM users WHERE username = ?").get(require("../../src/config").AI_USERNAME);
+    const lorfish = { userId: row.id, username: row.username };
+    assert.throws(() => matchmaking.startFourPlayer(srv.io, { r: lorfish, b: lorfish, y: lorfish, g: lorfish }), /four different/,
+      "LorFish alone");
     assert.equal(count(), n);
   });
 });

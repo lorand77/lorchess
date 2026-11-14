@@ -6,7 +6,9 @@
 // time each has left. The games row's two-player columns stay out of it:
 // white_id and black_id are NULL, and `turn` holds the team to move ('w' for
 // Red and Yellow, 'b' for Blue and Green), as `result` holds the team's.
-// Always casual.
+// LorFish may hold any of the seats but all four, played by the server at the
+// level kept on the row (games.ai_level), so a restart knows it. Always
+// casual.
 //
 // The live game (moves, clocks, the four players coming and going) is the
 // room's business (rooms.js, socket.js); this is only what it reads and writes.
@@ -19,17 +21,19 @@ const { FourPlayer } = require("../shared/fourPlayer");
 const VARIANT = "fourplayer";
 const START = new FourPlayer().fen();
 
-// A new game: `seats` maps each colour to a user id, four different people.
-// LorFish can't take a seat until it plays four-player chess. Returns the
-// game id.
-const createGame = db.transaction(({ seats, initialMs, incrementMs }) => {
+// A new game: `seats` maps each colour to a user id. The reserved LorFish
+// account may hold any number of seats short of four, at `botLevel`; every
+// other player sits once. Returns the game id.
+const createGame = db.transaction(({ seats, initialMs, incrementMs, botLevel }) => {
   const ids = FourPlayer.COLORS.map((c) => seats && seats[c]);
   const ai = queries.getUserByUsername.get(config.AI_USERNAME).id;
-  if (!ids.every(Number.isInteger) || new Set(ids).size !== 4 || ids.includes(ai)) {
-    throw new Error("A four-player game needs four different players");
+  const people = ids.filter((id) => id !== ai);
+  if (!ids.every(Number.isInteger) || new Set(people).size !== people.length || !people.length) {
+    throw new Error("A four-player game needs four different players, or LorFish in some seats");
   }
+  const bot = people.length < 4;
   const info = queries.createGame.run(
-    null, null, "pvp", null, null, null, START, START, FourPlayer.sideOf("r"),
+    null, null, "pvp", null, null, bot ? botLevel || null : null, START, START, FourPlayer.sideOf("r"),
     initialMs, incrementMs, 0, VARIANT
   );
   const gameId = Number(info.lastInsertRowid);

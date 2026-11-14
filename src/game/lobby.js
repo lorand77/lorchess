@@ -508,9 +508,9 @@ function cancelChallenge(io, socket, payload) {
 // g, Red and Yellow one team. Whoever opens a table sits in its first seat
 // and hosts it; anyone else picks a seat, and sitting in the host's team is
 // how a friend partners you. The fourth person to sit starts the game. Where
-// LorFish can take a seat (hasSeatBots: Bughouse), the host may start it
-// sooner, LorFish in the empty seats at the table's level; elsewhere a table
-// waits for four people. A player holds one seat anywhere (sitting elsewhere
+// LorFish can take a seat (hasSeatBots: both team games), the host may start
+// it sooner, LorFish in the empty seats at the table's level; elsewhere a
+// table waits for four people. A player holds one seat anywhere (sitting elsewhere
 // gives up the old one), loses it on going offline or starting another game,
 // and a table closes when its host leaves it. Like seeks, nothing here
 // outlives a restart.
@@ -585,7 +585,7 @@ function leaveTable(io, socket) {
   if (leaveSeat(socket.userId)) broadcastState(io);
 }
 
-// Only where LorFish can fill the empty seats; a four-player table waits for four.
+// Only where LorFish can fill the empty seats.
 function startTableNow(io, socket, payload) {
   const table = tables.get(payload && payload.id);
   if (!table || table.hostId !== socket.userId || !hasSeatBots(table.variant)) return;
@@ -613,7 +613,7 @@ function startTable(io, table) {
   const tc = resolveTimeControl(table.tc);
   if (table.variant === "fourplayer") {
     const seats = Object.fromEntries(seatsAt(table).map((s) => [s, sit(s)]));
-    matchmaking.startFourPlayer(io, seats, { initialMs: tc.initialMs, incrementMs: tc.incrementMs });
+    matchmaking.startFourPlayer(io, seats, { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: table.level });
     return;
   }
   matchmaking.startBughouse(io, { teamA: [sit("A0"), sit("A1")], teamB: [sit("B0"), sit("B1")] },

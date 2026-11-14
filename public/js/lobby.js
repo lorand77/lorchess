@@ -110,10 +110,10 @@ for (const level of AI_LEVELS) {
 
 // The variants LorFish plays, from the catalogue. The levels' ratings were
 // measured in standard chess, so in any other variant they go by name alone.
-// A team game whose seats LorFish can take (Bughouse) is here too, as a match
-// rather than an AI game: you and LorFish against two more LorFish, timed,
-// which the server starts and plays (bughouse:bots) instead of the game
-// page's own worker.
+// A team game whose seats LorFish can take (Bughouse, four-player chess) is
+// here too, as a match rather than an AI game: you and LorFish against two
+// more LorFish, timed, which the server starts and plays (bughouse:bots,
+// fourplayer:bots) instead of the game page's own worker.
 const aiVariantSelect = document.getElementById("aiVariantSelect");
 for (const v of VARIANTS.filter((v) => v.bot || hasSeatBots(v.key))) {
   aiVariantSelect.add(new Option(v.label, v.key, v.key === "standard", v.key === "standard"));
@@ -125,9 +125,10 @@ function renderAiVariant() {
   const team = isTeamGame(aiVariantSelect.value);
   document.getElementById("aiColorField").style.display = team ? "none" : "";
   document.getElementById("aiClockField").style.display = team ? "" : "none";
-  document.getElementById("aiNote").textContent = team
-    ? "You and LorFish against two more LorFish, on two boards. Timed and casual."
-    : "Untimed and unrated.";
+  document.getElementById("aiNote").textContent = !team ? "Untimed and unrated."
+    : aiVariantSelect.value === "fourplayer"
+      ? "You as Red, LorFish your partner as Yellow, against two more LorFish. Timed and casual."
+      : "You and LorFish against two more LorFish, on two boards. Timed and casual.";
 }
 aiVariantSelect.addEventListener("change", renderAiVariant);
 document.querySelector("#aiPanel form").addEventListener("submit", (e) => {
@@ -135,8 +136,9 @@ document.querySelector("#aiPanel form").addEventListener("submit", (e) => {
   e.preventDefault();
   const errEl = document.getElementById("aiError");
   errEl.textContent = "";
-  socket.emit("bughouse:bots", { tc: aiClockSelect.value, level: aiLevelSelect.value }, (resp) => {
-    if (!resp || !resp.ok) errEl.textContent = (resp && resp.error) || "Could not start the match.";
+  const event = aiVariantSelect.value === "fourplayer" ? "fourplayer:bots" : "bughouse:bots";
+  socket.emit(event, { tc: aiClockSelect.value, level: aiLevelSelect.value }, (resp) => {
+    if (!resp || !resp.ok) errEl.textContent = (resp && resp.error) || "Could not start the game.";
   });
 });
 
@@ -632,10 +634,10 @@ async function loadTrainCard() {
 }
 
 // --- tables ---
-// A team game picked in the Play panel opens a table (for Bughouse, the
-// Play-the-computer panel starts a match with LorFish at once, above). Open
-// tables are listed with the open challenges (renderTables): people pick
-// seats, and the fourth to sit starts the game; at a Bughouse table the host
+// A team game picked in the Play panel opens a table (the Play-the-computer
+// panel starts one with LorFish at once, above). Open tables are listed with
+// the open challenges (renderTables): people pick seats, and the fourth to
+// sit starts the game; where LorFish can take a seat (hasSeatBots) the host
 // may start it sooner, LorFish in the empty seats. Either way game:start
 // (below) takes everyone to their board.
 document.getElementById("tableOpenBtn").addEventListener("click", () => {

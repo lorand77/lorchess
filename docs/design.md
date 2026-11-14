@@ -241,20 +241,21 @@ owners' sockets. A Bughouse table's seats are named by team and board — A0 is
 White on board 1 and A1 Black on board 2 (team A), B0 and B1 the other two —
 and a four-player table's are the colours, `r`, `b`, `y` and `g`. Whoever
 opens a table sits in its first seat (A0, or Red) and hosts it, choosing the
-clock and, at a Bughouse table, the level LorFish plays any empty seat at. Anyone else picks a seat; sitting in the
+clock and the level LorFish plays any empty seat at. Anyone else picks a seat; sitting in the
 host's team is how a friend partners you. A player holds one seat anywhere,
 sitting elsewhere gives up the old one (a host may move round their own
 table), and a seat goes when its sitter leaves, goes offline or starts
 another game (`dropOffersFor`). A host leaving closes the table. The fourth
 person to sit starts the game. Where LorFish can take a seat (the catalogue's
-`seatBots`: Bughouse only, until LorFish plays four-player chess), the host
-may start it sooner, LorFish taking the empty seats; a four-player table has
-no level and no "Start now", and waits for four. Either way everyone seated
+`seatBots`: both team games), the host may start it sooner, LorFish taking
+the empty seats; a team game without it would have no level and no "Start
+now", and wait for four. Either way everyone seated
 must still be online and free, or they lose the seat and the host hears why.
 Events: `table:create` (with the `variant`, resolved against the catalogue;
 anything but a team game, as an older page sends, opens a Bughouse table),
 `table:sit`, `table:leave`, `table:start`. "Play the computer" offers the
-team games LorFish can fill (`seatBots`) as a match against LorFish.
+team games LorFish can fill (`seatBots`) as a match against LorFish
+(`bughouse:bots`, `fourplayer:bots`).
 
 On the server a match is two ordinary rooms, one per board, that know each
 other (`matchId`, `board`, `boardIds`), so legality, clocks, premoves, chat
@@ -280,7 +281,8 @@ players their board, colour, opponent and partner. What joins the boards:
 - No draw offers and no rematch yet: a draw would need all four players' word,
   and a rematch a way to gather all four again.
 
-**LorFish in Bughouse seats** is the one place LorFish runs on the server: a
+**LorFish in Bughouse seats** (and four-player seats, the same way: see
+"Four-player chess") is the one place LorFish runs on the server: a
 board between people can't trust a browser to play a seat, and three bots
 need somewhere to run. The reserved `LorFish` account may hold any number of
 a match's seats (a board can be LorFish against LorFish); every other player
@@ -540,9 +542,10 @@ comes round in four are more than chess.js with more squares. It has its
 board view (see "The board is a view"), the server's game and its own game
 page (below), and is seated at a lobby table (see "Tables"). In
 the catalogue it is `fourplayer`: a team game (`teams`), casual, no move or
-material badges, no `bot` and no `seatBots` (LorFish doesn't play it yet, so
-a table waits for four people), its start the engine's FEN4 (a test holds
-them together). Its win badge is `fourplayer_wins`, "Four Corners".
+material badges, no `bot` (it is never an AI game) but `seatBots` (LorFish
+takes a table's empty seats, on the server), its start the engine's FEN4 (a
+test holds them together). Its win badge is `fourplayer_wins`, "Four
+Corners".
 
 - *The board* is 14x14 with its 3x3 corners cut away, 160 squares numbered
   `y * 14 + x` (files a–n, ranks 1–14). Red sits at the bottom, Blue on the
@@ -594,9 +597,15 @@ them together). Its win badge is `fourplayer_wins`, "Four Corners".
     each. The handlers in `socket.js` are the two-player ones, looping over
     the colours where they named White and Black: there is no second set of
     handlers to drift.
-  - `matchmaking.startFourPlayer(io, seats)` creates the game for four
-    connected people and sends each `game:start` with their colour and the
-    four names. LorFish can't take a seat until it plays the game.
+  - `matchmaking.startFourPlayer(io, seats)` creates the game and sends
+    each person `game:start` with their colour and the four names. LorFish
+    may hold any seats but all four, at a level kept on the games row
+    (`games.ai_level`), as in Bughouse: from a table its host starts early,
+    or from "Play the computer" (`fourplayer:bots`: the player as Red,
+    LorFish their partner as Yellow and the two opponents). The server plays
+    its seats (`botTurn`, the worker pool) and the game state marks them
+    (`seats[c].bot`), so the page shows LorFish's name without a profile
+    link.
   - The clocks wait for all four, then run one at a time in turn order, with
     the increment after each move.
   - Moves come as squares, the engine's numbers or names (`e2`), and a
@@ -649,6 +658,44 @@ them together). Its win badge is `fourplayer_wins`, "Four Corners".
     premoves. The move list has a line a round, Red's move first. Chat is
     one conversation for all four players, the spectators' kept apart; the
     sounds are the game page's.
+- *LorFish* plays it with `src/shared/lorfishFour.js`, run in the server's
+  worker pool (`botWorker.js` picks it for a FEN4) at the levels' depths,
+  capped by `BOT_MAX_DEPTH` (2), their temperatures making the difference
+  below that.
+  - In Teams the turn goes one team, then the other, every ply, so to a
+    search it is a two-sided game, and this is LorFish's search: negamax
+    with alpha-beta, mate in plies from the root, repetition as a draw,
+    killer moves, the pruned root, the jitter, and `LorFish.sample` for a
+    temperature. Scores are from the side to move's team's point of view.
+  - *The capture search* is where four players differ. Two plies from Red
+    reach only Blue's reply, so a piece Red leaves where Green can take it
+    would look safe; and ordinary standing pat ends the line before Green
+    moves. Here standing pat is passing the turn on: each player may capture
+    or pass, and the line is scored only once all four have passed in a row.
+    In check there is no passing, and no answer is mate. Without this the
+    tests' queen-for-a-pawn guarded by Green, and the mate that comes on
+    Green's own turn, both go unseen.
+  - It is bounded three ways, since every node offers a pass as well as its
+    captures: a depth (6); only captures that can gain (the victim worth at
+    least the capturer, or undefended, a king always), tested by legality on
+    the captures alone (`legalCaptures`); and a node budget (60,000), shared
+    evenly between the root moves so a late one is searched as hard as an
+    early one, past which the position stands as it is. On positions from
+    random play, the worst case, depth 2 took at most about 2 s; from the
+    start, 0.06 s.
+  - *Ends* as the engine decides them: no move left is mate in check (that
+    player's team loses) and stalemate otherwise, on the player's own turn;
+    a king left to be taken is taken, and wins; repetition, the 200-ply rule
+    and bare kings draw.
+  - *The evaluation*: material (pawn 100, knight 300, bishop 350, rook 500,
+    queen 950); each pawn's progress in its own army's frame, more past the
+    middle; knights and bishops towards the middle, where they reach all four
+    armies; and own pawns sheltering each king. Per-square tables are worked
+    out once. A test holds it to the board's symmetry: a position turned a
+    quarter with every colour one seat on scores the same.
+  - Checked against two random movers at depth 2, as Red and Yellow: it won
+    both games by mate, in 23 and 27 plies, at 0.2 s a move on average and
+    1.7 s at most.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,

@@ -1,7 +1,8 @@
 "use strict";
 
 // The server's LorFish: a small pool of worker threads (botWorker.js) that
-// search positions for the Bughouse seats LorFish holds (socket.js botTurn).
+// search positions for the Bughouse and four-player seats LorFish holds
+// (socket.js botTurn).
 // A search can take seconds and the event loop runs every live game, so it is
 // never done on the main thread. Workers start on first use, take one job at
 // a time, and queue the rest; one that dies fails its job and is replaced.

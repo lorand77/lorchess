@@ -78,11 +78,11 @@ const VARIANTS = [
   // Four players on one cross-shaped board, Red and Yellow against Blue and
   // Green (chess.com's Teams rules), in its own engine (fourPlayer.js). Its
   // start is the engine's, in FEN4 (a test holds them together). A team game,
-  // seated at a table of four; LorFish can't take a seat yet, so a table
-  // starts only when four people sit. No 8x8 board for the move badges, no
-  // material badges. Always casual.
+  // seated at a table of four, LorFish taking any seats left empty (played on
+  // the server by lorfishFour.js); not an AI game, so `bot` is off. No 8x8
+  // board for the move badges, no material badges. Always casual.
   { key: 'fourplayer', label: 'Four-Player Chess', standardSetup: false, reviewable: false, rateable: false,
-    materialBadges: false, moveBadges: false, bot: false, teams: true, seatBots: false,
+    materialBadges: false, moveBadges: false, bot: false, teams: true, seatBots: true,
     startFen: 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3,yR,yN,yB,yK,yQ,yB,yN,yR,3/3,yP,yP,yP,yP,yP,yP,yP,yP,3/14/bR,bP,10,gP,gR/bN,bP,10,gP,gN/bB,bP,10,gP,gB/bQ,bP,10,gP,gK/bK,bP,10,gP,gQ/bB,bP,10,gP,gB/bN,bP,10,gP,gN/bR,bP,10,gP,gR/14/3,rP,rP,rP,rP,rP,rP,rP,rP,3/3,rR,rN,rB,rQ,rK,rB,rN,rR,3' },
   // A board with no edges (infinitechess.org's Classical rules), played by its
   // own engine (engines.js). Its start is an ICN position, the same as
@@ -142,7 +142,7 @@ function isTeamGame(name) {
 }
 
 // May LorFish take a team game's empty seats? Then a table can start before
-// four people sit, and "Play the computer" offers the game.
+// four people sit, and "Play the computer" offers the game (both team games).
 function hasSeatBots(name) {
   return !!VARIANTS_BY_KEY.get(resolveVariant(name)).seatBots;
 }

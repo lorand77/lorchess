@@ -193,7 +193,9 @@ function renderPlates() {
     dot.title = NAMES[c];
     who.appendChild(dot);
     const s = seats && seats[c];
-    if (s) {
+    // LorFish has no profile to link to.
+    if (s && s.bot) who.appendChild(document.createTextNode(s.name));
+    else if (s) {
       who.appendChild(playerLink(s.id, s.name, { newTab: true }));
       if (s.member) who.appendChild(memberBadge());
     }

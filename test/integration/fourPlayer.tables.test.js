@@ -1,12 +1,14 @@
 "use strict";
 
 // Four-player tables in the lobby (src/game/lobby.js): a table of the
-// variant's own seats, Red, Blue, Yellow and Green, its host in Red. LorFish
-// can't take a seat, so there is no level and no starting early: the fourth
-// to sit starts the game, everyone in the colour they sat in, on the table's
-// clock. The winning team's players earn the variant's win badge.
+// variant's own seats, Red, Blue, Yellow and Green, its host in Red. Only the
+// host may start it before it is full, LorFish taking the empty seats at the
+// table's level; otherwise the fourth to sit starts the game, everyone in the
+// colour they sat in, on the table's clock. The winning team's players earn
+// the variant's win badge.
 
 process.env.GRACE_MS = "400";
+process.env.BOT_MAX_DEPTH = "1";   // quick LorFish moves
 const { describe, test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const {
@@ -19,7 +21,10 @@ before(async () => {
   srv = await startServer();
   for (const name of ["host", "p1", "p2", "p3"]) users.push(await registerUser(srv.baseUrl, name));
 });
-after(async () => { await srv.close(); });
+after(async () => {
+  await srv.close();
+  await require("../../src/game/bots").shutdown();
+});
 
 // A lobby socket for user i, with the latest lobby:state kept on it.
 async function lobbySocket(i) {
@@ -46,6 +51,19 @@ function stateWhere(s, check, timeoutMs = 3000) {
   });
 }
 const tableOf = (st, hostId) => st.tables.find((t) => t.hostId === hostId);
+// The move:made for one ply, whichever arrives first.
+function moveAt(s, ply, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { s.off("move:made", on); reject(new Error(`no move ${ply}`)); }, timeoutMs);
+    function on(m) {
+      if (m.ply !== ply) return;
+      clearTimeout(timer);
+      s.off("move:made", on);
+      resolve(m);
+    }
+    s.on("move:made", on);
+  });
+}
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 describe("a four-player table", () => {
@@ -53,15 +71,15 @@ describe("a four-player table", () => {
   before(async () => { socks = await Promise.all([0, 1, 2, 3].map(lobbySocket)); });
   after(() => socks.forEach((s) => s.close()));
 
-  test("opens with its host in Red and the other colours free, with no LorFish level", async () => {
+  test("opens with its host in Red and the other colours free, at a LorFish level", async () => {
     socks[0].emit("table:create", { variant: "fourplayer", tc: "5+0", level: "advanced" });
     const t = tableOf(await stateWhere(socks[1], (x) => tableOf(x, id(0))), id(0));
-    assert.deepEqual([t.variant, t.tc, t.level], ["fourplayer", "5+0", null]);
+    assert.deepEqual([t.variant, t.tc, t.level], ["fourplayer", "5+0", "advanced"]);
     assert.deepEqual(Object.keys(t.seats), ["r", "b", "y", "g"]);
     assert.deepEqual([t.seats.r.userId, t.seats.b, t.seats.y, t.seats.g], [id(0), null, null, null]);
   });
 
-  test("takes its own seats only, and its host can't start it short of four", async () => {
+  test("takes its own seats only, and only its host may start it short of four", async () => {
     const t = tableOf(socks[1].state, id(0));
     socks[1].emit("table:sit", { id: t.id, seat: "A1" });   // a Bughouse seat
     socks[1].emit("table:sit", { id: t.id, seat: "y" });    // Red's partner
@@ -69,7 +87,7 @@ describe("a four-player table", () => {
     assert.equal(tableOf(st, id(0)).seats.A1, undefined);
     socks[2].emit("table:sit", { id: t.id, seat: "b" });
     await stateWhere(socks[0], (x) => tableOf(x, id(0)).seats.b);
-    socks[0].emit("table:start", { id: t.id });
+    socks[1].emit("table:start", { id: t.id });
     await pause(200);
     assert.ok(tableOf(socks[0].state, id(0)), "still waiting for Green");
   });
@@ -102,6 +120,35 @@ describe("a four-player table", () => {
     const badge = (i) => db().prepare("SELECT tier FROM user_achievements WHERE user_id = ? AND key = 'fourplayer_wins'").get(id(i));
     assert.ok(badge(0) && badge(1), "Red and Yellow");
     assert.ok(!badge(2) && !badge(3), "not Blue and Green");
+  });
+});
+
+describe("a host who starts early", () => {
+  test("gets LorFish in the empty seats, at the table's level, and LorFish plays them", async () => {
+    const [host, friend] = await Promise.all([0, 1].map(lobbySocket));
+    host.emit("table:create", { variant: "fourplayer", level: "beginner" });
+    const t = tableOf(await stateWhere(friend, (x) => tableOf(x, id(0))), id(0));
+    friend.emit("table:sit", { id: t.id, seat: "b" });   // an opponent, not a partner
+    await stateWhere(host, (x) => tableOf(x, id(0)).seats.b);
+    const starts = [waitFor(host, "game:start"), waitFor(friend, "game:start")];
+    host.emit("table:start", { id: t.id });
+    const [h, f] = await Promise.all(starts);
+    assert.deepEqual([h.color, f.color], ["r", "b"]);
+    assert.deepEqual([h.players.y, h.players.g], ["LorFish", "LorFish"]);
+    const row = db().prepare("SELECT ai_level FROM games WHERE id = ?").get(h.gameId);
+    assert.equal(row.ai_level, "beginner");
+    const joined = await emitAck(host, "game:join", { gameId: h.gameId });
+    assert.deepEqual(Object.values(joined.state.seats).map((s) => s.bot), [false, false, true, true]);
+    await emitAck(friend, "game:join", { gameId: h.gameId });
+    // Red, Blue, then LorFish as Yellow plays by itself.
+    const yellow = moveAt(host, 3);
+    await emitAck(host, "move:make", { gameId: h.gameId, from: "e2", to: "e4" });
+    await emitAck(friend, "move:make", { gameId: h.gameId, from: "b7", to: "c7" });
+    assert.match((await yellow).san, /^[a-n]|^[NBRQK]/, "a move of Yellow's");
+    host.emit("game:resign", { gameId: h.gameId });
+    await waitFor(host, "game:over", 15000);
+    host.close();
+    friend.close();
   });
 });
 
