@@ -4,7 +4,7 @@
 //
 //   2026-10-09T21:14:03.120Z INFO  game.over game=318 result=0-1 termination=resign
 //
-// pm2 collects stdout into ~/.pm2/logs/ and pm2-logrotate keeps 14 days of it
+// pm2 collects stdout into ~/.pm2/logs/ and pm2-logrotate keeps 90 days of it
 // (docs/setup.md). Every level goes to stdout, errors included, so one file
 // holds the whole story in order. The event list and what may never be logged
 // are in docs/design.md under "Logging"; this module only filters, formats and

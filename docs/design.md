@@ -956,8 +956,9 @@ What is never logged, and where personal data may appear:
   `[redacted]` for any field whose name has one of the words `password`,
   `hash`, `secret`, `token`, `session`, `sid`, `cookie` or `authorization`
   (`password_hash`, `sessionID`); the rule is not to pass them.
-- **Lifetime:** pm2 writes the files and `pm2-logrotate` keeps 14 daily files
-  (`setup.md`), so a line lives at most 14 days. Logs are not in the backups:
+- **Lifetime:** pm2 writes the files and `pm2-logrotate` keeps 90 rotated
+  files (`setup.md`). Each covers at most a day (daily, or sooner at 50 MB),
+  so a line lives at most 90 days. Logs are not in the backups:
   `scripts/backup.sh` copies only the database. `public/privacy.html` says
   all of this; change it with anything in this list.
 

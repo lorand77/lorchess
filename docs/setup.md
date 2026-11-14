@@ -156,7 +156,7 @@ Without it pm2's logs grow until the disk is full.
 pm2 install pm2-logrotate
 pm2 set pm2-logrotate:rotateInterval '0 0 * * *'   # rotate daily at midnight
 pm2 set pm2-logrotate:max_size 50M                 # and early if a file reaches 50 MB
-pm2 set pm2-logrotate:retain 14                    # keep 14 rotated files per log
+pm2 set pm2-logrotate:retain 90                    # keep 90 rotated files per log: at most 90 days
 pm2 set pm2-logrotate:compress true                # gzip the rotated files
 
 pm2 conf pm2-logrotate     # check the settings
