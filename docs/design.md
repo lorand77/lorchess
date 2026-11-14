@@ -33,7 +33,7 @@ squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill,
 Three-check and Bughouse rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
-its variant needs. `src/shared/lorfish.js` is **LorFish**, a synchronous search
+its variant needs. Four-player chess has a third, `src/shared/fourPlayer.js`. `src/shared/lorfish.js` is **LorFish**, a synchronous search
 engine ported from a sunfish-derived Python original; its five levels are
 labelled from about 200 to 1800 (see below). It depends tightly on `chess.js`.
 
@@ -526,9 +526,57 @@ written from these rules.
   is read one way round, the side still on time as White; a bare king never
   mates.
 
+**Four-player chess** (Teams) follows chess.com's rules
+(support.chess.com, "4 Player Chess"), in its own engine,
+`src/shared/fourPlayer.js`, since four colours, two teams and a turn that
+comes round in four are more than chess.js with more squares. So far it is
+the engine alone: no catalogue entry, no room, no page.
+
+- *The board* is 14x14 with its 3x3 corners cut away, 160 squares numbered
+  `y * 14 + x` (files a–n, ranks 1–14). Red sits at the bottom, Blue on the
+  left, Yellow at the top, Green on the right; they move in that order,
+  clockwise, and partners sit opposite: Red and Yellow against Blue and Green.
+  Every king starts on its owner's right, the current standard setup (older
+  sources such as Wikibooks show Blue's and Green's on the left).
+- *One set of rules, turned.* Pawn direction, promotion rank, the back rank
+  and castling are written once, for Red, and turned a quarter for each seat
+  after it, so no colour's rules can drift from another's. The tests hold it
+  to that: in random games, a position turned a quarter with its colours moved
+  on one seat has exactly the turned moves.
+- *Partners* can't take each other's pieces, which block like anyone's;
+  check comes only from opponents. A partner's piece covering a square doesn't
+  make castling across it illegal.
+- *Pawns* step twice from their second rank and promote on their 11th (the
+  8th is free-for-all's rule, not Teams'). En passant is as in ordinary chess,
+  on the very next move only, which in Teams is always an opponent's: the
+  sources say nothing either way.
+- *Mate is decided on the mated player's turn*, so in between their partner
+  may still block or take the checking piece. Stalemate draws. A king left
+  where an opponent can take it — in check from one, its partner unable to
+  help, the other next to move — may be taken, and that wins for the taker's
+  team (`king captured`): the move is legal even if it leaves the taker's own
+  king attacked. This is our choice where the rules are silent.
+- *Draws by rule*: threefold repetition, the fifty-move rule counted as fifty
+  moves by each player (200 plies), and dead material only when all four have
+  nothing but their kings. Rule draws are checked before mate or stalemate,
+  and never read as either.
+- *Results* use the stored form every game has: `1-0` for Red and Yellow,
+  `0-1` for Blue and Green.
+- *Notation*: positions are chess.com's FEN4
+  (`R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-…`, ranks 14 to 1, squares
+  comma-separated), and `loadFen` refuses what Teams can't have: eliminated
+  players, points, pieces in the corners, a colour without exactly one king,
+  a pawn already on its promotion rank. Moves are stored as squares and a
+  promotion letter (`e2e4`, `e10e11q`) and shown in chess.com's long form
+  (`e2-e4`, `Ng3xh1`, `e10-e11=Q+`, `O-O`, `#` for mate).
+- *Checked by*: perft from the start, 20, 395, 7800 and 152050. 395 rather
+  than 400 because Red's f-pawn opening the g1 queen's diagonal pins Blue's
+  b6 pawn to the king on a7, and d4 stops Blue's b4 from stepping twice.
+
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,
-which reads and writes stored moves, and `infiniteChess.js` and `engines.js`)
+which reads and writes stored moves, and `infiniteChess.js`, `fourPlayer.js`
+and `engines.js`)
 live **only** in `src/shared/` and load three ways: as a browser `<script>`
 global, via `importScripts` in the engine Web Worker, and as a Node `require`.
 The UMD tail
