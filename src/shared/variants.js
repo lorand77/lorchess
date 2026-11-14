@@ -71,9 +71,19 @@ const VARIANTS = [
   // seeks and challenges — and out of "Jack of All Trades". Each board is its
   // own games row, so it can't be replayed alone (no move badges); pieces
   // change hands (no material badges). LorFish plays its seats on the server,
-  // not as an AI game, so `bot` is off. Always casual.
+  // not as an AI game, so `bot` is off; `seatBots` says it may fill a
+  // table's empty seats. Always casual.
   { key: 'bughouse', label: 'Bughouse', standardSetup: false, reviewable: false, rateable: false,
-    materialBadges: false, moveBadges: false, bot: false, teams: true },
+    materialBadges: false, moveBadges: false, bot: false, teams: true, seatBots: true },
+  // Four players on one cross-shaped board, Red and Yellow against Blue and
+  // Green (chess.com's Teams rules), in its own engine (fourPlayer.js). Its
+  // start is the engine's, in FEN4 (a test holds them together). A team game,
+  // seated at a table of four; LorFish can't take a seat yet, so a table
+  // starts only when four people sit. No 8x8 board for the move badges, no
+  // material badges. Always casual.
+  { key: 'fourplayer', label: 'Four-Player Chess', standardSetup: false, reviewable: false, rateable: false,
+    materialBadges: false, moveBadges: false, bot: false, teams: true, seatBots: false,
+    startFen: 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3,yR,yN,yB,yK,yQ,yB,yN,yR,3/3,yP,yP,yP,yP,yP,yP,yP,yP,3/14/bR,bP,10,gP,gR/bN,bP,10,gP,gN/bB,bP,10,gP,gB/bQ,bP,10,gP,gK/bK,bP,10,gP,gQ/bB,bP,10,gP,gB/bN,bP,10,gP,gN/bR,bP,10,gP,gR/14/3,rP,rP,rP,rP,rP,rP,rP,rP,3/3,rR,rN,rB,rQ,rK,rB,rN,rR,3' },
   // A board with no edges (infinitechess.org's Classical rules), played by its
   // own engine (engines.js). Its start is an ICN position, the same as
   // infiniteChess.js's Classical setup (a test holds them together). Casual
@@ -124,10 +134,17 @@ function hasBot(name) {
   return !!VARIANTS_BY_KEY.get(resolveVariant(name)).bot;
 }
 
-// Played by two teams of two, on two boards (Bughouse), rather than by two
-// players: never offered or matched as a two-player game.
+// Played by two teams of two (Bughouse on two boards, four-player chess on
+// one) rather than by two players: seated at a table of four, never offered
+// or matched as a two-player game.
 function isTeamGame(name) {
   return !!VARIANTS_BY_KEY.get(resolveVariant(name)).teams;
+}
+
+// May LorFish take a team game's empty seats? Then a table can start before
+// four people sit, and "Play the computer" offers the game.
+function hasSeatBots(name) {
+  return !!VARIANTS_BY_KEY.get(resolveVariant(name)).seatBots;
 }
 
 // Where a game of this variant opens: null means the standard setup (or a
@@ -142,6 +159,6 @@ function startOf(name) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
-    hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, startOf,
+    hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, hasSeatBots, startOf,
   };
 }

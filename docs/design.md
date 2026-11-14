@@ -234,20 +234,27 @@ both from a match's moves in the order they were made, and refuses a drop
 that comes before the capture that supplied it. How a match is stored is
 under "Database".
 
-**Tables** (`src/game/lobby.js`) seat four people for a match, the way seeks
-offer a two-player game: in memory, in every lobby's `lobby:state`, dying
-with their owners' sockets. Seats are named by team and board — A0 is White
-on board 1 and A1 Black on board 2 (team A), B0 and B1 the other two — and
-whoever opens a table sits A0 and hosts it, choosing the clock and the level
-LorFish plays any empty seat at. Anyone else picks a seat; sitting in the
+**Tables** (`src/game/lobby.js`) seat four people for a team game (Bughouse
+or four-player chess, the table's `variant`), the way seeks offer a
+two-player game: in memory, in every lobby's `lobby:state`, dying with their
+owners' sockets. A Bughouse table's seats are named by team and board — A0 is
+White on board 1 and A1 Black on board 2 (team A), B0 and B1 the other two —
+and a four-player table's are the colours, `r`, `b`, `y` and `g`. Whoever
+opens a table sits in its first seat (A0, or Red) and hosts it, choosing the
+clock and, at a Bughouse table, the level LorFish plays any empty seat at. Anyone else picks a seat; sitting in the
 host's team is how a friend partners you. A player holds one seat anywhere,
 sitting elsewhere gives up the old one (a host may move round their own
 table), and a seat goes when its sitter leaves, goes offline or starts
 another game (`dropOffersFor`). A host leaving closes the table. The fourth
-person to sit starts the match; the host may start it sooner, LorFish taking
-the empty seats. Either way everyone seated must still be online and free,
-or they lose the seat and the host hears why. Events: `table:create`,
-`table:sit`, `table:leave`, `table:start`.
+person to sit starts the game. Where LorFish can take a seat (the catalogue's
+`seatBots`: Bughouse only, until LorFish plays four-player chess), the host
+may start it sooner, LorFish taking the empty seats; a four-player table has
+no level and no "Start now", and waits for four. Either way everyone seated
+must still be online and free, or they lose the seat and the host hears why.
+Events: `table:create` (with the `variant`, resolved against the catalogue;
+anything but a team game, as an older page sends, opens a Bughouse table),
+`table:sit`, `table:leave`, `table:start`. "Play the computer" offers the
+team games LorFish can fill (`seatBots`) as a match against LorFish.
 
 On the server a match is two ordinary rooms, one per board, that know each
 other (`matchId`, `board`, `boardIds`), so legality, clocks, premoves, chat
@@ -530,10 +537,12 @@ written from these rules.
 (support.chess.com, "4 Player Chess"), in its own engine,
 `src/shared/fourPlayer.js`, since four colours, two teams and a turn that
 comes round in four are more than chess.js with more squares. So far it is
-the engine, its board view (see "The board is a view") and the server's
-game (below): no catalogue entry, no lobby seating, no page. The variant key
-is `fourplayer`, used directly by the server until it joins the catalogue
-with its lobby entry and win badge; nothing a client sends can start one yet.
+the engine, its board view (see "The board is a view"), the server's game
+(below) and seating at a lobby table (see "Tables"), but no game page yet. In
+the catalogue it is `fourplayer`: a team game (`teams`), casual, no move or
+material badges, no `bot` and no `seatBots` (LorFish doesn't play it yet, so
+a table waits for four people), its start the engine's FEN4 (a test holds
+them together). Its win badge is `fourplayer_wins`, "Four Corners".
 
 - *The board* is 14x14 with its 3x3 corners cut away, 160 squares numbered
   `y * 14 + x` (files a–n, ranks 1–14). Red sits at the bottom, Blue on the
@@ -600,8 +609,10 @@ with its lobby entry and win badge; nothing a client sends can start one yet.
     nobody moved in, or that a player never joined, aborts.
   - Casual only, with no draw offers and no rematch: both would need all
     four players' word. The players' chat is shared by all four, and a
-    spectator's is kept apart as in any game. Achievements are not checked:
-    they read a game's white and black.
+    spectator's is kept apart as in any game. Achievements are checked for
+    the four seats, but only the stats run: the game and record feats read
+    a game's white and black. A win is a seat on the winning team
+    (`achievementWinsByVariant`), so the win badge goes to both partners.
   - One game at a time holds for every seat (`liveGameForUser` reads the
     seats). The lobby shows all four as playing, but doesn't list the game
     under live games, whose rows and previews are for two players.

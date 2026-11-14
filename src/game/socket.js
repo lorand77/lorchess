@@ -328,9 +328,7 @@ function concludeGame(io, room, result, termination) {
     ratings,
     clocks,
   });
-  // Four-player games earn nothing yet: the achievements read a game's white
-  // and black, which it hasn't.
-  if (result !== "*" && !room.four) notifyAchievements(room, { resignReactionMs: room.resignReactionMs });
+  if (result !== "*") notifyAchievements(room, { resignReactionMs: room.resignReactionMs });
   rooms.deleteRoom(room.gameId);
   lobby.refresh(io); // both players are free again
   log.info("game.over", { game: room.gameId, result, termination });

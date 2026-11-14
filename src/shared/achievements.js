@@ -71,6 +71,8 @@ const ACHIEVEMENTS = [
     desc: "Win {n} Three-check games.", tiers: [1, 10, 50] },
   { key: "bughouse_wins", name: "Tag Team", icon: "🤝", group: "formats",
     desc: "Win {n} Bughouse games.", tiers: [1, 10, 50] },
+  { key: "fourplayer_wins", name: "Four Corners", icon: "🧭", group: "formats",
+    desc: "Win {n} Four-Player Chess games.", tiers: [1, 10, 50] },
   { key: "infinite_wins", name: "Beyond the Edge", icon: "♾️", group: "formats",
     desc: "Win {n} Infinite Chess games.", tiers: [1, 10, 50] },
   { key: "every_variant", name: "Jack of All Trades", icon: "🃏", group: "formats",

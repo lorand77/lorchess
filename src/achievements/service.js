@@ -496,6 +496,7 @@ function evaluateStats(userId, ref) {
     ["kingofthehill_wins", tierFor("kingofthehill_wins", byVariant.kingofthehill || 0)],
     ["threecheck_wins", tierFor("threecheck_wins", byVariant.threecheck || 0)],
     ["bughouse_wins", tierFor("bughouse_wins", byVariant.bughouse || 0)],
+    ["fourplayer_wins", tierFor("fourplayer_wins", byVariant.fourplayer || 0)],
     ["infinite_wins", tierFor("infinite_wins", byVariant.infinite || 0)],
     // A team game needs three other people: not part of "every variant".
     ["every_variant", VARIANTS.every((v) => v.teams || (byVariant[v.key] || 0) > 0)],
@@ -561,14 +562,20 @@ function onGameFinished(gameId, extra) {
   // Game feats replay the moves on an 8x8 board; a variant whose board isn't
   // one (infinite chess) earns only the feats its record shows, and the stats.
   const analysis = hasMoveBadges(game.variant) ? analyze(game, queries.getMovesForGame.all(gameId)) : null;
-  const humans = [game.white_id, game.black_id].filter((id) => id != null && isHuman(id));
+  // A four-player game's players are its seats; it has no feats of its own,
+  // only the stats (its win badge among them).
+  const four = game.variant === "fourplayer";
+  const players = four
+    ? queries.getSeats.all(gameId).map((s) => s.user_id)
+    : [game.white_id, game.black_id];
+  const humans = players.filter((id) => id != null && isHuman(id));
   for (const uid of humans) {
     const earned = [];
     // A pasted-FEN AI game is whatever the client says it is; only count feats
     // from the standard position or a server-built handicap.
-    if (analysis && (game.mode === "pvp" || analysis.trustedStart)) {
+    if (!four && analysis && (game.mode === "pvp" || analysis.trustedStart)) {
       earned.push(...evaluateGame(uid, game, analysis, extra));
-    } else if (!analysis) {
+    } else if (!four && !analysis) {
       earned.push(...evaluateRecord(uid, game, extra));
     }
     if (!(extra && extra.skipStats)) earned.push(...evaluateStats(uid, { gameId, at: extra && extra.at }));

@@ -8,7 +8,7 @@
 // Two kinds of offer, differing only in who may accept:
 //   seek      — open to the room; the first taker gets the game.
 //   challenge — addressed to one user; only that user may accept.
-// And for Bughouse, which seats four, tables (below).
+// And for the team games, which seat four, tables (below).
 //
 // A player in a live game is out of the market: they may neither offer nor
 // accept, and the moment a match starts both players' other offers are
@@ -28,7 +28,7 @@ const { resolveTimeControl } = require("../shared/timeControls");
 const { Chess } = require("../shared/chess");
 const handicap = require("../shared/handicap");
 const chess960 = require("../shared/chess960");
-const { resolveVariant, variantLabel, usesStandardSetup, isRateable, isTeamGame } = require("../shared/variants");
+const { resolveVariant, variantLabel, usesStandardSetup, isRateable, isTeamGame, hasSeatBots } = require("../shared/variants");
 
 const LOBBY_ROOM = "lobby";
 
@@ -38,7 +38,7 @@ const presence = new Map();
 const seeks = new Map();
 // challengeId -> { id, fromId, fromName, fromRating, toId, toName, tc, rated, color }
 const challenges = new Map();
-// tableId -> { id, hostId, tc, level, seats: { A0, A1, B0, B1 } } (see tables)
+// tableId -> { id, hostId, variant, tc, level, seats: { <seat>: player | null } } (see tables)
 const tables = new Map();
 
 let nextId = 1;
@@ -235,9 +235,10 @@ function snapshot() {
   const open4 = [...tables.values()].map((t) => ({
     id: t.id,
     hostId: t.hostId,
+    variant: t.variant,
     tc: t.tc,
     level: t.level,
-    seats: Object.fromEntries(SEATS.map((s) => [s, seated(t.seats[s])])),
+    seats: Object.fromEntries(seatsAt(t).map((s) => [s, seated(t.seats[s])])),
   }));
   return { players, seeks: open, games, tables: open4 };
 }
@@ -499,22 +500,26 @@ function cancelChallenge(io, socket, payload) {
   pushChallenges(io, c.toId);
 }
 
-// ---- Bughouse tables ----
-// A table seats four for a Bughouse match. Seats are named by team and board:
-// A0 is White on board 0 and A1 Black on board 1 (team A); B0 is Black on
-// board 0 and B1 White on board 1 (team B) — Bughouse.teamOf. Whoever opens a
-// table sits A0 and hosts it; anyone else picks a seat, and sitting in the
-// host's team is how a friend partners you. The fourth person to sit starts
-// the match; the host may start it sooner, LorFish taking the empty seats at
-// the table's level. A player holds one seat anywhere (sitting elsewhere gives
-// up the old one), loses it on going offline or starting another game, and a
-// table closes when its host leaves it. Like seeks, nothing here outlives a
-// restart.
-const SEATS = ["A0", "A1", "B0", "B1"];
+// ---- tables ----
+// A table seats four for a team game: a Bughouse match, or a four-player game.
+// Bughouse seats are named by team and board: A0 is White on board 0 and A1
+// Black on board 1 (team A); B0 is Black on board 0 and B1 White on board 1
+// (team B) — Bughouse.teamOf. Four-player seats are the colours, r, b, y and
+// g, Red and Yellow one team. Whoever opens a table sits in its first seat
+// and hosts it; anyone else picks a seat, and sitting in the host's team is
+// how a friend partners you. The fourth person to sit starts the game. Where
+// LorFish can take a seat (hasSeatBots: Bughouse), the host may start it
+// sooner, LorFish in the empty seats at the table's level; elsewhere a table
+// waits for four people. A player holds one seat anywhere (sitting elsewhere
+// gives up the old one), loses it on going offline or starting another game,
+// and a table closes when its host leaves it. Like seeks, nothing here
+// outlives a restart.
+const SEATS = { bughouse: ["A0", "A1", "B0", "B1"], fourplayer: ["r", "b", "y", "g"] };
+const seatsAt = (table) => SEATS[table.variant];
 
 function seatOf(userId) {
   for (const table of tables.values()) {
-    for (const seat of SEATS) if (table.seats[seat] && table.seats[seat].userId === userId) return { table, seat };
+    for (const seat of seatsAt(table)) if (table.seats[seat] && table.seats[seat].userId === userId) return { table, seat };
   }
   return null;
 }
@@ -538,13 +543,21 @@ function createTable(io, socket, payload) {
   if (rooms.liveGameOf(socket.userId)) {
     return socket.emit("lobby:error", { error: "Finish your current game first." });
   }
+  // A team game from the catalogue; anything else (an old page sends none)
+  // is Bughouse.
+  const asked = resolveVariant(payload && payload.variant);
+  const variant = isTeamGame(asked) ? asked : "bughouse";
   leaveSeat(socket.userId);
+  const seats = Object.fromEntries(SEATS[variant].map((s) => [s, null]));
+  seats[SEATS[variant][0]] = seatFor(socket);
   const table = {
     id: genId(),
     hostId: socket.userId,
+    variant,
     tc: resolveTimeControl(payload && payload.tc).key,
-    level: resolveAiLevel(payload && payload.level),
-    seats: { A0: seatFor(socket), A1: null, B0: null, B1: null },
+    // LorFish's level for the empty seats, where it may take them.
+    level: hasSeatBots(variant) ? resolveAiLevel(payload && payload.level) : null,
+    seats,
   };
   tables.set(table.id, table);
   broadcastState(io);
@@ -554,7 +567,7 @@ function sitAtTable(io, socket, payload) {
   const table = tables.get(payload && payload.id);
   if (!table) return socket.emit("lobby:error", { error: "That table is gone." });
   const seat = payload && payload.seat;
-  if (!SEATS.includes(seat)) return;
+  if (!seatsAt(table).includes(seat)) return;
   if (rooms.liveGameOf(socket.userId)) {
     return socket.emit("lobby:error", { error: "Finish your current game first." });
   }
@@ -564,7 +577,7 @@ function sitAtTable(io, socket, payload) {
   if (at && at.table === table) table.seats[at.seat] = null;
   else if (at) leaveSeat(socket.userId);   // a host sitting elsewhere closes their own table
   table.seats[seat] = seatFor(socket);
-  if (SEATS.every((s) => table.seats[s])) return startTable(io, table);
+  if (seatsAt(table).every((s) => table.seats[s])) return startTable(io, table);
   broadcastState(io);
 }
 
@@ -572,17 +585,18 @@ function leaveTable(io, socket) {
   if (leaveSeat(socket.userId)) broadcastState(io);
 }
 
+// Only where LorFish can fill the empty seats; a four-player table waits for four.
 function startTableNow(io, socket, payload) {
   const table = tables.get(payload && payload.id);
-  if (!table || table.hostId !== socket.userId) return;
+  if (!table || table.hostId !== socket.userId || !hasSeatBots(table.variant)) return;
   startTable(io, table);
 }
 
-// Start the match: every seated player must still be online and free (anyone
+// Start the game: every seated player must still be online and free (anyone
 // who isn't loses their seat, and the host hears why); LorFish takes what is
 // empty.
 function startTable(io, table) {
-  const gone = SEATS.map((s) => table.seats[s]).filter((p) => p && (!socketFor(p.userId) || rooms.liveGameOf(p.userId)));
+  const gone = seatsAt(table).map((s) => table.seats[s]).filter((p) => p && (!socketFor(p.userId) || rooms.liveGameOf(p.userId)));
   if (gone.length) {
     for (const p of gone) leaveSeat(p.userId);
     const host = socketFor(table.hostId);
@@ -597,6 +611,11 @@ function startTable(io, table) {
     ? { userId: table.seats[s].userId, username: table.seats[s].username }
     : { userId: ai.id, username: ai.username });
   const tc = resolveTimeControl(table.tc);
+  if (table.variant === "fourplayer") {
+    const seats = Object.fromEntries(seatsAt(table).map((s) => [s, sit(s)]));
+    matchmaking.startFourPlayer(io, seats, { initialMs: tc.initialMs, incrementMs: tc.incrementMs });
+    return;
+  }
   matchmaking.startBughouse(io, { teamA: [sit("A0"), sit("A1")], teamB: [sit("B0"), sit("B1")] },
     { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: table.level });
 }

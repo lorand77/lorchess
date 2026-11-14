@@ -110,11 +110,12 @@ for (const level of AI_LEVELS) {
 
 // The variants LorFish plays, from the catalogue. The levels' ratings were
 // measured in standard chess, so in any other variant they go by name alone.
-// A team game (Bughouse) is here too, as a match rather than an AI game: you
-// and LorFish against two more LorFish, timed, which the server starts and
-// plays (bughouse:bots) instead of the game page's own worker.
+// A team game whose seats LorFish can take (Bughouse) is here too, as a match
+// rather than an AI game: you and LorFish against two more LorFish, timed,
+// which the server starts and plays (bughouse:bots) instead of the game
+// page's own worker.
 const aiVariantSelect = document.getElementById("aiVariantSelect");
-for (const v of VARIANTS.filter((v) => v.bot || v.teams)) {
+for (const v of VARIANTS.filter((v) => v.bot || hasSeatBots(v.key))) {
   aiVariantSelect.add(new Option(v.label, v.key, v.key === "standard", v.key === "standard"));
 }
 const aiClockSelect = document.getElementById("aiClockSelect");
@@ -173,9 +174,10 @@ for (const level of AI_LEVELS) {
 }
 
 function renderVariant() {
-  // A team game (Bughouse) seats four: no quick match or one-to-one offer, so
-  // no colour, rating or handicap either. The panel opens a table instead,
-  // which the time chosen here clocks and LorFish fills where nobody sits.
+  // A team game seats four: no quick match or one-to-one offer, so no colour,
+  // rating or handicap either. The panel opens a table instead, which the
+  // time chosen here clocks and, where it can (Bughouse), LorFish fills
+  // where nobody sits.
   const team = isTeamGame(variantSelect.value);
   const show = (id, on) => { document.getElementById(id).style.display = on ? "" : "none"; };
   show("quickMatchBtn", !team);
@@ -184,7 +186,7 @@ function renderVariant() {
   show("colorField", !team);
   show("ratedField", !team);
   show("handicapRow", !team);
-  show("tableLevelField", team);
+  show("tableLevelField", team && hasSeatBots(variantSelect.value));
   renderPlayers(); // the Challenge buttons follow
   // A handicap edits the standard opening setup, so it only means anything in
   // variants that start from it.
@@ -367,7 +369,7 @@ socket.on("friends:changed", refreshFriends);
 
 function renderSeeks() {
   const seeks = lastState.seeks;
-  // Bughouse tables are open offers too, listed just below (renderTables).
+  // Tables are open offers too, listed just below (renderTables).
   const open = seeks.length + (lastState.tables || []).length;
   document.getElementById("seekCount").textContent = open ? "(" + open + ")" : "";
   seekListEl.innerHTML = "";
@@ -629,23 +631,34 @@ async function loadTrainCard() {
   }
 }
 
-// --- Bughouse tables ---
-// Bughouse picked in the Play panel opens a table (the Play-the-computer panel
-// starts a match with LorFish at once, above). Open tables are listed with the
-// open challenges (renderTables): people pick seats, the fourth to sit starts
-// the match, or the host starts it sooner with LorFish in the empty seats.
-// Either way game:start (below) takes everyone to their board.
+// --- tables ---
+// A team game picked in the Play panel opens a table (for Bughouse, the
+// Play-the-computer panel starts a match with LorFish at once, above). Open
+// tables are listed with the open challenges (renderTables): people pick
+// seats, and the fourth to sit starts the game; at a Bughouse table the host
+// may start it sooner, LorFish in the empty seats. Either way game:start
+// (below) takes everyone to their board.
 document.getElementById("tableOpenBtn").addEventListener("click", () => {
-  socket.emit("table:create", { tc: tcSelect.value, level: tableLevelSelect.value });
+  socket.emit("table:create", { variant: variantSelect.value, tc: tcSelect.value, level: tableLevelSelect.value });
 });
 
-// The seats, as the boards show them: board 1 is A0 (White) against B0, board 2
-// B1 (White) against A1. Team A is A0 and A1, team B the other two.
-const TABLE_BOARDS = [["A0", "B0"], ["B1", "A1"]];
+// The seats, a row each pair as the table shows them, with each seat's label.
+// Bughouse: board 1 is A0 (White) against B0, board 2 B1 (White) against A1;
+// team A is A0 and A1, team B the other two. Four-player chess: a row per
+// team, Red and Yellow, then Blue and Green.
+const TABLE_ROWS = {
+  bughouse: [
+    ["Board 1", [["A0", "White, team A"], ["B0", "Black, team B"]]],
+    ["Board 2", [["B1", "White, team B"], ["A1", "Black, team A"]]],
+  ],
+  fourplayer: [
+    ["Red & Yellow", [["r", "Red"], ["y", "Yellow"]]],
+    ["Blue & Green", [["b", "Blue"], ["g", "Green"]]],
+  ],
+};
 
 // Open tables, below the open challenges and in the same rows: the host and
-// terms on top, then each board's two seats — a name, or a button to sit
-// there.
+// terms on top, then the seats in pairs — a name, or a button to sit there.
 function renderTables() {
   const listEl = document.getElementById("tableList");
   const tables = lastState.tables || [];
@@ -662,37 +675,39 @@ function renderTables() {
     head.appendChild(el("span", "name", `${host ? host.username : "?"}'s table`));
     head.appendChild(el("span", "tag", tcLabel(t.tc)));
     head.appendChild(el("span", "tag casual", "casual"));
-    head.appendChild(el("span", "tag variant", variantLabel("bughouse")));
-    head.appendChild(el("span", "muted small", "empty seats: LorFish " + aiLevelLabel(t.level, "bughouse")));
+    head.appendChild(el("span", "tag variant", variantLabel(t.variant)));
+    const bots = hasSeatBots(t.variant);
+    head.appendChild(el("span", "muted small", bots
+      ? "empty seats: LorFish " + aiLevelLabel(t.level, t.variant)
+      : "starts when all four seats are taken"));
     const seated = Object.values(t.seats).some((p) => p && p.userId === me);
     if (t.hostId === me) {
-      head.appendChild(button("Start now", "primary", () => socket.emit("table:start", { id: t.id })));
+      if (bots) head.appendChild(button("Start now", "primary", () => socket.emit("table:start", { id: t.id })));
       head.appendChild(button("Close", "", () => socket.emit("table:leave")));
     } else if (seated) {
       head.appendChild(button("Leave", "", () => socket.emit("table:leave")));
     }
     row.appendChild(head);
     const seats = el("div", "table-seats");
-    TABLE_BOARDS.forEach((pair, board) => {
-      seats.appendChild(el("span", "muted small", `Board ${board + 1}`));
-      pair.forEach((seat, i) => seats.appendChild(seatCell(t, seat, i === 0 ? "White" : "Black", playing)));
-    });
+    for (const [title, pair] of TABLE_ROWS[t.variant]) {
+      seats.appendChild(el("span", "muted small", title));
+      for (const [seat, label] of pair) seats.appendChild(seatCell(t, seat, label, playing));
+    }
     row.appendChild(seats);
     listEl.appendChild(row);
   }
 }
 
-// One seat: who sits there and for which team, or a button to sit there.
-function seatCell(table, seat, colour, playing) {
+// One seat: who sits there, labelled with the seat, or a button to sit there.
+function seatCell(table, seat, label, playing) {
   const p = table.seats[seat];
   const cell = el("span", "table-seat");
   cell.dataset.seat = seat;
-  const team = "team " + seat[0];
   if (p) {
     cell.appendChild(el("span", p.userId === myId() ? "name" : null, p.username + (p.userId === myId() ? " (you)" : "")));
-    cell.appendChild(el("span", "muted small", `${colour}, ${team}`));
+    cell.appendChild(el("span", "muted small", label));
   } else {
-    const b = button(`Sit: ${colour}, ${team}`, "", () => socket.emit("table:sit", { id: table.id, seat }));
+    const b = button(`Sit: ${label}`, "", () => socket.emit("table:sit", { id: table.id, seat }));
     b.disabled = playing;
     cell.appendChild(b);
   }

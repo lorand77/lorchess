@@ -7,11 +7,12 @@ const assert = require("node:assert/strict");
 const { Chess } = require("../../src/shared/chess");
 const {
   VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
-  hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, startOf,
+  hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, hasSeatBots, startOf,
 } = require("../../src/shared/variants");
 const { PAWN_WARS_START, ANTICHESS_START } = require("../../src/shared/chess");
 const { InfiniteChess } = require("../../src/shared/infiniteChess");
 const { createEngine } = require("../../src/shared/engines");
+const { FourPlayer } = require("../../src/shared/fourPlayer");
 
 describe("variant catalogue", () => {
   test("keys are unique and the lookup map mirrors the list", () => {
@@ -36,6 +37,10 @@ describe("variant catalogue", () => {
         assert.ok(createEngine(v.key) instanceof InfiniteChess);
         continue;
       }
+      if (v.key === "fourplayer") {
+        assert.ok(createEngine(v.key) instanceof FourPlayer);
+        continue;
+      }
       const rules = new Chess().setVariant(v.key).variant;
       const expected = ["atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse"].includes(v.key) ? v.key : "standard";
       assert.equal(rules, expected, v.key);
@@ -48,7 +53,7 @@ describe("variant catalogue", () => {
 
   test("anything else resolves to standard", () => {
     const junk = [
-      "fourplayer", "Atomic", "", undefined, null, 42, {},
+      "fourPlayer", "Atomic", "", undefined, null, 42, {},
       "__proto__", "constructor", "toString", "hasOwnProperty",
     ];
     for (const value of junk) assert.equal(resolveVariant(value), "standard", String(value));
@@ -64,6 +69,7 @@ describe("variant catalogue", () => {
     assert.equal(variantLabel("kingofthehill"), "King of the Hill");
     assert.equal(variantLabel("threecheck"), "Three-check");
     assert.equal(variantLabel("infinite"), "Infinite Chess");
+    assert.equal(variantLabel("fourplayer"), "Four-Player Chess");
     assert.equal(variantLabel("nope"), "Standard");
   });
 
@@ -90,6 +96,7 @@ describe("variant catalogue", () => {
     assert.equal(startOf("kingofthehill"), null);
     assert.equal(startOf("threecheck"), null, "the ordinary setup, no checks given");
     assert.equal(startOf("infinite"), new InfiniteChess().fen(), "the Classical setup, in ICN");
+    assert.equal(startOf("fourplayer"), new FourPlayer().fen(), "the engine's, in FEN4");
     assert.equal(startOf("nope"), null, "unknown means standard");
     for (const v of VARIANTS) {
       assert.ok(!(v.shuffled && v.startFen), `${v.key}: shuffled or a fixed start, not both`);
@@ -111,30 +118,32 @@ describe("variant catalogue", () => {
   });
 
   test("only the variants still new are casual-only", () => {
-    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse", "infinite"];
+    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse", "fourplayer", "infinite"];
     for (const v of VARIANTS) assert.equal(isRateable(v.key), !casual.includes(v.key), v.key);
     assert.equal(isRateable("nope"), true, "unknown means standard");
   });
 
   test("material badges are off where material doesn't mean what it usually does", () => {
     for (const v of VARIANTS) {
-      assert.equal(hasMaterialBadges(v.key), !["crazyhouse", "antichess", "bughouse", "infinite"].includes(v.key), v.key);
+      assert.equal(hasMaterialBadges(v.key), !["crazyhouse", "antichess", "bughouse", "fourplayer", "infinite"].includes(v.key), v.key);
     }
     assert.equal(hasMaterialBadges("nope"), true, "unknown means standard");
   });
 
   test("LorFish plays every two-player variant as an AI game; Bughouse seats are the server's", () => {
-    for (const v of VARIANTS) assert.equal(hasBot(v.key), v.key !== "bughouse", v.key);
+    for (const v of VARIANTS) assert.equal(hasBot(v.key), !v.teams, v.key);
     assert.equal(hasBot("nope"), true, "unknown means standard");
+    for (const v of VARIANTS) assert.equal(hasSeatBots(v.key), v.key === "bughouse", v.key);
+    assert.equal(hasSeatBots("nope"), false);
   });
 
-  test("move badges replay a game on one 8x8 board: not Infinite Chess, nor a Bughouse board alone", () => {
-    for (const v of VARIANTS) assert.equal(hasMoveBadges(v.key), !["infinite", "bughouse"].includes(v.key), v.key);
+  test("move badges replay a game on one 8x8 board: not Infinite Chess, a Bughouse board alone or four-player chess", () => {
+    for (const v of VARIANTS) assert.equal(hasMoveBadges(v.key), !["infinite", "bughouse", "fourplayer"].includes(v.key), v.key);
     assert.equal(hasMoveBadges("nope"), true, "unknown means standard");
   });
 
-  test("only Bughouse is a team game", () => {
-    for (const v of VARIANTS) assert.equal(isTeamGame(v.key), v.key === "bughouse", v.key);
+  test("Bughouse and four-player chess are the team games", () => {
+    for (const v of VARIANTS) assert.equal(isTeamGame(v.key), ["bughouse", "fourplayer"].includes(v.key), v.key);
     assert.equal(isTeamGame("nope"), false);
     assert.equal(variantLabel("bughouse"), "Bughouse");
   });

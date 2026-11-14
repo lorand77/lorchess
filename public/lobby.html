@@ -20,8 +20,9 @@
       <div class="play-modes">
         <button id="quickMatchBtn" class="primary" disabled>Quick Match</button>
         <button id="seekBtn" disabled>Post Challenge</button>
-        <!-- Bughouse (a team game) is not matched or challenged one to one: a
-             table opens instead, in Open challenges, for three more to sit at. -->
+        <!-- A team game (Bughouse, four-player chess) is not matched or
+             challenged one to one: a table opens instead, in Open challenges,
+             for three more to sit at. -->
         <button id="tableOpenBtn" class="primary" style="display:none;">Open a table</button>
         <span id="matchStatus" class="muted small"></span>
       </div>
@@ -91,7 +92,8 @@
     <section class="panel">
       <h2>Open challenges <span class="count" id="seekCount"></span></h2>
       <div id="seekList" class="list"></div>
-      <!-- Bughouse tables: four seats each, LorFish in any left empty. -->
+      <!-- Tables for the team games: four seats each, LorFish in any left
+           empty where it plays the game. -->
       <div id="tableList" class="list table-list"></div>
     </section>
 

@@ -563,10 +563,17 @@ module.exports = {
   `),
   // Wins per variant, for the variant badges. Every mode counts; AI games are
   // always standard, so the other variants are PvP wins anyway.
+  // A four-player win is a seat on the winning team: Red or Yellow for 1-0.
   achievementWinsByVariant: db.prepare(`
-    SELECT variant, COUNT(*) AS n FROM games
-    WHERE status = 'finished'
-      AND ((result = '1-0' AND white_id = @me) OR (result = '0-1' AND black_id = @me))
+    SELECT variant, COUNT(*) AS n FROM (
+      SELECT variant FROM games
+      WHERE status = 'finished'
+        AND ((result = '1-0' AND white_id = @me) OR (result = '0-1' AND black_id = @me))
+      UNION ALL
+      SELECT g.variant FROM games g JOIN game_seats s ON s.game_id = g.id
+      WHERE g.status = 'finished' AND s.user_id = @me
+        AND ((g.result = '1-0' AND s.color IN ('r', 'y')) OR (g.result = '0-1' AND s.color IN ('b', 'g')))
+    )
     GROUP BY variant
   `),
   achievementMoveStats: db.prepare(`
