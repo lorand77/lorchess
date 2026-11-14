@@ -539,8 +539,8 @@ written from these rules.
 (support.chess.com, "4 Player Chess"), in its own engine,
 `src/shared/fourPlayer.js`, since four colours, two teams and a turn that
 comes round in four are more than chess.js with more squares. It has its
-board view (see "The board is a view"), the server's game and its own game
-page (below), and is seated at a lobby table (see "Tables"). In
+board view (see "The board is a view"), the server's game, its own game and
+replay pages (below), and is seated at a lobby table (see "Tables"). In
 the catalogue it is `fourplayer`: a team game (`teams`), casual, no move or
 material badges, no `bot` (it is never an AI game) but `seatBots` (LorFish
 takes a table's empty seats, on the server), its start the engine's FEN4 (a
@@ -723,6 +723,18 @@ Corners".
   - Checked against two random movers at depth 2, as Red and Yellow: it won
     both games by mate, in 23 and 27 plies, at 0.2 s a move on average and
     1.7 s at most.
+- *Tests.* The engine (`test/unit/fourPlayer.test.js`: perft, the turned
+  positions, every rule above) and LorFish (`lorfishFour.test.js`) in unit
+  tests; the server's game and the tables in integration tests
+  (`fourPlayer.games.test.js`, `fourPlayer.tables.test.js`). In Chromium: the
+  board view, the game page, the lobby, the replay, and
+  `fourPlayer.four.test.cjs`, the whole thing between four people in four
+  browsers. A table fills and starts itself, every move is a click, Red mates
+  Blue in thirteen plies, the winners get the badge, and the game is in the
+  history and replays.
+- *Not done:* free-for-all (points, eliminations, placings, and a search
+  for four sides), premoves, draw offers, rematches, and a preview in the
+  lobby's live games.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,

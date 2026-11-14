@@ -13,5 +13,6 @@ the environment variables can be omitted.
 
 Run the files one at a time with `--test-concurrency=1`. Several of them open
 two, three or four browser contexts at once (`bughouse.four.test.cjs` is a whole
-match between four people), and running every file in parallel can exhaust
+match between four people, `fourPlayer.four.test.cjs` a whole four-player game),
+and running every file in parallel can exhaust
 the memory of a small machine, which shows up as timeouts rather than errors.

@@ -47,9 +47,10 @@ Browser ──DNS (name.com)──► EC2 public IP
 nightly cron ──► backup.sh ──► Backblaze B2
 ```
 
-- **Where code runs.** There are three places: the server, the browser page and
-  the browser Web Worker (LorFish and Stockfish). The rules engine runs in all
-  of them.
+- **Where code runs.** There are four places: the server, the browser page,
+  the browser Web Worker (LorFish and Stockfish) and the server's worker
+  threads (LorFish in the seats it fills in Bughouse and four-player chess).
+  The rules engine runs in all of them.
 - **What state lives where.** The database stores games, users and sessions.
   Server memory holds live rooms, matchmaking queues, the lobby and throttle
   counters. The browser runs its own AI games.
@@ -83,7 +84,8 @@ revisiting:
   games.** That is why cheating in PvP is prevented, why AI-game records are
   trusted less, and why AI games cost the server nothing.
 - **Heavy compute runs in the browser** (LorFish, Stockfish). The server stays
-  small and cheap.
+  small and cheap. The exception is LorFish in a team game's seats, which has
+  no browser of its own and runs in the server's worker threads.
 - **Scaling limits.** Ask: what breaks first if users grow 10×, and what would
   you change? Likely answers are CPU for argon2, a single process for sockets,
   and one disk.
@@ -107,7 +109,8 @@ revisiting:
 ## 5. Node essentials
 
 - One thread and an event loop. Blocking code freezes everything, which is why
-  LorFish runs in a worker and why every socket handler has a try/catch.
+  LorFish runs in a worker (in the browser, or the server's worker threads)
+  and why every socket handler has a try/catch.
 - CommonJS `require` and the module cache. npm, the lockfile and native modules
   (the rebuild step). Built-ins replace packages: `--env-file`, `--watch`,
   `node --test`.

@@ -265,7 +265,7 @@
   <h2>What LorChess is</h2>
   <div class="cols3">
     <div class="card"><h3>Play</h3>Against <strong>LorFish</strong>, our engine, or other people in real time. Server clocks, Elo, spectating, chat.</div>
-    <div class="card"><h3>Variants</h3>Standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill, Three-check and Infinite Chess (no board edges), and Bughouse (two teams of two, LorFish in any empty seat). Odds games with handicaps.</div>
+    <div class="card"><h3>Variants</h3>Standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill, Three-check and Infinite Chess (no board edges), and two team games with LorFish in any empty seat: Bughouse (two boards) and Four-Player Chess (Teams). Odds games with handicaps.</div>
     <div class="card"><h3>Train</h3>Daily and rated puzzles, game review with Stockfish.</div>
     <div class="card"><h3>Social</h3>Friends, leaderboard, profiles, achievements.</div>
     <div class="card"><h3>Membership</h3>Promo codes unlock member features such as game review.</div>
@@ -297,8 +297,9 @@ nightly cron ──► backup.sh ──► Backblaze B2</pre>
         <li><strong>The server:</strong> Node</li>
         <li><strong>The browser page:</strong> the UI</li>
         <li><strong>A browser Web Worker:</strong> LorFish and Stockfish</li>
+        <li><strong>Server worker threads:</strong> LorFish in the team games' seats</li>
       </ul>
-      <p class="small muted">The chess rules engine runs in all three.</p>
+      <p class="small muted">The chess rules engine runs in all of them.</p>
     </div>
     <div>
       <h3>State lives in three places</h3>
@@ -350,7 +351,7 @@ nightly cron ──► backup.sh ──► Backblaze B2</pre>
     <tr><th>Decision</th><th>Buys</th><th>Costs</th></tr>
     <tr><td>~7 dependencies, on purpose</td><td>Little supply-chain risk and upgrade work</td><td>Node built-ins first; sometimes more code of our own</td></tr>
     <tr><td>Server decides PvP;<br>browser decides AI games</td><td>No cheating in PvP; AI games cost the server nothing</td><td>AI-game records are trusted less (e.g. no achievements from a pasted FEN)</td></tr>
-    <tr><td>Heavy compute in the browser</td><td>LorFish and Stockfish cost the server nothing; the server stays small</td><td>Depends on the player's device</td></tr>
+    <tr><td>Heavy compute in the browser</td><td>LorFish and Stockfish cost the server nothing; the server stays small</td><td>Depends on the player's device; LorFish in a team game's seats has no browser of its own, so it runs on the server, in worker threads</td></tr>
   </table>
   <div class="callout">If users grow 10×, what breaks first, and what would you change? Which decisions were deliberate from day one, and which were learned the hard way?</div>
 </section>
@@ -392,7 +393,7 @@ nightly cron ──► backup.sh ──► Backblaze B2</pre>
   <div class="kicker">5 · Node essentials</div>
   <h2>One thread, an event loop</h2>
   <ul>
-    <li>Blocking code freezes <strong>everything</strong>: that is why LorFish runs in a Web Worker</li>
+    <li>Blocking code freezes <strong>everything</strong>: that is why LorFish runs in a Web Worker, and on the server in worker threads</li>
     <li>better-sqlite3 throws synchronously: an unguarded socket handler would take the process and every live game down, so <strong>every handler has a try/catch</strong></li>
     <li>CommonJS <code>require</code> and the module cache: the database path is fixed when <code>src/db/index.js</code> first loads</li>
     <li>npm, the lockfile, native modules and why they need a rebuild</li>
