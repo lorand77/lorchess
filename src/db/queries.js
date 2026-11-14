@@ -99,7 +99,8 @@ module.exports = {
   // What deleting the account touches, shown before the confirmation prompt.
   deletionSummary: db.prepare(`
     SELECT
-      (SELECT COUNT(*) FROM games WHERE mode = 'pvp' AND (white_id = @id OR black_id = @id)) AS pvpGames,
+      (SELECT COUNT(*) FROM games WHERE mode = 'pvp' AND (white_id = @id OR black_id = @id
+         OR id IN (SELECT game_id FROM game_seats WHERE user_id = @id))) AS pvpGames,
       (SELECT COUNT(*) FROM games WHERE mode = 'ai' AND (white_id = @id OR black_id = @id)) AS aiGames,
       (SELECT COUNT(*) FROM chat_messages WHERE user_id = @id) AS chat,
       (SELECT COUNT(*) FROM friendships WHERE requester_id = @id OR addressee_id = @id) AS friendships,
@@ -232,11 +233,26 @@ module.exports = {
   ),
   // The live PvP game one user is in, if any. The lobby keeps it to one at a
   // time, hence LIMIT 1. Both params are the user id.
+  // Any seat counts, a four-player game's too.
   liveGameForUser: db.prepare(`
     SELECT id FROM games
-     WHERE status = 'active' AND mode = 'pvp' AND (white_id = ? OR black_id = ?)
+     WHERE status = 'active' AND mode = 'pvp'
+       AND (white_id = @user OR black_id = @user
+            OR id IN (SELECT game_id FROM game_seats WHERE user_id = @user))
      LIMIT 1
   `),
+  // The four seats of every live four-player game; the lobby marks these
+  // users as busy, as it does playersInLiveGames' white and black.
+  seatsInLiveGames: db.prepare(`
+    SELECT g.id, s.user_id FROM game_seats s JOIN games g ON g.id = s.game_id
+     WHERE g.status = 'active' AND g.mode = 'pvp'
+  `),
+
+  // --- four-player seats (src/game/fourGames.js) ---
+  insertSeat: db.prepare("INSERT INTO game_seats (game_id, color, user_id) VALUES (?, ?, ?)"),
+  getSeats: db.prepare("SELECT color, user_id, clock_ms FROM game_seats WHERE game_id = ?"),
+  updateSeatClock: db.prepare("UPDATE game_seats SET clock_ms = ? WHERE game_id = ? AND color = ?"),
+  isSeated: db.prepare("SELECT color FROM game_seats WHERE game_id = ? AND user_id = ?"),
 
   // --- friendships ---
   // The one row (if any) linking two users, in either direction.

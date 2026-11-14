@@ -77,6 +77,22 @@ CREATE TABLE IF NOT EXISTS matches (
   finished_at TEXT
 );
 
+-- Four-player chess: who sits in each of a game's four seats, and the time
+-- each has left (written on every move, as clock_w_ms / clock_b_ms are for two
+-- players). The games row has no white or black for it (white_id and black_id
+-- are NULL); its `turn` is the team to move, 'w' for Red and Yellow and 'b'
+-- for Blue and Green, as its result is the team's ('1-0' for Red and Yellow).
+-- The colour to move is in current_fen. Always casual.
+CREATE TABLE IF NOT EXISTS game_seats (
+  game_id   INTEGER NOT NULL REFERENCES games(id),
+  color     TEXT    NOT NULL CHECK (color IN ('r', 'b', 'y', 'g')),
+  user_id   INTEGER NOT NULL REFERENCES users(id),
+  clock_ms  INTEGER,                        -- NULL: never recorded, initial_ms
+  PRIMARY KEY (game_id, color)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_seats_user ON game_seats (user_id);
+
 CREATE TABLE IF NOT EXISTS moves (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   game_id    INTEGER NOT NULL REFERENCES games(id),

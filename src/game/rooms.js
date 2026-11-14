@@ -5,7 +5,9 @@
 // keyed by gameId and map 1:1 to the Socket.IO room `game:<id>`. A Bughouse
 // match is two rooms, one per board, that know each other (matchId, boardIds):
 // they are created together, rebuilt together from the match's moves, and
-// ended together (socket.js concludeMatch).
+// ended together (socket.js concludeMatch). A four-player game is one room
+// with four seats (`seats`), its colours r, b, y and g in place of w and b:
+// everything kept per colour is kept for each of `room.colors`.
 
 const { STANDARD_START } = require("../shared/chess");
 const { createEngine } = require("../shared/engines");
@@ -18,13 +20,16 @@ const { moveFromUci } = require("../shared/uci");
 const { usesStandardSetup } = require("../shared/variants");
 const { Bughouse } = require("../shared/bughouse");
 const matches = require("./matches");
+const fourGames = require("./fourGames");
+const { FourPlayer } = require("../shared/fourPlayer");
 
 const rooms = new Map(); // gameId -> room
 
 function createRoom(
   gameId,
   { whiteId, blackId, whiteName, blackName, startFen, initialMs, incrementMs, rated,
-    clockW, clockB, rehydrated, variant, matchId, board, boardIds, botLevel }
+    clockW, clockB, rehydrated, variant, matchId, board, boardIds, botLevel,
+    seats, seatNames, clocks }
 ) {
   // Games created before per-game time controls existed have NULL clock
   // columns; fall back to the server-wide default so they still run.
@@ -36,12 +41,20 @@ function createRoom(
   // so only a start of the game's own needs loading.
   const chess = createEngine(variant || "standard");
   if (startFen && startFen !== STANDARD_START) chess.loadFen(startFen);
+  // The seats: White and Black, or a four-player game's four colours, whose
+  // players (`seats`), names and clocks come keyed by colour.
+  const four = variant === fourGames.VARIANT;
+  const colors = four ? FourPlayer.COLORS : ["w", "b"];
+  const each = (fn) => Object.fromEntries(colors.map((c) => [c, fn(c)]));
+  const startClocks = four ? clocks || {} : { w: clockW, b: clockB };
 
   const room = {
     gameId,
     chess,
-    players: { w: whiteId, b: blackId },
-    names: { w: whiteName, b: blackName },
+    colors,
+    four,
+    players: four ? { ...seats } : { w: whiteId, b: blackId },
+    names: four ? { ...seatNames } : { w: whiteName, b: blackName },
     sans: [],
     status: "active",
     result: null,
@@ -51,17 +64,17 @@ function createRoom(
     // when the offer is answered or when either side moves.
     drawOffer: null,
     // Connected socket ids per color, and a pending forfeit timer per color.
-    online: { w: new Set(), b: new Set() },
-    timers: { w: null, b: null },
+    online: each(() => new Set()),
+    timers: each(() => null),
     // Pending "opponent disconnected" announcements, kept separate from the
     // forfeit timers above so one can be cancelled without the other.
-    notices: { w: null, b: null },
+    notices: each(() => null),
     // Server-authoritative clocks (ms remaining per color). The clock starts
     // once both players have joined; turnStartedAt marks when the side to move
     // began consuming time. flagTimer fires when the side to move runs out.
     // A game rebuilt after a restart resumes on its stored clocks; a new one
     // starts both sides at the full allowance.
-    clock: { w: clockW == null ? initial : clockW, b: clockB == null ? initial : clockB },
+    clock: each((c) => (startClocks[c] == null ? initial : startClocks[c])),
     initialMs: initial,
     incrementMs: increment,
     timeControl: describeTimeControl(initial, increment),
@@ -78,7 +91,7 @@ function createRoom(
     // Whether the clock has ever run, i.e. both players took their seats at
     // some point. Kept on the games row as well, so it survives a restart.
     clockStarted: false,
-    everJoined: { w: false, b: false },
+    everJoined: each(() => false),
     flagTimer: null,
     // True when this room was rebuilt from the database rather than created
     // fresh — nobody is connected yet, so the first player back has to start
@@ -101,12 +114,12 @@ function createRoom(
   };
   if (matchId) {
     const ai = aiUserId();
-    const seats = { w: whiteId === ai, b: blackId === ai };
-    if (seats.w || seats.b) {
-      room.bots = seats;
+    const held = { w: whiteId === ai, b: blackId === ai };
+    if (held.w || held.b) {
+      room.bots = held;
       room.botLevel = botLevel || null;
       for (const c of ["w", "b"]) {
-        if (!seats[c]) continue;
+        if (!held[c]) continue;
         room.everJoined[c] = true;
         room.online[c].add("lorfish");
       }
@@ -126,7 +139,7 @@ function handicapLabel(startFen) {
 // Current clocks, decrementing the side-to-move by the time elapsed since their
 // turn began — so a snapshot is accurate at any instant, not just on a move.
 function clockSnapshot(room) {
-  const snap = { w: room.clock.w, b: room.clock.b };
+  const snap = { ...room.clock };
   if (room.started && room.status === "active" && room.turnStartedAt != null) {
     const t = room.chess.turn;
     snap[t] = Math.max(0, snap[t] - (Date.now() - room.turnStartedAt));
@@ -135,7 +148,7 @@ function clockSnapshot(room) {
 }
 
 function clearTimers(room) {
-  for (const c of ["w", "b"]) {
+  for (const c of room.colors) {
     if (room.timers[c]) {
       clearTimeout(room.timers[c]);
       room.timers[c] = null;
@@ -164,7 +177,7 @@ function resumableGames() {
 // the room map so a game waiting to be resumed after a restart counts too: its
 // player is still committed to it.
 function liveGameOf(userId) {
-  const row = queries.liveGameForUser.get(userId, userId);
+  const row = queries.liveGameForUser.get({ user: userId });
   return row ? row.id : null;
 }
 
@@ -214,6 +227,7 @@ function loadRoomFromDb(gameId) {
     const both = loadMatchRoomsFromDb(game.match_id);
     return both ? both[game.board] : null;
   }
+  if (game.variant === fourGames.VARIANT) return loadFourRoomFromDb(game);
 
   const room = createRoom(gameId, {
     whiteId: game.white_id,
@@ -301,6 +315,40 @@ function loadMatchRoomsFromDb(matchId) {
     both[i].termination = game.termination;
   });
   return both;
+}
+
+// Rebuild a four-player game's room: its seats and clocks from game_seats, its
+// position by replaying its moves, as loadRoomFromDb does a game's.
+function loadFourRoomFromDb(game) {
+  const seats = fourGames.seatsOf(game.id);
+  const each = (fn) => Object.fromEntries(FourPlayer.COLORS.map((c) => [c, fn(seats[c])]));
+  const room = createRoom(game.id, {
+    seats: each((s) => s.userId),
+    seatNames: each((s) => nameOf(s.userId)),
+    clocks: each((s) => s.clockMs),
+    startFen: game.start_fen,
+    initialMs: game.initial_ms,
+    incrementMs: game.increment_ms,
+    rated: false,
+    variant: game.variant,
+    rehydrated: true,
+  });
+  for (const m of queries.getMovesForGame.all(game.id)) {
+    const mv = room.chess.moveFromText(m.uci);
+    if (!mv) {
+      log.error("game.corrupt_record", { game: game.id, ply: m.ply, move: m.uci, fen: room.chess.fen() });
+      deleteRoom(game.id);
+      if (game.status === "active") queries.abortGame.run("corrupt-record", game.id);
+      return null;
+    }
+    room.chess.makeMove(mv);
+    room.sans.push(m.san);
+  }
+  room.clockStarted = !!game.clock_started;
+  room.status = game.status;
+  room.result = game.result;
+  room.termination = game.termination;
+  return room;
 }
 
 // The reserved LorFish account's id (db/index.js seeds it).

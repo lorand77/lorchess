@@ -117,6 +117,12 @@ const FourPlayer = (function () {
     static teamOf(c) { return TEAM[c]; }
     static partnerOf(c) { return COLORS[(COLORS.indexOf(c) + 2) % 4]; }
     static opponentsOf(c) { return COLORS.filter((o) => TEAM[o] !== TEAM[c]); }
+    // A colour's team as a two-player game spells a side, 'w' for Red and
+    // Yellow, 'b' for Blue and Green, as result() does ('1-0' for Red and
+    // Yellow): what the server stores for the team to move.
+    static sideOf(c) { return TEAM[c] === 0 ? 'w' : 'b'; }
+    // The result when `c`'s team loses (a resignation, a flag, a forfeit).
+    static lossFor(c) { return TEAM[c] === 0 ? '0-1' : '1-0'; }
 
     // The direction a colour's pawns go, and whether a square is on its
     // second rank (a double step from there) or its eleventh (promotion).

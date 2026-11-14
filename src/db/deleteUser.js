@@ -58,7 +58,7 @@ async function main() {
   const user = queries.getUserByUsernameNoCase.get(username);
   if (!user) usage(`no such user: ${username}`);
 
-  const live = queries.liveGameForUser.get(user.id, user.id);
+  const live = queries.liveGameForUser.get({ user: user.id });
   if (live) {
     console.error(liveGameMessage(user, live));
     process.exit(1);
@@ -89,7 +89,7 @@ async function main() {
     .get();
   const remove = db.transaction(() => {
     // Again inside the transaction: a game may have started during the prompt.
-    const started = queries.liveGameForUser.get(user.id, user.id);
+    const started = queries.liveGameForUser.get({ user: user.id });
     if (started) return { started };
     for (const stmt of queries.deleteAccountRows) stmt.run({ id: user.id });
     const ended = hasSessions

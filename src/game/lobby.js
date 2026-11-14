@@ -169,6 +169,7 @@ function snapshot() {
     busy.set(row.white_id, row.id);
     busy.set(row.black_id, row.id);
   }
+  for (const row of queries.seatsInLiveGames.all()) busy.set(row.user_id, row.id);
   const players = [...presence.values()]
     .map((p) => ({
       userId: p.userId,
@@ -188,9 +189,11 @@ function snapshot() {
     const u = queries.getUserById.get(userId);
     return u ? u.rating : null;
   };
+  // Four-player games aren't listed: these rows and their previews are for
+  // two players on an 8x8 board. Their players still show as playing.
   const games = rooms
     .listRooms()
-    .filter((r) => r.status === "active")
+    .filter((r) => r.status === "active" && !r.four)
     .map((r) => ({
       gameId: r.gameId,
       white: {
@@ -630,14 +633,12 @@ function nudge(io) {
   }, wait);
 }
 
-// The moment a match starts, both players' other offers are withdrawn: their
-// open seeks and every challenge to or from them. Neither can be seated in a
+// The moment a match starts, its players' other offers are withdrawn: their
+// open seeks and every challenge to or from them. None can be seated in a
 // second game, so an offer of theirs is something nobody may accept.
-matchmaking.onMatchStarted((io, gameId, whiteId, blackId) => {
-  dropOffersFor(io, whiteId);
-  dropOffersFor(io, blackId);
-  pushChallenges(io, whiteId);
-  pushChallenges(io, blackId);
+matchmaking.onMatchStarted((io, gameId, ...userIds) => {
+  for (const id of userIds) dropOffersFor(io, id);
+  for (const id of userIds) pushChallenges(io, id);
   broadcastState(io);
 });
 

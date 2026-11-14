@@ -112,6 +112,9 @@ describe("four-player chess: the board and the armies", () => {
     assert.deepEqual(["r", "b", "y", "g"].map(FourPlayer.partnerOf), ["y", "g", "r", "b"]);
     assert.deepEqual(FourPlayer.opponentsOf("r"), ["b", "g"]);
     assert.equal(FourPlayer.teamOf("y"), FourPlayer.teamOf("r"));
+    // Teams as the stored game spells sides and results.
+    assert.deepEqual(["r", "b", "y", "g"].map(FourPlayer.sideOf), ["w", "b", "w", "b"]);
+    assert.deepEqual(["r", "b", "y", "g"].map(FourPlayer.lossFor), ["0-1", "1-0", "0-1", "1-0"]);
   });
 
   test("each side's first move: twenty, as in chess; then a pin the cross board makes", () => {

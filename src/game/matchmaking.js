@@ -18,6 +18,8 @@ const chess960 = require("../shared/chess960");
 const { resolveVariant, startOf, isRateable, isTeamGame } = require("../shared/variants");
 const matches = require("./matches");
 const { Bughouse } = require("../shared/bughouse");
+const fourGames = require("./fourGames");
+const { FourPlayer } = require("../shared/fourPlayer");
 
 // Every authenticated socket joins its user's room (see socket.js), so a game
 // can be announced to the PERSON rather than to one guessed socket. A user
@@ -29,7 +31,8 @@ const userRoom = (userId) => `user:${userId}`;
 // poolKey -> sockets currently seeking a match in that pool
 const pools = new Map();
 
-// Called whenever a match starts, with the game id and both players' user ids.
+// Called whenever a match starts, with the game id and its players' user ids
+// (two, or a four-player game's four).
 // The lobby uses it to withdraw the players' open seeks and challenges (an offer
 // from someone who has just sat down to a game must not be acceptable any
 // more); socket.js to start the clock against players who never turn up. Hooks
@@ -228,4 +231,42 @@ function startBughouse(io, { teamA, teamB }, opts) {
   return { matchId, boards };
 }
 
-module.exports = { join, leave, startMatch, startBughouse, onMatchStarted, userRoom };
+// Start a four-player game (Teams) between four connected people, `seats`
+// mapping each colour to { userId, username }: Red and Yellow against Blue
+// and Green. One room, casual; each player is sent their colour and the
+// others' names. The start hooks run once with all four user ids, so the
+// lobby withdraws everyone's offers and socket.js starts the absence clock
+// against every seat. Returns the game id.
+function startFourPlayer(io, seats, opts) {
+  const tc = resolveTimeControl(DEFAULT_TC);
+  const initialMs = opts && opts.initialMs != null ? opts.initialMs : tc.initialMs;
+  const incrementMs = opts && opts.incrementMs != null ? opts.incrementMs : tc.incrementMs;
+  const each = (fn) => Object.fromEntries(FourPlayer.COLORS.map((c) => [c, fn(seats[c])]));
+  const gameId = fourGames.createGame({ seats: each((s) => s.userId), initialMs, incrementMs });
+  rooms.createRoom(gameId, {
+    seats: each((s) => s.userId),
+    seatNames: each((s) => s.username),
+    startFen: fourGames.START,
+    variant: fourGames.VARIANT,
+    initialMs,
+    incrementMs,
+    rated: false,
+  });
+  const ids = FourPlayer.COLORS.map((c) => seats[c].userId);
+  for (const id of ids) leaveUser(id);
+  for (const fn of startHooks) fn(io, gameId, ...ids);
+  const names = each((s) => s.username);
+  for (const color of FourPlayer.COLORS) {
+    io.to(userRoom(seats[color].userId)).emit("game:start", { gameId, color, players: names });
+  }
+  log.info("game.start", {
+    game: gameId,
+    seats: ids.join(","),
+    tc: `${initialMs / 60000}+${incrementMs / 1000}`,
+    rated: false,
+    variant: fourGames.VARIANT,
+  });
+  return gameId;
+}
+
+module.exports = { join, leave, startMatch, startBughouse, startFourPlayer, onMatchStarted, userRoom };

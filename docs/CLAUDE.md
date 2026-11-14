@@ -29,7 +29,9 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
   `src/game/socket.js` owns every Socket.IO event, `src/game/rooms.js` the
   in-memory PvP state. Bughouse: `src/game/matches.js` stores a match (two
   boards), `src/game/bots.js` runs LorFish on the server, in worker threads,
-  for the seats it fills. `src/log.js` is the logger; `src/health.js` answers
+  for the seats it fills. Four-player chess: `src/game/fourGames.js` stores a
+  game's four seats and clocks; its room is an ordinary room with four colours.
+  `src/log.js` is the logger; `src/health.js` answers
   `GET /health` for the uptime check, ahead of the session middleware.
 - `src/shared/` — engine and catalogues loaded by browser, Web Worker and Node
   alike; served at `/js/`. The only place LorFish and the rules live.

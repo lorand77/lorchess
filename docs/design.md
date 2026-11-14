@@ -530,8 +530,10 @@ written from these rules.
 (support.chess.com, "4 Player Chess"), in its own engine,
 `src/shared/fourPlayer.js`, since four colours, two teams and a turn that
 comes round in four are more than chess.js with more squares. So far it is
-the engine and its board view (see "The board is a view"): no catalogue
-entry, no room, no page.
+the engine, its board view (see "The board is a view") and the server's
+game (below): no catalogue entry, no lobby seating, no page. The variant key
+is `fourplayer`, used directly by the server until it joins the catalogue
+with its lobby entry and win badge; nothing a client sends can start one yet.
 
 - *The board* is 14x14 with its 3x3 corners cut away, 160 squares numbered
   `y * 14 + x` (files a–n, ranks 1–14). Red sits at the bottom, Blue on the
@@ -576,6 +578,35 @@ entry, no room, no page.
 - *Square colours*: light on the right for Red and Yellow (k1 and d14 are
   light), as in ordinary chess. A quarter turn of a board of even size swaps
   the colours, so Blue's and Green's right-hand corners are dark.
+- *On the server* a game is one room with four seats.
+  - `room.colors` is `["r", "b", "y", "g"]` where a two-player room's is
+    `["w", "b"]`, and everything kept per colour (players, names, the online
+    sockets, absence timers and notices, clocks, who has joined) is kept for
+    each. The handlers in `socket.js` are the two-player ones, looping over
+    the colours where they named White and Black: there is no second set of
+    handlers to drift.
+  - `matchmaking.startFourPlayer(io, seats)` creates the game for four
+    connected people and sends each `game:start` with their colour and the
+    four names. LorFish can't take a seat until it plays the game.
+  - The clocks wait for all four, then run one at a time in turn order, with
+    the increment after each move.
+  - Moves come as squares, the engine's numbers or names (`e2`), and a
+    promotion letter. Anything else is refused before the engine sees it, as
+    infinite chess's are (`isFourMove`). `move:made` carries the engine's
+    square numbers whatever was sent.
+  - Losing is the team's: a resignation, a flag or a player gone past the
+    reconnect grace ends the game for both teams (`FourPlayer.lossFor`).
+    There is no dead-material rule for a flag: a flag always loses. A game
+    nobody moved in, or that a player never joined, aborts.
+  - Casual only, with no draw offers and no rematch: both would need all
+    four players' word. The players' chat is shared by all four, and a
+    spectator's is kept apart as in any game. Achievements are not checked:
+    they read a game's white and black.
+  - One game at a time holds for every seat (`liveGameForUser` reads the
+    seats). The lobby shows all four as playing, but doesn't list the game
+    under live games, whose rows and previews are for two players.
+  - A restart rebuilds the room from its moves and the seats' clocks
+    (`rooms.loadFourRoomFromDb`), like any game.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,
@@ -847,7 +878,9 @@ Events:
   `safely`: `task`, `err`). No line per move or chat message.
 - **Games** (PvP; games against LorFish are saved over HTTP and show as
   `http.request`): `game.start` (`game`, `white`/`white_name`,
-  `black`/`black_name`, `tc`, `rated`, `variant`), `game.over` (`result`,
+  `black`/`black_name`, `tc`, `rated`, `variant`; a four-player game has
+  `seats`, its four user ids in turn order, instead of white and black),
+  `game.over` (`result`,
   `termination`), `game.rematch` (`game`, `new_game`),
   `game.restart_sweep` (`aborted` count), `game.corrupt_record` (`error`:
   `ply`, `move`, `fen`; a Bughouse board's adds `match` and `board`). A
@@ -914,6 +947,17 @@ Design notes:
   recorded them in, so no sequence column is needed; a drop can only follow
   the capture on the other board that supplied it. Account deletion leaves the
   boards like any PvP game.
+- **A four-player game is one `games` row and four seats.** The row is an
+  ordinary PvP game (variant `fourplayer`, unrated) whose moves are in
+  `moves`; `game_seats` holds who plays each colour and the time each has
+  left, written on every move as `clock_w_ms`/`clock_b_ms` are for two
+  players (`src/game/fourGames.js`). `white_id` and `black_id` are NULL, so
+  nothing that reads White and Black mistakes two of the four for them.
+  `games.turn` is the team to move, `w` for Red and Yellow and `b` for Blue
+  and Green, which its CHECK allows and which matches the result (`1-0` for
+  Red and Yellow); the colour to move is in `current_fen`. A seat points at
+  its user like White and Black do, so account deletion (which keeps the
+  emptied row) leaves the game as it leaves any PvP game.
 - **The AI side is a real user.** A reserved `LorFish` account
   (`config.AI_USERNAME`, `password_hash NULL` so it can never log in) owns the
   AI side of games, so foreign keys and queries stay uniform.

@@ -26,6 +26,8 @@ const { InfiniteChess } = require("../shared/infiniteChess");
 const { usesStandardSetup } = require("../shared/variants");
 const { Bughouse } = require("../shared/bughouse");
 const matches = require("./matches");
+const fourGames = require("./fourGames");
+const { FourPlayer } = require("../shared/fourPlayer");
 const bots = require("./bots");
 const { aiLevelOf, resolveAiLevel } = require("../shared/aiLevels");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
@@ -56,24 +58,36 @@ const audienceOf = (role) => (role === "s" ? "spectators" : "players");
 // game is created with the colours swapped.
 const rematches = new Map();
 const winResult = (winnerColor) => (winnerColor === "w" ? "1-0" : "0-1");
+// The result when `color` loses (resigns, flags, is forfeited): the other
+// player wins, or in a four-player game the other team.
+const lossFor = (room, color) => (room.four ? FourPlayer.lossFor(color) : winResult(other(color)));
 
 // Running out of time loses — unless the other side could never have delivered
 // mate, in which case it is a draw, as over the board (FIDE 6.9: the flag only
 // wins for a side that could still have won). Atomic and Pawn Wars win by other
 // means, so there hasMatingMaterial is always true and a flag is always a loss.
+// So does a four-player flag, for the flagged player's team.
 function flagResult(room, flagged) {
+  if (room.four) return FourPlayer.lossFor(flagged);
   const winner = other(flagged);
   return room.chess.hasMatingMaterial(winner) ? winResult(winner) : "1/2-1/2";
 }
 
 // One move's writes as a single transaction: the move row, the position and
 // the clocks (so the game survives a restart). All or nothing, so a failure can
-// be rolled back in memory without a half-recorded move left behind.
-const persistMove = db.transaction((gameId, ply, san, uci, fen, turn, userId, thinkMs, premove, clock) => {
-  queries.insertMoveTimed.run(gameId, ply, san, uci, fen, userId, thinkMs, premove ? 1 : 0);
-  queries.updateGamePosition.run(fen, turn, gameId);
-  queries.updateGameClocks.run(clock.w, clock.b, gameId);
+// be rolled back in memory without a half-recorded move left behind. A
+// four-player game stores the team to move and its four clocks (fourGames.js).
+const persistMove = db.transaction((room, ply, san, uci, fen, userId, thinkMs, premove) => {
+  const turn = room.chess.turn;
+  queries.insertMoveTimed.run(room.gameId, ply, san, uci, fen, userId, thinkMs, premove ? 1 : 0);
+  queries.updateGamePosition.run(fen, room.four ? FourPlayer.sideOf(turn) : turn, room.gameId);
+  saveClocks(room, room.clock);
 });
+
+function saveClocks(room, clocks) {
+  if (room.four) fourGames.saveClocks(room.gameId, clocks);
+  else queries.updateGameClocks.run(clocks.w, clocks.b, room.gameId);
+}
 
 // Engine.IO may have loaded the cookie before logout, and an established
 // connection may outlive its session. Check the store without saving/touching
@@ -216,19 +230,24 @@ function safely(label, fn) {
 }
 
 function colorOf(room, userId) {
-  if (room.players.w === userId) return "w";
-  if (room.players.b === userId) return "b";
-  return null;
+  return room.colors.find((c) => room.players[c] === userId) || null;
+}
+
+// Whether a user plays in a game, by its row: White, Black, or one of a
+// four-player game's seats.
+function seatedIn(game, userId) {
+  if (game.white_id === userId || game.black_id === userId) return true;
+  return game.variant === fourGames.VARIANT && !!fourGames.colorIn(game.id, userId);
 }
 
 // ---- clocks ----
 
-// Start the clock once both players have joined for the first time. A
+// Start the clock once every player has joined for the first time. A
 // Bughouse board waits for all four players, and then both boards start
 // together: neither team gets a head start on the other board.
 function startClocksIfReady(io, room) {
   if (room.started) return;
-  const seated = (r) => r.everJoined.w && r.everJoined.b;
+  const seated = (r) => r.colors.every((c) => r.everJoined[c]);
   if (room.matchId) {
     const both = rooms.matchRooms(room);
     if (!both || !both.every(seated)) return;
@@ -294,7 +313,7 @@ function concludeGame(io, room, result, termination) {
   // timers it had and a later trigger tries again, rather than a game that is
   // over in memory but still active on disk.
   const ratings = db.transaction(() => {
-    queries.updateGameClocks.run(clocks.w, clocks.b, room.gameId);
+    saveClocks(room, clocks);
     if (result === "*") queries.abortGame.run(termination, room.gameId);
     else queries.finishGame.run(result, termination, room.gameId);
     // Aborts have no result to rate, and a casual game moves nobody's Elo.
@@ -309,7 +328,9 @@ function concludeGame(io, room, result, termination) {
     ratings,
     clocks,
   });
-  if (result !== "*") notifyAchievements(room, { resignReactionMs: room.resignReactionMs });
+  // Four-player games earn nothing yet: the achievements read a game's white
+  // and black, which it hasn't.
+  if (result !== "*" && !room.four) notifyAchievements(room, { resignReactionMs: room.resignReactionMs });
   rooms.deleteRoom(room.gameId);
   lobby.refresh(io); // both players are free again
   log.info("game.over", { game: room.gameId, result, termination });
@@ -423,7 +444,8 @@ function armAbsence(io, room, color, settleMs) {
 }
 
 // A fresh game has nobody in it yet. Both players are expected within the
-// grace period, so the absence clock runs against each until they arrive, and
+// grace period, so the absence clock runs against each until they arrive (all
+// four in a four-player game), and
 // a game nobody turns up for aborts (no move was played) instead of sitting
 // 'active' for ever — which, with one game at a time, would lock both players
 // out. The notice to whoever did arrive waits long enough for a normal page
@@ -432,8 +454,7 @@ const JOIN_SETTLE_MS = 10000;
 matchmaking.onMatchStarted((io, gameId) => {
   const room = rooms.getRoom(gameId);
   if (!room) return;
-  armAbsence(io, room, "w", JOIN_SETTLE_MS);
-  armAbsence(io, room, "b", JOIN_SETTLE_MS);
+  for (const c of room.colors) armAbsence(io, room, c, JOIN_SETTLE_MS);
 });
 
 function handleGameJoin(io, socket, payload, ack) {
@@ -447,7 +468,7 @@ function handleGameJoin(io, socket, payload, ack) {
     // an unresumed game from the restart sweep.
     const game = queries.getGameById.get(gameId);
     if (!game || game.mode !== "pvp") return reply(ack, { ok: false, error: "Game not found." });
-    if (game.white_id !== socket.userId && game.black_id !== socket.userId) {
+    if (!seatedIn(game, socket.userId)) {
       return reply(ack, { ok: false, error: "You are not a player in this game." });
     }
     room = rooms.loadRoomFromDb(gameId);
@@ -499,10 +520,12 @@ function handleGameJoin(io, socket, payload, ack) {
   }
 
   // A room rebuilt from the database has nobody connected yet, so the first
-  // player back starts the forfeit clock against the one who hasn't returned.
+  // player back starts the forfeit clock against those who haven't returned.
   // Without this a restart would leave the game hanging for ever when the
   // opponent simply closed their tab.
-  if (room.rehydrated) armAbsence(io, room, other(color), REJOIN_SETTLE_MS);
+  if (room.rehydrated) {
+    for (const c of room.colors) if (c !== color) armAbsence(io, room, c, REJOIN_SETTLE_MS);
+  }
   // A Bughouse board brings its partner board back with it, which nobody may
   // ever rejoin: run the same clock against both of its players.
   if (room.rehydrated && room.matchId) {
@@ -530,18 +553,26 @@ function stateOf(room, color) {
     // The moves as played (castling by the rook square), so a client can
     // rebuild the position by replaying them: a FEN loses the repetition
     // history, and cannot always say which rook a Chess960 castling right means.
-    moves: room.chess.history.map((h) => formatUci(h.move)),
+    moves: room.chess.history.map((h) => (room.four ? FourPlayer.moveText(h.move) : formatUci(h.move))),
     yourColor: color,
     turn: room.chess.turn,
     status: room.status,
     result: room.result || null,
     termination: room.termination || null,
-    white: room.names.w,
-    black: room.names.b,
-    whiteId: room.players.w,
-    blackId: room.players.b,
-    whiteMember: members.has(room.players.w),
-    blackMember: members.has(room.players.b),
+    // Who plays: White and Black, or a four-player game's seats, each colour's
+    // { id, name, member } in turn order.
+    ...(room.four
+      ? { seats: Object.fromEntries(room.colors.map((c) => [c, {
+        id: room.players[c], name: room.names[c], member: members.has(room.players[c]),
+      }])) }
+      : {
+        white: room.names.w,
+        black: room.names.b,
+        whiteId: room.players.w,
+        blackId: room.players.b,
+        whiteMember: members.has(room.players.w),
+        blackMember: members.has(room.players.b),
+      }),
     clocks: rooms.clockSnapshot(room),
     running: room.started,
     drawOffer: room.drawOffer,
@@ -610,8 +641,11 @@ function handleChat(io, socket, payload, ack) {
 
   const game = queries.getGameById.get(gameId);
   if (!game) return reply(ack, { ok: false, error: "Game not found." });
-  const role =
-    game.white_id === socket.userId ? "w" : game.black_id === socket.userId ? "b" : "s";
+  // A four-player game's players speak as their team's side, 'w' or 'b'.
+  const seat = game.variant === fourGames.VARIANT ? fourGames.colorIn(gameId, socket.userId) : null;
+  const role = game.white_id === socket.userId ? "w"
+    : game.black_id === socket.userId ? "b"
+      : seat ? FourPlayer.sideOf(seat) : "s";
 
   // Store the message and bump the sender's lifetime tally together: the
   // messages get swept eventually, the tally is what "Chatty" counts.
@@ -708,6 +742,7 @@ function handleMove(io, socket, payload, ack) {
   if (room.variant === "infinite" && !isInfiniteMove(payload)) {
     return reply(ack, { ok: false, error: "Illegal move." });
   }
+  if (room.four && !isFourMove(payload)) return reply(ack, { ok: false, error: "Illegal move." });
   const move = drop ? room.chess.findDrop(drop, to) : room.chess.findMove(from, to, promo);
   if (!move) return reply(ack, { ok: false, error: "Illegal move." });
 
@@ -749,7 +784,7 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
   const ply = room.chess.history.length;
   const fen = room.chess.fen();
   const turn = room.chess.turn;
-  const uci = formatUci(move);
+  const uci = room.four ? FourPlayer.moveText(move) : formatUci(move);
 
   // (5) Persist + (6) broadcast (mover included; everyone applies on confirmation).
   // The client says whether this was a premove; believe it only if the move
@@ -757,7 +792,7 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
   // can't claim a premove it had time to think about.
   const premove = !!claimed && (thinkMs == null || thinkMs < PREMOVE_MAX_MS);
   try {
-    persistMove(gameId, ply, san, uci, fen, turn, byUser, thinkMs, premove, room.clock);
+    persistMove(room, ply, san, uci, fen, byUser, thinkMs, premove);
   } catch (err) {
     // The database refused the move, so the room must not have it either: put
     // the board and the clock back exactly as they were, then let the
@@ -797,11 +832,13 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
   reply(ack, { ok: true });
   // The move as the server resolved it, not as sent: a drop leaves no square,
   // a promotion letter only goes out on a promotion, and infinite-chess
-  // squares are the engine's own objects, not whatever the client's carried.
+  // squares are the engine's own objects, not whatever the client's carried,
+  // and a four-player square is the engine's number even if sent as a name.
   const coords = typeof move.from === "object" && move.from !== null;
+  const own = room.four || from === undefined;
   io.to(`game:${gameId}`).emit("move:made", {
-    from: move.drop ? null : coords ? { x: move.from.x, y: move.from.y } : from === undefined ? move.from : from,
-    to: coords ? { x: move.to.x, y: move.to.y } : to === undefined ? move.to : to,
+    from: move.drop ? null : coords ? { x: move.from.x, y: move.from.y } : own ? move.from : from,
+    to: coords ? { x: move.to.x, y: move.to.y } : own ? move.to : to,
     promo: move.promo || null,
     drop: move.drop || null,
     san,
@@ -944,11 +981,12 @@ function botTurn(io, room) {
 // ---- draw offers ----
 // An offer is stored on the room as the offering colour. Offering while the
 // opponent already has an offer outstanding counts as accepting it.
-// Not in Bughouse for now: a draw there would need all four players' word.
+// Not in Bughouse or four-player chess for now: a draw there would need all
+// four players' word.
 function handleDrawOffer(io, socket, payload) {
   const gameId = Number(payload && payload.gameId) || socket.gameId;
   const room = rooms.getRoom(gameId);
-  if (!room || room.status !== "active" || room.matchId) return;
+  if (!room || room.status !== "active" || room.matchId || room.four) return;
   const color = colorOf(room, socket.userId);
   if (!color) return;
 
@@ -963,7 +1001,7 @@ function handleDrawOffer(io, socket, payload) {
 function handleDrawRespond(io, socket, payload) {
   const gameId = Number(payload && payload.gameId) || socket.gameId;
   const room = rooms.getRoom(gameId);
-  if (!room || room.status !== "active" || room.matchId) return;
+  if (!room || room.status !== "active" || room.matchId || room.four) return;
   const color = colorOf(room, socket.userId);
   if (!color) return;
   // Only the side that did NOT offer can answer.
@@ -984,9 +1022,10 @@ function handleRematchOffer(io, socket, payload) {
   const gameId = Number(payload && payload.gameId) || socket.gameId;
   if (!gameId) return;
   const game = queries.getGameById.get(gameId);
-  // A Bughouse rematch needs all four players, which this two-player offer
-  // can't ask: not yet.
+  // A Bughouse or four-player rematch needs all four players, which this
+  // two-player offer can't ask: not yet.
   if (!game || game.mode !== "pvp" || game.status === "active" || game.match_id) return;
+  if (game.variant === fourGames.VARIANT) return;
   const uid = socket.userId;
   if (game.white_id !== uid && game.black_id !== uid) return;
   // One game at a time applies here too: a rematch accepted from another game
@@ -1076,7 +1115,7 @@ function handleResign(io, socket, payload) {
     room.started && room.turnStartedAt != null && room.chess.turn === color
       ? Date.now() - room.turnStartedAt
       : null;
-  concludeGame(io, room, winResult(other(color)), "resign");
+  concludeGame(io, room, lossFor(room, color), "resign");
 }
 
 function handleDisconnect(io, socket, reason) {
@@ -1111,7 +1150,7 @@ function onGraceExpired(io, gameId, color) {
   // ever started once both had joined.
   const neverCame = !room.everJoined[color] && !(room.rehydrated && room.clockStarted);
   if (pliesPlayed(room) === 0 || neverCame) concludeGame(io, room, "*", "aborted");
-  else concludeGame(io, room, winResult(other(color)), "disconnect");
+  else concludeGame(io, room, lossFor(room, color), "disconnect");
 }
 
 // An infinite-chess move payload: two squares, each exactly { x, y } in whole
@@ -1125,6 +1164,16 @@ function isInfiniteMove(payload) {
   const p = payload || {};
   return square(p.from) && square(p.to) && !p.drop &&
     (p.promo == null || InfiniteChess.PROMOTIONS.includes(p.promo));
+}
+
+// A four-player move payload: two squares, each the engine's number (0-195)
+// or a name ("e2"), and a promotion that is a piece or nothing. No drop. The
+// engine's findMove decides the rest, a corner's number included.
+function isFourMove(payload) {
+  const square = (s) => (typeof s === "string" ? FourPlayer.squareOf(s) >= 0 : Number.isInteger(s));
+  const p = payload || {};
+  return square(p.from) && square(p.to) && !p.drop &&
+    (p.promo == null || FourPlayer.PROMOTIONS.includes(p.promo));
 }
 
 // How the game ended — the engine says (Chess.termination), so the server

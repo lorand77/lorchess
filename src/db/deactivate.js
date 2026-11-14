@@ -62,7 +62,7 @@ function main() {
     `deactivated ${user.username} (id ${user.id}) in ${config.DB_PATH}; ` +
     `${ended} session(s) ended`
   );
-  const live = queries.liveGameForUser.get(user.id, user.id);
+  const live = queries.liveGameForUser.get({ user: user.id });
   if (live) {
     console.log(`game #${live.id} is live; it will be forfeited once the server disconnects them`);
   }
