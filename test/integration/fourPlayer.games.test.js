@@ -123,7 +123,7 @@ describe("a four-player game", () => {
       COLORS.map((c, i) => [c, users[i].user.id]).sort());
   });
 
-  test("all four are in a game: no second one, and the lobby shows them playing", async () => {
+  test("all four are in a game: no second one, and the lobby shows them playing and the game", async () => {
     for (const u of users) assert.equal(rooms.liveGameOf(u.user.id), g.gameId);
     const refused = waitFor(g.by.y, "lobby:error");
     g.by.y.emit("lobby:join", {});
@@ -135,7 +135,12 @@ describe("a four-player game", () => {
       const p = lobby.players.find((x) => x.userId === u.user.id);
       assert.deepEqual([p.playing, p.gameId], [true, g.gameId], u.user.username);
     }
-    assert.ok(!lobby.games.some((x) => x.gameId === g.gameId), "not in the two-player live list");
+    // Under live games, with its seats in turn order and no 8x8 preview.
+    const live = lobby.games.find((x) => x.gameId === g.gameId);
+    assert.deepEqual(live.seats.map((p) => [p.color, p.userId, p.username, p.bot]),
+      COLORS.map((c, i) => [c, users[i].user.id, users[i].user.username, false]));
+    assert.equal(typeof live.seats[0].rating, "number");
+    assert.deepEqual([live.variant, live.rated, live.ply, "white" in live, "fen" in live], ["fourplayer", false, 0, false, false]);
   });
 
   test("only its players may join; the clocks wait for all four", async () => {
@@ -177,7 +182,7 @@ describe("a four-player game", () => {
     const yellow = await users[2].c.get(`/api/games/${g.gameId}`);
     assert.equal(yellow.status, 200);
     assert.equal(yellow.body.variant, "fourplayer");
-    assert.deepEqual(yellow.body.seats, Object.fromEntries(COLORS.map((c, i) => [c, { id: users[i].user.id, username: users[i].user.username }])));
+    assert.deepEqual(yellow.body.seats, Object.fromEntries(COLORS.map((c, i) => [c, { id: users[i].user.id, username: users[i].user.username, bot: false }])));
     assert.equal((await outsider.c.get(`/api/games/${g.gameId}`)).status, 403);
   });
 
@@ -235,6 +240,21 @@ describe("a four-player game", () => {
     const quiet = expectNo(g.by.r, "rematch:offered");
     g.by.b.emit("rematch:offer", { gameId: g.gameId });
     assert.equal(await quiet, true);
+  });
+
+  test("is in each player's history, by their colour, and anyone may replay it", async () => {
+    const seats = Object.fromEntries(COLORS.map((c, i) => [c, { id: users[i].user.id, username: users[i].user.username, bot: false }]));
+    for (const [i, c] of COLORS.entries()) {
+      const mine = (await users[i].c.get("/api/games")).body.find((x) => x.id === g.gameId);
+      assert.deepEqual([mine.seat, mine.result, mine.move_count], [c, "1-0", 2], c);
+      assert.deepEqual(mine.seats, seats);
+    }
+    const theirs = (await outsider.c.get(`/api/games/user/${users[3].user.id}`)).body.find((x) => x.id === g.gameId);
+    assert.equal(theirs.seat, "g", "the profile owner's colour");
+    const replay = await outsider.c.get(`/api/games/${g.gameId}`);
+    assert.equal(replay.status, 200);
+    assert.deepEqual(replay.body.moves.map((m) => m.uci), ["e2e4", "b7c7"]);
+    assert.equal((await outsider.c.get("/api/games")).body.some((x) => x.id === g.gameId), false);
   });
 });
 

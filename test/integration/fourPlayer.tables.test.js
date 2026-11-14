@@ -139,6 +139,13 @@ describe("a host who starts early", () => {
     assert.equal(row.ai_level, "beginner");
     const joined = await emitAck(host, "game:join", { gameId: h.gameId });
     assert.deepEqual(Object.values(joined.state.seats).map((s) => s.bot), [false, false, true, true]);
+    // The lobby's live games and the history mark LorFish's seats too: it has
+    // no profile, and no rating to show.
+    host.emit("lobby:enter");
+    const live = (await stateWhere(host, (x) => x.games.some((g) => g.gameId === h.gameId))).games.find((g) => g.gameId === h.gameId);
+    assert.deepEqual(live.seats.map((p) => [p.bot, p.rating === null]), [[false, false], [false, false], [true, true], [true, true]]);
+    const listed = (await users[0].c.get("/api/games")).body.find((x) => x.id === h.gameId);
+    assert.deepEqual([listed.seat, listed.seats.y.bot, listed.seats.b.bot], ["r", true, false]);
     await emitAck(friend, "game:join", { gameId: h.gameId });
     // Red, Blue, then LorFish as Yellow plays by itself.
     const yellow = moveAt(host, 3);

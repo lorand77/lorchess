@@ -6,7 +6,11 @@
 // unfinished game offers Resume; on someone else's, a live PvP game offers
 // Watch (an AI game runs in its player's browser, so there is nothing to watch).
 // Every column but the last sorts the table, on the page: the whole list is
-// already here, newest first, so no request is needed.
+// already here, newest first, so no request is needed. A four-player game has
+// no White or Black: the row names the owner's colour, their partner and the
+// two opponents, and its links go to the four-player pages.
+
+const FOUR_COLOURS = { r: "Red", b: "Blue", y: "Yellow", g: "Green" };
 
 (window.profileTabs = window.profileTabs || {}).games = async function ({ data, you, userId }) {
   const content = document.getElementById("historyContent");
@@ -40,6 +44,7 @@
 
   // Each game's cells, and what each sortable column sorts it by.
   const rows = games.map((g) => {
+    if (g.seat) return fourRow(g);
     const asWhite = g.white_id === user.id;
     const opp = asWhite ? g.black_username : g.white_username;
     const oppId = Number(asWhite ? g.black_id : g.white_id);
@@ -52,6 +57,27 @@
     const mode = g.mode === "ai" ? "vs AI" : "PvP";
     const variant = variantLabel(g.variant);
     const side = asWhite ? "White" : "Black";
+    return row(g, mode, variant, side, oppCell, opp || "", res);
+  });
+
+  // A four-player game: the owner's colour, the two opponents, and who their
+  // partner was. Red and Yellow are the team stored as White ("1-0").
+  function fourRow(g) {
+    const name = (c) => {
+      const s = g.seats[c];
+      return s.bot ? escapeHtml(s.username) : playerLink(s.id, s.username).outerHTML;
+    };
+    const after = { r: "b", b: "y", y: "g", g: "r" };
+    const partner = after[after[g.seat]];
+    const opps = [after[g.seat], after[partner]];
+    const oppCell = opps.map(name).join(" &amp; ") +
+      ` <span class="muted small">with ${name(partner)}</span>`;
+    const res = outcome(g, g.seat === "r" || g.seat === "y");
+    const opp = opps.map((c) => g.seats[c].username).join(" & ");
+    return row(g, "PvP", variantLabel(g.variant), FOUR_COLOURS[g.seat], oppCell, opp, res);
+  }
+
+  function row(g, mode, variant, side, oppCell, opp, res) {
     return {
       html:
         `<td>${fmtDate(g.created_at)}</td>` +
@@ -62,9 +88,9 @@
         `<td class="${res.cls}">${res.text}</td>` +
         `<td>${action(g)}</td>`,
       // The id only ever grows, so it orders games started in the same second.
-      by: { date: g.id, mode, variant, side, opponent: (opp || "").toLowerCase(), result: res.rank },
+      by: { date: g.id, mode, variant, side, opponent: opp.toLowerCase(), result: res.rank },
     };
-  });
+  }
 
   // [heading, sort key (null: not sortable), the way it sorts first].
   const COLUMNS = [
@@ -139,10 +165,12 @@
     if (g.status !== "active") {
       // Opened from someone else's profile, the replay takes their side.
       const as = you ? "" : "&as=" + user.id;
-      return `<a class="replay-link" href="/replay.html?id=${g.id}${as}">Replay →</a>`;
+      const replay = g.seat ? "fourReplay.html" : "replay.html";
+      return `<a class="replay-link" href="/${replay}?id=${g.id}${as}">Replay →</a>`;
     }
-    if (you) return `<a class="replay-link" href="/game.html?id=${g.id}">Resume →</a>`;
-    if (g.mode === "pvp") return `<a class="replay-link" href="/game.html?watch=${g.id}">Watch →</a>`;
+    const page = g.seat ? "four.html" : "game.html";
+    if (you) return `<a class="replay-link" href="/${page}?id=${g.id}">Resume →</a>`;
+    if (g.mode === "pvp") return `<a class="replay-link" href="/${page}?watch=${g.id}">Watch →</a>`;
     return "";
   }
 

@@ -182,17 +182,20 @@ module.exports = {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
   getGameById: db.prepare("SELECT * FROM games WHERE id = ?"),
-  // A user's games, newest first (they may be on either side), with both
-  // players' usernames resolved for display.
+  // A user's games, newest first (they may be on either side, or in one of a
+  // four-player game's seats, named by `seat`), with both players' usernames
+  // resolved for display.
   listGamesForUser: db.prepare(`
     SELECT g.*,
            wu.username AS white_username,
            bu.username AS black_username,
-           (SELECT COUNT(*) FROM moves m WHERE m.game_id = g.id) AS move_count
+           (SELECT COUNT(*) FROM moves m WHERE m.game_id = g.id) AS move_count,
+           s.color AS seat
     FROM games g
     LEFT JOIN users wu ON wu.id = g.white_id
     LEFT JOIN users bu ON bu.id = g.black_id
-    WHERE g.white_id = ? OR g.black_id = ?
+    LEFT JOIN game_seats s ON s.game_id = g.id AND s.user_id = @me
+    WHERE g.white_id = @me OR g.black_id = @me OR s.user_id = @me
     ORDER BY g.id DESC
   `),
   updateGamePosition: db.prepare(

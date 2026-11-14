@@ -5,7 +5,7 @@
 // bottom and the four plates by the kings; the clocks start once all four are
 // in; moves go round by click and by drag, check is reported for whoever is
 // in it, a pawn on its 11th rank promotes through the dialog, and a
-// resignation ends it for both teams.
+// resignation ends it for both teams, with a link to its replay.
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { startServer, openBrowser, signedInPage, db } = require("./helpers.cjs");
@@ -117,6 +117,8 @@ test("four players and a spectator, from the game page's link to a resignation",
   assert.match(await red.locator("#status").textContent(), /your team wins$/);
   assert.match(await by.g.page.locator("#status").textContent(), /your team loses$/);
   assert.equal(await red.locator("#controls").isVisible(), false);
+  assert.equal(await watcher.page.locator("#replayLink").getAttribute("href"), "/fourReplay.html?id=" + gameId);
+  assert.equal(await watcher.page.locator("#replayLink").isVisible(), true, "the game can be replayed");
 });
 
 test("check from one side, then a promotion through the dialog", async (t) => {

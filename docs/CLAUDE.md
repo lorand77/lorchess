@@ -40,8 +40,9 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
 - `public/*.html` pages with their scripts in `public/js/`; `ui.js` is the game page.
   It draws the board only through a board view: `gridBoardView.js` (8x8) or
   `infiniteBoardView.js` (infinite chess, a window onto a board with no edges).
-  Four-player chess has its own page, `four.html` / `fourGame.js`, on
-  `fourBoardView.js`; `game.html` sends four-player games there.
+  Four-player chess has its own pages on `fourBoardView.js`: `four.html` /
+  `fourGame.js` (`game.html` sends four-player games there) and
+  `fourReplay.html` / `fourReplay.js` (as `replay.html` does).
 - `test/unit`, `test/integration` — `node --test`. `test/browser/*.test.cjs` —
   optional Chromium tests through an existing `playwright-core`, not part of
   `npm test`; how to run them is in `test/browser/README.md`.

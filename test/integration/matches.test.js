@@ -33,7 +33,7 @@ test("a match is two casual Bughouse boards, team A White on board 0 and Black o
     assert.deepEqual([r.mode, r.variant, r.rated, r.status, r.match_id, r.initial_ms], ["pvp", "bughouse", 0, "active", matchId, 180000]);
   }
   // Each board is in its players' history like any game.
-  assert.ok(queries.listGamesForUser.all(ids.a1, ids.a1).some((g) => g.id === boards[1]));
+  assert.ok(queries.listGamesForUser.all({ me: ids.a1 }).some((g) => g.id === boards[1]));
 });
 
 test("needs four different players", () => {

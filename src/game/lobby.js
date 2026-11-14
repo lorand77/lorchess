@@ -189,12 +189,24 @@ function snapshot() {
     const u = queries.getUserById.get(userId);
     return u ? u.rating : null;
   };
-  // Four-player games aren't listed: these rows and their previews are for
-  // two players on an 8x8 board. Their players still show as playing.
+  const ai = queries.getUserByUsername.get(config.AI_USERNAME).id;
+  // A four-player game has its four `seats`, in turn order, where the others
+  // have White and Black, and no preview: the lobby's little boards are 8x8.
   const games = rooms
     .listRooms()
-    .filter((r) => r.status === "active" && !r.four)
-    .map((r) => ({
+    .filter((r) => r.status === "active")
+    .map((r) => (r.four ? {
+      gameId: r.gameId,
+      seats: r.colors.map((c) => ({
+        color: c, userId: r.players[c], username: r.names[c], member: members.has(r.players[c]),
+        bot: r.players[c] === ai, rating: r.players[c] === ai ? null : ratingOf(r.players[c]),
+      })),
+      tc: r.timeControl,
+      rated: false,
+      variant: r.variant,
+      spectators: r.spectators.size,
+      ply: r.sans.length,
+    } : {
       gameId: r.gameId,
       white: {
         userId: r.players.w, username: r.names.w, rating: ratingOf(r.players.w),

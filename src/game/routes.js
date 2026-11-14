@@ -129,10 +129,17 @@ router.post("/", (req, res) => {
   });
 });
 
+// A user's games, newest first. A four-player game's row has no White or
+// Black, so it carries its `seats` instead, and `seat`, the user's colour.
+function gamesOf(userId) {
+  return queries.listGamesForUser.all({ me: userId }).map((g) =>
+    g.variant === fourGames.VARIANT ? { ...g, seats: seatsOf(g.id) } : g
+  );
+}
+
 // GET /api/games — the user's games, newest first.
 router.get("/", (req, res) => {
-  const uid = req.session.userId;
-  res.json(queries.listGamesForUser.all(uid, uid));
+  res.json(gamesOf(req.session.userId));
 });
 
 // GET /api/games/user/:id — someone else's games, for the Games tab of their
@@ -143,14 +150,14 @@ router.get("/user/:id", (req, res) => {
   if (id === AI_ID || !queries.getActiveUserById.get(id)) {
     return res.status(404).json({ error: "No such player." });
   }
-  res.json(queries.listGamesForUser.all(id, id));
+  res.json(gamesOf(id));
 });
 
 // GET /api/games/:id — a single game with both player names and its full
 // move list (san + uci + fen_after per ply) for the replay viewer. Anyone may
 // replay a game that is over; one still in progress is its players' alone —
 // everyone else watches it live, through the spectator room. A four-player
-// game also carries its seats, each colour's { id, username }.
+// game also carries its seats, each colour's { id, username, bot }.
 router.get("/:id", (req, res) => {
   const game = queries.getGameById.get(Number(req.params.id));
   if (!game) return res.status(404).json({ error: "No such game." });
@@ -172,11 +179,13 @@ router.get("/:id", (req, res) => {
   });
 });
 
+// A four-player game's seats for the pages: each colour's { id, username,
+// bot }, `bot` for LorFish's, which has no profile to link to.
 function seatsOf(gameId) {
   const seats = {};
   for (const [c, s] of Object.entries(fourGames.seatsOf(gameId))) {
     const u = queries.getUserById.get(s.userId);
-    seats[c] = { id: s.userId, username: u ? u.username : "?" };
+    seats[c] = { id: s.userId, username: u ? u.username : "?", bot: s.userId === AI_ID };
   }
   return seats;
 }

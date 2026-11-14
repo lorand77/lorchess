@@ -623,19 +623,21 @@ Corners".
     a game's white and black. A win is a seat on the winning team
     (`achievementWinsByVariant`), so the win badge goes to both partners.
   - One game at a time holds for every seat (`liveGameForUser` reads the
-    seats). The lobby shows all four as playing, but doesn't list the game
-    under live games, whose rows and previews are for two players.
+    seats), and the lobby shows all four as playing.
   - A restart rebuilds the room from its moves and the seats' clocks
     (`rooms.loadFourRoomFromDb`), like any game.
   - `GET /api/games/:id` lets any of the four seats read a game still in
-    progress, and carries the `seats` (each colour's id and name).
+    progress, and carries the `seats` (each colour's id and name, and `bot`
+    for LorFish's).
 - *The game page* is its own, `public/four.html` with `public/js/fourGame.js`,
   not a mode of `ui.js`: that page's names, clocks, PGN, captured material,
   undo, AI games, draws, rematches and review are all for two players, and
   the four-player page needs none of them. `game.html` sends a four-player
   game there, to play (`four.html?id=`, from the game's record) or to watch
-  (`four.html?watch=`, from the watch reply), so every link into a game —
-  the lobby, history, friends, the resume banner — works unchanged.
+  (`four.html?watch=`, from the watch reply), so any link into a game — the
+  friends page, a player's "playing" badge in the lobby, the resume banner —
+  works unchanged. The pages that list games link straight to the
+  four-player pages.
   - The page uses the server's events as `ui.js` does (`game:join` or
     `game:watch`, `move:make`, `move:made`, `clock:started`, `game:over`,
     `game:resign`, `chat:send`). A move is drawn only when `move:made` comes
@@ -658,6 +660,31 @@ Corners".
     premoves. The move list has a line a round, Red's move first. Chat is
     one conversation for all four players, the spectators' kept apart; the
     sounds are the game page's.
+- *Watching, history and replay.*
+  - The lobby's live games list a four-player game with its `seats` in turn
+    order (LorFish's marked `bot`, with no rating) in place of White and
+    Black, and no preview, the little boards being 8x8. The card reads "Red &
+    Yellow vs Blue & Green" by name, counts moves by rounds, and its Watch
+    and Rejoin go to `four.html`.
+  - A player's history (`listGamesForUser`) takes the games they hold a seat
+    in, with `seat`, their colour, and the route adds the game's `seats`.
+    The Games tab shows the colour, the two opponents "with" the partner,
+    and the result from the team's side, and its links go to the
+    four-player pages.
+  - The replay is a page of its own as well, `public/fourReplay.html` with
+    `public/js/fourReplay.js`, and `replay.html` sends a four-player game
+    there, so the older links (achievements, a finished game opened on
+    `game.html`) find it. It replays the stored moves from the start position
+    on the game page's board view and corner plates, seen from your seat, else
+    from the seat of the player whose profile you came from (`as`), else
+    Red's; it steps by buttons, keys or a click on a move. There is no clock
+    (only each seat's last time is kept) and no review: Stockfish plays
+    two-player chess. The result says how it ended, the mated colour or the
+    taken king read from the board. The game page links to it once the game
+    is over.
+  - The win badge, `fourplayer_wins`, goes to both partners. Like Bughouse
+    it doesn't count towards "Jack of All Trades", which asks for the
+    two-player variants.
 - *LorFish* plays it with `src/shared/lorfishFour.js`, run in the server's
   worker pool (`botWorker.js` picks it for a FEN4) at the levels' depths,
   capped by `BOT_MAX_DEPTH` (2), their temperatures making the difference

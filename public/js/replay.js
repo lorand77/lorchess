@@ -6,7 +6,8 @@
 // through with buttons, arrow keys, or by clicking a move. A Bughouse board is
 // replayed with its match (game.match): its pockets fill from the other board,
 // so both are played in the order the moves were made, and the other board is
-// shown beside it as it stood at the move shown.
+// shown beside it as it stood at the move shown. A four-player game goes to
+// its own replay, fourReplay.html.
 
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const CAPTURE_ORDER = ["p", "n", "b", "r", "q"];
@@ -73,6 +74,11 @@ async function init() {
     return;
   }
 
+  // A four-player game has a replay page of its own.
+  if (game.variant === "fourplayer") {
+    location.replace("/fourReplay.html" + location.search);
+    return;
+  }
   variant = game.variant || "standard";
   if (variant === "infinite") {
     // A window onto a board with no edges, read-only: arrows are drawn on

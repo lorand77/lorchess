@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Four-Player Replay</title>
+<link rel="stylesheet" href="/css/styles.css">
+<script src="/js/themeBoot.js"></script>
+</head>
+<body>
+<!-- The replay of a four-player game (fourReplay.js). replay.html sends a
+     four-player game here; the board and the corner plates are the game
+     page's (four.html). -->
+<div class="game">
+  <div class="board-wrap four-wrap">
+    <div class="board" id="board"></div>
+    <div class="four-plate" id="plate-br"></div>
+    <div class="four-plate" id="plate-bl"></div>
+    <div class="four-plate" id="plate-tl"></div>
+    <div class="four-plate" id="plate-tr"></div>
+  </div>
+  <div class="info">
+    <div class="userbar" id="userbar"></div>
+    <p class="toplink"><a id="backLink" href="/profile.html#games">← My Games</a></p>
+    <h2>Four-Player Chess · replay</h2>
+    <p id="replayMeta" class="muted"></p>
+    <p class="small" id="teams"></p>
+    <p id="replayStatus"></p>
+    <h3>Moves</h3>
+    <div id="history" class="four-moves"></div>
+    <p id="replayControls">
+      <button id="firstBtn" title="Start">⏮</button>
+      <button id="prevBtn" title="Previous (←)">◀</button>
+      <button id="nextBtn" title="Next (→)">▶</button>
+      <button id="lastBtn" title="End">⏭</button>
+    </p>
+    <p class="muted" style="font-size:12px;">Click a move, or use ← → (Home/End) to step. Stockfish plays two-player chess, so there is no review.</p>
+  </div>
+</div>
+
+<script src="/js/shell.js"></script>
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/fourPlayer.js"></script>
+<script src="/js/timeControls.js"></script>
+<script src="/js/boardDrag.js"></script>
+<script src="/js/boardArrows.js"></script>
+<script src="/js/fourBoardView.js"></script>
+<script src="/js/fourReplay.js"></script>
+</body>
+</html>

@@ -244,6 +244,9 @@ const list = (cs) => cs.map((c) => NAMES[c]).join(' and ');
 
 function renderStatus() {
   document.getElementById('controls').style.display = me && !result ? '' : 'none';
+  // Once it is over, the game can be stepped through on its replay page.
+  document.getElementById('replayLine').style.display = result && result.result !== '*' ? '' : 'none';
+  document.getElementById('replayLink').href = '/fourReplay.html?id=' + gameId;
   if (result) {
     turnEl.textContent = '';
     const winners = result.result === '1-0' ? 0 : result.result === '0-1' ? 1 : null;

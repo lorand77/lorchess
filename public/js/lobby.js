@@ -400,9 +400,10 @@ function renderSeeks() {
   }
 }
 
-// A link-styled button into the spectator view of a live game.
-function watchButton(gameId) {
-  return button("Watch", "", () => { location.href = "/game.html?watch=" + gameId; });
+// A link-styled button into the spectator view of a live game; a four-player
+// game's is its own page.
+function watchButton(gameId, page) {
+  return button("Watch", "", () => { location.href = "/" + (page || "game.html") + "?watch=" + gameId; });
 }
 
 function renderGames() {
@@ -423,23 +424,42 @@ function renderGames() {
   for (const g of games) {
     const card = el("div", "live-game");
 
-    const wrap = el("div", "mini-board-wrap");
-    const board = el("div");
-    wrap.appendChild(board);
-    // Always from White's side: a preview has no "your" colour. Decorative
-    // only — .mini-board sets pointer-events: none.
-    if (MiniBoard.render(board, g.fen, { lastMove: g.last })) card.appendChild(wrap);
+    // A four-player game: its seats in turn order, and no preview (the
+    // little boards are 8x8).
+    const four = !!g.seats;
+    if (!four) {
+      const wrap = el("div", "mini-board-wrap");
+      const board = el("div");
+      wrap.appendChild(board);
+      // Always from White's side: a preview has no "your" colour. Decorative
+      // only — .mini-board sets pointer-events: none.
+      if (MiniBoard.render(board, g.fen, { lastMove: g.last })) card.appendChild(wrap);
+    }
 
     const meta = el("div", "live-game-meta");
     const vs = el("div", "vs");
+    // LorFish, in a four-player seat, has no profile to link to.
     const side = (p) => {
-      vs.appendChild(playerLink(p.userId, p.username, { newTab: true }));
+      if (p.bot) vs.appendChild(document.createTextNode(p.username));
+      else vs.appendChild(playerLink(p.userId, p.username, { newTab: true }));
       if (p.member) vs.appendChild(memberBadge());
       if (p.rating != null) vs.appendChild(el("span", "rating", "(" + p.rating + ")"));
     };
-    side(g.white);
-    vs.appendChild(document.createTextNode(" vs "));
-    side(g.black);
+    if (four) {
+      // Red & Yellow vs Blue & Green.
+      const [r, b, y, gr] = g.seats;
+      side(r);
+      vs.appendChild(document.createTextNode(" & "));
+      side(y);
+      vs.appendChild(document.createTextNode(" vs "));
+      side(b);
+      vs.appendChild(document.createTextNode(" & "));
+      side(gr);
+    } else {
+      side(g.white);
+      vs.appendChild(document.createTextNode(" vs "));
+      side(g.black);
+    }
     meta.appendChild(vs);
 
     const tags = el("div");
@@ -450,14 +470,16 @@ function renderGames() {
     if (g.handicap) tags.appendChild(el("span", "tag handicap", g.handicap));
     meta.appendChild(tags);
 
+    // A move is one each: two plies, or a four-player game's four.
     meta.appendChild(el("div", "muted small",
-      (g.ply ? "move " + Math.ceil(g.ply / 2) : "just started") +
+      (g.ply ? "move " + Math.ceil(g.ply / (four ? 4 : 2)) : "just started") +
       (g.spectators ? " · 👁 " + g.spectators : "")));
 
-    const mine = g.white.userId === me || g.black.userId === me;
+    const page = four ? "four.html" : "game.html";
+    const mine = four ? g.seats.some((p) => p.userId === me) : g.white.userId === me || g.black.userId === me;
     meta.appendChild(mine
-      ? button("Rejoin", "primary", () => { location.href = "/game.html?id=" + g.gameId; })
-      : watchButton(g.gameId));
+      ? button("Rejoin", "primary", () => { location.href = "/" + page + "?id=" + g.gameId; })
+      : watchButton(g.gameId, page));
 
     card.appendChild(meta);
     gameListEl.appendChild(card);
