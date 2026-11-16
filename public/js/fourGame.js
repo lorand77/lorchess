@@ -12,7 +12,13 @@
 // game's moves, to know whose turn it is, where a piece may go, and who is in
 // check. Each player sees the board from their own side; a spectator from
 // Red's. The four plates sit in the board's empty corners, each by its
-// player's king, with the name and the clock. No premoves yet.
+// player's king, with the name and the clock.
+//
+// One premove may be queued while anyone else is on move, as on the game
+// page: a piece picked up off your turn offers every square it could reach on
+// an empty board (FourPlayer.reachOf), and the move waits through the other
+// three's turns, to be played the moment yours comes if it is legal then,
+// and dropped if not. A promotion takes a queen. Any click cancels it.
 //
 //   four.html?id=<game>     play (a seat in the game)
 //   four.html?watch=<game>  watch
@@ -34,7 +40,9 @@ let clocks = null;           // the last snapshot, { r: ms, ... }
 let clockBase = 0;           // when it was taken
 let running = false;
 let selected = null;
-let targets = [];            // the selected piece's legal moves
+let targets = [];            // the selected piece's legal moves, or its premove squares
+let premove = null;          // { from, to } queued for my next turn, or null
+let premoveSelecting = false; // picking a premove: targets are reach, not legal moves
 let lastMove = null;
 let anim = null;
 let socket = null;
@@ -48,8 +56,15 @@ const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-m
 const view = FourBoardView.create(boardEl, {
   pieceSrc: (p) => Theme.pieceSrc(p.c, p.t),
   onSquareClick,
-  // Right-button drags draw arrows (boardArrows.js); no browser menu.
-  onContextMenu: (e) => e.preventDefault(),
+  // Right-button drags draw arrows (boardArrows.js); no browser menu. A
+  // right-click also drops the selection and any queued premove.
+  onContextMenu: (e) => {
+    e.preventDefault();
+    if (selected === null && !premove) return;
+    premove = null;
+    clearSelection();
+    render();
+  },
   canDrag: canPick,
   onPick: select,
   onDrop: (from, to) => {
@@ -65,32 +80,53 @@ function myTurn() {
   return !!me && !result && game.turn === me && !game.isGameOver();
 }
 
+// Someone else is on move in a game still going: what I pick up is a premove.
+function canPremove() {
+  return !!me && !result && game.turn !== me && !game.isGameOver();
+}
+
 function canPick(sq) {
   const p = game.squares[sq];
-  return myTurn() && !promoEl.classList.contains('show') && !!p && p.c === me;
+  return (myTurn() || canPremove()) && !promoEl.classList.contains('show') && !!p && p.c === me;
 }
 
 function select(sq) {
   selected = sq;
-  targets = game.legalMoves().filter((m) => m.from === sq);
+  premoveSelecting = !myTurn();
+  targets = premoveSelecting
+    ? game.reachOf(sq).map((to) => ({ from: sq, to }))
+    : game.legalMoves().filter((m) => m.from === sq);
   render();
 }
 
 function clearSelection() {
   selected = null;
   targets = [];
+  premoveSelecting = false;
 }
 
 function onSquareClick(sq) {
+  // A click anywhere withdraws a queued premove; picking up a piece may then
+  // start a new one.
+  const cancelled = premove !== null;
+  premove = null;
   if (selected !== null && selected !== sq && targets.some((m) => m.to === sq)) return attempt(selected, sq);
   if (canPick(sq) && sq !== selected) return select(sq);
-  clearSelection();
-  render();
+  if (selected !== null || cancelled) {
+    clearSelection();
+    render();
+  }
 }
 
-// A move to `to`: straight to the server, or through the promotion dialog
-// when the pawn reaches its 11th rank.
+// A move to `to`: queued as a premove off my turn; otherwise straight to the
+// server, or through the promotion dialog when the pawn reaches its 11th rank.
 function attempt(from, to) {
+  if (premoveSelecting) {
+    const ok = targets.some((m) => m.to === to);
+    clearSelection();
+    if (ok) premove = { from, to };
+    return render();
+  }
   const moves = game.legalMoves().filter((m) => m.from === from && m.to === to);
   clearSelection();
   if (!moves.length) return render();
@@ -98,9 +134,10 @@ function attempt(from, to) {
   send(moves[0]);
 }
 
-function send(m) {
+function send(m, opts) {
   render();
-  socket.emit('move:make', { gameId, from: m.from, to: m.to, promo: m.promo || null }, (resp) => {
+  const queued = !!(opts && opts.premove);
+  socket.emit('move:make', { gameId, from: m.from, to: m.to, promo: m.promo || null, premove: queued }, (resp) => {
     if (!resp || !resp.ok) notice((resp && resp.error) || 'Move refused.');
   });
 }
@@ -143,8 +180,23 @@ function applyServerMove(m) {
     captured: entry.captured ? { sq: entry.capturedAt, piece: entry.captured } : null,
   };
   if (selected !== null && !canPick(selected)) clearSelection();
+  // My turn now: a selection made for a premove is stale, and the queued
+  // premove is played or dropped.
+  if (game.turn === me && premoveSelecting) clearSelection();
+  const queued = game.turn === me ? premove : null;
+  if (queued) premove = null;
   moveSound(entry);
   render();
+  if (queued) playPremove(queued);
+}
+
+// The queued premove, if it is legal now: as it was picked, or as a queen if
+// it is a promotion.
+function playPremove(pm) {
+  if (!myTurn()) return;
+  const moves = game.legalMoves().filter((m) => m.from === pm.from && m.to === pm.to);
+  const move = moves.find((m) => !m.promo) || moves.find((m) => m.promo === 'q');
+  if (move) send(move, { premove: true });
 }
 
 // ---- drawing ----
@@ -162,11 +214,13 @@ function checked() {
 }
 
 function render() {
-  const hints = new Map(targets.map((m) => [m.to, m.capture ? 'capture' : 'move']));
+  const kind = (m) => (premoveSelecting ? 'premove' : m.capture ? 'capture' : 'move');
+  const hints = new Map(targets.map((m) => [m.to, kind(m)]));
   const still = view.render({
     pieces: game.squares,
     bottom: me || 'r',
     lastMove,
+    premove,
     selected,
     check: new Set(checked().map((c) => game.kingOf(c))),
     hints,
@@ -263,6 +317,7 @@ function renderStatus() {
   let line = `Turn: ${NAMES[t]}`;
   if (me) line += t === me ? ' — your move' : t === FourPlayer.partnerOf(me) ? ' — your partner' : ' — waiting…';
   if (!running && !game.history.length) line = 'Waiting for all four players…';
+  if (premove) line += ` · premove ${FourPlayer.nameOf(premove.from)}${FourPlayer.nameOf(premove.to)}`;
   turnEl.textContent = line;
   const inCheck = checked();
   statusEl.textContent = !inCheck.length ? ''
@@ -402,6 +457,7 @@ function applyState(state) {
   result = state.status !== 'active' ? { result: state.result || '*', termination: state.termination || null } : null;
   anim = null;
   clearSelection();
+  premove = null;
   promoEl.classList.remove('show');
   document.getElementById('tcLine').textContent = `${state.timeControl} · casual · ${variantLabel(state.variant)}`;
   document.getElementById('teams').textContent = me
@@ -456,6 +512,7 @@ function start() {
     result = { result: info.result, termination: info.termination };
     promoEl.classList.remove('show');
     clearSelection();
+    premove = null;
     if (info.clocks) setClocks(info.clocks, false);
     outcomeSound(info.result);
     render();

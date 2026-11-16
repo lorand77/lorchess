@@ -680,8 +680,10 @@ Corners".
     team and how, the checkmated colour read from the board, and tells a
     player whether their team won.
   - A pawn reaching its 11th rank opens the promotion dialog, its pieces in
-    the player's colour. Moves are by click or drag, on your turn only: no
-    premoves. The move list has a line a round, Red's move first. Chat is
+    the player's colour. Moves are by click or drag. Off your turn a piece
+    picked up queues one premove, as on the game page (see "Premoves"),
+    which waits through the other three's turns. The move list has a line a
+    round, Red's move first. Chat is
     one conversation for all four players, the spectators' kept apart; the
     sounds are the game page's.
 - *Watching, history and replay.*
@@ -757,7 +759,7 @@ Corners".
   Blue in thirteen plies, the winners get the badge, and the game is in the
   history and replays.
 - *Not done:* free-for-all (points, eliminations, placings, and a search
-  for four sides), premoves, draw offers, rematches, and a preview in the
+  for four sides), draw offers, rematches, and a preview in the
   lobby's live games.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
@@ -1657,9 +1659,20 @@ the meantime drops it. The pocket piece is tinted like the square, and the
 turn line names it (`P@e4`). In Bughouse a piece that arrives from the other
 board meanwhile is in hand like any other, ready to be queued.
 
-Premoves exist wherever the game page's 8x8 board does: every variant but
-Infinite Chess (`canPremove`, until its targets, which a slider makes
-unbounded, are worked out) and Four-Player Chess, whose page has none.
+Premoves exist in every variant but Infinite Chess (`canPremove`, until its
+targets, which a slider makes unbounded, are worked out).
+
+**Four-player premoves** (`fourGame.js`) work the same way on the cross
+board. A piece picked up while anyone else is on move offers every square it
+could reach on an empty board, which the engine works out, since the board's
+cut corners and each seat's pawn direction are its business
+(`FourPlayer.reachOf`; a test holds every legal move's square to it, from
+every seat). The premove waits through the other three's turns, through
+your partner's too, and is played when yours comes if it is legal then, as
+a queen if it promotes, and dropped if not. It is flagged and believed on
+the server as any premove is, measured from the move just before it. A
+click, or a right-click, cancels it, as does a rejoin or the end of the
+game.
 
 A premoved move is flagged on its way to the server (`premove` in the socket
 payload / AI move POST) and stored in `moves.premove`. PvP believes the flag

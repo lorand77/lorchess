@@ -289,3 +289,39 @@ describe("four-player chess: notation", () => {
     assert.equal(g.moveFromText("c3c4"), null, "a corner is no square");
   });
 });
+
+describe("four-player chess: where a piece could go, for a premove", () => {
+  test("every legal move's square is in its piece's reach, the same from every seat", () => {
+    const random = seeded(9);
+    let checked = 0;
+    for (let game = 0; game < 8; game++) {
+      const g = new FourPlayer();
+      for (let ply = 0; ply < 60 && !g.isGameOver(); ply++) {
+        const moves = g.legalMoves();
+        for (const m of moves) assert.ok(g.reachOf(m.from).includes(m.to), `${FourPlayer.moveText(m)} in ${g.fen()}`);
+        const t = turned(g);
+        const turn = (s) => FourPlayer.sqOf(...FourPlayer.rotate(s % 14, Math.floor(s / 14), 1));
+        for (const from of new Set(moves.map((m) => m.from))) {
+          assert.deepEqual(t.reachOf(turn(from)).sort((a, b) => a - b), g.reachOf(from).map(turn).sort((a, b) => a - b));
+        }
+        checked += moves.length;
+        g.makeMove(moves[Math.floor(random() * moves.length)]);
+      }
+    }
+    assert.ok(checked > 5000, `${checked} moves`);
+  });
+
+  test("on an empty board: nothing in the way, the corners left out", () => {
+    const sq = FourPlayer.squareOf;
+    const names = (g, from) => g.reachOf(sq(from)).map(FourPlayer.nameOf).sort();
+    const start = new FourPlayer();
+    assert.deepEqual(names(start, "e2"), ["d3", "e3", "e4", "f3"], "a pawn's step, double step and captures");
+    assert.deepEqual(names(start, "e1"), ["d3", "f3", "g2"], "a knight over its own pawns, and not into the cut corner (c2)");
+    assert.equal(start.reachOf(sq("h7")).length, 0, "an empty square");
+    const g = position("r", { ...KINGS, g7: "rR" });
+    assert.equal(g.reachOf(sq("g7")).length, 13 + 13, "a rook across the middle: every square of its file and rank");
+    const king = position("r", { ...KINGS, d1: "rR", k1: "rR" }, { castling: "rkrq" });
+    assert.deepEqual(names(king, "h1").filter((n) => n.endsWith("1")), ["f1", "g1", "i1", "j1"], "castling squares while the rights last");
+  });
+});
+

@@ -278,6 +278,39 @@ const FourPlayer = (function () {
       }
     }
 
+    // Where the piece on `sq` could go on an otherwise empty board, as square
+    // numbers: for a premove, picked before the position it will be played
+    // in exists, so nothing standing in the way, and no legality, is judged
+    // here. A pawn's step, its double step from its second rank and its two
+    // captures; a king's castling squares while it holds the right.
+    reachOf(sq) {
+      const p = this.squares[sq];
+      if (!p) return [];
+      const x = xOf(sq), y = yOf(sq);
+      const out = new Set();
+      const add = (tx, ty) => { if (onBoard(tx, ty)) out.add(sqOf(tx, ty)); };
+      if (p.t === 'p') {
+        const [fx, fy] = this.forward(p.c);
+        add(x + fx, y + fy);
+        if (this.onRank(sq, p.c, 2)) add(x + 2 * fx, y + 2 * fy);
+        for (const s of [-1, 1]) add(x + fx + (fy ? s : 0), y + fy + (fx ? s : 0));
+      } else if (p.t === 'n' || p.t === 'k') {
+        for (const [dx, dy] of p.t === 'n' ? KNIGHT : KING) add(x + dx, y + dy);
+        if (p.t === 'k' && sq === fromFrame(7, 0, p.c)) {
+          for (const side of ['k', 'q']) {
+            if (!this.castling[p.c][side]) continue;
+            const [kx, ky] = CASTLES[side].kingTo;
+            out.add(fromFrame(kx, ky, p.c));
+          }
+        }
+      } else {
+        for (const [dx, dy] of RAYS[p.t]) {
+          for (let px = x + dx, py = y + dy; onBoard(px, py); px += dx, py += dy) out.add(sqOf(px, py));
+        }
+      }
+      return [...out];
+    }
+
     // The side to move's legal moves: those that don't leave its own king
     // attacked by either opponent. A move that takes an enemy king is always
     // legal: it ends the game. None once the game is over.
