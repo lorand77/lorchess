@@ -759,6 +759,18 @@ entry — a variant's start position (`startOf`) and a clock's speed class
 (`speedOf`) — so matchmaking and the format badges read the catalogue instead
 of keeping lists of their own that would drift the same way.
 
+**The Rules page** (`public/rules.html`, the rail's "Rules") has a tab for
+what every game shares (clocks, flags, draws, disconnects, rated and casual,
+odds, premoves) and one per variant. The rules are prose, written from the
+engines rather than from other sites, so where LorChess differs it says so (a
+flag in Infinite Chess, a mate decided on the mated player's turn). The tab
+names and each variant's "at a glance" line (players, rated or casual,
+LorFish, odds, review) are filled in from the catalogue by `rules.js`, so
+they can't contradict the lobby. A tab opens from the hash
+(`rules.html#atomic`). A unit test fails until a new variant has a section,
+in the catalogue's order. The prose itself isn't tied to the engines by any
+test: a rule change means editing the page by hand.
+
 ## Authentication
 
 - `POST /api/register`, `POST /api/login`, `POST /api/logout`, `GET /api/me`.

@@ -80,7 +80,9 @@ under `src/game/`, `src/shared/` or `public/js/ui.js`.
 - `src/shared/*.js` runs in three runtimes: keep the UMD tail at the bottom and
   use no Node-only or DOM-only APIs.
 - Time controls, variants, AI levels and achievements are allowlists in `src/shared/`.
-  Add entries there, not in ad-hoc lists elsewhere.
+  Add entries there, not in ad-hoc lists elsewhere. A new variant also needs
+  its win badge and its rules in `public/rules.html` (tests fail until both
+  exist); a rule change means editing that page by hand.
 - Native modules need a rebuild after `npm ci` / `npm install` because
   `ignore-scripts` is on globally: the `npm rebuild` line in "run the app" in
   `docs/setup.md`. Never through `socket npm`: its rebuild silently does

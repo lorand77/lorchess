@@ -1586,6 +1586,16 @@ body.has-shell .lobby-shell { grid-template-columns: minmax(0, 1fr) 300px; }
 .profile-tabs a.current { color: var(--text); font-weight: bold; border-bottom-color: var(--link); }
 .profile-tab { padding-top: 8px; }
 
+/* The Rules page (rules.html): its tab bar is .profile-tabs. */
+.rules-page { width: 760px; max-width: 100%; margin: 24px auto 0; padding: 0 14px; box-sizing: border-box; }
+.rules-page h1 { margin: 0 0 4px; }
+.rules-section { padding-top: 4px; line-height: 1.5; }
+.rules-section h2 { margin: 12px 0 4px; }
+.rules-section h3 { margin: 18px 0 4px; font-size: 15px; }
+.rules-section ul { margin: 4px 0; padding-left: 22px; }
+.rules-section li { margin: 4px 0; }
+.rules-glance { margin: 0 0 8px; color: var(--text-2); font-size: 13px; }
+
 /* KPI row: headline numbers, not a chart. */
 .stat-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .stat-tile {

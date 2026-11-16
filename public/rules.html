@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LorChess — Rules</title>
+<link rel="stylesheet" href="/css/styles.css">
+<script src="/js/themeBoot.js"></script>
+</head>
+<body>
+<!-- The rules of every variant, as LorChess plays them: one tab each, in the
+     catalogue's order (variants.js), and General for what every game shares.
+     rules.js builds the tabs from the sections and fills each variant's "at a
+     glance" line from the catalogue. A test fails if a variant has no
+     section. Written from the engines, not from other sites' rules: where
+     LorChess differs (a flag, a dead position), it says so. -->
+<div class="rules-page">
+  <div class="userbar" id="userbar"></div>
+  <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
+  <h1>Rules</h1>
+  <p class="muted small">How each game is played here. The server checks every move against these rules, so a move the board won't take is one the rules don't allow.</p>
+  <nav class="profile-tabs" id="rulesTabs" role="tablist"></nav>
+
+  <section class="rules-section" id="rules-general" data-key="general" role="tabpanel" hidden>
+    <h2>Every game</h2>
+    <h3>Clocks</h3>
+    <ul>
+      <li>Games against other people are timed: Bullet 1+0, Blitz 3+0 or 5+0, or Rapid 10+0 (minutes each, plus seconds added per move). Your clock runs while it is your move, and starts once every player has joined.</li>
+      <li>Run out of time and you lose, unless your opponent could not checkmate you by any series of legal moves, even with your help: then it is a draw. Some variants change this; their tab says how.</li>
+      <li>Games against LorFish have no clock.</li>
+    </ul>
+    <h3>How a game ends</h3>
+    <ul>
+      <li>Checkmate wins. Stalemate, threefold repetition, the fifty-move rule (fifty moves each with no capture and no pawn move) and a position where neither side can mate are draws, and end the game at once: there is nothing to claim.</li>
+      <li>You may resign, or, in a two-player game, offer your opponent a draw.</li>
+      <li>Resigning before anyone has moved ends the game with no result. So does a player who never turns up.</li>
+      <li>If you lose your connection, you have 45 seconds to come back before you lose the game (or, if no move has been played, before it is called off). Your opponent sees the countdown.</li>
+    </ul>
+    <h3>Rated and casual</h3>
+    <ul>
+      <li>Rated games change your rating; casual ones don't. Standard, Chess960, Atomic and Pawn Wars can be rated; the newer variants are casual for now. Each tab says which.</li>
+      <li>Games against LorFish and odds games are never rated.</li>
+    </ul>
+    <h3>Odds games</h3>
+    <ul>
+      <li>A challenge can change the starting position to give odds: pieces taken off, swapped for others, or added, each side only on its own half of the board. The kings stay on e1 and e8, and a side can castle only with a rook still in its corner.</li>
+      <li>Odds are offered in the variants that start from the ordinary position and keep its rules for the setup: Standard, Atomic, King of the Hill and Three-check. The game's rules don't change.</li>
+    </ul>
+    <h3>Premoves</h3>
+    <ul>
+      <li>In a two-player game you may queue one move while your opponent is thinking. It is played the moment your turn comes if it is legal then, and dropped if not. A premoved promotion is always to a queen. Click or right-click the board to cancel it.</li>
+    </ul>
+    <h3>Other things worth knowing</h3>
+    <ul>
+      <li>You play one game at a time: while you are in one you can't start, offer or accept another.</li>
+      <li>A rematch swaps the colours and keeps the terms.</li>
+      <li>Against LorFish you may take moves back (Undo).</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-standard" data-key="standard" role="tabpanel" hidden>
+    <h2>Standard</h2>
+    <p class="rules-glance"></p>
+    <h3>The board and pieces</h3>
+    <ul>
+      <li>An 8x8 board, a light square in each player's right-hand corner. White starts, and the players move in turn.</li>
+      <li>The king moves one square any way. The queen moves any distance in a straight line or along a diagonal; the rook in a straight line; the bishop along a diagonal. None of them may jump over a piece.</li>
+      <li>The knight jumps in an L: two squares one way and one to the side. It may jump over pieces.</li>
+      <li>A pawn moves one square forward, or two from its starting square if both are empty, and captures one square diagonally forward. It can't move backwards.</li>
+      <li>You capture by moving onto an enemy piece. You never capture your own.</li>
+    </ul>
+    <h3>Special moves</h3>
+    <ul>
+      <li><strong>Castling:</strong> the king moves two squares towards a rook, and the rook jumps to the square the king passed over. Only if neither has moved, the squares between them are empty, and the king is not in check, does not pass through an attacked square, and does not land on one. Here you castle by moving the king two squares, or onto the rook.</li>
+      <li><strong>En passant:</strong> when a pawn steps two squares and lands beside an enemy pawn, that pawn may capture it as if it had stepped only one, on the very next move only.</li>
+      <li><strong>Promotion:</strong> a pawn reaching the far rank becomes a queen, rook, bishop or knight, as you choose.</li>
+    </ul>
+    <h3>Check and the end</h3>
+    <ul>
+      <li>A king that is attacked is in check. You may never make a move that leaves your own king in check.</li>
+      <li>In check with no move that gets out of it is checkmate, and loses. Not in check with no legal move at all is stalemate, a draw.</li>
+      <li>Draws come automatically by threefold repetition, the fifty-move rule, or a position where neither side can mate: king against king, king and one bishop or knight against a king, or kings and bishops all on squares of one colour.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-chess960" data-key="chess960" role="tabpanel" hidden>
+    <h2>Chess960</h2>
+    <p class="rules-glance"></p>
+    <p>Standard chess with the pieces on the back rank shuffled, so opening theory is no help. Everything else is Standard's.</p>
+    <ul>
+      <li>The pawns start where they always do. Behind them each side's pieces are shuffled, the same way for both: the bishops on squares of opposite colours, and the king somewhere between the two rooks. There are 960 such positions, and every game draws a fresh one (a rematch too).</li>
+      <li><strong>Castling</strong> ends as in Standard: the king on the g-file and the rook on the f-file (king's side), or the king on the c-file and the rook on the d-file (queen's side). Neither may have moved, every square either crosses or lands on must be empty apart from the two of them, and the king may not start in, pass through or land in check. Depending on the setup the king may move one square, several, or none. Here you castle by moving the king onto its rook.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-atomic" data-key="atomic" role="tabpanel" hidden>
+    <h2>Atomic</h2>
+    <p class="rules-glance"></p>
+    <p>Standard chess, but every capture is an explosion. The rules are Lichess's.</p>
+    <ul>
+      <li><strong>The explosion:</strong> a capture removes the captured piece, the capturing piece, and every piece on the eight squares around, of either colour, except pawns. Pawns next to the blast survive; a pawn that captures or is captured goes up with it. An en passant capture explodes on the square the capturing pawn lands on.</li>
+      <li><strong>Winning:</strong> blow up the enemy king, by capturing it or a piece next to it, and you win at once. Checkmate also wins.</li>
+      <li>A king can't capture, since it would blow itself up. You may never make a capture that blows up your own king, even if it takes the other king too.</li>
+      <li><strong>Touching kings:</strong> while the two kings stand next to each other neither is in check, whatever is aimed at it, because no one can take a king without destroying their own.</li>
+      <li>Check, castling, en passant and promotion are otherwise as in Standard.</li>
+      <li><strong>Draws:</strong> stalemate, threefold repetition, the fifty-move rule, and a position where no king can be blown up or mated: a bare king against a lone bishop, knight or rook or two knights, or nothing but bishops on squares of opposite colours.</li>
+      <li><strong>Out of time:</strong> always a loss. Any piece can win with an explosion.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-pawnwars" data-key="pawnwars" role="tabpanel" hidden>
+    <h2>Pawn Wars</h2>
+    <p class="rules-glance"></p>
+    <p>Nothing but pawns, and no kings.</p>
+    <ul>
+      <li>Each side has eight pawns, White's on the first rank and Black's on the eighth, where the pieces usually stand.</li>
+      <li>A pawn moves one square forward, or two from its starting rank, and captures one square diagonally forward. En passant works as in Standard.</li>
+      <li>A pawn that reaches the far rank promotes to a queen, rook, bishop or knight, which then moves as that piece does.</li>
+      <li><strong>Winning:</strong> take every one of your opponent's pawns. A promoted piece is not a pawn, so promoting your last pawn loses too. A move that leaves neither side with a pawn is a draw.</li>
+      <li>With no kings there is no check or checkmate.</li>
+      <li><strong>Draws:</strong> no legal move for the side to play, threefold repetition, or the fifty-move rule.</li>
+      <li><strong>Out of time:</strong> always a loss.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-crazyhouse" data-key="crazyhouse" role="tabpanel" hidden>
+    <h2>Crazyhouse</h2>
+    <p class="rules-glance"></p>
+    <p>Standard chess, but what you capture changes sides and goes into your hand, to be put back on the board as your own.</p>
+    <ul>
+      <li><strong>Drops:</strong> on your move you may, instead of moving, drop a piece from your hand onto any empty square. A drop may give check, and even mate.</li>
+      <li>Pawns can't be dropped on the first or last rank.</li>
+      <li>A promoted piece that is captured goes into the hand as a pawn.</li>
+      <li>In check, a drop that blocks it is a way out.</li>
+      <li>Your hand is shown where captured pieces usually are; click or drag a piece from it to drop it.</li>
+      <li>Everything else is Standard's. A pawn drop counts for the fifty-move rule like a pawn move.</li>
+      <li><strong>Out of time:</strong> a loss. Nothing ever leaves the game, so any side can still mate with what it may capture.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-antichess" data-key="antichess" role="tabpanel" hidden>
+    <h2>Antichess</h2>
+    <p class="rules-glance"></p>
+    <p>Lose all your pieces to win. The rules are Lichess's.</p>
+    <ul>
+      <li><strong>Captures are compulsory:</strong> if you can capture, you must, though you may choose which capture. The board rings the pieces that can when you pick up one that can't.</li>
+      <li>The king is an ordinary piece: there is no check or checkmate, and it can be captured.</li>
+      <li>There is no castling. A pawn may also promote to a king.</li>
+      <li><strong>Winning:</strong> you win when, on your turn, you have no pieces left, or no legal move.</li>
+      <li><strong>Draws:</strong> threefold repetition, the fifty-move rule, and a position where nothing can ever be captured again: only bishops, each side's on one colour, the two sides on opposite colours.</li>
+      <li><strong>Out of time:</strong> a loss, unless that last kind of position is on the board.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-kingofthehill" data-key="kingofthehill" role="tabpanel" hidden>
+    <h2>King of the Hill</h2>
+    <p class="rules-glance"></p>
+    <p>Standard chess, with one more way to win. The rules are Lichess's.</p>
+    <ul>
+      <li><strong>The hill:</strong> move your king onto one of the four centre squares, d4, e4, d5 or e5, by a legal move, and you win at once. The board rings them in gold.</li>
+      <li>Checkmate still wins, and the usual draws apply, except that material never runs out: a bare king can still walk to the centre.</li>
+      <li><strong>Out of time:</strong> always a loss.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-threecheck" data-key="threecheck" role="tabpanel" hidden>
+    <h2>Three-check</h2>
+    <p class="rules-glance"></p>
+    <p>Standard chess, with one more way to win. The rules are Lichess's.</p>
+    <ul>
+      <li><strong>Three checks:</strong> put your opponent's king in check three times and you win at once. A move that checks counts once, double check included. The count is shown under the turn line.</li>
+      <li>Checkmate still wins. The usual draws apply; only bare kings count as dead material, since any other piece can still give check.</li>
+      <li><strong>Out of time:</strong> a loss, unless your opponent has nothing but a king: then a draw.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-bughouse" data-key="bughouse" role="tabpanel" hidden>
+    <h2>Bughouse</h2>
+    <p class="rules-glance"></p>
+    <p>Two teams of two on two boards, the pieces you capture going to your partner. The rules are chess.com's.</p>
+    <h3>The teams and boards</h3>
+    <ul>
+      <li>Partners play opposite colours on different boards: one White on board 1, the other Black on board 2. Each board has its own clocks, and both start together once all four have joined.</li>
+      <li>Both boards are played at once, each player moving whenever it is their turn, not waiting for the other board.</li>
+    </ul>
+    <h3>Passing pieces</h3>
+    <ul>
+      <li>A piece you capture goes to your partner, whose colour it already is, since they play the other colour from you. They can drop it as in Crazyhouse: on their move, onto any empty square, never a pawn on the first or last rank. A promoted piece passes as a pawn.</li>
+      <li>You can call to your partner ("Need a knight", "Don't trade", …) with the buttons beside the board. Only they hear it.</li>
+    </ul>
+    <h3>The end</h3>
+    <ul>
+      <li>Checkmate on either board wins the match for that board's winning team. A check that a dropped piece could block is not mate, even with an empty hand: your partner may send you one.</li>
+      <li>There is no stalemate. With no legal move you wait, your clock running, for a piece from your partner.</li>
+      <li>There are no draws by repetition, by the fifty-move rule or by material, and no draw offers.</li>
+      <li>Running out of time, resigning or leaving on either board loses the match for that player's team. Resigning before anyone has moved calls it off.</li>
+    </ul>
+    <h3>Getting a game</h3>
+    <ul>
+      <li>Open a table in the lobby; the match starts when all four seats are taken. The host may start early, with LorFish in the empty seats. "Play the computer" seats you with LorFish as your partner and both opponents.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-fourplayer" data-key="fourplayer" role="tabpanel" hidden>
+    <h2>Four-Player Chess</h2>
+    <p class="rules-glance"></p>
+    <p>Four armies on one board, two teams: Red and Yellow against Blue and Green. The rules are chess.com's "Teams".</p>
+    <h3>The board and turns</h3>
+    <ul>
+      <li>A 14x14 board with a 3x3 corner cut away at each corner. Red sits at the bottom, Blue on the left, Yellow at the top and Green on the right; each army is set up like a chess army, the king on its owner's right.</li>
+      <li>Play goes clockwise: Red, Blue, Yellow, Green, so the teams alternate. Each player sees the board from their own side.</li>
+      <li>Partners sit opposite each other. You can't capture your partner's pieces, which block like anyone's, and only opponents can put your king in check.</li>
+    </ul>
+    <h3>Moves</h3>
+    <ul>
+      <li>Pieces move as in Standard. Each army's pawns move towards the opposite side, one square or two from their starting row, and capture diagonally forward.</li>
+      <li>A pawn promotes when it reaches its 11th row, three short of the far edge, to a queen, rook, bishop or knight.</li>
+      <li>En passant is as in Standard: on the very next move only, which is always an opponent's.</li>
+      <li>Castling is as in Standard. An attack by your partner's pieces doesn't count; an opponent's does.</li>
+    </ul>
+    <h3>The end</h3>
+    <ul>
+      <li><strong>Checkmate is decided on the mated player's turn.</strong> A king put in check may still be saved before then, by its partner blocking or capturing the attacker. If, on their own turn, a player is in check with no way out, their team loses.</li>
+      <li>A king that can be captured, because it was left in check and the next opponent to move can take it, is captured, and the capturing team wins.</li>
+      <li>A player with no legal move who is not in check is stalemated: a draw. So are threefold repetition, fifty moves each with no capture or pawn move, and a board with nothing but the four kings.</li>
+      <li>Running out of time, resigning or leaving loses the game for the whole team, always. There are no draw offers and no rematches.</li>
+    </ul>
+    <h3>Getting a game</h3>
+    <ul>
+      <li>Open a table in the lobby; the game starts when all four seats are taken. The host may start early, with LorFish in the empty seats. "Play the computer" seats you as Red, with LorFish as your partner and both opponents.</li>
+      <li>Each player has their own clock; all four start once everyone has joined, and run one at a time in turn order.</li>
+    </ul>
+  </section>
+
+  <section class="rules-section" id="rules-infinite" data-key="infinite" role="tabpanel" hidden>
+    <h2>Infinite Chess</h2>
+    <p class="rules-glance"></p>
+    <p>The usual armies on a board with no edges. The rules are infinitechess.org's "Classical".</p>
+    <h3>The board and pieces</h3>
+    <ul>
+      <li>The board goes on for ever in every direction; the pieces start in the usual setup, in its usual place. Drag the board to look around, and zoom with the wheel or the − and + buttons.</li>
+      <li>Pieces move as in Standard, and a queen, rook or bishop may slide as far as it likes. LorChess stops every piece within a million squares of the centre, further than anyone plays.</li>
+      <li>Pawns step twice only from their starting square, and promote on the usual ranks: White's on the 8th, Black's on the 1st, to a queen, rook, bishop or knight. En passant is as usual.</li>
+    </ul>
+    <h3>Castling</h3>
+    <ul>
+      <li>A king that hasn't moved steps two squares towards the nearest piece on its row, which must be its own rook that hasn't moved, at least three squares away. The rook lands on the square the king passed over. Not out of check, through an attacked square or into one.</li>
+    </ul>
+    <h3>The end</h3>
+    <ul>
+      <li>Checkmate wins. Stalemate, threefold repetition and the fifty-move rule draw.</li>
+      <li>On a board with no edges far less can mate: a king and queen can't mate a bare king, for one. A position is a dead draw when it matches infinitechess.org's list of material that can never mate.</li>
+      <li><strong>Out of time:</strong> a loss, unless your opponent's material could never mate: then a draw. (infinitechess.org makes it always a loss; LorChess keeps its usual rule.)</li>
+    </ul>
+  </section>
+</div>
+
+<script src="/js/shell.js"></script>
+<script src="/js/authGuard.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/variants.js"></script>
+<script src="/js/rules.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 // The app chrome: a top bar and the left navigation rail, built on every page
 // that includes this file. There is no templating in this project, so the
-// alternative was pasting the same markup into eight HTML files and keeping
+// alternative was pasting the same markup into every HTML file and keeping
 // them in sync by hand — this keeps the navigation in exactly one place.
 //
 // Load it BEFORE authGuard.js. It relocates the page's existing #userbar into
@@ -31,6 +31,7 @@
     { href: "/settings.html",     icon: "🎨", label: "Customize" },
     { href: "/leaderboard.html",  icon: "🏆", label: "Leaderboard" },
     { href: "/analysis.html",     icon: "📈", label: "Analysis Board" },
+    { href: "/rules.html",        icon: "📖", label: "Rules" },
     { href: "/membership.html",   icon: "💎", label: "Membership" },
   ];
 

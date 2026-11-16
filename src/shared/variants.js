@@ -3,9 +3,9 @@
 // The catalogue of chess variants, shared by the server and the browser the
 // same way timeControls.js is. One list, so nothing can drift: adding a variant
 // here makes it selectable, validatable, labelled and matchmade without
-// touching anything else. The one exception is its win badge: add a
-// `<key>_wins` entry to achievements.js and its check to the achievements
-// service (a test fails until both exist).
+// touching anything else. The exceptions are its win badge (a `<key>_wins`
+// entry in achievements.js and its check in the achievements service) and its
+// rules (a section in public/rules.html): a test fails until each exists.
 //
 // This file exists because the knowledge WAS duplicated — an allowlist in the
 // lobby, a separate ternary in matchmaking, a label map in the client — and the
