@@ -10,8 +10,10 @@ const { FourPlayer } = require("../../src/shared/fourPlayer");
 const sq = (name) => FourPlayer.squareOf(name);
 
 // A position from a map of squares to pieces ({ h1: "rK", ... }), with no
-// castling rights unless given ("rk" for Red's kingside, "bq", ...).
-function position(turn, pieces, { castling = "", halfmove = 0 } = {}) {
+// castling rights unless given ("rk" for Red's kingside, "bq", ...). In
+// free-for-all (mode "ffa"), `out` lists the eliminated colours ("bg") and
+// `points` each colour's ({ r: 5 }).
+function position(turn, pieces, { castling = "", halfmove = 0, mode = "teams", out = "", points = {} } = {}) {
   const rows = [];
   for (let y = 13; y >= 0; y--) {
     const cells = [];
@@ -26,8 +28,11 @@ function position(turn, pieces, { castling = "", halfmove = 0 } = {}) {
     rows.push(cells.join(","));
   }
   const flag = (side) => ["r", "b", "y", "g"].map((c) => (castling.includes(c + side) ? 1 : 0)).join(",");
-  const g = new FourPlayer();
-  g.loadFen(`${turn.toUpperCase()}-0,0,0,0-${flag("k")}-${flag("q")}-0,0,0,0-${halfmove}-${rows.join("/")}`);
+  const colors = ["r", "b", "y", "g"];
+  const gone = colors.map((c) => (out.includes(c) ? 1 : 0)).join(",");
+  const score = colors.map((c) => points[c] || 0).join(",");
+  const g = new FourPlayer(mode);
+  g.loadFen(`${turn.toUpperCase()}-${gone}-${flag("k")}-${flag("q")}-${score}-${halfmove}-${rows.join("/")}`);
   return g;
 }
 // Four kings, out of each other's way, for positions that need little else.
@@ -36,12 +41,12 @@ const KINGS = { h1: "rK", a7: "bK", g14: "yK", n8: "gK" };
 // The same position turned a quarter clockwise, every colour one seat on.
 const NEXT = { r: "b", b: "y", y: "g", g: "r" };
 function turned(g) {
-  const t = new FourPlayer();
+  const t = new FourPlayer(g.mode);
   t.squares = new Array(196).fill(null);
   g.squares.forEach((p, i) => {
     if (!p) return;
     const [x, y] = FourPlayer.rotate(i % 14, Math.floor(i / 14), 1);
-    t.squares[FourPlayer.sqOf(x, y)] = { t: p.t, c: NEXT[p.c] };
+    t.squares[FourPlayer.sqOf(x, y)] = Object.assign({}, p, { c: NEXT[p.c] });
   });
   t.turn = NEXT[g.turn];
   t.castling = {};
@@ -49,6 +54,11 @@ function turned(g) {
   const turnSq = (s) => FourPlayer.sqOf(...FourPlayer.rotate(s % 14, Math.floor(s / 14), 1));
   t.ep = g.ep ? { passed: turnSq(g.ep.passed), pawn: turnSq(g.ep.pawn) } : null;
   t.halfmove = g.halfmove;
+  for (const c of ["r", "b", "y", "g"]) {
+    t.points[NEXT[c]] = g.points[c];
+    t.out[NEXT[c]] = g.out[c];
+  }
+  t.ended = g.ended;
   t.history = [];
   t.positionCounts = new Map([[t.positionKey(), 1]]);
   return t;

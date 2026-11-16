@@ -556,7 +556,7 @@ written from these rules.
   is read one way round, the side still on time as White; a bare king never
   mates.
 
-**Four-player chess** (Teams) follows chess.com's rules
+**Four-player chess** (Teams; free-for-all below) follows chess.com's rules
 (support.chess.com, "4 Player Chess"), in its own engine,
 `src/shared/fourPlayer.js`, since four colours, two teams and a turn that
 comes round in four are more than chess.js with more squares. It has its
@@ -602,7 +602,8 @@ Corners".
   (`R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-…`, ranks 14 to 1, squares
   comma-separated), and `loadFen` refuses what Teams can't have: eliminated
   players, points, pieces in the corners, a colour without exactly one king,
-  a pawn already on its promotion rank. Moves are stored as squares and a
+  a pawn already on its promotion rank, a promoted queen (free-for-all's
+  `D`). Moves are stored as squares and a
   promotion letter (`e2e4`, `e10e11q`) and shown in chess.com's long form
   (`e2-e4`, `Ng3xh1`, `e10-e11=Q+`, `O-O`, `#` for mate).
 - *Checked by*: perft from the start, 20, 395, 7800 and 152050. 395 rather
@@ -758,8 +759,53 @@ Corners".
   browsers. A table fills and starts itself, every move is a click, Red mates
   Blue in thirteen plies, the winners get the badge, and the game is in the
   history and replays.
-- *Not done:* free-for-all (points, eliminations, placings, and a search
-  for four sides), draw offers, rematches, and a preview in the
+- *Free-for-all* is the same engine in its other mode,
+  `new FourPlayer('ffa')`: the board, the pieces, the turned rules and the
+  notation are shared, and Teams plays exactly as before (its tests are
+  unchanged). So far it is the engine alone (`test/unit/fourPlayer.ffa.test.js`);
+  the server, the pages and LorFish come next. Chess.com's rules
+  (support.chess.com, "4 Player Chess", and chess.com/terms/4-player-chess):
+  - Everyone is everyone's opponent: any other player's piece may be taken,
+    and any other player gives check (`hostile`, `foesOf`, `canTake` say who,
+    for both modes).
+  - Pawns promote on their 8th rank, the middle of the board, to a queen
+    only, marked `promoted`: it is worth one point when taken, and FEN4 writes
+    it `D` (`rD`), our own letter.
+  - *Points* (`points`, kept on the board so `undoMove` takes them back):
+    taking a live piece scores it (`POINTS`: pawn 1, knight 3, bishop and rook
+    5, queen 9, king 20); mating a player 20 to the mater; a stalemated
+    player 20 to themselves; one move checking two kings 5, three 20, or 1 and
+    5 if a queen gives any of the checks; a draw by rule 10 to everyone still
+    in. Scored in `makeMove` whether or not the move is tracked, except in
+    the legality test, which only asks whether the mover's king is safe.
+  - *Eliminations* (`out[c]`, `{ how, by }`): mated or stalemated (decided on
+    their own turn, as in Teams), their king taken (a king left to be taken
+    may be, as in Teams, and the player is out rather than the game over),
+    resigned, flagged or forfeited (`eliminate`). The army goes grey and
+    stands still, whole: it attacks nothing, blocks like anything, and is
+    taken for no points; the turn skips it (`nextActive`). Chess.com instead
+    keeps a resigned or flagged king moving at random, to be mated for
+    points; a still army was our choice, simpler and with nothing played for
+    a player who has gone.
+  - A tracked move (and an elimination) *settles* the game (`settle`): a
+    player now to move with no move is mated or stalemated, and the next
+    checked in turn, so the player to move always has a move. A mate scores
+    for whoever gave check most recently (`materOf`), where the rules don't
+    say. Then the draws (`drawByRule`): bare kings among the players still
+    in, threefold repetition, or fifty moves by each player still in.
+  - *The end* (`ended`, `{ how }`): one player left, named by how the last
+    one went (`termination`); a draw; or a claim (`claimWin`): with two left,
+    one 21 points ahead may end it, and the other gets 20. The most points
+    wins, and players level share a place (`standings`); `result()` is the
+    colours from first to last, sharing joined by `=` (`b,r=y,g`).
+  - A player leaving is kept in the history like a move, and stored as an
+    event, how and who (`resign:b`, `timeout:g`, `disconnect:y`, `claim:r`),
+    so a game replays from its stored texts alone (`playText`).
+  - Checked by: the turned-position test in free-for-all games, every rule
+    above on hand-built positions, and random games with resignations
+    replayed from their texts and taken back to the start, points and all.
+- *Not done:* free-for-all's server game, pages and LorFish (the search
+  must handle four sides), draw offers, rematches, and a preview in the
   lobby's live games.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
