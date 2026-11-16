@@ -2,13 +2,14 @@
 
 // Crazyhouse on the real pages, both players in their own browser: the game
 // page's strips show the pockets, a pocket piece is dropped by a click and by
-// a drag, and nothing in hand can be picked up while the opponent is on move;
+// a drag, and on the opponent's move queued as a pre-drop, which plays when
+// the turn comes if its square is empty then and is dropped if not;
 // a spectator sees the pockets and the drops; the page says the game is casual
 // Crazyhouse and the exported PGN names the variant; the replay shows what was
 // in hand at each point, and says Stockfish cannot review it.
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { startServer, openBrowser, signedInPage, connectSocket, quickMatch } = require("./helpers.cjs");
+const { startServer, openBrowser, signedInPage, connectSocket, quickMatch, db } = require("./helpers.cjs");
 
 let srv, browser;
 before(async () => { srv = await startServer(); browser = await openBrowser(); });
@@ -16,6 +17,7 @@ after(async () => { if (browser) await browser.close(); if (srv) await srv.close
 
 const SQ = (a) => (a.charCodeAt(0) - 97) + (Number(a[1]) - 1) * 8;
 const square = (page, a) => page.locator(`#board [data-sq="${SQ(a)}"]`);
+const SQ_E4 = 28;
 const plies = (page, n) => page.waitForFunction((k) => chess.history.length === k, n);
 
 async function crazyhouseGame(t) {
@@ -71,13 +73,22 @@ test("pockets fill from captures, and pieces drop by click and by drag", async (
   await watcher.locator("#capturedBottom .pocket-piece").click();
   assert.equal(await watcher.evaluate(() => dropSelected), null);
 
-  // No pre-drops: Black's pawn cannot be picked up on White's move.
+  // A pre-drop: on White's move Black picks up the pawn, and the hints are
+  // every square that could be empty by Black's turn — none of Black's own,
+  // and for a pawn not the first or last rank.
   const blackPawn = black.locator('#capturedBottom .pocket-piece[data-drag-from="@p"]');
-  assert.equal(await blackPawn.evaluate((el) => el.classList.contains("usable")), false);
+  assert.ok(await blackPawn.evaluate((el) => el.classList.contains("usable")), "usable on White's move");
   await blackPawn.click();
-  assert.equal(await black.evaluate(() => dropSelected), null);
+  assert.deepEqual(await black.evaluate(() => [dropSelected, premoveSelecting]), ["p", true]);
+  assert.equal(await black.locator("#board .hint.premove").count(), 40);
+  await square(black, "e4").click();
+  assert.deepEqual(await black.evaluate(() => premove), { drop: "p", to: SQ_E4 });
+  assert.match(await black.locator("#turn").textContent(), /premove P@e4$/);
+  assert.ok(await blackPawn.evaluate((el) => el.classList.contains("premove")));
+  assert.ok(await square(black, "e4").evaluate((el) => el.classList.contains("premove")));
 
-  // White drops by clicking the pawn, then the square; the hints are the drop squares.
+  // White drops by clicking the pawn, then the square; the hints are the drop
+  // squares. That fills e4, so Black's pre-drop there is dropped, not played.
   await whitePawn.click();
   assert.equal(await white.evaluate(() => dropSelected), "p");
   assert.equal(await white.locator("#board .hint").count(), 33);
@@ -85,8 +96,12 @@ test("pockets fill from captures, and pieces drop by click and by drag", async (
   await both(5);
   assert.equal(await black.evaluate(() => chess.history[4].move.drop), "p");
   assert.equal(await white.locator("#capturedBottom .pocket-piece").count(), 0, "the pocket is empty again");
+  assert.deepEqual(await black.evaluate(() => [premove, chess.history.length, chess.turn]), [null, 5, "b"]);
+  assert.equal(await blackPawn.count(), 1, "still in hand");
 
-  // Black drops by dragging the pawn from the pocket onto d6.
+  // Black moves; then, on White's move, drags the pawn onto d6: a pre-drop
+  // by drag, played the moment White has moved.
+  await clickMove(black, "g8", "f6"); await both(6);
   const from = await blackPawn.boundingBox();
   const to = await square(black, "d6").boundingBox();
   await black.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
@@ -94,24 +109,28 @@ test("pockets fill from captures, and pieces drop by click and by drag", async (
   await black.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2 - 20, { steps: 3 });
   await black.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
   await black.mouse.up();
-  await both(6);
+  assert.match(await black.locator("#turn").textContent(), /premove P@d6$/);
+  await clickMove(white, "g1", "f3");
+  await both(8);
   assert.deepEqual(await white.evaluate(() => chess.squares[43]), { t: "p", c: "b" });
   assert.equal(await black.evaluate(() => chess.pocketText()), "");
-  assert.deepEqual(await white.evaluate(() => moveHistory.slice(-2)), ["P@e4", "P@d6"]);
+  assert.deepEqual(await white.evaluate(() => moveHistory.slice(4)), ["P@e4", "Nf6", "Nf3", "P@d6"]);
+  const stored = db().prepare("SELECT san, premove FROM moves WHERE game_id = ? AND ply = 8").get(gameId);
+  assert.deepEqual(stored, { san: "P@d6", premove: 1 }, "recorded as a premove");
 
   // The spectator saw both drops land.
-  await plies(watcher, 6);
+  await plies(watcher, 8);
   assert.deepEqual(await watcher.evaluate(() => chess.squares[43]), { t: "p", c: "b" });
 
   // The exported PGN says which variant it is, so its drops read as moves.
   const pgn = await white.locator("#history").textContent();
   assert.ok(pgn.includes('[Variant "Crazyhouse"]'), pgn);
-  assert.ok(pgn.includes("3. P@e4 P@d6"), pgn);
+  assert.ok(pgn.includes("3. P@e4 Nf6 4. Nf3 P@d6"), pgn);
 
   // The replay shows what each side held at every point: nothing at the end,
   // a pawn each after move 4.
   await white.goto(srv.baseUrl + "/replay.html?id=" + gameId);
-  await white.waitForFunction(() => idx === 6 && chess.history.length === 6);
+  await white.waitForFunction(() => idx === 8 && chess.history.length === 8);
   assert.equal(await white.locator(".pocket-piece").count(), 0);
   await white.evaluate(() => goto(4));
   assert.equal(await white.locator("#capturedBottom .pocket-piece img[alt='wp']").count(), 1);

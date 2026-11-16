@@ -88,6 +88,8 @@ body {
 .pocket-piece.usable { cursor: grab; touch-action: none; }
 .pocket-piece.usable:hover { background: var(--btn-soft-hover); }
 .pocket-piece.selected { background: #f6f682; }
+/* The pocket piece a queued pre-drop will take, tinted like its square. */
+.pocket-piece.premove { background: #d99ab4; }
 .pocket-piece img.dragging { opacity: 0.25; }
 .pocket-count {
   position: absolute;

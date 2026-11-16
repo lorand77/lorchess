@@ -130,8 +130,9 @@ On the game page the two captured-piece strips show the pockets instead
 (opponent's on top, yours below; no material count, since nothing is lost).
 Your own pocket pieces are picked up by a click or a drag: `boardDrag.js`
 takes optional `sources`, elements outside the board whose pieces carry a
-`data-drag-from` key (`"@n"`), handed to the page in place of a square. A drop
-is only offered on your own move; there are no pre-drops. Spectators see the
+`data-drag-from` key (`"@n"`), handed to the page in place of a square. On
+the opponent's move a pocket piece can be queued as a pre-drop (see
+"Premoves"). Spectators see the
 same strips, unusable; the replay shows each side's pocket as it stood at the
 ply on show; the lobby's thumbnails (`miniBoard.js`) draw only the board. The
 game page's PGN carries a `[Variant "…"]` tag for every variant but Standard,
@@ -1645,6 +1646,20 @@ is legal in the new position it is submitted through the normal move source
 Promotion premoves always take a queen. Any click or a right-click cancels it.
 Premoves use the same legal-move resolver as ordinary moves, including
 king-to-rook castling gestures in standard chess and Chess960.
+
+**Pre-drops** (Crazyhouse and Bughouse): a pocket piece picked up on the
+opponent's move queues a drop, `{ drop, to }` in place of `{ from, to }`. Its
+targets (`preDropTargets`) are every square that could be empty by our turn:
+none holding one of our own pieces, which can't leave before then (a capture
+only puts an enemy piece there), and for a pawn not the first or last rank.
+When the turn comes it is played through `findDrop`, so a square filled in
+the meantime drops it. The pocket piece is tinted like the square, and the
+turn line names it (`P@e4`). In Bughouse a piece that arrives from the other
+board meanwhile is in hand like any other, ready to be queued.
+
+Premoves exist wherever the game page's 8x8 board does: every variant but
+Infinite Chess (`canPremove`, until its targets, which a slider makes
+unbounded, are worked out) and Four-Player Chess, whose page has none.
 
 A premoved move is flagged on its way to the server (`premove` in the socket
 payload / AI move POST) and stored in `moves.premove`. PvP believes the flag

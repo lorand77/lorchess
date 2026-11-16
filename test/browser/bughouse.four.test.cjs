@@ -3,7 +3,8 @@
 // A whole Bughouse match between four people, each in their own browser. A
 // table fills seat by seat and starts itself; each player lands on their own
 // board; a capture on board 1 goes to the partner on board 2, who drops it by
-// clicking; partners call to each other; a resignation ends the match for all
+// clicking, queued as a pre-drop before the opponent has moved there; partners
+// call to each other; a resignation ends the match for all
 // four, each told their team's result; and the match replays.
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -62,13 +63,16 @@ test("four people: a table that starts itself, a piece passed and dropped, a cal
   // Board 1 as board 2's players see it beside theirs, pockets and all.
   await seats.B1.page.waitForFunction(() => partner && partner.san === "exd5");
 
-  // Board 2: 1.Nf3, and A's Black drops the pawn: P@e5.
-  await click(seats.B1.page, SQ.g1); await click(seats.B1.page, SQ.f3);
-  await plies(seats.A1.page, 1);
+  // Board 2: A's Black queues the pawn as a pre-drop on e5 while White is
+  // still to move, and it lands the moment White plays 1.Nf3.
   await seats.A1.page.locator('#capturedBottom .pocket-piece[data-drag-from="@p"]').click();
   await click(seats.A1.page, SQ.e5);
+  assert.match(await seats.A1.page.locator("#turn").textContent(), /premove P@e5$/);
+  await click(seats.B1.page, SQ.g1); await click(seats.B1.page, SQ.f3);
   await plies(seats.B1.page, 2);
   assert.equal(await seats.B1.page.evaluate(() => chess.history[1].move.drop), "p");
+  const board2 = Number(new URL(seats.A1.page.url()).searchParams.get("id"));
+  assert.equal(db().prepare("SELECT premove FROM moves WHERE game_id = ? AND ply = 2").get(board2).premove, 1);
 
   // Partners call to each other; the other team hears nothing.
   await seats.A1.page.locator('#bughouseCalls button[data-call="need-n"]').click();
