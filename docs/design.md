@@ -763,7 +763,7 @@ Corners".
   `new FourPlayer('ffa')`: the board, the pieces, the turned rules and the
   notation are shared, and Teams plays exactly as before (its tests are
   unchanged). It has the engine (`test/unit/fourPlayer.ffa.test.js`),
-  LorFish and the server's game (both below); its pages come next. In the
+  LorFish, the server's game and the pages (all below). In the
   catalogue it is `fourplayer_ffa`, "Four-Player Free-for-All": `teams`
   like the two team games (four at a table, never one to one, out of "Jack
   of All Trades"), `freeForAll` that nobody partners anyone (`isFreeForAll`;
@@ -887,8 +887,32 @@ Corners".
     and a draw that follows from a resignation, flags, a forfeit, a restart
     with a player out, the claim and the badge, LorFish claiming and playing
     on, a free-for-all table.
-- *Not done:* free-for-all's pages, draw offers, rematches, and a preview in
-  the lobby's live games.
+  - *The pages* are Teams' — `four.html` and `fourReplay.html` on the same
+    board view — reading the variant (`isFreeForAll`):
+    - The game page runs its engine in free-for-all mode, replaying the
+      record with `playText`, events and all, and applies `player:out` as it
+      applies `move:made`. There are no partners. Each plate shows the
+      player's points, and a player who is out is greyed (dashed edge,
+      dimmed, how they went) with their army grey on the board (the view's
+      `dead`). A player out watches from then on: no moves, premoves or
+      buttons. "Claim the win" shows while `canClaimWin` allows it, behind a
+      confirmation (`four:claim`). The move list is a line a move with its
+      player ("3. Yellow: g13-g11", "2. Blue resigned"), since turns skip
+      whoever is out. The result is the placings by points, how it ended,
+      and the player's own place; the sounds are a win for first place. On a
+      phone a plate gives the name one line, so the points fit.
+    - The replay steps through the events like moves, the plates showing the
+      points as they stood and anyone out greyed, and ends with the placings.
+    - The lobby offers it in "Play the computer" (three LorFish) and as a
+      table (two rows of two seats, in turn order). Its live card lists the
+      four in turn order with their points, a player out struck through. The
+      Games tab shows the other three and the owner's place and points ("1st
+      · 30 pts"); first place sorts with the wins.
+    - Tested in Chromium (`test/browser/fourPlayer.ffa.test.cjs`): a game
+      with a player resigning, the lobby's card and picker, a claim, the
+      placings on the game page, the replay and the Games tab.
+- *Not done:* draw offers, rematches, and a preview in the lobby's live
+  games.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,
@@ -1699,7 +1723,9 @@ ordinary white images under an SVG colour filter (`feColorMatrix`, white
 times the colour; the black outline stays black), the filters put in the
 page once by the view: no new artwork, and a user's own uploaded white
 pieces are tinted the same way. The colours are close to chess.com's, exported as
-`FourBoardView.COLOURS` for names and clocks. Tested in Chromium on its own
+`FourBoardView.COLOURS` for names and clocks. A free-for-all army that is
+out takes a fifth filter, grey (`FourBoardView.DEAD`), given as `dead`, a set
+of colours. Tested in Chromium on its own
 page (`test/browser/fourBoard.test.cjs`), the tints by painting white and
 black through each filter.
 

@@ -8,9 +8,9 @@
 <script src="/js/themeBoot.js"></script>
 </head>
 <body>
-<!-- The replay of a four-player game (fourReplay.js). replay.html sends a
-     four-player game here; the board and the corner plates are the game
-     page's (four.html). -->
+<!-- The replay of a four-player game, Teams or free-for-all (fourReplay.js).
+     replay.html sends a four-player game here; the board and the corner
+     plates are the game page's (four.html). -->
 <div class="game">
   <div class="board-wrap four-wrap">
     <div class="board" id="board"></div>
@@ -22,7 +22,7 @@
   <div class="info">
     <div class="userbar" id="userbar"></div>
     <p class="toplink"><a id="backLink" href="/profile.html#games">← My Games</a></p>
-    <h2>Four-Player Chess · replay</h2>
+    <h2 id="replayTitle">Four-Player Chess · replay</h2>
     <p id="replayMeta" class="muted"></p>
     <p class="small" id="teams"></p>
     <p id="replayStatus"></p>
@@ -42,6 +42,7 @@
 <script src="/js/authGuard.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/fourPlayer.js"></script>
+<script src="/js/variants.js"></script>
 <script src="/js/timeControls.js"></script>
 <script src="/js/boardDrag.js"></script>
 <script src="/js/boardArrows.js"></script>

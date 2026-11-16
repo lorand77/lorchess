@@ -1721,7 +1721,7 @@ function initSpectate(gameId) {
         statusEl.className = 'check-text';
         return;
       }
-      if (resp.state.variant === 'fourplayer') { location.replace('/four.html?watch=' + gameId); return; }
+      if (isFourPlayer(resp.state.variant)) { location.replace('/four.html?watch=' + gameId); return; }
       applyPvpState(socket, resp.state);
       initChat(socket, gameId);
       showSpectators({ count: resp.state.spectators });
@@ -2169,7 +2169,7 @@ async function openGame(gameId) {
   }
 
   // Four-player chess has a page of its own: four seats round a cross board.
-  if (game.variant === 'fourplayer') { location.replace('/four.html?id=' + gameId); return; }
+  if (isFourPlayer(game.variant)) { location.replace('/four.html?id=' + gameId); return; }
   if (game.mode === 'pvp') { initPvp(gameId); return; }
   // A finished AI game isn't playable — send them to the replay viewer.
   if (game.status !== 'active') { location.replace('/replay.html?id=' + gameId); return; }

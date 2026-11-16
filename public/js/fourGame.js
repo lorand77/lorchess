@@ -1,10 +1,18 @@
 'use strict';
 
-// The game page for four-player chess (Teams): Red and Yellow against Blue and
-// Green on the cross board (fourPlayer.js, fourBoardView.js). A page of its
-// own rather than a mode of ui.js, whose every part — two names, two clocks,
-// PGN, material, undo, AI games, draws and rematches — is for two players.
-// game.html sends a four-player game here.
+// The game page for four-player chess on the cross board (fourPlayer.js,
+// fourBoardView.js): Teams, Red and Yellow against Blue and Green, or
+// free-for-all, everyone for themselves. A page of its own rather than a
+// mode of ui.js, whose every part — two names, two clocks, PGN, material,
+// undo, AI games, draws and rematches — is for two players. game.html sends a
+// four-player game here.
+//
+// Free-for-all adds: each player's points on their plate; a player who is
+// out (player:out, or a mate inside a move) greyed, their army grey on the
+// board, and on their own page watching from then on; a Claim the win button
+// when the engine allows it (four:claim); the move list a line a move, each
+// with its player, since turns skip whoever is out; and the result as
+// placings by points.
 //
 // The server decides everything, as for any PvP game (src/game/socket.js): a
 // move is sent with move:make and drawn only when move:made comes back, for
@@ -32,6 +40,7 @@ const spectating = Number.isInteger(watchId);
 const gameId = spectating ? watchId : parseInt(params.get('id'), 10);
 
 let game = new FourPlayer();
+let ffa = false;             // a free-for-all game (variant 'fourplayer_ffa')
 let me = null;               // my colour; null when watching
 let seats = null;            // { r: { id, name, member }, ... } from the server
 let sans = [];
@@ -76,13 +85,18 @@ window.addEventListener('theme:changed', () => render());
 
 // ---- moving ----
 
+// Still playing: a seat, a game going on, and (in free-for-all) not out.
+function playing() {
+  return !!me && !result && !game.isGameOver() && !game.out[me];
+}
+
 function myTurn() {
-  return !!me && !result && game.turn === me && !game.isGameOver();
+  return playing() && game.turn === me;
 }
 
 // Someone else is on move in a game still going: what I pick up is a premove.
 function canPremove() {
-  return !!me && !result && game.turn !== me && !game.isGameOver();
+  return playing() && game.turn !== me;
 }
 
 function canPick(sq) {
@@ -179,13 +193,29 @@ function applyServerMove(m) {
     pieces: [{ from: move.from, to: move.to }].concat(move.castle ? [{ from: move.castle.rookFrom, to: move.castle.rookTo }] : []),
     captured: entry.captured ? { sq: entry.capturedAt, piece: entry.captured } : null,
   };
-  if (selected !== null && !canPick(selected)) clearSelection();
-  // My turn now: a selection made for a premove is stale, and the queued
-  // premove is played or dropped.
-  if (game.turn === me && premoveSelecting) clearSelection();
-  const queued = game.turn === me ? premove : null;
-  if (queued) premove = null;
   moveSound(entry);
+  afterChange();
+}
+
+// Free-for-all: a player left the game (resigned, out of time, forfeited,
+// claimed the win), recorded like a move: played on our engine too.
+function applyPlayerOut(info) {
+  if (info.ply <= game.history.length) return;
+  if (info.ply > game.history.length + 1 || !game.playText(info.uci)) return rejoin();
+  sans.push(info.san);
+  notice(info.san + '.', 'info', 4000);
+  afterChange();
+}
+
+// After a move or a player out: a selection that no longer makes sense goes;
+// my turn now, a selection made for a premove is stale, and the queued
+// premove is played or dropped; out, there is nothing left to queue.
+function afterChange() {
+  if (selected !== null && !canPick(selected)) clearSelection();
+  if (game.turn === me && premoveSelecting) clearSelection();
+  if (!playing()) premove = null;
+  const queued = myTurn() ? premove : null;
+  if (queued) premove = null;
   render();
   if (queued) playPremove(queued);
 }
@@ -225,6 +255,7 @@ function render() {
     check: new Set(checked().map((c) => game.kingOf(c))),
     hints,
     animation: anim,
+    dead: new Set(COLORS.filter((c) => game.out[c])),
   });
   if (!still) anim = null;
   renderPlates();
@@ -254,8 +285,17 @@ function renderPlates() {
       if (s.member) who.appendChild(memberBadge());
     }
     if (c === me) who.appendChild(document.createTextNode(' (you)'));
-    else if (me && c === FourPlayer.partnerOf(me)) who.appendChild(document.createTextNode(' (partner)'));
+    else if (!ffa && me && c === FourPlayer.partnerOf(me)) who.appendChild(document.createTextNode(' (partner)'));
     plate.appendChild(who);
+    // Free-for-all: the points, and how a player who is out went.
+    plate.classList.toggle('out', ffa && !!game.out[c]);
+    if (ffa) {
+      const score = document.createElement('div');
+      score.className = 'four-points';
+      score.dataset.points = c;
+      score.textContent = pointsText(game.points[c]) + (game.out[c] ? ' · ' + OUT_WORDS[game.out[c].how || 'out'] : '');
+      plate.appendChild(score);
+    }
     const clock = document.createElement('div');
     clock.className = 'clock';
     clock.dataset.clock = c;
@@ -263,6 +303,13 @@ function renderPlates() {
   }
   renderClocks();
 }
+
+const pointsText = (n) => n + (n === 1 ? ' pt' : ' pts');
+// How a free-for-all player went out, on their plate.
+const OUT_WORDS = {
+  checkmate: 'checkmated', stalemate: 'stalemated', 'king captured': 'king taken', resign: 'resigned',
+  timeout: 'out of time', disconnect: 'left', claim: 'claimed the win', out: 'out',
+};
 
 function fmtClock(ms) {
   ms = Math.max(0, ms);
@@ -296,11 +343,42 @@ setInterval(renderClocks, 200);
 
 const list = (cs) => cs.map((c) => NAMES[c]).join(' and ');
 
+// How a free-for-all game ended: by its last player out, a claim or a draw.
+const FFA_ENDINGS = {
+  checkmate: 'the last player checkmated', stalemate: 'the last player stalemated',
+  'king captured': 'the last king taken', resign: 'the last player resigned',
+  timeout: 'the last player out of time', disconnect: 'the last player left',
+  threefold: 'threefold repetition', 'fifty-move': 'the fifty-move rule', insufficient: 'bare kings',
+};
+
+// "Game over — the last player resigned: 1st Red 41 · 2nd Blue 20 · 3rd
+// Yellow 10 · 3rd Green 10 · you finish 2nd". The points are the engine's,
+// replayed like everything else.
+function ffaOutcome() {
+  if (result.result === '*') return 'Game over: aborted';
+  const places = game.standings().sort((a, b) => a.place - b.place);
+  const claimer = COLORS.find((c) => game.out[c] && game.out[c].how === 'claim');
+  const how = result.termination === 'claim' && claimer ? `${NAMES[claimer]} claimed the win`
+    : FFA_ENDINGS[result.termination] || result.termination;
+  let text = `Game over${how ? ' — ' + how : ''}: ` +
+    places.map((s) => `${FourPlayer.placeText(s.place)} ${NAMES[s.color]} ${s.points}`).join(' · ');
+  const mine = me && places.find((s) => s.color === me);
+  if (mine) text += ` · you finish ${FourPlayer.placeText(mine.place)}`;
+  return text;
+}
+
 function renderStatus() {
-  document.getElementById('controls').style.display = me && !result ? '' : 'none';
+  document.getElementById('controls').style.display = playing() ? '' : 'none';
+  document.getElementById('claimBtn').style.display = ffa && playing() && game.canClaimWin(me) ? '' : 'none';
   // Once it is over, the game can be stepped through on its replay page.
   document.getElementById('replayLine').style.display = result && result.result !== '*' ? '' : 'none';
   document.getElementById('replayLink').href = '/fourReplay.html?id=' + gameId;
+  if (result && ffa) {
+    turnEl.textContent = '';
+    statusEl.textContent = ffaOutcome();
+    statusEl.className = 'game-over';
+    return;
+  }
   if (result) {
     turnEl.textContent = '';
     const winners = result.result === '1-0' ? 0 : result.result === '0-1' ? 1 : null;
@@ -315,7 +393,8 @@ function renderStatus() {
   }
   const t = game.turn;
   let line = `Turn: ${NAMES[t]}`;
-  if (me) line += t === me ? ' — your move' : t === FourPlayer.partnerOf(me) ? ' — your partner' : ' — waiting…';
+  if (me && ffa && game.out[me]) line += ` — you are out (${OUT_WORDS[game.out[me].how || 'out']}), watching`;
+  else if (me) line += t === me ? ' — your move' : !ffa && t === FourPlayer.partnerOf(me) ? ' — your partner' : ' — waiting…';
   if (!running && !game.history.length) line = 'Waiting for all four players…';
   if (premove) line += ` · premove ${FourPlayer.nameOf(premove.from)}${FourPlayer.nameOf(premove.to)}`;
   turnEl.textContent = line;
@@ -326,10 +405,22 @@ function renderStatus() {
   statusEl.className = inCheck.length ? 'check-text' : '';
 }
 
-// One line a round, Red's move first, as chess.com writes them.
+// One line a round, Red's move first, as chess.com writes them. In
+// free-for-all, where turns skip whoever is out, one line a move, its player
+// named (a player leaving names itself: "Blue resigned").
 function renderMoves() {
   const el = document.getElementById('history');
   el.innerHTML = '';
+  if (ffa) {
+    sans.forEach((san, i) => {
+      const h = game.history[i];
+      const line = document.createElement('div');
+      line.textContent = h && h.move ? `${i + 1}. ${NAMES[h.turn]}: ${san}` : `${i + 1}. ${san}`;
+      el.appendChild(line);
+    });
+    el.scrollTop = el.scrollHeight;
+    return;
+  }
   for (let i = 0; i < sans.length; i += 4) {
     const line = document.createElement('div');
     line.textContent = `${i / 4 + 1}. ${sans.slice(i, i + 4).join('  ')}`;
@@ -355,6 +446,11 @@ function moveSound(entry) {
   play(entry.captured ? sounds.Capture : sounds.Move);
 }
 function outcomeSound(res) {
+  if (ffa) {
+    const mine = me && game.standings().find((s) => s.color === me);
+    if (!mine) return play(sounds.Draw);
+    return setTimeout(() => play(mine.place === 1 ? sounds.Victory : sounds.Defeat), 400);
+  }
   const winners = res === '1-0' ? 0 : res === '0-1' ? 1 : null;
   if (!me || winners === null) return play(sounds.Draw);
   setTimeout(() => play(FourPlayer.teamOf(me) === winners ? sounds.Victory : sounds.Defeat), 400);
@@ -438,20 +534,21 @@ function initChat() {
 function applyState(state) {
   me = spectating ? null : state.yourColor;
   seats = state.seats;
-  // Replayed from the moves, so the engine has the repetition counts a FEN
-  // can't carry; the FEN only if the record won't replay.
-  game = new FourPlayer();
+  ffa = isFreeForAll(state.variant);
+  // Replayed from the moves (and free-for-all's players leaving), so the
+  // engine has the repetition counts a FEN can't carry; the FEN only if the
+  // record won't replay.
+  game = new FourPlayer(ffa ? 'ffa' : 'teams');
   if (state.startFen) game.loadFen(state.startFen);
   lastMove = null;
   for (const text of state.moves) {
-    const mv = game.moveFromText(text);
-    if (!mv) {
+    if (!game.playText(text)) {
       game.loadFen(state.fen);
       lastMove = null;
       break;
     }
-    game.makeMove(mv);
-    lastMove = mv;
+    const h = game.history[game.history.length - 1];
+    if (h.move) lastMove = h.move;
   }
   sans = state.sans.slice();
   result = state.status !== 'active' ? { result: state.result || '*', termination: state.termination || null } : null;
@@ -460,9 +557,17 @@ function applyState(state) {
   premove = null;
   promoEl.classList.remove('show');
   document.getElementById('tcLine').textContent = `${state.timeControl} · casual · ${variantLabel(state.variant)}`;
-  document.getElementById('teams').textContent = me
-    ? `You play ${NAMES[me]}, with ${NAMES[FourPlayer.partnerOf(me)]}: ${teamOf(me)}.`
-    : 'Red & Yellow against Blue & Green.';
+  document.getElementById('gameTitle').textContent = variantLabel(state.variant);
+  document.title = variantLabel(state.variant) + ' · LorChess';
+  document.getElementById('teams').textContent = ffa
+    ? (me ? `You play ${NAMES[me]}. ` : '') + 'Everyone for themselves: the most points wins.'
+    : me ? `You play ${NAMES[me]}, with ${NAMES[FourPlayer.partnerOf(me)]}: ${teamOf(me)}.`
+      : 'Red & Yellow against Blue & Green.';
+  document.getElementById('rulesNote').textContent = ffa
+    ? 'Everyone plays for themselves: any piece but your own may be taken. Points for captures, checks of two or three kings and mates; a player out is greyed.'
+    : "Red and Yellow play Blue and Green; a partner's pieces can't be taken.";
+  document.getElementById('rulesLink').href = '/rules.html#' + state.variant;
+  document.querySelector('.four-wrap').classList.toggle('ffa', ffa);
   document.getElementById('resignBtn').disabled = false;
   setChatHistory(state.chat);
   showSpectators({ count: state.spectators });
@@ -508,6 +613,10 @@ function start() {
     applyServerMove(m);
     setClocks(m.clocks, true);
   });
+  socket.on('player:out', (info) => {
+    applyPlayerOut(info);
+    setClocks(info.clocks, true);
+  });
   socket.on('game:over', (info) => {
     result = { result: info.result, termination: info.termination };
     promoEl.classList.remove('show');
@@ -517,7 +626,7 @@ function start() {
     outcomeSound(info.result);
     render();
   });
-  const seatName = (c) => (me && c === FourPlayer.partnerOf(me) ? 'Your partner' : NAMES[c] || 'A player');
+  const seatName = (c) => (!ffa && me && c === FourPlayer.partnerOf(me) ? 'Your partner' : NAMES[c] || 'A player');
   socket.on('opponent:disconnected', (info) => {
     const secs = Math.round((info.graceMs || 0) / 1000);
     notice(`${seatName(info.color)} disconnected — ${secs}s to reconnect…`);
@@ -533,8 +642,16 @@ function start() {
     if (info && info.gameId && info.gameId !== gameId) location.href = '/game.html?id=' + info.gameId;
   });
   document.getElementById('resignBtn').addEventListener('click', () => {
-    if (result || !window.confirm('Resign? Your team loses the game.')) return;
+    const ask = ffa ? "Resign? You're out of the game, and keep your points." : 'Resign? Your team loses the game.';
+    if (result || !window.confirm(ask)) return;
     socket.emit('game:resign', { gameId });
+  });
+  document.getElementById('claimBtn').addEventListener('click', () => {
+    const other = game.active().find((c) => c !== me);
+    if (!game.canClaimWin(me) || !window.confirm(`Claim the win? The game ends now, and ${NAMES[other]} gets 20 points.`)) return;
+    socket.emit('four:claim', { gameId }, (resp) => {
+      if (!resp || !resp.ok) notice((resp && resp.error) || 'Claim refused.');
+    });
   });
   initChat();
 }

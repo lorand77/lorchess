@@ -112,13 +112,11 @@ for (const level of AI_LEVELS) {
 // measured in standard chess, so in any other variant they go by name alone.
 // A team game whose seats LorFish can take (Bughouse, four-player chess) is
 // here too, as a match rather than an AI game: you and LorFish against two
-// more LorFish, timed, which the server starts and plays (bughouse:bots,
-// fourplayer:bots) instead of the game page's own worker.
+// more LorFish (in four-player free-for-all, you against three), timed,
+// which the server starts and plays (bughouse:bots, fourplayer:bots, with the
+// variant) instead of the game page's own worker.
 const aiVariantSelect = document.getElementById("aiVariantSelect");
-// Four-player free-for-all is played on the server already, but its game
-// page isn't written yet: it stays out of both pickers until it is.
-const offered = (v) => !v.freeForAll;
-for (const v of VARIANTS.filter((v) => offered(v) && (v.bot || hasSeatBots(v.key)))) {
+for (const v of VARIANTS.filter((v) => v.bot || hasSeatBots(v.key))) {
   aiVariantSelect.add(new Option(v.label, v.key, v.key === "standard", v.key === "standard"));
 }
 const aiClockSelect = document.getElementById("aiClockSelect");
@@ -140,7 +138,9 @@ function renderAiVariant() {
   document.getElementById("aiNote").textContent = !team ? "Untimed and unrated."
     : aiVariantSelect.value === "fourplayer"
       ? "You as Red, LorFish your partner as Yellow, against two more LorFish. Timed and casual."
-      : "You and LorFish against two more LorFish, on two boards. Timed and casual.";
+      : aiVariantSelect.value === "fourplayer_ffa"
+        ? "You as Red against three LorFish, everyone for themselves. Timed and casual."
+        : "You and LorFish against two more LorFish, on two boards. Timed and casual.";
 }
 aiVariantSelect.addEventListener("change", renderAiVariant);
 document.querySelector("#aiPanel form").addEventListener("submit", (e) => {
@@ -148,8 +148,10 @@ document.querySelector("#aiPanel form").addEventListener("submit", (e) => {
   e.preventDefault();
   const errEl = document.getElementById("aiError");
   errEl.textContent = "";
-  const event = aiVariantSelect.value === "fourplayer" ? "fourplayer:bots" : "bughouse:bots";
-  socket.emit(event, { tc: aiClockSelect.value, level: aiLevelSelect.value, pace: aiPaceSelect.value }, (resp) => {
+  const event = isFourPlayer(aiVariantSelect.value) ? "fourplayer:bots" : "bughouse:bots";
+  socket.emit(event, {
+    tc: aiClockSelect.value, level: aiLevelSelect.value, pace: aiPaceSelect.value, variant: aiVariantSelect.value,
+  }, (resp) => {
     if (!resp || !resp.ok) errEl.textContent = (resp && resp.error) || "Could not start the game.";
   });
 });
@@ -172,7 +174,7 @@ function restoreAiLevel(games) {
 // be combined. Whichever you pick second disables the other.
 // The picker comes from the shared catalogue, so a new variant appears here the
 // moment it is added to src/shared/variants.js.
-for (const v of VARIANTS.filter(offered)) {
+for (const v of VARIANTS) {
   const opt = document.createElement("option");
   opt.value = v.key;
   opt.textContent = v.label;
@@ -453,13 +455,24 @@ function renderGames() {
     const meta = el("div", "live-game-meta");
     const vs = el("div", "vs");
     // LorFish, in a four-player seat, has no profile to link to.
-    const side = (p) => {
-      if (p.bot) vs.appendChild(document.createTextNode(p.username));
-      else vs.appendChild(playerLink(p.userId, p.username, { newTab: true }));
-      if (p.member) vs.appendChild(memberBadge());
-      if (p.rating != null) vs.appendChild(el("span", "rating", "(" + p.rating + ")"));
+    const side = (p, into = vs) => {
+      if (p.bot) into.appendChild(document.createTextNode(p.username));
+      else into.appendChild(playerLink(p.userId, p.username, { newTab: true }));
+      if (p.member) into.appendChild(memberBadge());
+      if (p.rating != null) into.appendChild(el("span", "rating", "(" + p.rating + ")"));
     };
-    if (four) {
+    if (four && isFreeForAll(g.variant)) {
+      // Everyone for themselves, in turn order, each with their points; a
+      // player who is out struck through.
+      g.seats.forEach((p, i) => {
+        if (i) vs.appendChild(document.createTextNode(" · "));
+        const seat = el("span", p.out ? "four-out" : "");
+        seat.dataset.seat = p.color;
+        side(p, seat);
+        seat.appendChild(el("span", "muted small", " " + p.points + (p.points === 1 ? " pt" : " pts")));
+        vs.appendChild(seat);
+      });
+    } else if (four) {
       // Red & Yellow vs Blue & Green.
       const [r, b, y, gr] = g.seats;
       side(r);

@@ -10,7 +10,9 @@
 //
 // Pieces come in four colours from the ordinary white images, tinted here
 // (an SVG colour filter, multiplying white by the colour): no new artwork,
-// and a user's own uploaded white pieces are tinted the same way.
+// and a user's own uploaded white pieces are tinted the same way. A
+// free-for-all army that is out is tinted grey instead: dead, as chess.com
+// shows it.
 //
 //   const view = FourBoardView.create(boardEl, handlers)
 //     handlers.pieceSrc(piece)    image URL for { t, c } — asked for the white
@@ -24,6 +26,8 @@
 //     bottom    the colour at the bottom ('r' unless given), instead of flip
 //     check     the square of a king in check, or a Set of them: one move can
 //               check both opponents
+//     dead      a Set of the colours whose armies are out (free-for-all),
+//               drawn grey
 //   and returns whether the animation is still running.
 //
 //   view.destroy() as gridBoardView.js.
@@ -35,6 +39,8 @@ window.FourBoardView = (function () {
   const N = 14;
   // chess.com's four colours; the page uses them for names and clocks too.
   const COLOURS = { r: '#bf3b43', b: '#4185bf', y: '#c09526', g: '#4e9161' };
+  // A dead army's grey, darker than any square so it still stands out.
+  const DEAD = '#8c8c8c';
 
   // One hidden <svg> per page holding the four tints, made when the first
   // board is. A filter multiplies each channel: the white piece's light fill
@@ -47,7 +53,7 @@ window.FourBoardView = (function () {
     svg.setAttribute('class', 'four-tints');
     svg.setAttribute('aria-hidden', 'true');
     const defs = document.createElementNS(NS, 'defs');
-    for (const [c, hex] of Object.entries(COLOURS)) {
+    for (const [c, hex] of Object.entries(Object.assign({ dead: DEAD }, COLOURS))) {
       const [r, g, b] = [1, 3, 5].map((i) => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(3));
       const filter = document.createElementNS(NS, 'filter');
       filter.id = 'four-tint-' + c;
@@ -77,10 +83,12 @@ window.FourBoardView = (function () {
 
     const sqEl = (sq) => boardEl.querySelector(`.square[data-sq="${sq}"]`);
 
+    let dead = new Set();   // the last render's dead colours, for the animation too
+
     function pieceImg(piece, cls) {
       const img = document.createElement('img');
       img.src = handlers.pieceSrc({ t: piece.t, c: 'w' });
-      img.className = cls + ' four-' + piece.c;
+      img.className = cls + ' four-' + (dead.has(piece.c) ? 'dead' : piece.c);
       if (piece.t === 'p') img.classList.add('pawn');
       img.draggable = false;
       return img;
@@ -90,6 +98,7 @@ window.FourBoardView = (function () {
       boardEl.innerHTML = '';
       const { pieces, lastMove, premove, selected, check, mustCapture, hints } = state;
       const bottom = state.bottom || 'r';
+      dead = state.dead || new Set();
       // Quarter turns from the screen to the board: the screen shows the
       // board as `bottom` sees it, its own army along the lowest rows.
       const turns = FourPlayer.COLORS.indexOf(bottom);
@@ -204,5 +213,5 @@ window.FourBoardView = (function () {
     return { render, destroy };
   }
 
-  return { create, COLOURS };
+  return { create, COLOURS, DEAD };
 })();

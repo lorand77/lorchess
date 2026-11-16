@@ -882,6 +882,8 @@ const FourPlayer = (function () {
     // as the move list shows it ("Blue resigned").
     static eventText(e) { return `${e.how}:${e.color}`; }
     static eventSan(e) { return `${NAMES[e.color]} ${EVENT_WORDS[e.how]}`; }
+    // A free-for-all place as the pages write it: "1st", "2nd", "3rd", "4th".
+    static placeText(place) { return place + (['st', 'nd', 'rd'][place - 1] || 'th'); }
     // A history entry as stored: its move's text, or its event's.
     static entryText(h) { return h.event ? FourPlayer.eventText(h.event) : FourPlayer.moveText(h.move); }
     // { color, how } from a stored event text, or null.

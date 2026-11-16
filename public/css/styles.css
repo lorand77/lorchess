@@ -233,9 +233,17 @@ body {
   border-radius: 50%;
   background: var(--seat);
 }
-/* On a phone the plate's border shows the colour: the name gets the room. */
-@media (max-width: 700px) { .four-dot { display: none; } }
+/* On a phone the plate's border shows the colour: the name gets the room —
+   one line of it in free-for-all, where the points need a line too. */
+@media (max-width: 700px) {
+  .four-dot { display: none; }
+  .four-wrap.ffa .four-who { -webkit-line-clamp: 1; line-clamp: 1; }
+}
 .four-plate .clock { flex: none; align-self: flex-end; line-height: 1.2; font-size: clamp(14px, calc(var(--board) / 30), 22px); }
+/* Free-for-all: a player's points, and a player who is out greyed. */
+.four-points { flex: none; font-weight: 600; line-height: 1.2; }
+.four-plate.out { opacity: 0.55; border-style: dashed; }
+.four-out { text-decoration: line-through; opacity: 0.6; }
 .four-moves {
   max-height: 180px;
   overflow-y: auto;
@@ -252,6 +260,7 @@ body {
 .four-b { filter: url(#four-tint-b); }
 .four-y { filter: url(#four-tint-y); }
 .four-g { filter: url(#four-tint-g); }
+.four-dead { filter: url(#four-tint-dead); }
 /* Antichess: the pieces that can make the compulsory capture (ui.js captureHint). */
 .square.must-capture { box-shadow: inset 0 0 0 4px var(--orange); }
 /* Bughouse tables, listed with the open challenges: a row whose second line

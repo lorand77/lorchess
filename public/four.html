@@ -8,8 +8,9 @@
 <script src="/js/themeBoot.js"></script>
 </head>
 <body>
-<!-- The game page for four-player chess (fourGame.js). game.html sends a
-     four-player game here, to play (?id=) or to watch (?watch=). -->
+<!-- The game page for four-player chess, Teams or free-for-all (fourGame.js).
+     game.html sends a four-player game here, to play (?id=) or to watch
+     (?watch=). -->
 <div class="game">
   <div class="board-wrap four-wrap">
     <div class="board" id="board"></div>
@@ -29,7 +30,7 @@
   <div class="info">
     <div class="userbar" id="userbar"></div>
     <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
-    <h2>Four-Player Chess</h2>
+    <h2 id="gameTitle">Four-Player Chess</h2>
     <p class="tc-line" id="tcLine"></p>
     <p class="small" id="teams"></p>
     <p id="turn"></p>
@@ -39,6 +40,7 @@
     <p id="replayLine" style="display:none;"><a id="replayLink" href="#">Replay this game →</a></p>
     <p id="controls" style="display:none;">
       <button id="resignBtn">Resign</button>
+      <button id="claimBtn" class="primary" style="display:none;">Claim the win</button>
     </p>
     <h3>Moves</h3>
     <div id="history" class="four-moves"></div>
@@ -52,7 +54,7 @@
       </form>
       <p id="chatError" class="lobby-error"></p>
     </div>
-    <p style="color:var(--text-muted); font-size:12px;">Click or drag a piece to move. Off your turn this queues one premove, played when your turn comes; click or right-click the board to cancel it. Red and Yellow play Blue and Green; a partner's pieces can't be taken.</p>
+    <p style="color:var(--text-muted); font-size:12px;">Click or drag a piece to move. Off your turn this queues one premove, played when your turn comes; click or right-click the board to cancel it. <span id="rulesNote"></span> <a id="rulesLink" href="/rules.html" style="color:inherit;">Rules</a></p>
   </div>
 </div>
 

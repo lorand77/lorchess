@@ -8,7 +8,8 @@
 // Every column but the last sorts the table, on the page: the whole list is
 // already here, newest first, so no request is needed. A four-player game has
 // no White or Black: the row names the owner's colour, their partner and the
-// two opponents, and its links go to the four-player pages.
+// two opponents (in free-for-all the other three, and the result is the
+// owner's place and points), and its links go to the four-player pages.
 
 const FOUR_COLOURS = { r: "Red", b: "Blue", y: "Yellow", g: "Green" };
 
@@ -44,6 +45,7 @@ const FOUR_COLOURS = { r: "Red", b: "Blue", y: "Yellow", g: "Green" };
 
   // Each game's cells, and what each sortable column sorts it by.
   const rows = games.map((g) => {
+    if (g.seat && isFreeForAll(g.variant)) return ffaRow(g);
     if (g.seat) return fourRow(g);
     const asWhite = g.white_id === user.id;
     const opp = asWhite ? g.black_username : g.white_username;
@@ -74,6 +76,28 @@ const FOUR_COLOURS = { r: "Red", b: "Blue", y: "Yellow", g: "Green" };
       ` <span class="muted small">with ${name(partner)}</span>`;
     const res = outcome(g, g.seat === "r" || g.seat === "y");
     const opp = opps.map((c) => g.seats[c].username).join(" & ");
+    return row(g, "PvP", variantLabel(g.variant), FOUR_COLOURS[g.seat], oppCell, opp, res);
+  }
+
+  // A free-for-all game: the owner's colour, the other three, and their place
+  // and points ("2nd · 20 pts"); first place sorts with the wins, the rest
+  // with the losses.
+  function ffaRow(g) {
+    const name = (c) => {
+      const s = g.seats[c];
+      return s.bot ? escapeHtml(s.username) : playerLink(s.id, s.username).outerHTML;
+    };
+    const others = ["r", "b", "y", "g"].filter((c) => c !== g.seat);
+    const oppCell = others.map(name).join(", ");
+    const opp = others.map((c) => g.seats[c].username).join(", ");
+    const mine = g.seats[g.seat];
+    let res;
+    if (g.status !== "finished") res = outcome(g, true);
+    else {
+      const place = mine.place + (["st", "nd", "rd"][mine.place - 1] || "th");
+      const first = mine.place === 1;
+      res = { text: `${place} · ${mine.points} pts`, cls: first ? "out-win" : "out-loss", rank: first ? 0 : 2 };
+    }
     return row(g, "PvP", variantLabel(g.variant), FOUR_COLOURS[g.seat], oppCell, opp, res);
   }
 

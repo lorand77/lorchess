@@ -75,7 +75,7 @@ async function init() {
   }
 
   // A four-player game has a replay page of its own.
-  if (game.variant === "fourplayer") {
+  if (isFourPlayer(game.variant)) {
     location.replace("/fourReplay.html" + location.search);
     return;
   }
