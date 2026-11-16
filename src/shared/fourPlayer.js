@@ -93,6 +93,7 @@ const FourPlayer = (function () {
   // out of time, gone past the reconnect grace, or claiming the game. Named
   // as the server names a game's ending.
   const LEAVES = ['resign', 'timeout', 'disconnect'];
+  const EVENT_WORDS = { resign: 'resigned', timeout: 'lost on time', disconnect: 'forfeited', claim: 'claimed the win' };
 
   const onBoard = (x, y) => x >= 0 && x < N && y >= 0 && y < N && !((x < 3 || x > 10) && (y < 3 || y > 10));
   const sqOf = (x, y) => y * N + x;
@@ -877,8 +878,12 @@ const FourPlayer = (function () {
       return m ? this.findMove(m[1], m[2], m[3] || null) : null;
     }
 
-    // A free-for-all player leaving, as stored: how and who ("resign:b").
+    // A free-for-all player leaving, as stored: how and who ("resign:b"); and
+    // as the move list shows it ("Blue resigned").
     static eventText(e) { return `${e.how}:${e.color}`; }
+    static eventSan(e) { return `${NAMES[e.color]} ${EVENT_WORDS[e.how]}`; }
+    // A history entry as stored: its move's text, or its event's.
+    static entryText(h) { return h.event ? FourPlayer.eventText(h.event) : FourPlayer.moveText(h.move); }
     // { color, how } from a stored event text, or null.
     static eventFromText(text) {
       const m = /^(resign|timeout|disconnect|claim):([rbyg])$/.exec(String(text));

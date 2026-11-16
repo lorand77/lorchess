@@ -762,9 +762,13 @@ Corners".
 - *Free-for-all* is the same engine in its other mode,
   `new FourPlayer('ffa')`: the board, the pieces, the turned rules and the
   notation are shared, and Teams plays exactly as before (its tests are
-  unchanged). So far it is the engine (`test/unit/fourPlayer.ffa.test.js`)
-  and LorFish (below); the server and the pages come next. Its variant key
-  will be `fourplayer_ffa`: `createEngine` and the bot worker know it already. Chess.com's rules
+  unchanged). It has the engine (`test/unit/fourPlayer.ffa.test.js`),
+  LorFish and the server's game (both below); its pages come next. In the
+  catalogue it is `fourplayer_ffa`, "Four-Player Free-for-All": `teams`
+  like the two team games (four at a table, never one to one, out of "Jack
+  of All Trades"), `freeForAll` that nobody partners anyone (`isFreeForAll`;
+  `isFourPlayer` is either four-player mode), `seatBots`, casual. Its win
+  badge is `fourplayer_ffa_wins`, "Lone Wolf", for finishing first. Chess.com's rules
   (support.chess.com, "4 Player Chess", and chess.com/terms/4-player-chess):
   - Everyone is everyone's opponent: any other player's piece may be taken,
     and any other player gives check (`hostile`, `foesOf`, `canTake` say who,
@@ -843,8 +847,48 @@ Corners".
       move defends, a piece moved out of any opponent's reach, a mate two
       players later, a king taken, the moves that let LorFish be mated
       scored as such, the position left as found, the budget, and sampling.
-- *Not done:* free-for-all's server game and pages, draw offers, rematches,
-  and a preview in the lobby's live games.
+  - *The server's game* is the Teams game's — one room with four colours
+    (`room.four`, and `room.ffa`), the same handlers, tables, seats and
+    clocks — with these differences:
+    - A resignation, a flag (also a move sent too late) or a player gone past
+      the reconnect grace puts only that player out (`eliminateSeat`): the
+      engine's `eliminate`, the others playing on. It is recorded as a row of
+      `moves` like a move, its `uci` the engine's event (`resign:b`), its
+      `san` the move list's line ("Blue resigned"), `by_user` NULL (it is no
+      move of theirs, and the move stats leave it out), so a restart
+      replays it (`FourPlayer.playText`). Their clock stops, charged for the
+      time they had been thinking if it was their turn, which passes on.
+      Everyone hears `player:out` (`color`, `how`, `san`, `uci`, `fen`,
+      `turn`, `ply`, `clocks`). A mate, a stalemate or a king taken puts a
+      player out inside a move; `move:made` carries it in its FEN.
+    - A player out is free (`game_seats.eliminated`, written as it happens):
+      no absence clock runs against them, `liveGameForUser` and the lobby's
+      busy list leave them out, so they may start another game while the
+      others play on. They may still open the game and chat.
+    - `four:claim` claims the win (`FourPlayer.canClaimWin`), whosever turn
+      it is; anything else is refused.
+    - The game ends when the engine says so: the last player out, a claim,
+      or a draw by rule. `games.result` is the engine's placings
+      (`b,r=y,g`), each seat's `points` and `place` are stored, `game:over`
+      adds `standings`, and achievements count a seat placed first as a win
+      (shared first included). A game nobody moved in, or that a player never
+      joined, still aborts.
+    - The game state on joining adds `points` and `out` (each colour's
+      `{ how, by }` or null), and its `moves` include the events. The
+      lobby's live games add each seat's `points` and `out`;
+      `GET /api/games` and `/api/games/:id` add each seat's `eliminated`,
+      `points` and `place`.
+    - LorFish: "Play the computer" (`fourplayer:bots` with `variant`) seats
+      the player as Red against three LorFish. LorFish claims the win the
+      moment it may, and once no person is still in its seats play at the
+      quick pace, a move it was holding played at once (`room.botHurry`):
+      nobody is waiting to see it think, and the people who were in are free.
+  - Tests (`test/integration/fourPlayer.ffa.test.js`): resignation, a mate
+    and a draw that follows from a resignation, flags, a forfeit, a restart
+    with a player out, the claim and the badge, LorFish claiming and playing
+    on, a free-for-all table.
+- *Not done:* free-for-all's pages, draw offers, rematches, and a preview in
+  the lobby's live games.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,
@@ -1131,7 +1175,8 @@ Events:
   `black`/`black_name`, `tc`, `rated`, `variant`; a four-player game has
   `seats`, its four user ids in turn order, instead of white and black),
   `game.over` (`result`,
-  `termination`), `game.rematch` (`game`, `new_game`),
+  `termination`), `game.player_out` (a free-for-all player out while the
+  game goes on: `game`, `color`, `how`), `game.rematch` (`game`, `new_game`),
   `game.restart_sweep` (`aborted` count), `game.corrupt_record` (`error`:
   `ply`, `move`, `fen`; a Bughouse board's adds `match` and `board`). A
   Bughouse match: `match.start` (`match`, `boards`, `team_a`/`team_b` as user
@@ -1208,7 +1253,12 @@ Design notes:
   and Green, which its CHECK allows and which matches the result (`1-0` for
   Red and Yellow); the colour to move is in `current_fen`. A seat points at
   its user like White and Black do, so account deletion (which keeps the
-  emptied row) leaves the game as it leaves any PvP game.
+  emptied row) leaves the game as it leaves any PvP game. A free-for-all
+  game (variant `fourplayer_ffa`) stores its placings as its result
+  (`b,r=y,g`), each seat's `eliminated` (how its player went out, as it
+  happens) and, at the end, its `points` and `place`; a player leaving is a
+  `moves` row, the engine's event in `uci` (`resign:b`) with `by_user`
+  NULL.
 - **The AI side is a real user.** A reserved `LorFish` account
   (`config.AI_USERNAME`, `password_hash NULL` so it can never log in) owns the
   AI side of games, so foreign keys and queries stay uniform.

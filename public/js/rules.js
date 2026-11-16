@@ -26,7 +26,7 @@
   // "Two players · rated or casual · against LorFish from the lobby · odds
   // games · Stockfish review".
   function glanceOf(key) {
-    const parts = [isTeamGame(key) ? "Four players, two teams" : "Two players"];
+    const parts = [isFreeForAll(key) ? "Four players, each for themselves" : isTeamGame(key) ? "Four players, two teams" : "Two players"];
     parts.push(isRateable(key) ? "rated or casual" : "casual only");
     if (hasBot(key)) parts.push("play LorFish from the lobby");
     else if (hasSeatBots(key)) parts.push("LorFish can fill empty seats");

@@ -238,25 +238,30 @@ module.exports = {
   ),
   // The live PvP game one user is in, if any. The lobby keeps it to one at a
   // time, hence LIMIT 1. Both params are the user id.
-  // Any seat counts, a four-player game's too.
+  // Any seat counts, a four-player game's too — but not a free-for-all
+  // player's who is out: they are free while the others play on.
   liveGameForUser: db.prepare(`
     SELECT id FROM games
      WHERE status = 'active' AND mode = 'pvp'
        AND (white_id = @user OR black_id = @user
-            OR id IN (SELECT game_id FROM game_seats WHERE user_id = @user))
+            OR id IN (SELECT game_id FROM game_seats WHERE user_id = @user AND eliminated IS NULL))
      LIMIT 1
   `),
-  // The four seats of every live four-player game; the lobby marks these
-  // users as busy, as it does playersInLiveGames' white and black.
+  // The seats of every live four-player game still in play; the lobby marks
+  // these users as busy, as it does playersInLiveGames' white and black.
   seatsInLiveGames: db.prepare(`
     SELECT g.id, s.user_id FROM game_seats s JOIN games g ON g.id = s.game_id
-     WHERE g.status = 'active' AND g.mode = 'pvp'
+     WHERE g.status = 'active' AND g.mode = 'pvp' AND s.eliminated IS NULL
   `),
 
   // --- four-player seats (src/game/fourGames.js) ---
   insertSeat: db.prepare("INSERT INTO game_seats (game_id, color, user_id) VALUES (?, ?, ?)"),
-  getSeats: db.prepare("SELECT color, user_id, clock_ms FROM game_seats WHERE game_id = ?"),
+  getSeats: db.prepare("SELECT color, user_id, clock_ms, eliminated, points, place FROM game_seats WHERE game_id = ?"),
   updateSeatClock: db.prepare("UPDATE game_seats SET clock_ms = ? WHERE game_id = ? AND color = ?"),
+  // Free-for-all: a seat's player out (written once, as it happens), and every
+  // seat's points and place at the end.
+  updateSeatOut: db.prepare("UPDATE game_seats SET eliminated = ? WHERE game_id = ? AND color = ? AND eliminated IS NULL"),
+  updateSeatResult: db.prepare("UPDATE game_seats SET points = ?, place = ? WHERE game_id = ? AND color = ?"),
   isSeated: db.prepare("SELECT color FROM game_seats WHERE game_id = ? AND user_id = ?"),
 
   // --- friendships ---
@@ -568,7 +573,8 @@ module.exports = {
   `),
   // Wins per variant, for the variant badges. Every mode counts; AI games are
   // always standard, so the other variants are PvP wins anyway.
-  // A four-player win is a seat on the winning team: Red or Yellow for 1-0.
+  // A four-player win is a seat on the winning team: Red or Yellow for 1-0;
+  // in free-for-all, a seat placed first (shared or not).
   achievementWinsByVariant: db.prepare(`
     SELECT variant, COUNT(*) AS n FROM (
       SELECT variant FROM games
@@ -577,7 +583,8 @@ module.exports = {
       UNION ALL
       SELECT g.variant FROM games g JOIN game_seats s ON s.game_id = g.id
       WHERE g.status = 'finished' AND s.user_id = @me
-        AND ((g.result = '1-0' AND s.color IN ('r', 'y')) OR (g.result = '0-1' AND s.color IN ('b', 'g')))
+        AND ((g.result = '1-0' AND s.color IN ('r', 'y')) OR (g.result = '0-1' AND s.color IN ('b', 'g'))
+             OR s.place = 1)
     )
     GROUP BY variant
   `),

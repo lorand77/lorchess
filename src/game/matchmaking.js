@@ -231,10 +231,11 @@ function startBughouse(io, { teamA, teamB }, opts) {
   return { matchId, boards };
 }
 
-// Start a four-player game (Teams), `seats` mapping each colour to
-// { userId, username }: Red and Yellow against Blue and Green. A seat may be
-// LorFish (its account's id and name), played by the server at
-// `opts.botLevel` and `opts.botPace`. One room, casual; each person is sent their colour and the
+// Start a four-player game, `seats` mapping each colour to { userId,
+// username }: Teams, Red and Yellow against Blue and Green, or free-for-all
+// when `opts.variant` is 'fourplayer_ffa'. A seat may be LorFish (its
+// account's id and name), played by the server at `opts.botLevel` and
+// `opts.botPace`. One room, casual; each person is sent their colour and the
 // others' names. The start hooks run once with all four user ids, so the
 // lobby withdraws everyone's offers and socket.js starts the absence clock
 // against every seat a person holds. Returns the game id.
@@ -245,12 +246,13 @@ function startFourPlayer(io, seats, opts) {
   const each = (fn) => Object.fromEntries(FourPlayer.COLORS.map((c) => [c, fn(seats[c])]));
   const botLevel = opts && opts.botLevel;
   const botPace = opts && opts.botPace;
-  const gameId = fourGames.createGame({ seats: each((s) => s.userId), initialMs, incrementMs, botLevel, botPace });
+  const variant = opts && opts.variant === fourGames.FFA ? fourGames.FFA : fourGames.VARIANT;
+  const gameId = fourGames.createGame({ seats: each((s) => s.userId), initialMs, incrementMs, botLevel, botPace, variant });
   rooms.createRoom(gameId, {
     seats: each((s) => s.userId),
     seatNames: each((s) => s.username),
     startFen: fourGames.START,
-    variant: fourGames.VARIANT,
+    variant,
     initialMs,
     incrementMs,
     rated: false,
@@ -269,7 +271,7 @@ function startFourPlayer(io, seats, opts) {
     seats: ids.join(","),
     tc: `${initialMs / 60000}+${incrementMs / 1000}`,
     rated: false,
-    variant: fourGames.VARIANT,
+    variant,
   });
   return gameId;
 }

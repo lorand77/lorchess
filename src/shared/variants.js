@@ -84,6 +84,14 @@ const VARIANTS = [
   { key: 'fourplayer', label: 'Four-Player Chess', standardSetup: false, reviewable: false, rateable: false,
     materialBadges: false, moveBadges: false, bot: false, teams: true, seatBots: true,
     startFen: 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3,yR,yN,yB,yK,yQ,yB,yN,yR,3/3,yP,yP,yP,yP,yP,yP,yP,yP,3/14/bR,bP,10,gP,gR/bN,bP,10,gP,gN/bB,bP,10,gP,gB/bQ,bP,10,gP,gK/bK,bP,10,gP,gQ/bB,bP,10,gP,gB/bN,bP,10,gP,gN/bR,bP,10,gP,gR/14/3,rP,rP,rP,rP,rP,rP,rP,rP,3/3,rR,rN,rB,rQ,rK,rB,rN,rR,3' },
+  // The same board and engine (fourPlayer.js, mode 'ffa'), chess.com's
+  // free-for-all: everyone for themselves, for points, the most points
+  // winning. `teams` as for the two above — four at a table, never one to
+  // one — and `freeForAll` that nobody there partners anyone. LorFish takes
+  // empty seats (lorfishFfa.js). Always casual.
+  { key: 'fourplayer_ffa', label: 'Four-Player Free-for-All', standardSetup: false, reviewable: false, rateable: false,
+    materialBadges: false, moveBadges: false, bot: false, teams: true, seatBots: true, freeForAll: true,
+    startFen: 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3,yR,yN,yB,yK,yQ,yB,yN,yR,3/3,yP,yP,yP,yP,yP,yP,yP,yP,3/14/bR,bP,10,gP,gR/bN,bP,10,gP,gN/bB,bP,10,gP,gB/bQ,bP,10,gP,gK/bK,bP,10,gP,gQ/bB,bP,10,gP,gB/bN,bP,10,gP,gN/bR,bP,10,gP,gR/14/3,rP,rP,rP,rP,rP,rP,rP,rP,3/3,rR,rN,rB,rQ,rK,rB,rN,rR,3' },
   // A board with no edges (infinitechess.org's Classical rules), played by its
   // own engine (engines.js). Its start is an ICN position, the same as
   // infiniteChess.js's Classical setup (a test holds them together). Casual
@@ -134,11 +142,22 @@ function hasBot(name) {
   return !!VARIANTS_BY_KEY.get(resolveVariant(name)).bot;
 }
 
-// Played by two teams of two (Bughouse on two boards, four-player chess on
-// one) rather than by two players: seated at a table of four, never offered
-// or matched as a two-player game.
+// Played by four rather than by two players — two teams of two (Bughouse on
+// two boards, four-player Teams on one), or four for themselves (four-player
+// free-for-all): seated at a table of four, never offered or matched as a
+// two-player game.
 function isTeamGame(name) {
   return !!VARIANTS_BY_KEY.get(resolveVariant(name)).teams;
+}
+
+// Four at a table with no teams: four-player free-for-all.
+function isFreeForAll(name) {
+  return !!VARIANTS_BY_KEY.get(resolveVariant(name)).freeForAll;
+}
+
+// Played on the four-player board (fourPlayer.js): Teams or free-for-all.
+function isFourPlayer(name) {
+  return name === 'fourplayer' || name === 'fourplayer_ffa';
 }
 
 // May LorFish take a team game's empty seats? Then a table can start before
@@ -159,6 +178,6 @@ function startOf(name) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
-    hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, hasSeatBots, startOf,
+    hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, isFreeForAll, isFourPlayer, hasSeatBots, startOf,
   };
 }

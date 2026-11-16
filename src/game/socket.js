@@ -23,7 +23,7 @@ const achievements = require("../achievements/service");
 const handicap = require("../shared/handicap");
 const { formatUci } = require("../shared/uci");
 const { InfiniteChess } = require("../shared/infiniteChess");
-const { usesStandardSetup } = require("../shared/variants");
+const { usesStandardSetup, resolveVariant, isFourPlayer } = require("../shared/variants");
 const { Bughouse } = require("../shared/bughouse");
 const matches = require("./matches");
 const fourGames = require("./fourGames");
@@ -77,12 +77,14 @@ function flagResult(room, flagged) {
 // One move's writes as a single transaction: the move row, the position and
 // the clocks (so the game survives a restart). All or nothing, so a failure can
 // be rolled back in memory without a half-recorded move left behind. A
-// four-player game stores the team to move and its four clocks (fourGames.js).
+// four-player game stores the team to move and its four clocks (fourGames.js),
+// and a free-for-all game any player the move (or the elimination) put out.
 const persistMove = db.transaction((room, ply, san, uci, fen, userId, thinkMs, premove) => {
   const turn = room.chess.turn;
   queries.insertMoveTimed.run(room.gameId, ply, san, uci, fen, userId, thinkMs, premove ? 1 : 0);
   queries.updateGamePosition.run(fen, room.four ? FourPlayer.sideOf(turn) : turn, room.gameId);
   saveClocks(room, room.clock);
+  if (room.ffa) fourGames.saveOut(room.gameId, room.chess);
 });
 
 function saveClocks(room, clocks) {
@@ -206,6 +208,7 @@ function attachSockets(httpServer) {
     on("chat:send", (payload, ack) => handleChat(io, socket, payload, ack));
     on("move:make", (payload, ack) => handleMove(io, socket, payload, ack));
     on("game:resign", (payload) => handleResign(io, socket, payload));
+    on("four:claim", (payload, ack) => handleClaim(io, socket, payload, ack));
     on("draw:offer", (payload) => handleDrawOffer(io, socket, payload));
     on("draw:respond", (payload) => handleDrawRespond(io, socket, payload));
     on("rematch:offer", (payload) => handleRematchOffer(io, socket, payload));
@@ -239,7 +242,7 @@ function colorOf(room, userId) {
 // four-player game's seats.
 function seatedIn(game, userId) {
   if (game.white_id === userId || game.black_id === userId) return true;
-  return game.variant === fourGames.VARIANT && !!fourGames.colorIn(game.id, userId);
+  return isFourPlayer(game.variant) && !!fourGames.colorIn(game.id, userId);
 }
 
 // ---- clocks ----
@@ -296,6 +299,8 @@ function onFlag(io, gameId, turn) {
   if (!room || room.status !== "active") return;
   if (room.chess.turn !== turn) return; // a move already switched the turn
   room.clock[turn] = 0;
+  // In free-for-all a flag puts only that player out.
+  if (room.ffa) return eliminateSeat(io, room, turn, "timeout");
   concludeGame(io, room, flagResult(room, turn), "timeout");
 }
 
@@ -318,6 +323,8 @@ function concludeGame(io, room, result, termination) {
     saveClocks(room, clocks);
     if (result === "*") queries.abortGame.run(termination, room.gameId);
     else queries.finishGame.run(result, termination, room.gameId);
+    // Free-for-all: every seat's points and place.
+    if (room.ffa && result !== "*") fourGames.saveResults(room.gameId, room.chess);
     // Aborts have no result to rate, and a casual game moves nobody's Elo.
     return result === "*" || !room.rated ? null : applyElo(room, result);
   })();
@@ -329,6 +336,8 @@ function concludeGame(io, room, result, termination) {
     termination,
     ratings,
     clocks,
+    // Free-for-all: each colour's { color, points, place, out }.
+    ...(room.ffa && result !== "*" ? { standings: room.chess.standings() } : {}),
   });
   if (result !== "*") notifyAchievements(room, { resignReactionMs: room.resignReactionMs });
   rooms.deleteRoom(room.gameId);
@@ -420,6 +429,7 @@ function applyElo(room, result) {
 // rebuilt after a restart gives the other client a moment to come back first.
 function armAbsence(io, room, color, settleMs) {
   if (room.status !== "active") return;
+  if (room.ffa && room.chess.out[color]) return; // out of a free-for-all game: free to go
   if (room.timers[color] || room.online[color].size > 0) return;
   const gameId = room.gameId;
 
@@ -553,7 +563,9 @@ function stateOf(room, color) {
     // The moves as played (castling by the rook square), so a client can
     // rebuild the position by replaying them: a FEN loses the repetition
     // history, and cannot always say which rook a Chess960 castling right means.
-    moves: room.chess.history.map((h) => (room.four ? FourPlayer.moveText(h.move) : formatUci(h.move))),
+    // A free-for-all game's players leaving are in it too, as the engine's
+    // events ("resign:b").
+    moves: room.chess.history.map((h) => (room.four ? FourPlayer.entryText(h) : formatUci(h.move))),
     yourColor: color,
     turn: room.chess.turn,
     status: room.status,
@@ -574,6 +586,9 @@ function stateOf(room, color) {
         whiteMember: members.has(room.players.w),
         blackMember: members.has(room.players.b),
       }),
+    // Free-for-all: each colour's points, and how each player out went
+    // ({ how, by }, null while in).
+    ...(room.ffa ? { points: { ...room.chess.points }, out: { ...room.chess.out } } : {}),
     clocks: rooms.clockSnapshot(room),
     running: room.started,
     drawOffer: room.drawOffer,
@@ -642,8 +657,9 @@ function handleChat(io, socket, payload, ack) {
 
   const game = queries.getGameById.get(gameId);
   if (!game) return reply(ack, { ok: false, error: "Game not found." });
-  // A four-player game's players speak as their team's side, 'w' or 'b'.
-  const seat = game.variant === fourGames.VARIANT ? fourGames.colorIn(gameId, socket.userId) : null;
+  // A four-player game's players speak as their team's side, 'w' or 'b' (in
+  // free-for-all, where there are no teams, it only marks them as players).
+  const seat = isFourPlayer(game.variant) ? fourGames.colorIn(gameId, socket.userId) : null;
   const role = game.white_id === socket.userId ? "w"
     : game.black_id === socket.userId ? "b"
       : seat ? FourPlayer.sideOf(seat) : "s";
@@ -771,6 +787,7 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     if (remaining <= 0) {
       room.clock[color] = 0;
       reply(ack, { ok: false, error: "Out of time." });
+      if (room.ffa) return eliminateSeat(io, room, color, "timeout");
       return concludeGame(io, room, flagResult(room, color), "timeout");
     }
     room.clock[color] = remaining + room.incrementMs;
@@ -858,6 +875,9 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     if (partnerRoom) tellPartner(io, partnerRoom);
   }
 
+  // Free-for-all: a mate, a stalemate or a king taken may have put players out.
+  if (room.ffa) playersOut(io, room);
+
   // (7) Game over? Otherwise re-arm the flag timer for the new side to move,
   // which may be a LorFish's.
   if (room.chess.isGameOver()) {
@@ -939,7 +959,8 @@ function handleBughouseBots(io, socket, payload, ack) {
 }
 
 // A four-player game against LorFish: the player as Red, LorFish their
-// partner as Yellow, and two more LorFish as Blue and Green, at a time control
+// partner as Yellow, and two more LorFish as Blue and Green (in free-for-all,
+// `variant` 'fourplayer_ffa', three LorFish for themselves), at a time control
 // and a LorFish level and pace from the allowlists.
 function handleFourPlayerBots(io, socket, payload, ack) {
   if (rooms.liveGameOf(socket.userId)) return reply(ack, { ok: false, error: "Finish your current game first." });
@@ -948,8 +969,10 @@ function handleFourPlayerBots(io, socket, payload, ack) {
   const ai = queries.getUserByUsername.get(config.AI_USERNAME);
   const bot = { userId: ai.id, username: ai.username };
   const me = { userId: socket.userId, username: socket.username };
-  const gameId = matchmaking.startFourPlayer(io, { r: me, b: bot, y: bot, g: bot },
-    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: level, botPace: resolveBotPace(payload && payload.pace) });
+  const gameId = matchmaking.startFourPlayer(io, { r: me, b: bot, y: bot, g: bot }, {
+    initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: level, botPace: resolveBotPace(payload && payload.pace),
+    variant: resolveVariant(payload && payload.variant) === fourGames.FFA ? fourGames.FFA : fourGames.VARIANT,
+  });
   reply(ack, { ok: true, gameId });
 }
 
@@ -964,11 +987,15 @@ function handleFourPlayerBots(io, socket, payload, ack) {
 // taken about as long as a person would (botPace.js thinkTime, counted from
 // when it could first move); at the quick pace it plays at once. The position
 // can't change under it meanwhile — it is its turn, and pockets only fill —
-// but the game can end, and then the move is dropped.
+// but the game can end, and then the move is dropped. In free-for-all it
+// claims the win the moment it may (FourPlayer.canClaimWin), and once no
+// person is still in, its seats play on at the quick pace: nobody is waiting
+// to see them think.
 function botTurn(io, room) {
   if (!room.bots || room.status !== "active" || !room.started) return;
   const color = room.chess.turn;
   if (!room.bots[color] || room.botThinking) return;
+  if (room.ffa && room.chess.canClaimWin(color)) return eliminateSeat(io, room, color, "claim");
   const choices = room.chess.legalMoves().length;
   if (choices === 0) return; // waiting for a piece
   room.botThinking = true;
@@ -987,6 +1014,7 @@ function botTurn(io, room) {
     const current = () => rooms.getRoom(room.gameId) === room && room.status === "active" && room.chess.turn === color;
     const play = () => {
       room.botTimer = null;
+      room.botHurry = null;
       room.botThinking = false;
       if (!current() || !answer) return;
       const move = answer.drop
@@ -1000,10 +1028,16 @@ function botTurn(io, room) {
     };
     if (!current() || !answer) return play();
     const recapture = !!(last && last.captured && last.move.to === answer.to);
-    const wait = room.botPace === "quick" ? 0
+    const peopleIn = room.colors.some((c) => !room.bots[c] && !(room.ffa && room.chess.out[c]));
+    const wait = room.botPace === "quick" || !peopleIn ? 0
       : thinkTime({ clockMs, incrementMs: room.incrementMs, choices, recapture }) - (Date.now() - began);
     if (wait <= 0) return play();
     room.botTimer = setTimeout(() => safely("bot move", play), wait);
+    // Played at once instead, should the last person go out meanwhile.
+    room.botHurry = () => {
+      clearTimeout(room.botTimer);
+      play();
+    };
   }), (err) => {
     room.botThinking = false;
     log.error("bot.failed", { game: room.gameId, err });
@@ -1057,7 +1091,7 @@ function handleRematchOffer(io, socket, payload) {
   // A Bughouse or four-player rematch needs all four players, which this
   // two-player offer can't ask: not yet.
   if (!game || game.mode !== "pvp" || game.status === "active" || game.match_id) return;
-  if (game.variant === fourGames.VARIANT) return;
+  if (isFourPlayer(game.variant)) return;
   const uid = socket.userId;
   if (game.white_id !== uid && game.black_id !== uid) return;
   // One game at a time applies here too: a rematch accepted from another game
@@ -1143,11 +1177,92 @@ function handleResign(io, socket, payload) {
   if (pliesPlayed(room) === 0) return concludeGame(io, room, "*", "aborted");
   // How long after the opponent's last move the resignation came (the "Rage
   // Quit" achievement wants to know). Only meaningful once the clock runs.
+  // In free-for-all a resignation puts only that player out.
+  if (room.ffa) return eliminateSeat(io, room, color, "resign");
   room.resignReactionMs =
     room.started && room.turnStartedAt != null && room.chess.turn === color
       ? Date.now() - room.turnStartedAt
       : null;
   concludeGame(io, room, lossFor(room, color), "resign");
+}
+
+// Free-for-all: with two players left, one far enough ahead ends the game
+// (FourPlayer.canClaimWin), whosever turn it is.
+function handleClaim(io, socket, payload, ack) {
+  const room = rooms.getRoom(Number(payload && payload.gameId));
+  if (!room || room.status !== "active" || !room.ffa) return reply(ack, { ok: false, error: "Nothing to claim." });
+  const color = colorOf(room, socket.userId);
+  if (!color || !room.chess.canClaimWin(color)) return reply(ack, { ok: false, error: "You can't claim the win now." });
+  eliminateSeat(io, room, color, "claim");
+  reply(ack, { ok: true });
+}
+
+// Free-for-all: `color` leaves the game — resigning, out of time, forfeited
+// past the reconnect grace, or claiming the win — and the others play on. It
+// is recorded like a move, its text the engine's event ("resign:b") and its
+// san the line the move list shows ("Blue resigned"), with nobody's user id
+// (it is no move of theirs), so the record replays whole. Their clock stops
+// where it stands, charged for the time they had been thinking if it was
+// their turn, which passes on. A player who is out may go: no absence clock,
+// and the lobby frees them. The last player out, or a claim, ends the game.
+function eliminateSeat(io, room, color, how) {
+  const now = Date.now();
+  const before = { clock: room.clock[color], turnStartedAt: room.turnStartedAt };
+  const theirTurn = room.started && room.chess.turn === color;
+  if (theirTurn) room.clock[color] = Math.max(0, room.clock[color] - (now - room.turnStartedAt));
+  const ok = how === "claim" ? room.chess.claimWin(color) : room.chess.eliminate(color, how);
+  if (!ok) {
+    room.clock[color] = before.clock;
+    return false;
+  }
+  if (theirTurn) room.turnStartedAt = now;
+  const event = room.chess.history[room.chess.history.length - 1].event;
+  const uci = FourPlayer.eventText(event), san = FourPlayer.eventSan(event);
+  const ply = room.chess.history.length;
+  const fen = room.chess.fen();
+  try {
+    persistMove(room, ply, san, uci, fen, null, null, false);
+  } catch (err) {
+    room.chess.undoMove();
+    room.clock[color] = before.clock;
+    room.turnStartedAt = before.turnStartedAt;
+    throw err;
+  }
+  room.sans.push(san);
+  playersOut(io, room);
+  io.to(`game:${room.gameId}`).emit("player:out", {
+    color, how, san, uci, fen, turn: room.chess.turn, ply, clocks: rooms.clockSnapshot(room),
+  });
+  if (room.chess.isGameOver()) {
+    concludeGame(io, room, room.chess.result(), room.chess.termination());
+  } else {
+    scheduleFlag(io, room);
+    botTurn(io, room);
+  }
+  return true;
+}
+
+// Free-for-all: after a move or an elimination, anyone newly out (resigned,
+// mated, their king taken...) is logged, no longer waited for, and free in
+// the lobby.
+function playersOut(io, room) {
+  room.outSeen = room.outSeen || new Set();
+  let any = false;
+  for (const c of room.colors) {
+    if (!room.chess.out[c] || room.outSeen.has(c)) continue;
+    room.outSeen.add(c);
+    any = true;
+    clearTimeout(room.timers[c]);
+    clearTimeout(room.notices[c]);
+    room.timers[c] = null;
+    room.notices[c] = null;
+    log.info("game.player_out", { game: room.gameId, color: c, how: room.chess.out[c].how });
+  }
+  if (!any) return;
+  lobby.refresh(io);
+  // Nobody left to watch LorFish think: a move it is holding plays now.
+  const peopleIn = room.colors.some((c) => !(room.bots && room.bots[c]) && !room.chess.out[c]);
+  if (!peopleIn && room.botHurry && room.status === "active") safely("bot move", room.botHurry);
 }
 
 function handleDisconnect(io, socket, reason) {
@@ -1182,6 +1297,7 @@ function onGraceExpired(io, gameId, color) {
   // ever started once both had joined.
   const neverCame = !room.everJoined[color] && !(room.rehydrated && room.clockStarted);
   if (pliesPlayed(room) === 0 || neverCame) concludeGame(io, room, "*", "aborted");
+  else if (room.ffa) eliminateSeat(io, room, color, "disconnect");
   else concludeGame(io, room, lossFor(room, color), "disconnect");
 }
 

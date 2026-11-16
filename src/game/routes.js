@@ -11,7 +11,7 @@ const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
 const { STANDARD_START } = require("../shared/chess");
 const { aiLevelOf, aiLevelForDepth } = require("../shared/aiLevels");
-const { resolveVariant, variantLabel, hasBot, startOf } = require("../shared/variants");
+const { resolveVariant, variantLabel, hasBot, startOf, isFourPlayer, isFreeForAll } = require("../shared/variants");
 const { createEngine } = require("../shared/engines");
 const chess960 = require("../shared/chess960");
 const config = require("../config");
@@ -133,7 +133,7 @@ router.post("/", (req, res) => {
 // Black, so it carries its `seats` instead, and `seat`, the user's colour.
 function gamesOf(userId) {
   return queries.listGamesForUser.all({ me: userId }).map((g) =>
-    g.variant === fourGames.VARIANT ? { ...g, seats: seatsOf(g.id) } : g
+    isFourPlayer(g.variant) ? { ...g, seats: seatsOf(g) } : g
   );
 }
 
@@ -157,12 +157,12 @@ router.get("/user/:id", (req, res) => {
 // move list (san + uci + fen_after per ply) for the replay viewer. Anyone may
 // replay a game that is over; one still in progress is its players' alone —
 // everyone else watches it live, through the spectator room. A four-player
-// game also carries its seats, each colour's { id, username, bot }.
+// game also carries its seats (seatsOf).
 router.get("/:id", (req, res) => {
   const game = queries.getGameById.get(Number(req.params.id));
   if (!game) return res.status(404).json({ error: "No such game." });
   const uid = req.session.userId;
-  const four = game.variant === fourGames.VARIANT;
+  const four = isFourPlayer(game.variant);
   const seated = game.white_id === uid || game.black_id === uid || (four && !!fourGames.colorIn(game.id, uid));
   if (game.status === "active" && !seated) {
     return res.status(403).json({ error: "That game is still being played." });
@@ -175,17 +175,20 @@ router.get("/:id", (req, res) => {
     black_username: black ? black.username : "?",
     moves: queries.getMovesForGame.all(game.id),
     match: game.match_id ? matchOf(game.match_id) : null,
-    seats: four ? seatsOf(game.id) : null,
+    seats: four ? seatsOf(game) : null,
   });
 });
 
 // A four-player game's seats for the pages: each colour's { id, username,
-// bot }, `bot` for LorFish's, which has no profile to link to.
-function seatsOf(gameId) {
+// bot }, `bot` for LorFish's, which has no profile to link to. Free-for-all's
+// add how the player went out (`eliminated`, null while in) and, once it is
+// over, their `points` and `place`.
+function seatsOf(game) {
   const seats = {};
-  for (const [c, s] of Object.entries(fourGames.seatsOf(gameId))) {
+  for (const [c, s] of Object.entries(fourGames.seatsOf(game.id))) {
     const u = queries.getUserById.get(s.userId);
     seats[c] = { id: s.userId, username: u ? u.username : "?", bot: s.userId === AI_ID };
+    if (isFreeForAll(game.variant)) Object.assign(seats[c], { eliminated: s.eliminated, points: s.points, place: s.place });
   }
   return seats;
 }

@@ -14,7 +14,7 @@ const { VARIANTS } = require("../../src/shared/variants");
 const html = fs.readFileSync(path.join(__dirname, "../../public/rules.html"), "utf8");
 
 test("the Rules page has a section for General and every variant, in the catalogue's order", () => {
-  const keys = [...html.matchAll(/<section class="rules-section" id="rules-([a-z0-9]+)" data-key="([a-z0-9]+)"/g)];
+  const keys = [...html.matchAll(/<section class="rules-section" id="rules-([a-z0-9_]+)" data-key="([a-z0-9_]+)"/g)];
   for (const [, id, key] of keys) assert.equal(id, key);
   assert.deepEqual(keys.map((m) => m[2]), ["general", ...VARIANTS.map((v) => v.key)]);
 });

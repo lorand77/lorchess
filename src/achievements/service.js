@@ -21,7 +21,7 @@ const { Chess, fileOf, rankOf, sqIdx, STANDARD_START } = require("../shared/ches
 const handicap = require("../shared/handicap");
 const { parseUci, moveFromUci } = require("../shared/uci");
 const { TIME_CONTROLS, speedOf } = require("../shared/timeControls");
-const { VARIANTS, hasMaterialBadges, hasMoveBadges, startOf } = require("../shared/variants");
+const { VARIANTS, hasMaterialBadges, hasMoveBadges, isFourPlayer, startOf } = require("../shared/variants");
 const chess960 = require("../shared/chess960");
 const { BY_KEY, describeAchievement, tierName } = require("../shared/achievements");
 
@@ -497,6 +497,7 @@ function evaluateStats(userId, ref) {
     ["threecheck_wins", tierFor("threecheck_wins", byVariant.threecheck || 0)],
     ["bughouse_wins", tierFor("bughouse_wins", byVariant.bughouse || 0)],
     ["fourplayer_wins", tierFor("fourplayer_wins", byVariant.fourplayer || 0)],
+    ["fourplayer_ffa_wins", tierFor("fourplayer_ffa_wins", byVariant.fourplayer_ffa || 0)],
     ["infinite_wins", tierFor("infinite_wins", byVariant.infinite || 0)],
     // A team game needs three other people: not part of "every variant".
     ["every_variant", VARIANTS.every((v) => v.teams || (byVariant[v.key] || 0) > 0)],
@@ -562,9 +563,9 @@ function onGameFinished(gameId, extra) {
   // Game feats replay the moves on an 8x8 board; a variant whose board isn't
   // one (infinite chess) earns only the feats its record shows, and the stats.
   const analysis = hasMoveBadges(game.variant) ? analyze(game, queries.getMovesForGame.all(gameId)) : null;
-  // A four-player game's players are its seats; it has no feats of its own,
-  // only the stats (its win badge among them).
-  const four = game.variant === "fourplayer";
+  // A four-player game's players are its seats, in Teams or free-for-all; it
+  // has no feats of its own, only the stats (its win badge among them).
+  const four = isFourPlayer(game.variant);
   const players = four
     ? queries.getSeats.all(gameId).map((s) => s.user_id)
     : [game.white_id, game.black_id];

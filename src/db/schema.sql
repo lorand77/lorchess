@@ -87,11 +87,18 @@ CREATE TABLE IF NOT EXISTS matches (
 -- are NULL); its `turn` is the team to move, 'w' for Red and Yellow and 'b'
 -- for Blue and Green, as its result is the team's ('1-0' for Red and Yellow).
 -- The colour to move is in current_fen. Always casual.
+-- Free-for-all (variant 'fourplayer_ffa') keeps no teams: its `result` is the
+-- colours by place ('b,r=y,g', fourPlayer.js result()), and each seat says
+-- how its player went out, as it happens (a player out is free to play again
+-- while the others play on), and its points and place once the game is over.
 CREATE TABLE IF NOT EXISTS game_seats (
-  game_id   INTEGER NOT NULL REFERENCES games(id),
-  color     TEXT    NOT NULL CHECK (color IN ('r', 'b', 'y', 'g')),
-  user_id   INTEGER NOT NULL REFERENCES users(id),
-  clock_ms  INTEGER,                        -- NULL: never recorded, initial_ms
+  game_id    INTEGER NOT NULL REFERENCES games(id),
+  color      TEXT    NOT NULL CHECK (color IN ('r', 'b', 'y', 'g')),
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  clock_ms   INTEGER,                       -- NULL: never recorded, initial_ms
+  eliminated TEXT,                          -- free-for-all: how they went out, NULL while in
+  points     INTEGER,                       -- free-for-all, once over
+  place      INTEGER,                       -- free-for-all, once over: 1 is first, shared when level
   PRIMARY KEY (game_id, color)
 );
 

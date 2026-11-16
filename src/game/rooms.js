@@ -5,9 +5,10 @@
 // keyed by gameId and map 1:1 to the Socket.IO room `game:<id>`. A Bughouse
 // match is two rooms, one per board, that know each other (matchId, boardIds):
 // they are created together, rebuilt together from the match's moves, and
-// ended together (socket.js concludeMatch). A four-player game is one room
-// with four seats (`seats`), its colours r, b, y and g in place of w and b:
-// everything kept per colour is kept for each of `room.colors`.
+// ended together (socket.js concludeMatch). A four-player game, Teams or
+// free-for-all (`ffa`), is one room with four seats (`seats`), its colours r,
+// b, y and g in place of w and b: everything kept per colour is kept for each
+// of `room.colors`.
 
 const { STANDARD_START } = require("../shared/chess");
 const { createEngine } = require("../shared/engines");
@@ -17,7 +18,7 @@ const log = require("../log");
 const { describeTimeControl } = require("../shared/timeControls");
 const handicap = require("../shared/handicap");
 const { moveFromUci } = require("../shared/uci");
-const { usesStandardSetup } = require("../shared/variants");
+const { usesStandardSetup, isFourPlayer } = require("../shared/variants");
 const { Bughouse } = require("../shared/bughouse");
 const { resolveBotPace } = require("../shared/aiLevels");
 const matches = require("./matches");
@@ -44,7 +45,7 @@ function createRoom(
   if (startFen && startFen !== STANDARD_START) chess.loadFen(startFen);
   // The seats: White and Black, or a four-player game's four colours, whose
   // players (`seats`), names and clocks come keyed by colour.
-  const four = variant === fourGames.VARIANT;
+  const four = isFourPlayer(variant);
   const colors = four ? FourPlayer.COLORS : ["w", "b"];
   const each = (fn) => Object.fromEntries(colors.map((c) => [c, fn(c)]));
   const startClocks = four ? clocks || {} : { w: clockW, b: clockB };
@@ -54,6 +55,9 @@ function createRoom(
     chess,
     colors,
     four,
+    // Free-for-all: everyone for themselves, players going out one by one
+    // (room.chess.out) while the others play on.
+    ffa: variant === fourGames.FFA,
     players: four ? { ...seats } : { w: whiteId, b: blackId },
     names: four ? { ...seatNames } : { w: whiteName, b: blackName },
     sans: [],
@@ -115,6 +119,8 @@ function createRoom(
     botPace: null,
     botThinking: false,
     botTimer: null,
+    // Plays a move LorFish is holding (botTimer) at once (socket.js botTurn).
+    botHurry: null,
   };
   // LorFish's seats: a Bughouse board's, or a four-player game's.
   if (matchId || four) {
@@ -169,6 +175,7 @@ function clearTimers(room) {
     room.flagTimer = null;
   }
   // LorFish holding a move it has found until its time to play it.
+  room.botHurry = null;
   if (room.botTimer) {
     clearTimeout(room.botTimer);
     room.botTimer = null;
@@ -239,7 +246,7 @@ function loadRoomFromDb(gameId) {
     const both = loadMatchRoomsFromDb(game.match_id);
     return both ? both[game.board] : null;
   }
-  if (game.variant === fourGames.VARIANT) return loadFourRoomFromDb(game);
+  if (isFourPlayer(game.variant)) return loadFourRoomFromDb(game);
 
   const room = createRoom(gameId, {
     whiteId: game.white_id,
@@ -331,7 +338,8 @@ function loadMatchRoomsFromDb(matchId) {
 }
 
 // Rebuild a four-player game's room: its seats and clocks from game_seats, its
-// position by replaying its moves, as loadRoomFromDb does a game's.
+// position by replaying its moves, as loadRoomFromDb does a game's (in
+// free-for-all, its players leaving too: they are rows of the record).
 function loadFourRoomFromDb(game) {
   const seats = fourGames.seatsOf(game.id);
   const each = (fn) => Object.fromEntries(FourPlayer.COLORS.map((c) => [c, fn(seats[c])]));
@@ -349,14 +357,12 @@ function loadFourRoomFromDb(game) {
     botPace: game.bot_pace,
   });
   for (const m of queries.getMovesForGame.all(game.id)) {
-    const mv = room.chess.moveFromText(m.uci);
-    if (!mv) {
+    if (!room.chess.playText(m.uci)) {
       log.error("game.corrupt_record", { game: game.id, ply: m.ply, move: m.uci, fen: room.chess.fen() });
       deleteRoom(game.id);
       if (game.status === "active") queries.abortGame.run("corrupt-record", game.id);
       return null;
     }
-    room.chess.makeMove(mv);
     room.sans.push(m.san);
   }
   room.clockStarted = !!game.clock_started;

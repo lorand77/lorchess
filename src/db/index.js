@@ -115,6 +115,12 @@ if (addColumnIfMissing("games", "ai_level", "TEXT")) {
 // NULL, as on older games, is the normal pace.
 addColumnIfMissing("games", "bot_pace", "TEXT");
 
+// Four-player free-for-all: how a seat's player went out, and its points and
+// place once the game is over (schema.sql, game_seats).
+addColumnIfMissing("game_seats", "eliminated", "TEXT");
+addColumnIfMissing("game_seats", "points", "INTEGER");
+addColumnIfMissing("game_seats", "place", "INTEGER");
+
 // The puzzle rating used to start at 1500. Move anyone who never attempted a
 // puzzle to the current starting value; the column default on an existing
 // database can't be altered, so createUser also sets it explicitly.

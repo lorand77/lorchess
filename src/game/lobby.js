@@ -28,7 +28,7 @@ const { resolveTimeControl } = require("../shared/timeControls");
 const { Chess } = require("../shared/chess");
 const handicap = require("../shared/handicap");
 const chess960 = require("../shared/chess960");
-const { resolveVariant, variantLabel, usesStandardSetup, isRateable, isTeamGame, hasSeatBots } = require("../shared/variants");
+const { resolveVariant, variantLabel, usesStandardSetup, isRateable, isTeamGame, isFourPlayer, hasSeatBots } = require("../shared/variants");
 
 const LOBBY_ROOM = "lobby";
 
@@ -192,15 +192,16 @@ function snapshot() {
   const ai = queries.getUserByUsername.get(config.AI_USERNAME).id;
   // A four-player game has its four `seats`, in turn order, where the others
   // have White and Black, and no preview: the lobby's little boards are 8x8.
+  // A free-for-all seat adds its points so far and whether its player is out.
   const games = rooms
     .listRooms()
     .filter((r) => r.status === "active")
     .map((r) => (r.four ? {
       gameId: r.gameId,
-      seats: r.colors.map((c) => ({
+      seats: r.colors.map((c) => Object.assign({
         color: c, userId: r.players[c], username: r.names[c], member: members.has(r.players[c]),
         bot: r.players[c] === ai, rating: r.players[c] === ai ? null : ratingOf(r.players[c]),
-      })),
+      }, r.ffa ? { points: r.chess.points[c], out: !!r.chess.out[c] } : {})),
       tc: r.timeControl,
       rated: false,
       variant: r.variant,
@@ -514,20 +515,21 @@ function cancelChallenge(io, socket, payload) {
 }
 
 // ---- tables ----
-// A table seats four for a team game: a Bughouse match, or a four-player game.
-// Bughouse seats are named by team and board: A0 is White on board 0 and A1
-// Black on board 1 (team A); B0 is Black on board 0 and B1 White on board 1
-// (team B) — Bughouse.teamOf. Four-player seats are the colours, r, b, y and
-// g, Red and Yellow one team. Whoever opens a table sits in its first seat
+// A table seats four for a team game: a Bughouse match, or a four-player game
+// (Teams or free-for-all). Bughouse seats are named by team and board: A0 is
+// White on board 0 and A1 Black on board 1 (team A); B0 is Black on board 0
+// and B1 White on board 1 (team B) — Bughouse.teamOf. Four-player seats are
+// the colours, r, b, y and g, Red and Yellow one team in Teams and nobody's
+// in free-for-all. Whoever opens a table sits in its first seat
 // and hosts it; anyone else picks a seat, and sitting in the host's team is
 // how a friend partners you. The fourth person to sit starts the game. Where
-// LorFish can take a seat (hasSeatBots: both team games), the host may start
+// LorFish can take a seat (hasSeatBots: every team game), the host may start
 // it sooner, LorFish in the empty seats at the table's level; elsewhere a
 // table waits for four people. A player holds one seat anywhere (sitting elsewhere
 // gives up the old one), loses it on going offline or starting another game,
 // and a table closes when its host leaves it. Like seeks, nothing here
 // outlives a restart.
-const SEATS = { bughouse: ["A0", "A1", "B0", "B1"], fourplayer: ["r", "b", "y", "g"] };
+const SEATS = { bughouse: ["A0", "A1", "B0", "B1"], fourplayer: ["r", "b", "y", "g"], fourplayer_ffa: ["r", "b", "y", "g"] };
 const seatsAt = (table) => SEATS[table.variant];
 
 function seatOf(userId) {
@@ -625,9 +627,11 @@ function startTable(io, table) {
     ? { userId: table.seats[s].userId, username: table.seats[s].username }
     : { userId: ai.id, username: ai.username });
   const tc = resolveTimeControl(table.tc);
-  if (table.variant === "fourplayer") {
+  if (isFourPlayer(table.variant)) {
     const seats = Object.fromEntries(seatsAt(table).map((s) => [s, sit(s)]));
-    matchmaking.startFourPlayer(io, seats, { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: table.level, botPace: table.pace });
+    matchmaking.startFourPlayer(io, seats, {
+      initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: table.level, botPace: table.pace, variant: table.variant,
+    });
     return;
   }
   matchmaking.startBughouse(io, { teamA: [sit("A0"), sit("A1")], teamB: [sit("B0"), sit("B1")] },

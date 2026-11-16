@@ -115,7 +115,10 @@ for (const level of AI_LEVELS) {
 // more LorFish, timed, which the server starts and plays (bughouse:bots,
 // fourplayer:bots) instead of the game page's own worker.
 const aiVariantSelect = document.getElementById("aiVariantSelect");
-for (const v of VARIANTS.filter((v) => v.bot || hasSeatBots(v.key))) {
+// Four-player free-for-all is played on the server already, but its game
+// page isn't written yet: it stays out of both pickers until it is.
+const offered = (v) => !v.freeForAll;
+for (const v of VARIANTS.filter((v) => offered(v) && (v.bot || hasSeatBots(v.key)))) {
   aiVariantSelect.add(new Option(v.label, v.key, v.key === "standard", v.key === "standard"));
 }
 const aiClockSelect = document.getElementById("aiClockSelect");
@@ -169,7 +172,7 @@ function restoreAiLevel(games) {
 // be combined. Whichever you pick second disables the other.
 // The picker comes from the shared catalogue, so a new variant appears here the
 // moment it is added to src/shared/variants.js.
-for (const v of VARIANTS) {
+for (const v of VARIANTS.filter(offered)) {
   const opt = document.createElement("option");
   opt.value = v.key;
   opt.textContent = v.label;
@@ -682,7 +685,8 @@ document.getElementById("tableOpenBtn").addEventListener("click", () => {
 // The seats, a row each pair as the table shows them, with each seat's label.
 // Bughouse: board 1 is A0 (White) against B0, board 2 B1 (White) against A1;
 // team A is A0 and A1, team B the other two. Four-player chess: a row per
-// team, Red and Yellow, then Blue and Green.
+// team, Red and Yellow, then Blue and Green; in free-for-all, two rows of
+// two in turn order.
 const TABLE_ROWS = {
   bughouse: [
     ["Board 1", [["A0", "White, team A"], ["B0", "Black, team B"]]],
@@ -691,6 +695,11 @@ const TABLE_ROWS = {
   fourplayer: [
     ["Red & Yellow", [["r", "Red"], ["y", "Yellow"]]],
     ["Blue & Green", [["b", "Blue"], ["g", "Green"]]],
+  ],
+  // Free-for-all: no teams, the colours in turn order.
+  fourplayer_ffa: [
+    ["Each for themselves", [["r", "Red"], ["b", "Blue"]]],
+    ["", [["y", "Yellow"], ["g", "Green"]]],
   ],
 };
 

@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const { Chess } = require("../../src/shared/chess");
 const {
   VARIANTS, VARIANTS_BY_KEY, resolveVariant, variantLabel, usesStandardSetup, isReviewable, isRateable,
-  hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, hasSeatBots, startOf,
+  hasMaterialBadges, hasMoveBadges, hasBot, isTeamGame, isFreeForAll, isFourPlayer, hasSeatBots, startOf,
 } = require("../../src/shared/variants");
 const { PAWN_WARS_START, ANTICHESS_START } = require("../../src/shared/chess");
 const { InfiniteChess } = require("../../src/shared/infiniteChess");
@@ -118,14 +118,14 @@ describe("variant catalogue", () => {
   });
 
   test("only the variants still new are casual-only", () => {
-    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse", "fourplayer", "infinite"];
+    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse", "fourplayer", "fourplayer_ffa", "infinite"];
     for (const v of VARIANTS) assert.equal(isRateable(v.key), !casual.includes(v.key), v.key);
     assert.equal(isRateable("nope"), true, "unknown means standard");
   });
 
   test("material badges are off where material doesn't mean what it usually does", () => {
     for (const v of VARIANTS) {
-      assert.equal(hasMaterialBadges(v.key), !["crazyhouse", "antichess", "bughouse", "fourplayer", "infinite"].includes(v.key), v.key);
+      assert.equal(hasMaterialBadges(v.key), !["crazyhouse", "antichess", "bughouse", "fourplayer", "fourplayer_ffa", "infinite"].includes(v.key), v.key);
     }
     assert.equal(hasMaterialBadges("nope"), true, "unknown means standard");
   });
@@ -138,13 +138,22 @@ describe("variant catalogue", () => {
   });
 
   test("move badges replay a game on one 8x8 board: not Infinite Chess, a Bughouse board alone or four-player chess", () => {
-    for (const v of VARIANTS) assert.equal(hasMoveBadges(v.key), !["infinite", "bughouse", "fourplayer"].includes(v.key), v.key);
+    for (const v of VARIANTS) assert.equal(hasMoveBadges(v.key), !["infinite", "bughouse", "fourplayer", "fourplayer_ffa"].includes(v.key), v.key);
     assert.equal(hasMoveBadges("nope"), true, "unknown means standard");
   });
 
-  test("Bughouse and four-player chess are the team games", () => {
-    for (const v of VARIANTS) assert.equal(isTeamGame(v.key), ["bughouse", "fourplayer"].includes(v.key), v.key);
+  test("Bughouse and four-player chess are the team games, played four at a table", () => {
+    for (const v of VARIANTS) assert.equal(isTeamGame(v.key), ["bughouse", "fourplayer", "fourplayer_ffa"].includes(v.key), v.key);
     assert.equal(isTeamGame("nope"), false);
     assert.equal(variantLabel("bughouse"), "Bughouse");
+  });
+
+  test("four-player chess comes as Teams or free-for-all, the one with no teams", () => {
+    for (const v of VARIANTS) {
+      assert.equal(isFourPlayer(v.key), ["fourplayer", "fourplayer_ffa"].includes(v.key), v.key);
+      assert.equal(isFreeForAll(v.key), v.key === "fourplayer_ffa", v.key);
+    }
+    assert.deepEqual([isFourPlayer("nope"), isFreeForAll("nope")], [false, false]);
+    assert.equal(startOf("fourplayer_ffa"), startOf("fourplayer"));
   });
 });
