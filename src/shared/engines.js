@@ -2,7 +2,8 @@
 
 // Which rules engine plays a variant. Every variant but two is chess.js with
 // its rule set chosen by setVariant(); infinite chess, whose board has no
-// edges, is infiniteChess.js, and four-player chess fourPlayer.js. They share
+// edges, is infiniteChess.js, and four-player chess fourPlayer.js, in its Teams
+// mode ('fourplayer') or its free-for-all ('fourplayer_ffa'). They share
 // what a game needs of them — findMove, makeMove, moveToSan, fen and loadFen,
 // reset, turn, history, isGameOver, result, and (but for four-player chess,
 // where a flag always loses) hasMatingMaterial — so the server and the pages
@@ -22,8 +23,8 @@ const createEngine = (function () {
   // is not infinite chess is a chess.js rule set, which itself turns an
   // unknown name into standard chess.
   return function createEngine(variant) {
-    if (variant === 'fourplayer') {
-      return new (node ? require('./fourPlayer').FourPlayer : FourPlayer)();
+    if (variant === 'fourplayer' || variant === 'fourplayer_ffa') {
+      return new (node ? require('./fourPlayer').FourPlayer : FourPlayer)(variant === 'fourplayer' ? 'teams' : 'ffa');
     }
     const { Chess: ChessEngine, InfiniteChess: InfiniteEngine } = classes();
     if (variant === 'infinite') return new InfiniteEngine();

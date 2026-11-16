@@ -578,16 +578,31 @@ const FourPlayer = (function () {
     settle() {
       while (!this.ended && this.movesAsIfOn().length === 0) {
         const c = this.turn;
-        if (this.inCheck(c)) {
-          const by = this.materOf(c);
-          this.points[by] += MATE_POINTS;
-          this.knockOut(c, 'checkmate', by);
-        } else {
-          this.points[c] += STALEMATE_POINTS;
-          this.knockOut(c, 'stalemate');
-        }
+        this.stuck(c);
         if (!this.ended) this.turn = this.nextActive(c);
       }
+    }
+
+    // `c`, with no move, mated or stalemated: the points, and out.
+    stuck(c) {
+      if (this.inCheck(c)) {
+        const by = this.materOf(c);
+        this.points[by] += MATE_POINTS;
+        this.knockOut(c, 'checkmate', by);
+      } else {
+        this.points[c] += STALEMATE_POINTS;
+        this.knockOut(c, 'stalemate');
+      }
+    }
+
+    // The same for a search (lorfishFfa.js), which plays the opponents' turns
+    // out of order and asks of a player whose turn it is not: `c`, who has no
+    // move, is out as settle would put them out on their turn, kept in the
+    // history like an elimination so undoMove takes it back. The turn stays.
+    concede(c) {
+      const entry = Object.assign(this.snapshot(), { event: { color: c, how: this.inCheck(c) ? 'checkmate' : 'stalemate' } });
+      this.stuck(c);
+      this.history.push(entry);
     }
 
     // Who mated `c`, whose king is attacked: of the players whose pieces

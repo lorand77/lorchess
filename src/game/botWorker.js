@@ -12,18 +12,22 @@
 // It searches as getBestMove does (the jitter, the pruned root, a temperature
 // for the weaker levels) but through searchRoot, which writes nothing to the
 // console: this is server code. A four-player position (FEN4) goes to
-// LorFishFour, which takes and returns the same.
+// LorFishFour in Teams and LorFishFfa in free-for-all, which take and return
+// the same.
 
 const { parentPort } = require("worker_threads");
 const { createEngine } = require("../shared/engines");
 const { LorFish } = require("../shared/lorfish");
 const { LorFishFour } = require("../shared/lorfishFour");
+const { LorFishFfa } = require("../shared/lorfishFfa");
+
+const SEARCHES = { fourplayer: LorFishFour, fourplayer_ffa: LorFishFfa };
 
 parentPort.on("message", ({ id, variant, fen, depth, temperature }) => {
   try {
     const chess = createEngine(variant);
     chess.loadFen(fen);
-    const search = variant === "fourplayer" ? LorFishFour : LorFish;
+    const search = SEARCHES[variant] || LorFish;
     const { best } = search.searchRoot(chess, depth, { noise: true, prune: true, temperature });
     const m = best && best.move;
     parentPort.postMessage({

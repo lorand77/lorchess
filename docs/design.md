@@ -762,8 +762,9 @@ Corners".
 - *Free-for-all* is the same engine in its other mode,
   `new FourPlayer('ffa')`: the board, the pieces, the turned rules and the
   notation are shared, and Teams plays exactly as before (its tests are
-  unchanged). So far it is the engine alone (`test/unit/fourPlayer.ffa.test.js`);
-  the server, the pages and LorFish come next. Chess.com's rules
+  unchanged). So far it is the engine (`test/unit/fourPlayer.ffa.test.js`)
+  and LorFish (below); the server and the pages come next. Its variant key
+  will be `fourplayer_ffa`: `createEngine` and the bot worker know it already. Chess.com's rules
   (support.chess.com, "4 Player Chess", and chess.com/terms/4-player-chess):
   - Everyone is everyone's opponent: any other player's piece may be taken,
     and any other player gives check (`hostile`, `foesOf`, `canTake` say who,
@@ -804,9 +805,46 @@ Corners".
   - Checked by: the turned-position test in free-for-all games, every rule
     above on hand-built positions, and random games with resignations
     replayed from their texts and taken back to the start, points and all.
-- *Not done:* free-for-all's server game, pages and LorFish (the search
-  must handle four sides), draw offers, rematches, and a preview in the
-  lobby's live games.
+  - *LorFish* plays it with `src/shared/lorfishFfa.js`, in the server's
+    worker pool like Teams' (`botWorker.js` picks the search by variant).
+    Free-for-all is not two-sided, so Teams' negamax doesn't apply. It is a
+    best-reply search (Schadd and Winands, 2011): LorFish's moves, then the
+    single strongest reply of any one of the three opponents, the other two
+    passing, then LorFish again. That is two-sided, so alpha-beta works; a
+    threat from the third player to move is seen as soon as one from the
+    first; and a depth reaches LorFish's next move in two layers, not four.
+    What it gives up is opponents' moves combined, rarely deliberate in a
+    free-for-all anyway.
+    - Scores are LorFish's own: its worth less the average of the other
+      three's, a player's worth being its points (a point is `POINT`, 50, half
+      a pawn) and, while in, its pieces. So any opponent's loss is its gain,
+      a dead army is worth nothing, and an opponent put out is worth about a
+      third of an army.
+    - The engine scores the points as the moves are made. An opponent with
+      no move when the search comes to the opponents is out
+      (`FourPlayer.concede`, taken back like an elimination): mated, 20 to
+      the mater. LorFish out, by mate, stalemate or its king taken, is the
+      worst score, sooner worse than later.
+    - The capture search: LorFish's gaining captures or standing pat, then any
+      one opponent's or all passing (in check LorFish may not stand pat),
+      bounded by a depth (6) and a node budget (60,000) shared between the
+      root moves, as in Teams. The evaluation: material as Teams', pawns
+      going towards their 8th rank, minor pieces towards the middle, a king's
+      shelter; held to the board's symmetry like Teams'.
+    - Measured at depth 2, the server's cap: on positions from random play,
+      0.3 s a move on average and 0.7 s at most, under 8,300 nodes (the budget
+      is never reached). As Red against three random movers it won all three
+      games, mating eight of the nine opponents (92 to 139 points to their
+      25 at most), at 0.2–0.5 s a move on average and 2.4 s at most. Four
+      LorFish played a game out to the last mate in 205 plies, 0.28 s a move
+      on average and 1.05 s at most.
+    - Tests (`test/unit/lorfishFfa.test.js`): the evaluation's symmetry, a
+      queen taken whoever's it is, no queen for a pawn the third player to
+      move defends, a piece moved out of any opponent's reach, a mate two
+      players later, a king taken, the moves that let LorFish be mated
+      scored as such, the position left as found, the budget, and sampling.
+- *Not done:* free-for-all's server game and pages, draw offers, rematches,
+  and a preview in the lobby's live games.
 
 The engine and the catalogues next to it (`achievements.js`, `aiLevels.js`,
 `timeControls.js`, `variants.js`, `chess960.js`, `handicap.js`, `uci.js`,
