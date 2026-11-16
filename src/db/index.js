@@ -111,6 +111,10 @@ if (addColumnIfMissing("games", "ai_level", "TEXT")) {
   log.info("db.migrated", { backfilled: "games.ai_level" });
 }
 
+// LorFish's pace in a team game's seats (src/shared/aiLevels.js BOT_PACES);
+// NULL, as on older games, is the normal pace.
+addColumnIfMissing("games", "bot_pace", "TEXT");
+
 // The puzzle rating used to start at 1500. Move anyone who never attempted a
 // puzzle to the current starting value; the column default on an existing
 // database can't be altered, so createUser also sets it explicitly.

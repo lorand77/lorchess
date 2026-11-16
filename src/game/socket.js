@@ -29,7 +29,8 @@ const matches = require("./matches");
 const fourGames = require("./fourGames");
 const { FourPlayer } = require("../shared/fourPlayer");
 const bots = require("./bots");
-const { aiLevelOf, resolveAiLevel } = require("../shared/aiLevels");
+const { thinkTime } = require("./botPace");
+const { aiLevelOf, resolveAiLevel, resolveBotPace } = require("../shared/aiLevels");
 const { resolveTimeControl, DEFAULT_TC } = require("../shared/timeControls");
 
 const GRACE_MS = config.DISCONNECT_GRACE_MS;
@@ -924,8 +925,7 @@ function handleBughouseCall(io, socket, payload, ack) {
 
 // A Bughouse match against LorFish: the player on board 0 with White, LorFish
 // their partner on board 1, and two more LorFish for the other team, at a time
-// control and a LorFish level from the allowlists. Until the lobby seats four
-// people, the way into Bughouse.
+// control and a LorFish level and pace from the allowlists.
 function handleBughouseBots(io, socket, payload, ack) {
   if (rooms.liveGameOf(socket.userId)) return reply(ack, { ok: false, error: "Finish your current game first." });
   const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
@@ -934,13 +934,13 @@ function handleBughouseBots(io, socket, payload, ack) {
   const bot = { userId: ai.id, username: ai.username };
   const me = { userId: socket.userId, username: socket.username };
   const { matchId, boards } = matchmaking.startBughouse(io, { teamA: [me, bot], teamB: [bot, bot] },
-    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: level });
+    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: level, botPace: resolveBotPace(payload && payload.pace) });
   reply(ack, { ok: true, matchId, gameId: boards[0] });
 }
 
 // A four-player game against LorFish: the player as Red, LorFish their
 // partner as Yellow, and two more LorFish as Blue and Green, at a time control
-// and a LorFish level from the allowlists.
+// and a LorFish level and pace from the allowlists.
 function handleFourPlayerBots(io, socket, payload, ack) {
   if (rooms.liveGameOf(socket.userId)) return reply(ack, { ok: false, error: "Finish your current game first." });
   const tc = resolveTimeControl((payload && payload.tc) || DEFAULT_TC);
@@ -949,7 +949,7 @@ function handleFourPlayerBots(io, socket, payload, ack) {
   const bot = { userId: ai.id, username: ai.username };
   const me = { userId: socket.userId, username: socket.username };
   const gameId = matchmaking.startFourPlayer(io, { r: me, b: bot, y: bot, g: bot },
-    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: level });
+    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: level, botPace: resolveBotPace(payload && payload.pace) });
   reply(ack, { ok: true, gameId });
 }
 
@@ -960,15 +960,21 @@ function handleFourPlayerBots(io, socket, payload, ack) {
 // playMove like anyone's. A bot is always present, so no absence clock ever
 // runs against it. With no move (Bughouse) it waits, as a player would, until
 // a piece arrives from the other board (playMove calls back here). Its clock runs
-// while it thinks. The position can't change under it meanwhile — it is its
-// turn, and pockets only fill — but the game can end, and then the answer is
-// dropped.
+// while it thinks. At the normal pace it then holds the move until it has
+// taken about as long as a person would (botPace.js thinkTime, counted from
+// when it could first move); at the quick pace it plays at once. The position
+// can't change under it meanwhile — it is its turn, and pockets only fill —
+// but the game can end, and then the move is dropped.
 function botTurn(io, room) {
   if (!room.bots || room.status !== "active" || !room.started) return;
   const color = room.chess.turn;
   if (!room.bots[color] || room.botThinking) return;
-  if (room.chess.legalMoves().length === 0) return; // waiting for a piece
+  const choices = room.chess.legalMoves().length;
+  if (choices === 0) return; // waiting for a piece
   room.botThinking = true;
+  const began = Date.now();
+  const clockMs = room.clock[color] - (room.turnStartedAt != null ? began - room.turnStartedAt : 0);
+  const last = room.chess.history[room.chess.history.length - 1];
   const level = aiLevelOf(room.botLevel);
   bots.think({
     variant: room.variant,
@@ -976,17 +982,28 @@ function botTurn(io, room) {
     depth: Math.min(level.depth, config.BOT_MAX_DEPTH),
     temperature: level.temperature,
   }).then((answer) => safely("bot move", () => {
-    room.botThinking = false;
-    const live = rooms.getRoom(room.gameId);
-    if (live !== room || room.status !== "active" || room.chess.turn !== color || !answer) return;
-    const move = answer.drop
-      ? room.chess.findDrop(answer.drop, answer.to)
-      : room.chess.findMove(answer.from, answer.to, answer.promo);
-    if (!move) {
-      log.error("bot.bad_move", { game: room.gameId, move: JSON.stringify(answer), fen: room.chess.fen() });
-      return;
-    }
-    playMove(io, room, color, move, { byUser: null });
+    // Still this seat's move in a live game? Asked when the answer comes, and
+    // again when it is played: the game can end in between.
+    const current = () => rooms.getRoom(room.gameId) === room && room.status === "active" && room.chess.turn === color;
+    const play = () => {
+      room.botTimer = null;
+      room.botThinking = false;
+      if (!current() || !answer) return;
+      const move = answer.drop
+        ? room.chess.findDrop(answer.drop, answer.to)
+        : room.chess.findMove(answer.from, answer.to, answer.promo);
+      if (!move) {
+        log.error("bot.bad_move", { game: room.gameId, move: JSON.stringify(answer), fen: room.chess.fen() });
+        return;
+      }
+      playMove(io, room, color, move, { byUser: null });
+    };
+    if (!current() || !answer) return play();
+    const recapture = !!(last && last.captured && last.move.to === answer.to);
+    const wait = room.botPace === "quick" ? 0
+      : thinkTime({ clockMs, incrementMs: room.incrementMs, choices, recapture }) - (Date.now() - began);
+    if (wait <= 0) return play();
+    room.botTimer = setTimeout(() => safely("bot move", play), wait);
   }), (err) => {
     room.botThinking = false;
     log.error("bot.failed", { game: room.gameId, err });

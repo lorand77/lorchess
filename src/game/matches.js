@@ -16,16 +16,18 @@ const db = require("../db/index");
 const config = require("../config");
 const { STANDARD_START } = require("../shared/chess");
 const { Bughouse } = require("../shared/bughouse");
+const { resolveBotPace } = require("../shared/aiLevels");
 
 // The termination recorded on the board that didn't decide the match.
 const OTHER_BOARD = "on the other board";
 
 // A new match between two teams, each [player on board 0, player on board 1]
 // by user id, at a time control. The reserved LorFish account may hold any
-// number of the seats (the server plays them), at `botLevel`, which is kept on
-// the boards it plays (games.ai_level) so a restart knows it; every other
-// player sits once. Returns { matchId, boards: [gameId, gameId] }.
-const createMatch = db.transaction(({ teamA, teamB, initialMs, incrementMs, botLevel }) => {
+// number of the seats (the server plays them), at `botLevel` and `botPace`,
+// which are kept on the boards it plays (games.ai_level, games.bot_pace) so a
+// restart knows them; every other player sits once. Returns
+// { matchId, boards: [gameId, gameId] }.
+const createMatch = db.transaction(({ teamA, teamB, initialMs, incrementMs, botLevel, botPace }) => {
   const players = [...teamA, ...teamB];
   const ai = queries.getUserByUsername.get(config.AI_USERNAME).id;
   const people = players.filter((id) => id !== ai);
@@ -45,6 +47,7 @@ const createMatch = db.transaction(({ teamA, teamB, initialMs, incrementMs, botL
     );
     const gameId = Number(info.lastInsertRowid);
     queries.setGameMatch.run(matchId, board, gameId);
+    if (bot) queries.setBotPace.run(resolveBotPace(botPace), gameId);
     return gameId;
   });
   return { matchId, boards };

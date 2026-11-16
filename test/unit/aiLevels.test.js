@@ -7,6 +7,7 @@ const assert = require("node:assert/strict");
 const { LorFish } = require("../../src/shared/lorfish");
 const {
   AI_LEVELS, AI_LEVELS_BY_KEY, DEFAULT_AI_LEVEL, resolveAiLevel, aiLevelOf, aiLevelLabel, aiLevelForDepth,
+  BOT_PACES, DEFAULT_BOT_PACE, resolveBotPace,
 } = require("../../src/shared/aiLevels");
 
 describe("AI level catalogue", () => {
@@ -61,3 +62,11 @@ describe("aiLevelLabel in a variant", () => {
   });
 });
 
+describe("LorFish's pace in a team game's seats", () => {
+  test("normal by default, quick when asked, anything else normal", () => {
+    assert.deepEqual(BOT_PACES.map((p) => p.key), ["normal", "quick"]);
+    assert.equal(DEFAULT_BOT_PACE, "normal");
+    assert.equal(resolveBotPace("quick"), "quick");
+    for (const key of [undefined, null, "", "slow", "__proto__"]) assert.equal(resolveBotPace(key), "normal", String(key));
+  });
+});

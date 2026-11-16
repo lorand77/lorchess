@@ -7,8 +7,8 @@
 // white_id and black_id are NULL, and `turn` holds the team to move ('w' for
 // Red and Yellow, 'b' for Blue and Green), as `result` holds the team's.
 // LorFish may hold any of the seats but all four, played by the server at the
-// level kept on the row (games.ai_level), so a restart knows it. Always
-// casual.
+// level and pace kept on the row (games.ai_level, games.bot_pace), so a
+// restart knows them. Always casual.
 //
 // The live game (moves, clocks, the four players coming and going) is the
 // room's business (rooms.js, socket.js); this is only what it reads and writes.
@@ -17,14 +17,15 @@ const queries = require("../db/queries");
 const db = require("../db/index");
 const config = require("../config");
 const { FourPlayer } = require("../shared/fourPlayer");
+const { resolveBotPace } = require("../shared/aiLevels");
 
 const VARIANT = "fourplayer";
 const START = new FourPlayer().fen();
 
 // A new game: `seats` maps each colour to a user id. The reserved LorFish
-// account may hold any number of seats short of four, at `botLevel`; every
-// other player sits once. Returns the game id.
-const createGame = db.transaction(({ seats, initialMs, incrementMs, botLevel }) => {
+// account may hold any number of seats short of four, at `botLevel` and
+// `botPace`; every other player sits once. Returns the game id.
+const createGame = db.transaction(({ seats, initialMs, incrementMs, botLevel, botPace }) => {
   const ids = FourPlayer.COLORS.map((c) => seats && seats[c]);
   const ai = queries.getUserByUsername.get(config.AI_USERNAME).id;
   const people = ids.filter((id) => id !== ai);
@@ -38,6 +39,7 @@ const createGame = db.transaction(({ seats, initialMs, incrementMs, botLevel }) 
   );
   const gameId = Number(info.lastInsertRowid);
   FourPlayer.COLORS.forEach((c, i) => queries.insertSeat.run(gameId, c, ids[i]));
+  if (bot) queries.setBotPace.run(resolveBotPace(botPace), gameId);
   return gameId;
 });
 

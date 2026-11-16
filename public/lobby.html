@@ -45,6 +45,8 @@
         <span class="field" id="tableLevelField" style="display:none;">
           <label for="tableLevelSelect">LorFish fills empty seats at</label>
           <select id="tableLevelSelect"></select>
+          <!-- How fast it moves there (BOT_PACES in /js/aiLevels.js). -->
+          <select id="tablePaceSelect" aria-label="LorFish's pace"></select>
         </span>
       </div>
       <!-- Material odds; setting one forces the game casual. -->
@@ -81,6 +83,10 @@
         <label for="aiLevelSelect">Level</label>
         <!-- Filled in from /js/aiLevels.js, the list the server resolves against. -->
         <select id="aiLevelSelect" name="level"></select>
+        <!-- A team game only: how fast LorFish moves in its seats. -->
+        <span class="field" id="aiPaceField" style="display:none;">
+          <select id="aiPaceSelect" aria-label="LorFish's pace"></select>
+        </span>
         <label for="aiVariantSelect">Variant</label>
         <!-- The variants LorFish plays (the catalogue's `bot`, /js/variants.js). -->
         <select id="aiVariantSelect" name="variant"></select>

@@ -21,7 +21,7 @@
 const queries = require("../db/queries");
 const log = require("../log");
 const config = require("../config");
-const { resolveAiLevel } = require("../shared/aiLevels");
+const { resolveAiLevel, resolveBotPace } = require("../shared/aiLevels");
 const matchmaking = require("./matchmaking");
 const rooms = require("./rooms");
 const { resolveTimeControl } = require("../shared/timeControls");
@@ -250,6 +250,7 @@ function snapshot() {
     variant: t.variant,
     tc: t.tc,
     level: t.level,
+    pace: t.pace,
     seats: Object.fromEntries(seatsAt(t).map((s) => [s, seated(t.seats[s])])),
   }));
   return { players, seeks: open, games, tables: open4 };
@@ -567,8 +568,9 @@ function createTable(io, socket, payload) {
     hostId: socket.userId,
     variant,
     tc: resolveTimeControl(payload && payload.tc).key,
-    // LorFish's level for the empty seats, where it may take them.
+    // LorFish's level and pace for the empty seats, where it may take them.
     level: hasSeatBots(variant) ? resolveAiLevel(payload && payload.level) : null,
+    pace: hasSeatBots(variant) ? resolveBotPace(payload && payload.pace) : null,
     seats,
   };
   tables.set(table.id, table);
@@ -625,11 +627,11 @@ function startTable(io, table) {
   const tc = resolveTimeControl(table.tc);
   if (table.variant === "fourplayer") {
     const seats = Object.fromEntries(seatsAt(table).map((s) => [s, sit(s)]));
-    matchmaking.startFourPlayer(io, seats, { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: table.level });
+    matchmaking.startFourPlayer(io, seats, { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: table.level, botPace: table.pace });
     return;
   }
   matchmaking.startBughouse(io, { teamA: [sit("A0"), sit("A1")], teamB: [sit("B0"), sit("B1")] },
-    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: table.level });
+    { initialMs: tc.initialMs, incrementMs: tc.incrementMs, botLevel: table.level, botPace: table.pace });
 }
 
 // Called when a game starts or ends so the lobby's "playing" badges refresh

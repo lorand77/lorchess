@@ -241,7 +241,7 @@ owners' sockets. A Bughouse table's seats are named by team and board — A0 is
 White on board 1 and A1 Black on board 2 (team A), B0 and B1 the other two —
 and a four-player table's are the colours, `r`, `b`, `y` and `g`. Whoever
 opens a table sits in its first seat (A0, or Red) and hosts it, choosing the
-clock and the level LorFish plays any empty seat at. Anyone else picks a seat; sitting in the
+clock and the level and pace LorFish plays any empty seat at. Anyone else picks a seat; sitting in the
 host's team is how a friend partners you. A player holds one seat anywhere,
 sitting elsewhere gives up the old one (a host may move round their own
 table), and a seat goes when its sitter leaves, goes offline or starts
@@ -286,13 +286,13 @@ players their board, colour, opponent and partner. What joins the boards:
 board between people can't trust a browser to play a seat, and three bots
 need somewhere to run. The reserved `LorFish` account may hold any number of
 a match's seats (a board can be LorFish against LorFish); every other player
-sits once. Its level is kept on the boards it plays (`games.ai_level`), so a
-restart knows it. It takes whatever seats are empty when a table's host
-starts the match (see "Tables" above), at the table's level; and the
-`bughouse:bots` socket event ("Play the computer" with Bughouse) starts one with
-it in all three other seats: the player on board 0 with White, LorFish their
-partner, two more against them, at a time control and level from the
-allowlists.
+sits once. Its level and pace are kept on the boards it plays
+(`games.ai_level`, `games.bot_pace`), so a restart knows them. It takes
+whatever seats are empty when a table's host starts the match (see "Tables"
+above), at the table's level and pace; and the `bughouse:bots` socket event
+("Play the computer" with Bughouse) starts one with it in all three other
+seats: the player on board 0 with White, LorFish their partner, two more
+against them, at a time control, level and pace from the allowlists.
 
 - **Off the main thread.** Its search is synchronous and can take seconds, and
   the event loop runs every live game, so it runs in worker threads
@@ -313,6 +313,26 @@ allowlists.
   With no move it waits, as a player would. Its clock runs while it thinks.
   The position can't change under it meanwhile (it is its turn; pockets only
   fill), but the game can end, and then the answer is dropped.
+- **Its pace** (`BOT_PACES` in `aiLevels.js`, picked with the level by a
+  table's host or in "Play the computer"): its search takes a fraction of a
+  second, and a move straight back is not how a person plays. It barely
+  touches its clock, which in a team game is part of the game. So at the
+  normal pace, the default, it holds the move it found until it has taken
+  about as long as a person would, on its own clock, counted from when it
+  could first move (`src/game/botPace.js` `thinkTime`):
+  - an even share of the clock (a fiftieth of what is left) plus most of
+    the increment, from half to one and a half times that at random: 3–9 s a
+    move at 5+0, 0.6–1.8 s at 1+0;
+  - a forced move or a recapture in 0.5–1 s;
+  - never under 0.5 s or over 20 s, and short of time never more than a
+    tenth of what is left, so it hurries as a person would.
+
+  The pace is the same for every level, so a stronger LorFish doesn't also
+  feel slower. At the quick pace it plays as soon as the search has a move,
+  as it always did. A move it holds is a timer on the room (`botTimer`),
+  cleared with the room's other timers when the game ends; the game is
+  checked again before the move is played. Only the server's seats have a
+  pace: an AI game in the browser is untimed and answers at once.
 - **Always there.** A bot seat counts as joined from the start and is always
   in the room's online set, so the clocks start as soon as the people have
   joined and no absence clock ever runs against it.
@@ -599,9 +619,10 @@ Corners".
     handlers to drift.
   - `matchmaking.startFourPlayer(io, seats)` creates the game and sends
     each person `game:start` with their colour and the four names. LorFish
-    may hold any seats but all four, at a level kept on the games row
-    (`games.ai_level`), as in Bughouse: from a table its host starts early,
-    or from "Play the computer" (`fourplayer:bots`: the player as Red,
+    may hold any seats but all four, at a level and pace kept on the games
+    row (`games.ai_level`, `games.bot_pace`), as in Bughouse: from a table
+    its host starts early, or from "Play the computer" (`fourplayer:bots`:
+    the player as Red,
     LorFish their partner as Yellow and the two opponents). The server plays
     its seats (`botTurn`, the worker pool) and the game state marks them
     (`seats[c].bot`), so the page shows LorFish's name without a profile

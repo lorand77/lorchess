@@ -19,6 +19,7 @@ const handicap = require("../shared/handicap");
 const { moveFromUci } = require("../shared/uci");
 const { usesStandardSetup } = require("../shared/variants");
 const { Bughouse } = require("../shared/bughouse");
+const { resolveBotPace } = require("../shared/aiLevels");
 const matches = require("./matches");
 const fourGames = require("./fourGames");
 const { FourPlayer } = require("../shared/fourPlayer");
@@ -28,7 +29,7 @@ const rooms = new Map(); // gameId -> room
 function createRoom(
   gameId,
   { whiteId, blackId, whiteName, blackName, startFen, initialMs, incrementMs, rated,
-    clockW, clockB, rehydrated, variant, matchId, board, boardIds, botLevel,
+    clockW, clockB, rehydrated, variant, matchId, board, boardIds, botLevel, botPace,
     seats, seatNames, clocks }
 ) {
   // Games created before per-game time controls existed have NULL clock
@@ -106,11 +107,14 @@ function createRoom(
     board: matchId ? board : null,
     boardIds: matchId ? boardIds : null,
     // The Bughouse or four-player seats LorFish holds, played by the server (socket.js botTurn),
-    // at its level; null when it holds none. A bot is always there: seated
-    // from the start, and online, so no absence clock ever runs against it.
+    // at its level and pace (aiLevels.js BOT_PACES); null when it holds none.
+    // A bot is always there: seated from the start, and online, so no absence
+    // clock ever runs against it.
     bots: null,
     botLevel: null,
+    botPace: null,
     botThinking: false,
+    botTimer: null,
   };
   // LorFish's seats: a Bughouse board's, or a four-player game's.
   if (matchId || four) {
@@ -119,6 +123,7 @@ function createRoom(
     if (colors.some((c) => held[c])) {
       room.bots = held;
       room.botLevel = botLevel || null;
+      room.botPace = resolveBotPace(botPace);
       for (const c of colors) {
         if (!held[c]) continue;
         room.everJoined[c] = true;
@@ -162,6 +167,12 @@ function clearTimers(room) {
   if (room.flagTimer) {
     clearTimeout(room.flagTimer);
     room.flagTimer = null;
+  }
+  // LorFish holding a move it has found until its time to play it.
+  if (room.botTimer) {
+    clearTimeout(room.botTimer);
+    room.botTimer = null;
+    room.botThinking = false;
   }
 }
 
@@ -296,6 +307,7 @@ function loadMatchRoomsFromDb(matchId) {
     board: game.board,
     boardIds,
     botLevel: game.ai_level,
+    botPace: game.bot_pace,
   }));
   const engines = both.map((r) => r.chess);
   for (const m of queries.getMovesForMatch.all(matchId)) {
@@ -334,6 +346,7 @@ function loadFourRoomFromDb(game) {
     variant: game.variant,
     rehydrated: true,
     botLevel: game.ai_level,
+    botPace: game.bot_pace,
   });
   for (const m of queries.getMovesForGame.all(game.id)) {
     const mv = room.chess.moveFromText(m.uci);

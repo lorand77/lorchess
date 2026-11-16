@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS games (
   -- ai_depth is the depth that level searches. NULL on PvP games, and on AI
   -- games from before levels whose depth matched none.
   ai_level    TEXT,
+  -- How fast LorFish moves in a team game's seats, 'normal' or 'quick'
+  -- (BOT_PACES in aiLevels.js); NULL where it holds none, or from before
+  -- paces, which is the normal pace.
+  bot_pace    TEXT,
   status      TEXT    NOT NULL DEFAULT 'active'
                       CHECK (status IN ('active', 'finished', 'aborted')),
   result      TEXT,                         -- '1-0' | '0-1' | '1/2-1/2' | NULL

@@ -182,6 +182,8 @@ module.exports = {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
   getGameById: db.prepare("SELECT * FROM games WHERE id = ?"),
+  // LorFish's pace in a team game it holds seats in (BOT_PACES).
+  setBotPace: db.prepare("UPDATE games SET bot_pace = ? WHERE id = ?"),
   // A user's games, newest first (they may be on either side, or in one of a
   // four-player game's seats, named by `seat`), with both players' usernames
   // resolved for display.

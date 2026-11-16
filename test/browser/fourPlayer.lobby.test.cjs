@@ -30,6 +30,7 @@ test("a four-player table, opened and seen from the lobby", async (t) => {
     assert.equal(await host.page.locator("#" + id).isVisible(), false, id);
   }
   assert.equal(await host.page.locator("#tableLevelSelect").isVisible(), true, "LorFish fills empty seats");
+  assert.equal(await host.page.locator("#tablePaceSelect").inputValue(), "normal", "at the normal pace unless asked");
   await host.page.locator("#tableLevelSelect").selectOption("novice");
   await host.page.locator("#tableOpenBtn").click();
 
@@ -54,7 +55,10 @@ test("a game against LorFish, from Play the computer", async (t) => {
   const { page } = await signedInPage(browser, srv.baseUrl, t);
   await page.setViewportSize({ width: 1400, height: 1000 });
   await page.goto(srv.baseUrl + "/lobby.html");
+  assert.equal(await page.locator("#aiPaceSelect").isVisible(), false, "no pace for an AI game");
   await page.locator("#aiVariantSelect").selectOption("fourplayer");
+  assert.equal(await page.locator("#aiPaceSelect").isVisible(), true);
+  await page.locator("#aiPaceSelect").selectOption("quick");
   assert.equal(await page.locator("#aiColorSelect").isVisible(), false);
   assert.equal(await page.locator("#aiClockSelect").isVisible(), true);
   assert.match(await page.locator("#aiNote").textContent(), /You as Red, LorFish your partner as Yellow/);

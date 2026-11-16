@@ -41,6 +41,9 @@ test("a Bughouse match against LorFish, from the lobby to a lost match", async (
   assert.match(await page.locator("#aiNote").textContent(), /two more LorFish/);
   assert.equal(await page.locator("#aiLevelSelect option[value='casual']").textContent(), "Casual", "named, not rated");
   await page.locator("#aiLevelSelect").selectOption("novice");
+  // LorFish's pace: normal unless asked; quick here, so nothing waits on it.
+  assert.equal(await page.locator("#aiPaceSelect").inputValue(), "normal");
+  await page.locator("#aiPaceSelect").selectOption("quick");
   await page.locator("#aiPlayBtn").click();
   await page.waitForURL(/game\.html\?id=\d+/);
   const gameId = Number(new URL(page.url()).searchParams.get("id"));
@@ -120,7 +123,9 @@ test("a table: a friend sits as partner, the host starts, and calls cross betwee
   await challenge.waitFor();
   assert.equal(await challenge.isDisabled(), true, "Bughouse isn't offered one to one");
   await host.page.locator("#tableLevelSelect").selectOption("novice");
+  await host.page.locator("#tablePaceSelect").selectOption("quick");
   await host.page.locator("#tableOpenBtn").click();
+  await friend.page.locator("#tableList .table-row", { hasText: "empty seats: LorFish Novice, quick" }).waitFor();
   // Listed with the open challenges, which count it.
   await friend.page.locator("#seekCount", { hasText: "(1)" }).waitFor();
   // The friend sees the table and takes the host's partner seat: Black on board 2.
@@ -160,6 +165,7 @@ test("a match watched with both boards, and its boards replayed with the match",
   await player.page.goto(srv.baseUrl + "/lobby.html");
   await player.page.locator("#aiVariantSelect").selectOption("bughouse");
   await player.page.locator("#aiLevelSelect").selectOption("novice");
+  await player.page.locator("#aiPaceSelect").selectOption("quick");
   await player.page.locator("#aiPlayBtn").click();
   await player.page.waitForURL(/game\.html\?id=\d+/);
   const board0 = Number(new URL(player.page.url()).searchParams.get("id"));

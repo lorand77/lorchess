@@ -120,11 +120,20 @@ for (const v of VARIANTS.filter((v) => v.bot || hasSeatBots(v.key))) {
 }
 const aiClockSelect = document.getElementById("aiClockSelect");
 for (const tc of TIME_CONTROLS) aiClockSelect.add(new Option(tc.label, tc.key, tc.key === DEFAULT_TC, tc.key === DEFAULT_TC));
+// How fast the server's LorFish moves in a team game's seats: about as long as
+// a person would, or at once (BOT_PACES in aiLevels.js). Here for "Play the
+// computer"; a table has its own picker below.
+function fillPaces(select) {
+  for (const p of BOT_PACES) select.add(new Option(p.label, p.key, p.key === DEFAULT_BOT_PACE, p.key === DEFAULT_BOT_PACE));
+}
+const aiPaceSelect = document.getElementById("aiPaceSelect");
+fillPaces(aiPaceSelect);
 function renderAiVariant() {
   for (const opt of aiLevelSelect.options) opt.textContent = aiLevelLabel(opt.value, aiVariantSelect.value);
   const team = isTeamGame(aiVariantSelect.value);
   document.getElementById("aiColorField").style.display = team ? "none" : "";
   document.getElementById("aiClockField").style.display = team ? "" : "none";
+  document.getElementById("aiPaceField").style.display = team ? "" : "none";
   document.getElementById("aiNote").textContent = !team ? "Untimed and unrated."
     : aiVariantSelect.value === "fourplayer"
       ? "You as Red, LorFish your partner as Yellow, against two more LorFish. Timed and casual."
@@ -137,7 +146,7 @@ document.querySelector("#aiPanel form").addEventListener("submit", (e) => {
   const errEl = document.getElementById("aiError");
   errEl.textContent = "";
   const event = aiVariantSelect.value === "fourplayer" ? "fourplayer:bots" : "bughouse:bots";
-  socket.emit(event, { tc: aiClockSelect.value, level: aiLevelSelect.value }, (resp) => {
+  socket.emit(event, { tc: aiClockSelect.value, level: aiLevelSelect.value, pace: aiPaceSelect.value }, (resp) => {
     if (!resp || !resp.ok) errEl.textContent = (resp && resp.error) || "Could not start the game.";
   });
 });
@@ -168,12 +177,14 @@ for (const v of VARIANTS) {
   variantSelect.appendChild(opt);
 }
 
-// LorFish's level for the empty seats of a table.
+// LorFish's level and pace for the empty seats of a table.
 const tableLevelSelect = document.getElementById("tableLevelSelect");
 for (const level of AI_LEVELS) {
   const selected = level.key === DEFAULT_AI_LEVEL;
   tableLevelSelect.add(new Option(aiLevelLabel(level.key, "bughouse"), level.key, selected, selected));
 }
+const tablePaceSelect = document.getElementById("tablePaceSelect");
+fillPaces(tablePaceSelect);
 
 function renderVariant() {
   // A team game seats four: no quick match or one-to-one offer, so no colour,
@@ -663,7 +674,9 @@ async function loadTrainCard() {
 // may start it sooner, LorFish in the empty seats. Either way game:start
 // (below) takes everyone to their board.
 document.getElementById("tableOpenBtn").addEventListener("click", () => {
-  socket.emit("table:create", { variant: variantSelect.value, tc: tcSelect.value, level: tableLevelSelect.value });
+  socket.emit("table:create", {
+    variant: variantSelect.value, tc: tcSelect.value, level: tableLevelSelect.value, pace: tablePaceSelect.value,
+  });
 });
 
 // The seats, a row each pair as the table shows them, with each seat's label.
@@ -702,7 +715,7 @@ function renderTables() {
     head.appendChild(el("span", "tag variant", variantLabel(t.variant)));
     const bots = hasSeatBots(t.variant);
     head.appendChild(el("span", "muted small", bots
-      ? "empty seats: LorFish " + aiLevelLabel(t.level, t.variant)
+      ? "empty seats: LorFish " + aiLevelLabel(t.level, t.variant) + (t.pace === "quick" ? ", quick" : "")
       : "starts when all four seats are taken"));
     const seated = Object.values(t.seats).some((p) => p && p.userId === me);
     if (t.hostId === me) {

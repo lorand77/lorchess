@@ -74,7 +74,7 @@ describe("a four-player table", () => {
   test("opens with its host in Red and the other colours free, at a LorFish level", async () => {
     socks[0].emit("table:create", { variant: "fourplayer", tc: "5+0", level: "advanced" });
     const t = tableOf(await stateWhere(socks[1], (x) => tableOf(x, id(0))), id(0));
-    assert.deepEqual([t.variant, t.tc, t.level], ["fourplayer", "5+0", "advanced"]);
+    assert.deepEqual([t.variant, t.tc, t.level, t.pace], ["fourplayer", "5+0", "advanced", "normal"]);
     assert.deepEqual(Object.keys(t.seats), ["r", "b", "y", "g"]);
     assert.deepEqual([t.seats.r.userId, t.seats.b, t.seats.y, t.seats.g], [id(0), null, null, null]);
   });
@@ -126,7 +126,7 @@ describe("a four-player table", () => {
 describe("a host who starts early", () => {
   test("gets LorFish in the empty seats, at the table's level, and LorFish plays them", async () => {
     const [host, friend] = await Promise.all([0, 1].map(lobbySocket));
-    host.emit("table:create", { variant: "fourplayer", level: "beginner" });
+    host.emit("table:create", { variant: "fourplayer", level: "beginner", pace: "quick" });
     const t = tableOf(await stateWhere(friend, (x) => tableOf(x, id(0))), id(0));
     friend.emit("table:sit", { id: t.id, seat: "b" });   // an opponent, not a partner
     await stateWhere(host, (x) => tableOf(x, id(0)).seats.b);
@@ -135,8 +135,8 @@ describe("a host who starts early", () => {
     const [h, f] = await Promise.all(starts);
     assert.deepEqual([h.color, f.color], ["r", "b"]);
     assert.deepEqual([h.players.y, h.players.g], ["LorFish", "LorFish"]);
-    const row = db().prepare("SELECT ai_level FROM games WHERE id = ?").get(h.gameId);
-    assert.equal(row.ai_level, "beginner");
+    const row = db().prepare("SELECT ai_level, bot_pace FROM games WHERE id = ?").get(h.gameId);
+    assert.deepEqual(row, { ai_level: "beginner", bot_pace: "quick" });
     const joined = await emitAck(host, "game:join", { gameId: h.gameId });
     assert.deepEqual(Object.values(joined.state.seats).map((s) => s.bot), [false, false, true, true]);
     // The lobby's live games and the history mark LorFish's seats too: it has

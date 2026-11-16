@@ -29,7 +29,7 @@ test("the Rules tab: every variant's rules, one tab each", async (t) => {
 
   await tabs.filter({ hasText: "Atomic" }).click();
   await page.waitForURL(/#atomic$/);
-  assert.equal(await page.locator("#rules-atomic").isVisible(), true);
+  await page.locator("#rules-atomic").waitFor();   // shown on hashchange, just after the URL
   assert.equal(await page.locator("#rules-general").isVisible(), false);
   assert.equal(await page.locator("#rules-atomic .rules-glance").textContent(),
     "Two players · rated or casual · play LorFish from the lobby · odds games allowed · no Stockfish review");
@@ -37,9 +37,10 @@ test("the Rules tab: every variant's rules, one tab each", async (t) => {
 
   // A link straight to a tab.
   await page.goto(srv.baseUrl + "/rules.html#fourplayer");
-  assert.equal(await page.locator("#rules-fourplayer").isVisible(), true);
+  await page.locator("#rules-fourplayer").waitFor();
   assert.equal(await page.locator("#rules-fourplayer .rules-glance").textContent(),
     "Four players, two teams · casual only · LorFish can fill empty seats · no odds games · no Stockfish review");
   await page.goto(srv.baseUrl + "/rules.html#nonsense");
-  assert.equal(await page.locator("#rules-general").isVisible(), true, "an unknown tab shows General");
+  await page.locator("#rules-general").waitFor();   // an unknown tab shows General
+  assert.equal(await page.locator(".rules-section:visible").count(), 1);
 });

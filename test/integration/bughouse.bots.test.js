@@ -4,7 +4,9 @@
 // threads in bots.js): a player starts a match against LorFish — LorFish their
 // partner on board 1, two more LorFish for the other team — and the bots play
 // their boards by themselves, answer the player, never forfeit for absence,
-// and carry on after a restart at the level the match was started at.
+// and carry on after a restart at the level and pace the match was started
+// at. At the quick pace, so nothing here waits on LorFish's think time
+// (botPace.test.js has the normal pace).
 
 process.env.GRACE_MS = "400";
 const { describe, test, before, after } = require("node:test");
@@ -61,7 +63,7 @@ function next(sock, event, n, timeoutMs = 8000) {
 
 async function startAgainstBots(level = "novice") {
   const started = waitFor(socket, "game:start");
-  const res = await emitAck(socket, "bughouse:bots", { level });
+  const res = await emitAck(socket, "bughouse:bots", { level, pace: "quick" });
   assert.equal(res.ok, true, res.error);
   const start = await started;
   return { ...res, start };
@@ -110,7 +112,7 @@ describe("a Bughouse match against LorFish", () => {
     const before = db().prepare("SELECT COUNT(*) AS n FROM moves WHERE game_id = ?").get(b1).n;
     assert.equal((await emitAck(socket, "game:join", { gameId: b0 })).ok, true);
     const one = rooms.getRoom(b1);
-    assert.equal(one.botLevel, "novice");
+    assert.deepEqual([one.botLevel, one.botPace], ["novice", "quick"]);
     assert.deepEqual(one.bots, { w: true, b: true });
     await until(() => db().prepare("SELECT COUNT(*) AS n FROM moves WHERE game_id = ?").get(b1).n >= before + 2,
       "board 1 to carry on");

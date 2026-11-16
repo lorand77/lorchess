@@ -24,6 +24,21 @@ const DEFAULT_AI_LEVEL = 'intermediate';
 // A Map, for the same reason as VARIANTS_BY_KEY: these keys come off the wire.
 const AI_LEVELS_BY_KEY = new Map(AI_LEVELS.map((l) => [l.key, l]));
 
+// How fast LorFish moves where the server plays it, in the seats of a team
+// game (Bughouse, four-player chess). At the normal pace it takes about as
+// long over a move as a person would, on its own clock (src/game/botPace.js);
+// quick plays each move the moment the search has one. The same for every
+// level. Chosen with the level, by a table's host or in "Play the computer".
+const BOT_PACES = [
+  { key: 'normal', label: 'Normal pace' },
+  { key: 'quick',  label: 'Quick pace' },
+];
+const DEFAULT_BOT_PACE = 'normal';
+
+function resolveBotPace(key) {
+  return BOT_PACES.some((p) => p.key === key) ? key : DEFAULT_BOT_PACE;
+}
+
 // Anything unrecognised plays the default, as an unknown variant plays
 // standard: a level is a preference, not an instruction that can fail.
 function resolveAiLevel(key) {
@@ -56,5 +71,6 @@ function aiLevelForDepth(depth) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     AI_LEVELS, AI_LEVELS_BY_KEY, DEFAULT_AI_LEVEL, resolveAiLevel, aiLevelOf, aiLevelLabel, aiLevelForDepth,
+    BOT_PACES, DEFAULT_BOT_PACE, resolveBotPace,
   };
 }

@@ -108,7 +108,7 @@ describe("a table of four people", () => {
 describe("a host who starts early", () => {
   test("gets LorFish in the empty seats, at the table's level", async () => {
     const [host, friend] = await Promise.all([0, 4].map(lobbySocket));
-    host.emit("table:create", { level: "beginner" });
+    host.emit("table:create", { level: "beginner", pace: "quick" });
     const t = tableOf(await stateWhere(friend, (x) => tableOf(x, id(0))), id(0));
     friend.emit("table:sit", { id: t.id, seat: "A1" });
     await stateWhere(host, (x) => tableOf(x, id(0)).seats.A1);
@@ -121,8 +121,8 @@ describe("a host who starts early", () => {
     const [h, f] = await Promise.all(starts);
     assert.equal(f.partner.username, users[0].user.username);
     assert.deepEqual([h.opponent.username, f.opponent.username], ["LorFish", "LorFish"]);
-    const levels = db().prepare("SELECT ai_level FROM games WHERE match_id = ? ORDER BY board").all(h.matchId);
-    assert.deepEqual(levels.map((r) => r.ai_level), ["beginner", "beginner"]);
+    const levels = db().prepare("SELECT ai_level, bot_pace FROM games WHERE match_id = ? ORDER BY board").all(h.matchId);
+    assert.deepEqual(levels.map((r) => [r.ai_level, r.bot_pace]), [["beginner", "quick"], ["beginner", "quick"]]);
     await emitAck(host, "game:join", { gameId: h.gameId });
     finishMatch(host, h.gameId);
     await waitFor(host, "game:over");
