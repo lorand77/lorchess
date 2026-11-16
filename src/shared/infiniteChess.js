@@ -263,6 +263,33 @@ const InfiniteChess = (function () {
       return legal ? move : null;
     }
 
+    // Whether the piece on `from` could go to `to` on an otherwise empty
+    // board: for a premove, picked before the position it will be played in
+    // exists, so nothing standing in the way, and no legality, is judged. A
+    // test rather than a list, since a slider's reach has no end: the board
+    // asks it of each square it shows, as it asks findMove for the hints. A
+    // pawn's step, its double step while it holds the right, and its two
+    // captures; a king's castling steps while it holds the right.
+    reaches(from, to) {
+      if (!from || !to || !isCoord(to.x) || !isCoord(to.y)) return false;
+      const p = this.pieceAt(from.x, from.y);
+      if (!p) return false;
+      const dx = to.x - p.x, dy = to.y - p.y;
+      if (!dx && !dy) return false;
+      const adx = Math.abs(dx), ady = Math.abs(dy);
+      switch (p.t) {
+        case 'p': {
+          const dir = p.c === W ? 1 : -1;
+          return (dy === dir && adx <= 1) || (!dx && dy === 2 * dir && !!p.right);
+        }
+        case 'n': return (adx === 1 && ady === 2) || (adx === 2 && ady === 1);
+        case 'k': return (adx <= 1 && ady <= 1) || (!dy && adx === 2 && !!p.right);
+        case 'b': return adx === ady;
+        case 'r': return !dx || !dy;
+        default: return adx === ady || !dx || !dy;   // queen
+      }
+    }
+
     // `piece` to (x, y) by the way it moves, ignoring only whether it leaves
     // its own king in check (castling excepted: it may not start in check or
     // cross an attacked square, which findMove's test can't see).

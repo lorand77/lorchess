@@ -499,12 +499,22 @@ function selectionHints() {
 }
 
 // Infinite chess's hints: its moves can't be listed, so the board asks, for
-// each square it shows, whether the selected piece may go there.
+// each square it shows, whether the selected piece may go there — or, picking
+// a premove, whether it could reach it on an empty board (InfiniteChess
+// reaches), which a slider can as far as the board goes.
 function infiniteHints() {
   if (!selected) return new Map();
   const from = selected;
   const piece = chess.pieceAt(from.x, from.y);
   if (!piece) return new Map();
+  if (premoveSelecting) {
+    return {
+      get(key) {
+        const [x, y] = key.split(',').map(Number);
+        return chess.reaches(from, { x, y }) ? 'premove' : undefined;
+      },
+    };
+  }
   return {
     get(key) {
       const [x, y] = key.split(',').map(Number);
@@ -726,7 +736,6 @@ function canMoveNow() {
 // The opponent is on move, so anything we pick up becomes a premove.
 function canPremove() {
   if (spectating || !moveSource || moveSource.kind === 'spectator') return false;
-  if (isInfinite()) return false; // no premoves on a board with no edges, yet
   if (promotionPending || gameIsOver()) return false;
   return chess.turn !== humanColor;
 }
@@ -799,9 +808,11 @@ function preDropTargets(t) {
   return out;
 }
 
-// "e2e4", or a pre-drop's "N@e4", for the turn line.
+// "e2e4", a pre-drop's "N@e4", or infinite chess's "5,2>5,4", for the turn line.
 function premoveText(pm) {
-  return pm.drop ? pm.drop.toUpperCase() + '@' + algOf(pm.to) : algOf(pm.from) + algOf(pm.to);
+  if (pm.drop) return pm.drop.toUpperCase() + '@' + algOf(pm.to);
+  if (typeof pm.from === 'object') return `${pm.from.x},${pm.from.y}>${pm.to.x},${pm.to.y}`;
+  return algOf(pm.from) + algOf(pm.to);
 }
 
 function selectSquare(sq) {
@@ -809,8 +820,9 @@ function selectSquare(sq) {
   dropSelected = null;
   captureHint = false;
   if (isInfinite()) {
-    // Its moves can't be listed; the hints ask the engine square by square.
-    premoveSelecting = false;
+    // Its moves can't be listed; the hints ask the engine square by square,
+    // off our turn about a premove.
+    premoveSelecting = !canMoveNow();
     legalFromSelected = [];
     render();
     return;
@@ -898,8 +910,16 @@ function attemptMove(from, to, viaDrag) {
 }
 
 // The same for infinite chess: ask the engine about the one move. A pawn
-// arriving on its last rank opens the promotion dialog first.
+// arriving on its last rank opens the promotion dialog first. Off our turn
+// the move is queued as a premove, if the piece could reach the square.
 function attemptInfiniteMove(from, to, viaDrag) {
+  if (premoveSelecting) {
+    if (!chess.reaches(from, to)) return false;
+    premove = { from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } };
+    clearSelection();
+    render();
+    return true;
+  }
   const piece = chess.pieceAt(from.x, from.y);
   if (piece && piece.t === 'p' && to.y === (piece.c === W ? 8 : 1)) {
     if (!chess.findMove(from, to, 'q')) return false;

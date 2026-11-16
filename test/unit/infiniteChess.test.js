@@ -550,6 +550,49 @@ describe("infinite chess, candidate moves", () => {
   });
 });
 
+describe("infinite chess, where a piece could go, for a premove", () => {
+  test("every legal move is within its piece's reach", () => {
+    let checked = 0;
+    for (const inf of playedPositions(17, 4, 40)) {
+      for (const m of windowMoves(inf)) {
+        assert.ok(inf.reaches(m.from, m.to), `${keyOfMove(m)} in ${inf.fen()}`);
+        checked++;
+      }
+    }
+    assert.ok(checked > 1000, `${checked} moves`);
+  });
+
+  test("on an empty board: a slider as far as the limit, the rest as they step", () => {
+    const inf = anon([P("k", "w", 5, 1, true), P("k", "b", 5, 8), P("r", "w", 1, 1, true), P("b", "w", 3, 1),
+      P("n", "w", 2, 1), P("p", "w", 4, 2, true), P("p", "w", 6, 3), P("q", "b", 4, 8)]);
+    const at = (x, y) => ({ x, y });
+    const reach = (from, to) => inf.reaches(from, to);
+    // The rook on a1, through its own pieces and out along the file.
+    assert.equal(reach(at(1, 1), at(1, LIMIT)), true);
+    assert.equal(reach(at(1, 1), at(1, LIMIT + 1)), false, "not past the limit");
+    assert.equal(reach(at(1, 1), at(8, 1)), true, "through the bishop and knight in its way");
+    assert.equal(reach(at(1, 1), at(2, 2)), false);
+    assert.equal(reach(at(3, 1), at(-500, -502)), true, "a bishop's far diagonal");
+    assert.equal(reach(at(4, 8), at(400, 404)), true, "a queen along a diagonal");
+    assert.equal(reach(at(4, 8), at(5, 10)), false);
+    assert.equal(reach(at(2, 1), at(3, 3)), true, "a knight's jump");
+    assert.equal(reach(at(2, 1), at(4, 4)), false);
+    // Pawns: the step, the captures, the double step only with the right.
+    for (const [x, y] of [[4, 3], [3, 3], [5, 3], [4, 4]]) assert.equal(reach(at(4, 2), at(x, y)), true, `d2 to ${x},${y}`);
+    assert.equal(reach(at(6, 3), at(6, 5)), false, "no double step without the right");
+    assert.equal(reach(at(4, 2), at(4, 1)), false, "never back");
+    // Kings: a step any way; two along the rank only while castling is theirs.
+    assert.equal(reach(at(5, 1), at(7, 1)), true);
+    assert.equal(reach(at(5, 1), at(5, 3)), false);
+    assert.equal(reach(at(5, 8), at(3, 8)), false, "no castling step without the right");
+    assert.equal(reach(at(5, 8), at(6, 7)), true);
+    // Nothing from an empty square, nor to the square itself.
+    assert.equal(reach(at(20, 20), at(21, 21)), false);
+    assert.equal(reach(at(1, 1), at(1, 1)), false);
+    assert.equal(reach(null, at(1, 1)), false);
+  });
+});
+
 describe("infinite chess, how a game ends", () => {
   test("a game in progress is undecided", () => {
     const inf = new InfiniteChess();

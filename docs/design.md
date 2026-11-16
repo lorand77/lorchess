@@ -1548,7 +1548,8 @@ is a click. Squares reach `ui.js` as `{ x, y }`. Its moves can't be listed, so
 the hint dots are asked for lazily: the view calls `hints.get("x,y")` for each
 square it draws, and `ui.js` answers with one `findMove` — so a slider's dots
 run along its rays as far as the window goes. A pawn reaching its last rank
-opens the usual promotion dialog. There are no premoves yet.
+opens the usual promotion dialog. Premoves work as in every variant (see
+"Premoves"), their hints asked of `reaches` square by square.
 
 Four-player chess's view is `public/js/fourBoardView.js`, the 14x14 cross,
 on the four-player game page (`four.html`). Its `data-sq` are the engine's square numbers (0–195),
@@ -1659,8 +1660,12 @@ the meantime drops it. The pocket piece is tinted like the square, and the
 turn line names it (`P@e4`). In Bughouse a piece that arrives from the other
 board meanwhile is in hand like any other, ready to be queued.
 
-Premoves exist in every variant but Infinite Chess (`canPremove`, until its
-targets, which a slider makes unbounded, are worked out).
+Premoves exist in every variant. Infinite Chess's targets can't be listed,
+since a slider reaches as far as the board goes, so they are a test instead:
+`InfiniteChess.reaches(from, to)`, whether the piece could go there on an
+empty board, which the board view asks of each square it draws, as it asks
+`findMove` for an ordinary move's hints. A test holds every legal move found
+by brute force in played positions to it.
 
 **Four-player premoves** (`fourGame.js`) work the same way on the cross
 board. A piece picked up while anyone else is on move offers every square it

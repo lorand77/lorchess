@@ -5,7 +5,8 @@
 // far off, with markers for pieces off screen, zoom and drag-to-pan. Two
 // players moving by click (with hint dots) and by drag, a promotion through
 // the dialog, the game exported as ICN (and read back), its thumbnail in the
-// lobby, and its replay.
+// lobby, and its replay. A premove, its hints asked of the engine square by
+// square as for a move: played when the turn comes if legal, dropped if not.
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const {
@@ -207,3 +208,37 @@ test("a pawn promotes through the dialog", async (t) => {
   assert.equal(await pieceOn(black, 1, 8), "wr");
   assert.deepEqual(await black.evaluate(() => moveHistory), ["P1,7>1,8=R"]);
 });
+
+test("a premove plays when the turn comes, or is dropped", async (t) => {
+  const { gameId, white, black } = await twoPages(t);
+  const click = async (page, from, to) => { await square(page, ...from).click(); await square(page, ...to).click(); };
+
+  // On White's move Black picks up the e-pawn: its premove squares are its
+  // step, its double step and its two captures.
+  await square(black, 5, 7).click();
+  assert.equal(await black.locator("#board .hint.premove").count(), 4);
+  await square(black, 5, 5).click();
+  assert.match(await black.locator("#turn").textContent(), /premove 5,7>5,5$/);
+  assert.equal(await black.locator("#board .square.premove").count(), 2);
+
+  // White moves, and Black's premove plays at once, flagged as one.
+  await click(white, [5, 2], [5, 4]);
+  await plies(white, 2);
+  await plies(black, 2);
+  assert.equal(await pieceOn(white, 5, 5), "bp");
+  const row = db().prepare("SELECT uci, premove FROM moves WHERE game_id = ? AND ply = 2").get(gameId);
+  assert.deepEqual(row, { uci: "5,7>5,5", premove: 1 });
+
+  // A rook's premove may pass through its own pawn — on an empty board it
+  // could — but isn't legal when the turn comes, so it is dropped.
+  await square(black, 1, 8).click();
+  assert.equal(await square(black, 1, 6).locator(".hint.premove").count(), 1);
+  await square(black, 1, 6).click();
+  assert.match(await black.locator("#turn").textContent(), /premove 1,8>1,6$/);
+  await click(white, [7, 1], [6, 3]);
+  await plies(black, 3);
+  await black.waitForFunction(() => premove === null);
+  assert.equal(await black.evaluate(() => chess.history.length), 3, "nothing played for Black");
+  assert.match(await black.locator("#turn").textContent(), /^Turn: Black — your move$/);
+});
+
