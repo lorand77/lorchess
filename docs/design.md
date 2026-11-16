@@ -648,7 +648,9 @@ Corners".
     from Red's. The four plates sit in the board's empty 3x3 corners, each by
     its player's king, on their right as they face the board: name (a profile
     link), "(you)" or "(partner)", and a clock, edged in the player's colour
-    and lit while it is their move.
+    and lit while it is their move. On a phone a plate is about 60px square,
+    so the clock keeps its room and the name gives way: two lines at most,
+    cut short with "…", and no colour dot (the edge says it).
   - The turn line says whose move it is, and whether it is yours, your
     partner's, or an opponent's; until all four are in, that the game is
     waiting for them. The status line names everyone in check ("Check: Blue
@@ -1394,6 +1396,12 @@ sockets, clocks and timers.
   better-sqlite3 throws synchronously, so an unguarded error would take the
   process, and every live game, down with it.
 - **Clocks and rating.** Clocks are server-side; clients render snapshots.
+  On the game page they sit in the side panel, which stacks under the board
+  on a narrow screen and would leave them below the fold, out of sight of
+  the board. There the two rows move beside the board instead, the
+  opponent's above it and yours below (`ui.js` `placeClocks`, which asks the
+  layout whether it has stacked rather than repeat the breakpoints), and
+  back when the window widens.
   A flag loses unless the other side could not have mated by any series of
   legal moves, even with the flagging side's help (FIDE 6.9 as Lichess reads
   it, `Chess.hasMatingMaterial`: a bare king never; a lone knight only if the

@@ -1502,6 +1502,30 @@ function renderClocks() {
   if (!spectating) checkLowTime(youMs, yourTurn);
 }
 
+// Where the side panel stacks under the board (styles.css: narrow screens),
+// its clocks would sit below the fold, out of sight of the board. There the
+// two rows move into the board's column instead, the top one (the opponent,
+// or Black for a spectator) above the board and yours below, as Lichess and
+// chess.com do on a phone; back into the panel when there is room again. The
+// layout itself says whether it has stacked, so no breakpoint is repeated
+// here. PvP only: an AI game has no clocks.
+function placeClocks() {
+  const clocksEl = document.getElementById('clocks');
+  const wrap = capturedTopEl.parentElement;
+  const stacked = getComputedStyle(wrap.parentElement).flexDirection === 'column';
+  const top = document.getElementById('clockTop').parentElement;
+  const bottom = document.getElementById('clockBottom').parentElement;
+  if (stacked && pvpMode) {
+    if (top.parentElement !== wrap) {
+      wrap.insertBefore(top, capturedTopEl);
+      capturedBottomEl.after(bottom);
+    }
+  } else if (top.parentElement !== clocksEl) {
+    clocksEl.append(top, bottom);
+  }
+}
+window.addEventListener('resize', placeClocks);
+
 // "👁 N watching" under the notices; hidden when nobody is.
 function showSpectators(info) {
   const el = document.getElementById('watchInfo');
@@ -1615,6 +1639,7 @@ function initSpectate(gameId) {
   }
   const clocksEl = document.getElementById('clocks');
   if (clocksEl) clocksEl.style.display = '';
+  placeClocks();
   if (!clockTimer) clockTimer = setInterval(renderClocks, 200);
   statusEl.textContent = 'Connecting…';
 
@@ -1696,6 +1721,7 @@ function initPvp(gameId) {
   const resignBtn = document.getElementById('resignBtn');
   const clocksEl = document.getElementById('clocks');
   if (clocksEl) clocksEl.style.display = '';
+  placeClocks();
   if (!clockTimer) clockTimer = setInterval(renderClocks, 200);
 
   statusEl.textContent = 'Connecting…';
