@@ -9,7 +9,7 @@ repo are in `docs/CLAUDE.md`.
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
 standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of
-the Hill, Three-check or infinite chess, on a board with no edges. Around the games: puzzles, an
+the Hill, Three-check, Gambling Chess or infinite chess, on a board with no edges. Around the games: puzzles, an
 analysis board, achievements, friends, a leaderboard, spectating, in-game chat
 and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
 browser, no build step.
@@ -30,7 +30,7 @@ browser, no build step.
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
 squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill,
-Three-check and Bughouse rule sets.
+Three-check, Gambling Chess and Bughouse rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
 its variant needs. Four-player chess has a third, `src/shared/fourPlayer.js`. `src/shared/lorfish.js` is **LorFish**, a synchronous search
@@ -196,6 +196,56 @@ kings are dead material, and a side with one can still win on a flag. It
 opens from the standard setup and takes a handicap, is casual while new, and
 can't be reviewed. The game page shows "Checks: White 1 of 3 · Black 0 of 3"
 under the turn line.
+
+**Gambling Chess** is ours: ordinary chess, but each turn the side to move is
+dealt a piece type at random and may move only a piece of that type (castling
+is a king move, a promotion a pawn's). The deal is drawn from the types with
+a legal move (`movableTypes`), each as likely as the others, so a type with
+nowhere to go is never dealt and a turn is never wasted. Check is ordinary:
+in check only a type that can answer it has a legal move, so only such a type
+is dealt, and with none it is mate. Every ending is ordinary chess's.
+- *In the engine* (`isGambling`): `dealt` is the type, or null until the turn
+  is dealt. While it is set, `legalMoves` for the side to move keeps that
+  type's moves only, so everything that asks what may be played — `findMove`
+  on the server and the page, the hints, premoves, LorFish's root — gets the
+  rule without knowing it. `deal(t)` takes only a movable type; `dealRandom`
+  draws one, given a picker (`pick(n)`, a whole number below n; the server
+  passes crypto's `randomInt`). A move clears the deal and `undoMove` puts it
+  back. What asks about the position rather than the turn ignores the deal
+  (`movesIgnoringDeal`): the deal itself, and the repetition key, so the same
+  board counts as a repetition whatever was dealt. Mate and stalemate need no
+  care: a dealt type always has a move. FEN writes the deal as a seventh field
+  (`… KQkq - 0 1 n`, `Chess.dealtIn`); `loadFen` takes it only if that type
+  can move here, else leaves the turn undealt.
+- *Who deals.* Between people, only the server (never trust the client):
+  `rooms.dealTurn` as the game starts (`matchmaking.startMatch`) and after
+  every move (`playMove`, before the position is written, so `current_fen`
+  and `fen_after` carry it). `move:made` and the game state carry `dealt`. A
+  move with another type is refused saying which was dealt ("This turn you
+  must move a knight."). A room rebuilt after a restart keeps the stored deal
+  (`Chess.dealtIn(current_fen)`), so a restart is no second deal; only a
+  stored deal that can't move is dealt again. Against LorFish the page deals
+  (`dealTurn` in `ui.js`, `Math.random`), for both sides, and a resumed game
+  keeps the deal stored with its position; the worker is sent the deal with
+  the moves, which can't carry it.
+- *LorFish* needs nothing of its own: at its root `legalMoves` is the dealt
+  type's, and after its move the deal is clear, so it assumes the other side
+  may move anything. Averaging over the other side's possible deals would
+  play better and cost about five times the search.
+- *The game page* shows the deal in a badge under the turn line, the dealt
+  piece in the mover's colour ("You must move a knight"), and on your turn
+  only that type can be picked up. A premove may be any piece, since the next
+  deal isn't known; it is played if it uses the type dealt when its turn
+  comes and dropped if not, by the usual legality test. The replay needs no
+  deal of its own: each move's piece is the type it was dealt.
+- Casual, from the standard setup, a handicap allowed; no review (Stockfish
+  plays ordinary chess); material and move badges as in standard chess; its
+  win badge is `gambling_wins`, "High Roller". Being a two-player variant, it
+  is one more win "Jack of All Trades" asks for.
+- Tested: the engine and LorFish (`test/unit/gambling.test.js`), the server's
+  deals (`test/integration/gambling.games.test.js`), and in Chromium
+  (`test/browser/gambling.test.cjs`) a game against LorFish and one between
+  two people, premoves played and dropped.
 
 **Bughouse** is a variant in the lobby like any other, picked from the same
 Variant lists. Picked in "Play the computer" it starts a match at once, you

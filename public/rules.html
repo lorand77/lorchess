@@ -176,6 +176,21 @@
     </ul>
   </section>
 
+  <section class="rules-section" id="rules-gambling" data-key="gambling" role="tabpanel" hidden>
+    <h2>Gambling Chess</h2>
+    <p class="rules-glance"></p>
+    <p>Standard chess, but luck picks which kind of piece you move. A LorChess variant.</p>
+    <ul>
+      <li><strong>The deal:</strong> at the start of each turn, one kind of piece is picked at random for the side to move: pawn, knight, bishop, rook, queen or king. You must move a piece of that kind. The pick is shown by the board, and only those pieces can be picked up.</li>
+      <li>Only kinds that have a legal move can be picked, each as likely as the others. If your pawns and your knights can move, it is pawn or knight, half and half; a kind with nowhere to go is never picked.</li>
+      <li>Castling is a king move; a promotion is a pawn move.</li>
+      <li><strong>Check works as usual.</strong> In check, only a kind of piece that can get you out of it can be picked. If none can, it is checkmate.</li>
+      <li>Stalemate, threefold repetition, the fifty-move rule and insufficient material are draws as usual. The kind picked isn't part of the position: the same board with a different pick still counts as a repetition.</li>
+      <li>Against another player, the server makes the pick, so neither side can influence it; against LorFish, your browser does. A premove is played only if it uses the kind you are dealt, and dropped if not.</li>
+      <li><strong>Out of time:</strong> a loss, unless your opponent could never mate: then a draw.</li>
+    </ul>
+  </section>
+
   <section class="rules-section" id="rules-bughouse" data-key="bughouse" role="tabpanel" hidden>
     <h2>Bughouse</h2>
     <p class="rules-glance"></p>

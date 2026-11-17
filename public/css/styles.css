@@ -261,6 +261,20 @@ body {
 .four-y { filter: url(#four-tint-y); }
 .four-g { filter: url(#four-tint-g); }
 .four-dead { filter: url(#four-tint-dead); }
+/* Gambling Chess: the piece type dealt to the side to move (ui.js). */
+.deal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.deal-badge[hidden] { display: none; }
+.deal-die { font-size: 20px; }
+.deal-badge img { width: 32px; height: 32px; }
 /* Antichess: the pieces that can make the compulsory capture (ui.js captureHint). */
 .square.must-capture { box-shadow: inset 0 0 0 4px var(--orange); }
 /* Bughouse tables, listed with the open challenges: a row whose second line

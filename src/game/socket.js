@@ -23,6 +23,7 @@ const achievements = require("../achievements/service");
 const handicap = require("../shared/handicap");
 const { formatUci } = require("../shared/uci");
 const { InfiniteChess } = require("../shared/infiniteChess");
+const { PIECE_NAMES } = require("../shared/chess");
 const { usesStandardSetup, resolveVariant, isFourPlayer } = require("../shared/variants");
 const { Bughouse } = require("../shared/bughouse");
 const matches = require("./matches");
@@ -591,6 +592,8 @@ function stateOf(room, color) {
     ...(room.ffa ? { points: { ...room.chess.points }, out: { ...room.chess.out } } : {}),
     clocks: rooms.clockSnapshot(room),
     running: room.started,
+    // Gambling Chess: the type the side to move must move.
+    dealt: room.chess.dealt || null,
     drawOffer: room.drawOffer,
     initialMs: room.initialMs,
     incrementMs: room.incrementMs,
@@ -761,7 +764,7 @@ function handleMove(io, socket, payload, ack) {
   }
   if (room.four && !isFourMove(payload)) return reply(ack, { ok: false, error: "Illegal move." });
   const move = drop ? room.chess.findDrop(drop, to) : room.chess.findMove(from, to, promo);
-  if (!move) return reply(ack, { ok: false, error: "Illegal move." });
+  if (!move) return reply(ack, { ok: false, error: wrongPiece(room, from) || "Illegal move." });
 
   playMove(io, room, color, move, {
     byUser: socket.userId, premove: !!(payload && payload.premove), from, to, ack,
@@ -794,9 +797,11 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     room.turnStartedAt = now;
   }
 
-  // (4) Apply on the authoritative board.
+  // (4) Apply on the authoritative board. Gambling Chess: the next turn is
+  // dealt here, so the position written below carries it.
   const san = room.chess.moveToSan(move);
   room.chess.makeMove(move);
+  rooms.dealTurn(room);
   room.sans.push(san);
 
   const ply = room.chess.history.length;
@@ -866,6 +871,8 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     clocks: rooms.clockSnapshot(room),
     // Bughouse: the piece this capture sent to the other board.
     passed,
+    // Gambling Chess: the type the side now to move must move.
+    dealt: room.chess.dealt || null,
   });
 
   lobby.nudge(io); // keep the lobby's board previews roughly current
@@ -1317,6 +1324,16 @@ function isInfiniteMove(payload) {
 // A four-player move payload: two squares, each the engine's number (0-195)
 // or a name ("e2"), and a promotion that is a piece or nothing. No drop. The
 // engine's findMove decides the rest, a corner's number included.
+// Gambling Chess: why a move from `from` was refused, if the piece there is
+// not the type dealt. Null otherwise.
+function wrongPiece(room, from) {
+  const { chess } = room;
+  if (!chess.isGambling || !chess.dealt || !Number.isInteger(from) || from < 0 || from > 63) return null;
+  const p = chess.squares[from];
+  if (!p || p.c !== chess.turn || p.t === chess.dealt) return null;
+  return `This turn you must move ${chess.dealt === "k" ? "your king" : "a " + PIECE_NAMES[chess.dealt]}.`;
+}
+
 function isFourMove(payload) {
   const square = (s) => (typeof s === "string" ? FourPlayer.squareOf(s) >= 0 : Number.isInteger(s));
   const p = payload || {};

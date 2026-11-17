@@ -29,7 +29,8 @@ class Chess {
     // changes the starting position. 'atomic' changes what a capture does;
     // 'crazyhouse' keeps what you capture in a pocket; 'antichess' makes you
     // try to lose everything; 'kingofthehill' adds a win in the centre;
-    // 'threecheck' a win by giving check three times; 'bughouse' is one board
+    // 'threecheck' a win by giving check three times; 'gambling' deals each
+    // turn the piece type to move; 'bughouse' is one board
     // of a two-board team game, its captures passed to a partner. Set it with
     // setVariant(), then reset() or loadFen(): those two deliberately leave the
     // rules alone, so loading a position never silently changes them, and they
@@ -39,7 +40,7 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'bughouse'].includes(name) ? name : 'standard';
+    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'gambling', 'bughouse'].includes(name) ? name : 'standard';
     return this;
   }
 
@@ -81,6 +82,57 @@ class Chess {
     if (this.checks[W] >= 3) return W;
     if (this.checks[B] >= 3) return B;
     return null;
+  }
+
+  // Gambling Chess (ours): ordinary chess, but each turn the side to move is
+  // dealt a piece type at random — one of the types with a legal move, each
+  // as likely as the others — and may move only a piece of that type (castling
+  // is a king move, a promotion a pawn's). Check, mate and every draw are as
+  // usual: in check only a type that can answer it can be dealt, and with
+  // none it is mate. `dealt` is the type ('p', 'n', 'b', 'r', 'q' or 'k'), or
+  // null until the turn is dealt; whoever runs the game deals it (deal,
+  // dealRandom): the server in a game between people, the page against
+  // LorFish. A move clears it and undoMove puts it back, so a search sees it
+  // at its root only. FEN writes it as a seventh field ("… 0 1 n").
+  get isGambling() { return this.variant === 'gambling'; }
+
+  // The legal moves whatever was dealt: what mate, stalemate, the deal itself
+  // and the repetition key ask about.
+  movesIgnoringDeal(forColor) {
+    const dealt = this.dealt;
+    this.dealt = null;
+    try { return this.legalMoves(forColor); } finally { this.dealt = dealt; }
+  }
+
+  // The piece types the side to move could move, in the order p n b r q k:
+  // what a deal is drawn from. Empty when it has no legal move.
+  movableTypes() {
+    const have = new Set(this.movesIgnoringDeal().map((m) => this.squares[m.from].t));
+    return ['p', 'n', 'b', 'r', 'q', 'k'].filter((t) => have.has(t));
+  }
+
+  // Deal `t` to the side to move: true if it is one of the movable types.
+  deal(t) {
+    if (!this.isGambling || !this.movableTypes().includes(t)) return false;
+    this.dealt = t;
+    return true;
+  }
+
+  // Deal a movable type at random, each as likely: `pick(n)` gives a whole
+  // number below n (the server passes crypto's). The type, or null when
+  // there is nothing to move.
+  dealRandom(pick) {
+    if (!this.isGambling) return null;
+    const types = this.movableTypes();
+    const choose = pick || ((n) => Math.floor(Math.random() * n));
+    this.dealt = types.length ? types[choose(types.length)] : null;
+    return this.dealt;
+  }
+
+  // The dealt type a Gambling Chess FEN carries (its seventh field), or null.
+  static dealtIn(fen) {
+    const m = /^\S+ [wb] \S+ \S+ \d+ \d+ ([pnbrqk])$/.exec(String(fen || '').trim());
+    return m ? m[1] : null;
   }
 
   // Once the third check is given the move list is empty, like any finished
@@ -204,6 +256,7 @@ class Chess {
     }
     this.pockets = this.hasPockets ? emptyPockets() : null;
     this.checks = this.isThreeCheck ? { [W]: 0, [B]: 0 } : null;
+    this.dealt = null;
     this.turn = W;
     // Nothing to castle with in Pawn Wars, and claiming rights would put a
     // meaningless "KQkq" in every FEN it produces. Antichess forbids it.
@@ -356,9 +409,13 @@ class Chess {
     this.ep = ep;
     this.halfmove = counters[0] ? parseInt(counters[0], 10) || 0 : 0;
     this.fullmove = counters[1] ? parseInt(counters[1], 10) || 1 : 1;
+    this.dealt = null;
     this.history = [];
     this.positionCounts = new Map();
     this.positionCounts.set(this.positionKey(), 1);
+    // Gambling Chess: the type dealt, if the FEN has one that can move here;
+    // anything else leaves the turn undealt.
+    if (this.isGambling && /^[pnbrqk]$/.test(counters[2] || '')) this.deal(counters[2]);
   }
 
   // Work out which rook each castling right refers to and where each king
@@ -489,7 +546,7 @@ class Chess {
     s += '|' + this.turn;
     s += '|' + (this.castling.K ? 'K' : '') + (this.castling.Q ? 'Q' : '')
             + (this.castling.k ? 'k' : '') + (this.castling.q ? 'q' : '');
-    const legalEp = this.ep != null && this.legalMoves().some(m => m.enpassant);
+    const legalEp = this.ep != null && this.movesIgnoringDeal().some(m => m.enpassant);
     s += '|' + (legalEp ? this.ep : '-');
     return s;
   }
@@ -518,7 +575,8 @@ class Chess {
     const ep = this.ep != null ? algOf(this.ep) : '-';
     const turn = this.turn === W ? 'w' : 'b';
     const left = this.checks ? ` ${3 - this.checks[W]}+${3 - this.checks[B]}` : '';
-    return `${board} ${turn} ${cr} ${ep}${left} ${this.halfmove} ${this.fullmove}`;
+    const dealt = this.dealt ? ' ' + this.dealt : '';
+    return `${board} ${turn} ${cr} ${ep}${left} ${this.halfmove} ${this.fullmove}${dealt}`;
   }
 
   pseudoMovesFrom(sq, c) {
@@ -730,6 +788,11 @@ class Chess {
 
   legalMoves(forColor) {
     const c = forColor || this.turn;
+    // Gambling Chess: only the dealt type may move.
+    if (this.dealt && c === this.turn) {
+      const t = this.dealt;
+      return this.movesIgnoringDeal(forColor).filter((m) => this.squares[m.from].t === t);
+    }
     // With a king already gone the game is over; offering moves would let a
     // search play on past the end.
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return [];
@@ -858,10 +921,13 @@ class Chess {
       fullmove: this.fullmove,
       turn: this.turn,
       checks: this.checks ? { [W]: this.checks[W], [B]: this.checks[B] } : null,
+      dealt: this.dealt,
       tracked: trackPosition,
       newKey: null,
     };
     this.history.push(histEntry);
+    // Gambling Chess: the next turn is dealt afresh.
+    this.dealt = null;
 
     if (m.drop) {
       this.pockets[piece.c][m.drop]--;
@@ -981,6 +1047,7 @@ class Chess {
 
     if (h.pocketed) this.pockets[h.turn][h.pocketed]--;
     if (h.checks) this.checks = h.checks;
+    this.dealt = h.dealt || null;
     this.castling = h.castling;
     this.ep = h.ep;
     this.halfmove = h.halfmove;

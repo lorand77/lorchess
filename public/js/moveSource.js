@@ -12,7 +12,8 @@
 // `env` (supplied by ui.js):
 //   getHumanColor() -> 'w'|'b'   getTurn() -> 'w'|'b'   isGameOver() -> bool
 //   getLevel() -> an aiLevels.js entry
-//   getPosition() -> { startFen, variant, moves } (moves as stored: "e2e4", "N@e4")
+//   getPosition() -> { startFen, variant, moves, dealt } (moves as stored: "e2e4", "N@e4";
+//                    dealt: Gambling Chess, the type the side to move was dealt)
 //   applyMove(move, record, opts) setThinking(bool)     onReject(msg?)
 //   onEngineError(msg)  the engine could not move; the page offers a retry
 //   opts.premove marks a move the human queued before the opponent replied.
@@ -96,6 +97,7 @@ function createAiMoveSource(env) {
       startFen: pos.startFen,
       variant: pos.variant,
       moves: pos.moves,
+      dealt: pos.dealt,
       depth: level.depth,
       temperature: level.temperature,
     });
@@ -173,7 +175,7 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
     // mover — so BOTH players apply moves only here. Single source of truth.
     onServerMove(m) {
       busy = false;
-      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false);
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false, { dealt: m.dealt });
     },
     kickIfEngineTurn() {}, // no engine in PvP
     cancel() {
@@ -193,7 +195,7 @@ function createSpectatorMoveSource(env) {
     },
     submitMove() {},
     onServerMove(m) {
-      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false);
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false, { dealt: m.dealt });
     },
     kickIfEngineTurn() {},
     cancel() {},

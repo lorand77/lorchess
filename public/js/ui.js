@@ -60,6 +60,7 @@ const boardEl       = document.getElementById('board');
 const turnEl        = document.getElementById('turn');
 const statusEl      = document.getElementById('status');
 const checksLineEl  = document.getElementById('checksLine');
+const dealBadgeEl   = document.getElementById('dealBadge');
 const historyEl     = document.getElementById('history');
 const promoEl       = document.getElementById('promo');
 const promoOpts     = document.getElementById('promoOptions');
@@ -105,6 +106,9 @@ const env = {
     // As they are stored (formatUci): castling by the rook square, which the
     // worker resolves on any back rank, and a drop as "N@e4".
     moves: chess.history.map(h => formatUci(h.move)),
+    // Gambling Chess: the type LorFish was dealt, which the worker's replay
+    // can't know.
+    dealt: chess.dealt || null,
   }),
   applyMove,
   setThinking,
@@ -129,6 +133,7 @@ function applyMove(rmove, record, opts) {
   const san = chess.moveToSan(move);
   planMoveAnimation(move);
   chess.makeMove(move);
+  dealTurn(opts && opts.dealt);
   lastMove = move;
   moveHistory.push(san);
   playMoveSound();
@@ -144,6 +149,20 @@ function applyMove(rmove, record, opts) {
   syncUndoButton();
   if (record) recordApplied(san, move, !!(opts && opts.premove));
   if (queued) playPremove(queued);
+}
+
+// Gambling Chess: deal the side now to move its piece type. Against LorFish
+// the page deals, at random; in a game between people only the server does,
+// and `fromServer` is what it sent with the move or the game state. Before
+// any premove is tried: the dealt type decides whether it is legal.
+function dealTurn(fromServer) {
+  if (!chess.isGambling) return;
+  chess.dealt = null;
+  if (pvpMode) {
+    if (fromServer) chess.deal(fromServer);
+    return;
+  }
+  if (!chess.isGameOver()) chess.dealRandom();
 }
 
 // Play a queued premove if it is legal in the position that just arrived. A
@@ -569,6 +588,15 @@ function render() {
   checksLineEl.hidden = !counted;
   if (counted) checksLineEl.textContent = `Checks: White ${chess.checks[W]} of 3 · Black ${chess.checks[B]} of 3`;
 
+  // Gambling Chess: the type dealt to the side to move, its piece shown.
+  const dealt = !infinite && chess.isGambling && !gameIsOver() ? chess.dealt : null;
+  dealBadgeEl.hidden = !dealt;
+  if (dealt) {
+    document.getElementById('dealPiece').src = pieceImgSrc({ c: chess.turn, t: dealt });
+    const who = !spectating && chess.turn === humanColor ? 'You' : chess.turn === W ? 'White' : 'Black';
+    document.getElementById('dealText').textContent = `${who} must move ${dealt === 'k' ? 'the king' : 'a ' + PIECE_NAMES[dealt]}`;
+  }
+
   // Status line
   if (chess.isGameOver()) {
     let s = `Game Over: ${chess.result()}`;
@@ -718,7 +746,11 @@ function canPickUp(sq) {
   if (promotionPending || gameIsOver()) return false;
   if (!canMoveNow() && !canPremove()) return false;
   const piece = pieceOn(sq);
-  return !!piece && piece.c === humanColor;
+  if (!piece || piece.c !== humanColor) return false;
+  // Gambling Chess: on your turn, only the type dealt. A premove may be any
+  // piece: the next deal isn't known yet.
+  if (chess.isGambling && chess.dealt && canMoveNow() && piece.t !== chess.dealt) return false;
+  return true;
 }
 
 // May the user pick up a piece of this type from their pocket (Crazyhouse,
@@ -1175,6 +1207,7 @@ async function startNewGame() {
   const fen = opening === 'shuffled' ? randomFen() : opening;
   if (fen) chess.loadFen(fen);
   else chess.reset();
+  dealTurn();
   startFullmove = chess.fullmove;
   startTurn = chess.turn;
   startFen = fen || null;
@@ -1340,6 +1373,13 @@ function resumeAiGame(game) {
     startTurn = chess.turn;
     moveHistory = [];
     lastMove = null;
+  }
+
+  // Gambling Chess: the turn keeps the type it was dealt when the game was
+  // left (stored with the position), so coming back is no second deal.
+  if (chess.isGambling) {
+    const kept = Chess.dealtIn(game.current_fen);
+    if (!(kept && chess.deal(kept))) dealTurn();
   }
 
   whiteName = humanColor === W ? 'Human' : 'LorFish';
@@ -2032,6 +2072,7 @@ function applyPvpState(socket, state) {
   useVariant(state.variant);
   gameVariant = state.variant || 'standard';
   rebuildFromRecord(state);
+  dealTurn(state.dealt);
   startFullmove = 1;
   startTurn = W;
   // Non-null for a handicap game, so the exported PGN carries SetUp/FEN. A

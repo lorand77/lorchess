@@ -69,6 +69,8 @@ const ACHIEVEMENTS = [
     desc: "Win {n} King of the Hill games.", tiers: [1, 10, 50] },
   { key: "threecheck_wins", name: "Hat Trick", icon: "🎩", group: "formats",
     desc: "Win {n} Three-check games.", tiers: [1, 10, 50] },
+  { key: "gambling_wins", name: "High Roller", icon: "🎲", group: "formats",
+    desc: "Win {n} Gambling Chess games.", tiers: [1, 10, 50] },
   { key: "bughouse_wins", name: "Tag Team", icon: "🤝", group: "formats",
     desc: "Win {n} Bughouse games.", tiers: [1, 10, 50] },
   { key: "fourplayer_wins", name: "Four Corners", icon: "🧭", group: "formats",

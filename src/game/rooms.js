@@ -10,7 +10,8 @@
 // b, y and g in place of w and b: everything kept per colour is kept for each
 // of `room.colors`.
 
-const { STANDARD_START } = require("../shared/chess");
+const { randomInt } = require("crypto");
+const { STANDARD_START, Chess } = require("../shared/chess");
 const { createEngine } = require("../shared/engines");
 const queries = require("../db/queries");
 const config = require("../config");
@@ -26,6 +27,15 @@ const fourGames = require("./fourGames");
 const { FourPlayer } = require("../shared/fourPlayer");
 
 const rooms = new Map(); // gameId -> room
+
+// Gambling Chess: deal the side to move its piece type, at random from the
+// types it can move (Chess.dealRandom), with crypto's numbers: the server
+// deals in a game between people, so neither player's page can. Nothing once
+// the game is over. The deal is in the FEN, so writing the position stores it.
+function dealTurn(room) {
+  if (!room.chess.isGambling || room.chess.isGameOver()) return null;
+  return room.chess.dealRandom((n) => randomInt(n));
+}
 
 function createRoom(
   gameId,
@@ -283,6 +293,16 @@ function loadRoomFromDb(gameId) {
   room.status = game.status;
   room.result = game.result;
   room.termination = game.termination;
+  // Gambling Chess: the turn keeps the type it was dealt, as stored with the
+  // position, so a restart is no second deal; dealt afresh only if there is
+  // none (or it can't move here).
+  if (room.chess.isGambling && room.status === "active") {
+    const kept = Chess.dealtIn(game.current_fen);
+    if (!(kept && room.chess.deal(kept))) {
+      dealTurn(room);
+      queries.updateGamePosition.run(room.chess.fen(), room.chess.turn, gameId);
+    }
+  }
   return room;
 }
 
@@ -396,6 +416,7 @@ module.exports = {
   clockSnapshot,
   resumableGames,
   liveGameOf,
+  dealTurn,
   sweepUnresumed,
   STANDARD_START,
 };

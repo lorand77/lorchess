@@ -495,6 +495,7 @@ function evaluateStats(userId, ref) {
     ["antichess_wins", tierFor("antichess_wins", byVariant.antichess || 0)],
     ["kingofthehill_wins", tierFor("kingofthehill_wins", byVariant.kingofthehill || 0)],
     ["threecheck_wins", tierFor("threecheck_wins", byVariant.threecheck || 0)],
+    ["gambling_wins", tierFor("gambling_wins", byVariant.gambling || 0)],
     ["bughouse_wins", tierFor("bughouse_wins", byVariant.bughouse || 0)],
     ["fourplayer_wins", tierFor("fourplayer_wins", byVariant.fourplayer || 0)],
     ["fourplayer_ffa_wins", tierFor("fourplayer_ffa_wins", byVariant.fourplayer_ffa || 0)],

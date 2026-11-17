@@ -333,6 +333,8 @@ describe("aggregate achievements", () => {
     assert.ok(has(keys, "kingofthehill_wins") && lacks(keys, "every_variant"), keys);
     keys = win("threecheck");
     assert.ok(has(keys, "threecheck_wins") && lacks(keys, "every_variant"), keys);
+    keys = win("gambling");
+    assert.ok(has(keys, "gambling_wins") && lacks(keys, "every_variant"), keys);
     // A win against LorFish is a standard win too.
     const ai = recordGame({
       white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",

@@ -37,12 +37,13 @@ describe("variant catalogue", () => {
         assert.ok(createEngine(v.key) instanceof InfiniteChess);
         continue;
       }
-      if (v.key === "fourplayer") {
+      if (isFourPlayer(v.key)) {
         assert.ok(createEngine(v.key) instanceof FourPlayer);
+        assert.equal(createEngine(v.key).mode, v.key === "fourplayer" ? "teams" : "ffa");
         continue;
       }
       const rules = new Chess().setVariant(v.key).variant;
-      const expected = ["atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse"].includes(v.key) ? v.key : "standard";
+      const expected = ["atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "threecheck", "gambling", "bughouse"].includes(v.key) ? v.key : "standard";
       assert.equal(rules, expected, v.key);
     }
   });
@@ -118,7 +119,7 @@ describe("variant catalogue", () => {
   });
 
   test("only the variants still new are casual-only", () => {
-    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "bughouse", "fourplayer", "fourplayer_ffa", "infinite"];
+    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "gambling", "bughouse", "fourplayer", "fourplayer_ffa", "infinite"];
     for (const v of VARIANTS) assert.equal(isRateable(v.key), !casual.includes(v.key), v.key);
     assert.equal(isRateable("nope"), true, "unknown means standard");
   });

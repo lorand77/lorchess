@@ -146,7 +146,7 @@ function startMatch(io, white, black, opts) {
   );
   const gameId = Number(info.lastInsertRowid);
 
-  rooms.createRoom(gameId, {
+  const room = rooms.createRoom(gameId, {
     whiteId: white.userId,
     blackId: black.userId,
     whiteName: white.username,
@@ -157,6 +157,9 @@ function startMatch(io, white, black, opts) {
     incrementMs,
     rated,
   });
+  // Gambling Chess: White's first turn is dealt now, and stored with the
+  // position so a restart keeps it.
+  if (rooms.dealTurn(room)) queries.updateGamePosition.run(room.chess.fen(), room.chess.turn, gameId);
 
   // Both players are spoken for now: out of the queues, and every other offer
   // they had open is withdrawn by the lobby.

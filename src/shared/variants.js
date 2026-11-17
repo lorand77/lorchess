@@ -65,6 +65,13 @@ const VARIANTS = [
   // handicap leaves the rule alone. Casual while it is new.
   { key: 'threecheck', label: 'Three-check', standardSetup: true, reviewable: false, rateable: false,
     materialBadges: true, moveBadges: true, bot: true },
+  // Ordinary chess, but each turn a piece type is dealt at random, from the
+  // types that can move, and only that type may move (chess.js isGambling).
+  // The server deals in a game between people, the page against LorFish.
+  // Opens from the standard setup; a handicap leaves the rule alone. Casual:
+  // luck decides too much to move anyone's rating.
+  { key: 'gambling', label: 'Gambling Chess', standardSetup: true, reviewable: false, rateable: false,
+    materialBadges: true, moveBadges: true, bot: true },
   // Two boards, two teams of two: a capture goes to the partner on the other
   // board (src/shared/bughouse.js, src/game/matches.js). `teams` keeps it out
   // of everything that seats two players — the lobby's pickers, quick match,
