@@ -85,10 +85,12 @@ window.FourBoardView = (function () {
 
     let dead = new Set();   // the last render's dead colours, for the animation too
 
-    function pieceImg(piece, cls) {
+    // `live`: in its own colour even if its army is now out — a piece taken
+    // by the move that put its player out, fading.
+    function pieceImg(piece, cls, live) {
       const img = document.createElement('img');
       img.src = handlers.pieceSrc({ t: piece.t, c: 'w' });
-      img.className = cls + ' four-' + (dead.has(piece.c) ? 'dead' : piece.c);
+      img.className = cls + ' four-' + (dead.has(piece.c) && !live ? 'dead' : piece.c);
       if (piece.t === 'p') img.classList.add('pawn');
       img.draggable = false;
       return img;
@@ -191,7 +193,7 @@ window.FourBoardView = (function () {
       if (anim.captured) {
         const capEl = sqEl(anim.captured.sq);
         if (capEl) {
-          const ghost = pieceImg(anim.captured.piece, 'ghost');
+          const ghost = pieceImg(anim.captured.piece, 'ghost', true);
           ghost.alt = '';
           capEl.insertBefore(ghost, capEl.firstChild);
           const fade = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MOVE_ANIM_MS, easing: 'ease-in' });

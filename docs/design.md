@@ -910,7 +910,15 @@ Corners".
       · 30 pts"); first place sorts with the wins.
     - Tested in Chromium (`test/browser/fourPlayer.ffa.test.cjs`): a game
       with a player resigning, the lobby's card and picker, a claim, the
-      placings on the game page, the replay and the Games tab.
+      placings on the game page, the replay and the Games tab. And
+      `fourPlayer.ffa.four.test.cjs`, the whole thing between four people in
+      four browsers: a free-for-all table fills and starts itself, every move
+      is a click, Red mates Blue (Teams' line, which mates the same way here)
+      and Blue is out while the others play on, Yellow resigns from its page,
+      Red, 21 ahead of Green, claims the win, all four see the placings, Red
+      earns "Lone Wolf", and the game is in the history and replays.
+    - A piece taken by the move that puts its player out fades in its own
+      colour, not grey: it was taken while its army was live.
 - *Not done:* draw offers, rematches, and a preview in the lobby's live
   games.
 

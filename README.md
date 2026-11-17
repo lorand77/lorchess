@@ -14,9 +14,9 @@ time.
 - Games against LorFish, which runs in the browser in a Web Worker
 - Variants: standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess,
   King of the Hill, Three-check and Infinite Chess (a board with no edges), and
-  two team games with LorFish in any empty seat: Bughouse (two boards, two
-  teams) and Four-Player Chess (Teams, on chess.com's rules, with LorFish
-  playing on the server)
+  games for four with LorFish in any empty seat, playing on the server:
+  Bughouse (two boards, two teams) and Four-Player Chess on chess.com's rules,
+  as Teams or Free-for-All (everyone for themselves, for points)
 - Puzzles, achievements, friends, a leaderboard, spectating, in-game chat and
   game replays
 
