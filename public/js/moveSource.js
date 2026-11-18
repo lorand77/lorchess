@@ -13,7 +13,7 @@
 //   getHumanColor() -> 'w'|'b'   getTurn() -> 'w'|'b'   isGameOver() -> bool
 //   getLevel() -> an aiLevels.js entry
 //   getPosition() -> { startFen, variant, moves, dealt } (moves as stored: "e2e4", "N@e4";
-//                    dealt: Gambling Chess, the type the side to move was dealt)
+//                    dealt: Gambling Madness, the type the side to move was dealt)
 //   applyMove(move, record, opts) setThinking(bool)     onReject(msg?)
 //   onEngineError(msg)  the engine could not move; the page offers a retry
 //   opts.premove marks a move the human queued before the opponent replied.

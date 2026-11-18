@@ -84,7 +84,7 @@ class Chess {
     return null;
   }
 
-  // Gambling Chess (ours): ordinary chess, but each turn the side to move is
+  // Gambling Madness (ours): ordinary chess, but each turn the side to move is
   // dealt a piece type at random — one of the types with a legal move, each
   // as likely as the others — and may move only a piece of that type (castling
   // is a king move, a promotion a pawn's). Check, mate and every draw are as
@@ -129,7 +129,7 @@ class Chess {
     return this.dealt;
   }
 
-  // The dealt type a Gambling Chess FEN carries (its seventh field), or null.
+  // The dealt type a Gambling Madness FEN carries (its seventh field), or null.
   static dealtIn(fen) {
     const m = /^\S+ [wb] \S+ \S+ \d+ \d+ ([pnbrqk])$/.exec(String(fen || '').trim());
     return m ? m[1] : null;
@@ -413,7 +413,7 @@ class Chess {
     this.history = [];
     this.positionCounts = new Map();
     this.positionCounts.set(this.positionKey(), 1);
-    // Gambling Chess: the type dealt, if the FEN has one that can move here;
+    // Gambling Madness: the type dealt, if the FEN has one that can move here;
     // anything else leaves the turn undealt.
     if (this.isGambling && /^[pnbrqk]$/.test(counters[2] || '')) this.deal(counters[2]);
   }
@@ -788,7 +788,7 @@ class Chess {
 
   legalMoves(forColor) {
     const c = forColor || this.turn;
-    // Gambling Chess: only the dealt type may move.
+    // Gambling Madness: only the dealt type may move.
     if (this.dealt && c === this.turn) {
       const t = this.dealt;
       return this.movesIgnoringDeal(forColor).filter((m) => this.squares[m.from].t === t);
@@ -926,7 +926,7 @@ class Chess {
       newKey: null,
     };
     this.history.push(histEntry);
-    // Gambling Chess: the next turn is dealt afresh.
+    // Gambling Madness: the next turn is dealt afresh.
     this.dealt = null;
 
     if (m.drop) {

@@ -14,7 +14,7 @@
 //              repetition is rebuilt correctly (loadFen and reset both wipe it).
 //   depth, temperature : the game's level (src/shared/aiLevels.js); a
 //              temperature of 0 is the plain search with its tiebreak jitter.
-//   dealt    : Gambling Chess, the piece type LorFish was dealt, which only
+//   dealt    : Gambling Madness, the piece type LorFish was dealt, which only
 //              the page knows; its search then moves only that type at the
 //              root, and expects the other side may move anything after.
 // Reply: { id, move|null, error? }  move = {from,to,promo,drop}, squares as

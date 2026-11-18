@@ -592,7 +592,7 @@ function stateOf(room, color) {
     ...(room.ffa ? { points: { ...room.chess.points }, out: { ...room.chess.out } } : {}),
     clocks: rooms.clockSnapshot(room),
     running: room.started,
-    // Gambling Chess: the type the side to move must move.
+    // Gambling Madness: the type the side to move must move.
     dealt: room.chess.dealt || null,
     drawOffer: room.drawOffer,
     initialMs: room.initialMs,
@@ -797,7 +797,7 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     room.turnStartedAt = now;
   }
 
-  // (4) Apply on the authoritative board. Gambling Chess: the next turn is
+  // (4) Apply on the authoritative board. Gambling Madness: the next turn is
   // dealt here, so the position written below carries it.
   const san = room.chess.moveToSan(move);
   room.chess.makeMove(move);
@@ -871,7 +871,7 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     clocks: rooms.clockSnapshot(room),
     // Bughouse: the piece this capture sent to the other board.
     passed,
-    // Gambling Chess: the type the side now to move must move.
+    // Gambling Madness: the type the side now to move must move.
     dealt: room.chess.dealt || null,
   });
 
@@ -1324,7 +1324,7 @@ function isInfiniteMove(payload) {
 // A four-player move payload: two squares, each the engine's number (0-195)
 // or a name ("e2"), and a promotion that is a piece or nothing. No drop. The
 // engine's findMove decides the rest, a corner's number included.
-// Gambling Chess: why a move from `from` was refused, if the piece there is
+// Gambling Madness: why a move from `from` was refused, if the piece there is
 // not the type dealt. Null otherwise.
 function wrongPiece(room, from) {
   const { chess } = room;

@@ -157,7 +157,7 @@ function startMatch(io, white, black, opts) {
     incrementMs,
     rated,
   });
-  // Gambling Chess: White's first turn is dealt now, and stored with the
+  // Gambling Madness: White's first turn is dealt now, and stored with the
   // position so a restart keeps it.
   if (rooms.dealTurn(room)) queries.updateGamePosition.run(room.chess.fen(), room.chess.turn, gameId);
 

@@ -1,11 +1,15 @@
 "use strict";
 
-// Gambling Chess on the game page. Against LorFish: the page deals each turn,
+// Gambling Madness on the game page. Against LorFish: the page deals each turn,
 // the badge by the board shows what was dealt, only that type can be picked
 // up, LorFish moves the type it was dealt, and a reload keeps the deal.
 // Between two people: the server deals, both pages show its deal, and a
 // premove is played if it uses the type dealt when its turn comes, dropped if
-// not.
+// not. The wheel: it spins for each deal, one slice per type that could have
+// been dealt, stops on the one that was, and gives way to the badge; a click
+// on the board stops it and still picks the piece up; it doesn't spin for a
+// premove played at once, nor when turned off on the Customize page or with
+// "reduce motion".
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { startServer, openBrowser, signedInPage, db } = require("./helpers.cjs");
@@ -83,6 +87,7 @@ test("between two people: the server's deal on both pages, and a premove played 
   rooms.getRoom(gameId).chess.deal("n");
 
   for (const p of [white, black]) {
+    await watchWheel(p.page);
     await p.page.goto(srv.baseUrl + "/game.html?id=" + gameId);
     await p.page.waitForFunction(() => pvpMode && chess.dealt != null);
   }
@@ -124,6 +129,83 @@ test("between two people: the server's deal on both pages, and a premove played 
   await square(black.page, "d6").click();
   await white.page.waitForFunction(() => chess.history.length === 5);
   assert.equal(await white.page.evaluate(() => moveHistory[4]), "e4");
+  // No wheel on White's page for the turn the premove took at once.
+  assert.ok(!(await white.page.evaluate(() => window.spins.some((sp) => sp.ply === 4))));
+  assert.ok(await white.page.evaluate(() => window.spins.some((sp) => sp.ply === 2)), "the dropped premove's turn spun");
   const row = db().prepare("SELECT premove FROM moves WHERE game_id = ? AND ply = 5").get(gameId);
   assert.equal(row.premove, 1);
+});
+
+// Each wheel the page spins, with the angle it was told to stop at.
+const watchWheel = (page) => page.addInitScript(() => {
+  window.spins = [];
+  const animate = Element.prototype.animate;
+  Element.prototype.animate = function (frames, opts) {
+    if (this.classList.contains("deal-wheel-disc")) {
+      const types = [...this.querySelectorAll("img")].map((img) => img.dataset.type);
+      window.spins.push({ ply: chess.history.length, dealt: chess.dealt, types, end: parseFloat(/rotate\((-?[\d.]+)deg\)/.exec(frames[1].transform)[1]) });
+    }
+    return animate.call(this, frames, opts);
+  };
+});
+
+test("the wheel: spun for the deal, stopped on it, given way to the badge, skipped by a click", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await watchWheel(page);
+  await page.goto(srv.baseUrl + "/game.html?variant=gambling&level=beginner");
+  await ready(page);
+
+  // White's first deal: a wheel of pawn and knight, the badge hidden while it
+  // turns, stopping inside the dealt type's slice.
+  const spin = await page.evaluate(() => window.spins[0]);
+  assert.deepEqual(spin.types, ["p", "n"]);
+  const at = ((-spin.end % 360) + 360) % 360;   // the angle under the pointer
+  assert.equal(spin.types[Math.floor(at / 180)], spin.dealt, JSON.stringify(spin));
+  await page.waitForSelector(".deal-wheel", { state: "detached" });
+  assert.equal(await page.locator("#dealBadge").isVisible(), true);
+
+  // A new game spins again; a click on the board takes the wheel away at once
+  // and still picks the knight up.
+  await page.locator("#resetBtn").click();
+  await ready(page);
+  await page.evaluate(() => { chess.deal("n"); });
+  await page.waitForSelector(".deal-wheel");
+  assert.equal(await page.locator("#dealBadge").isVisible(), false);
+  await square(page, "g1").click();
+  assert.equal(await page.locator(".deal-wheel").count(), 0);
+  assert.equal(await page.locator("#dealBadge").isVisible(), true);
+  assert.equal(await page.locator("#board .hint").count(), 2, "the knight's squares");
+
+  // LorFish's turn spins too, before its move lands.
+  await square(page, "f3").click();
+  await page.waitForFunction(() => chess.history.length === 2 && !thinking, null, { timeout: 15000 });
+  const plies = await page.evaluate(() => window.spins.map((s) => s.ply));
+  assert.ok(plies.includes(1), "LorFish's deal: " + plies);
+  assert.ok(plies.includes(2), "and White's next: " + plies);
+});
+
+test("no wheel when it is turned off on the Customize page, or with reduce motion", async (t) => {
+  const { page } = await signedInPage(browser, srv.baseUrl, t);
+  await watchWheel(page);
+  await page.goto(srv.baseUrl + "/settings.html");
+  const toggle = page.locator("#dealWheelToggle");
+  assert.equal(await toggle.isChecked(), true, "on to begin with");
+  await toggle.uncheck();
+  assert.equal(await page.evaluate(() => localStorage.getItem("lorchess.dealWheel")), "off");
+  await page.goto(srv.baseUrl + "/game.html?variant=gambling&level=beginner");
+  await ready(page);
+  assert.ok(await page.evaluate(() => chess.dealt));
+  assert.equal(await page.evaluate(() => window.spins.length), 0);
+  assert.equal(await page.locator("#dealBadge").isVisible(), true);
+
+  await page.goto(srv.baseUrl + "/settings.html");
+  await toggle.check();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(srv.baseUrl + "/game.html?variant=gambling&level=beginner");
+  await ready(page);
+  assert.equal(await page.evaluate(() => window.spins.length), 0);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.locator("#resetBtn").click();
+  await ready(page);
+  assert.equal(await page.evaluate(() => window.spins.length), 1, "on again");
 });

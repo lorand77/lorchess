@@ -1,6 +1,6 @@
 "use strict";
 
-// Gambling Chess in the rules engine (src/shared/chess.js, variant
+// Gambling Madness in the rules engine (src/shared/chess.js, variant
 // 'gambling'): each turn a piece type is dealt, from the types with a legal
 // move, each as likely, and only that type may move. Check, mate and the draws
 // are ordinary chess's; the deal is in the FEN, cleared by a move and put back
@@ -20,7 +20,7 @@ const gambling = (fen) => {
 };
 const sans = (c) => c.legalMoves().map((m) => c.moveToSan(m)).sort();
 
-describe("Gambling Chess: the deal", () => {
+describe("Gambling Madness: the deal", () => {
   test("from the start only pawns and knights can move, so only they are dealt", () => {
     const c = gambling();
     assert.equal(c.dealt, null);
@@ -68,7 +68,7 @@ describe("Gambling Chess: the deal", () => {
     assert.equal(mate.result(), "1-0");
   });
 
-  test("dealing is Gambling Chess's alone", () => {
+  test("dealing is Gambling Madness's alone", () => {
     const c = new Chess();
     c.reset();
     assert.equal(c.deal("n"), false);
@@ -77,7 +77,7 @@ describe("Gambling Chess: the deal", () => {
   });
 });
 
-describe("Gambling Chess: moves, history and notation", () => {
+describe("Gambling Madness: moves, history and notation", () => {
   test("a move clears the deal and undoing it puts the deal back", () => {
     const c = gambling();
     c.deal("n");
@@ -119,7 +119,7 @@ describe("Gambling Chess: moves, history and notation", () => {
   });
 });
 
-describe("LorFish in Gambling Chess", () => {
+describe("LorFish in Gambling Madness", () => {
   test("moves only the dealt type at its root", () => {
     // A rook is hanging on h8 for the queen on d4, but a knight is dealt.
     const c = gambling("4k2r/8/8/8/3Q4/8/8/1N2K3 w - - 0 1");

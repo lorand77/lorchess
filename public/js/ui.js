@@ -106,7 +106,7 @@ const env = {
     // As they are stored (formatUci): castling by the rook square, which the
     // worker resolves on any back rank, and a drop as "N@e4".
     moves: chess.history.map(h => formatUci(h.move)),
-    // Gambling Chess: the type LorFish was dealt, which the worker's replay
+    // Gambling Madness: the type LorFish was dealt, which the worker's replay
     // can't know.
     dealt: chess.dealt || null,
   }),
@@ -148,10 +148,11 @@ function applyMove(rmove, record, opts) {
   render();
   syncUndoButton();
   if (record) recordApplied(san, move, !!(opts && opts.premove));
-  if (queued) playPremove(queued);
+  // A premove played at once leaves no turn to spin the wheel for.
+  if (!(queued && playPremove(queued))) spinDeal();
 }
 
-// Gambling Chess: deal the side now to move its piece type. Against LorFish
+// Gambling Madness: deal the side now to move its piece type. Against LorFish
 // the page deals, at random; in a game between people only the server does,
 // and `fromServer` is what it sent with the move or the game state. Before
 // any premove is tried: the dealt type decides whether it is legal.
@@ -165,16 +166,44 @@ function dealTurn(fromServer) {
   if (!chess.isGameOver()) chess.dealRandom();
 }
 
+// Gambling Madness: the type dealt to the side to move, its piece shown. The
+// wheel shows it first, while it spins. Apart from render() so the wheel can
+// bring the badge back without rebuilding the board under a click.
+function renderDealBadge() {
+  const dealt = chess.isGambling && !gameIsOver() ? chess.dealt : null;
+  dealBadgeEl.hidden = !dealt || (typeof DealWheel !== 'undefined' && DealWheel.spinning());
+  if (dealt) {
+    document.getElementById('dealPiece').src = pieceImgSrc({ c: chess.turn, t: dealt });
+    const who = !spectating && chess.turn === humanColor ? 'You' : chess.turn === W ? 'White' : 'Black';
+    document.getElementById('dealText').textContent = `${who} must move ${dealt === 'k' ? 'the king' : 'a ' + PIECE_NAMES[dealt]}`;
+  }
+}
+
+// Spin the wheel (dealWheel.js) for the deal just made: a show only, the deal
+// is already made. The badge waits until the wheel has gone.
+function spinDeal() {
+  if (!chess.isGambling || !chess.dealt || gameIsOver() || typeof DealWheel === 'undefined') return;
+  const color = chess.turn;
+  DealWheel.spin(boardEl.parentElement, boardEl, {
+    types: chess.movableTypes(),
+    dealt: chess.dealt,
+    src: (t) => pieceImgSrc({ c: color, t }),
+    onDone: renderDealBadge,
+  });
+  renderDealBadge();
+}
+
 // Play a queued premove if it is legal in the position that just arrived. A
 // promotion premove always takes a queen: there is no dialog for a move that
 // was decided before the position existed. A pre-drop needs its square empty
 // by then.
 function playPremove(pm) {
-  if (gameIsOver() || !canMoveNow()) return;
+  if (gameIsOver() || !canMoveNow()) return false;
   const move = pm.drop ? chess.findDrop(pm.drop, pm.to)
     : chess.findMove(pm.from, pm.to) || chess.findMove(pm.from, pm.to, 'q');
-  if (!move) return;
+  if (!move) return false;
   doHumanMove(move, { premove: true });
+  return true;
 }
 
 // Record the move just applied to `chess`, and finalize the game if it ended
@@ -588,14 +617,7 @@ function render() {
   checksLineEl.hidden = !counted;
   if (counted) checksLineEl.textContent = `Checks: White ${chess.checks[W]} of 3 · Black ${chess.checks[B]} of 3`;
 
-  // Gambling Chess: the type dealt to the side to move, its piece shown.
-  const dealt = !infinite && chess.isGambling && !gameIsOver() ? chess.dealt : null;
-  dealBadgeEl.hidden = !dealt;
-  if (dealt) {
-    document.getElementById('dealPiece').src = pieceImgSrc({ c: chess.turn, t: dealt });
-    const who = !spectating && chess.turn === humanColor ? 'You' : chess.turn === W ? 'White' : 'Black';
-    document.getElementById('dealText').textContent = `${who} must move ${dealt === 'k' ? 'the king' : 'a ' + PIECE_NAMES[dealt]}`;
-  }
+  renderDealBadge();
 
   // Status line
   if (chess.isGameOver()) {
@@ -747,7 +769,7 @@ function canPickUp(sq) {
   if (!canMoveNow() && !canPremove()) return false;
   const piece = pieceOn(sq);
   if (!piece || piece.c !== humanColor) return false;
-  // Gambling Chess: on your turn, only the type dealt. A premove may be any
+  // Gambling Madness: on your turn, only the type dealt. A premove may be any
   // piece: the next deal isn't known yet.
   if (chess.isGambling && chess.dealt && canMoveNow() && piece.t !== chess.dealt) return false;
   return true;
@@ -1016,6 +1038,11 @@ const boardHandlers = {
   },
 };
 let boardView = GridBoardView.create(boardEl, boardHandlers);
+// Gambling Madness: a click on the board stops the wheel, and goes on to the
+// square as usual.
+boardEl.addEventListener('pointerdown', () => {
+  if (typeof DealWheel !== 'undefined') DealWheel.skip();
+}, true);
 
 // A pocket piece is picked up by a click too, and put down by a second one.
 // Like a click on the board, it withdraws a queued premove.
@@ -1124,6 +1151,7 @@ function undo() {
     moveHistory.splice(-1);
   }
   planUndoAnimation(undone);
+  if (typeof DealWheel !== 'undefined') DealWheel.skip(); // the deal undone back to was spun already
   if (chess.history.length < before) {
     play(sounds.move);
     resetSoundState(); // undone past the end: let a later mate sound again
@@ -1213,6 +1241,7 @@ async function startNewGame() {
   startFen = fen || null;
   const ready = persistNewAiGame(fen || null);
   refreshGameState();
+  spinDeal();
   return ready;
 }
 
@@ -1375,7 +1404,7 @@ function resumeAiGame(game) {
     lastMove = null;
   }
 
-  // Gambling Chess: the turn keeps the type it was dealt when the game was
+  // Gambling Madness: the turn keeps the type it was dealt when the game was
   // left (stored with the position), so coming back is no second deal.
   if (chess.isGambling) {
     const kept = Chess.dealtIn(game.current_fen);
@@ -2137,6 +2166,9 @@ function applyPvpState(socket, state) {
     ? createSpectatorMoveSource(env)
     : createRemoteMoveSource(env, { socket, gameId: state.gameId, yourColor: state.yourColor });
   render();
+  // Gambling Madness: White's first deal, spun as the game opens (again on a
+  // reload before the first move: the same deal, the server's).
+  if (!over && state.sans.length === 0) spinDeal();
 }
 
 // Show the local player's rating change after a rated game, and update the

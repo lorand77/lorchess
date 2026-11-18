@@ -9,7 +9,7 @@ repo are in `docs/CLAUDE.md`.
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
 standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of
-the Hill, Three-check, Gambling Chess or infinite chess, on a board with no edges. Around the games: puzzles, an
+the Hill, Three-check, Gambling Madness or infinite chess, on a board with no edges. Around the games: puzzles, an
 analysis board, achievements, friends, a leaderboard, spectating, in-game chat
 and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
 browser, no build step.
@@ -30,7 +30,7 @@ browser, no build step.
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
 squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill,
-Three-check, Gambling Chess and Bughouse rule sets.
+Three-check, Gambling Madness and Bughouse rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
 its variant needs. Four-player chess has a third, `src/shared/fourPlayer.js`. `src/shared/lorfish.js` is **LorFish**, a synchronous search
@@ -197,7 +197,7 @@ opens from the standard setup and takes a handicap, is casual while new, and
 can't be reviewed. The game page shows "Checks: White 1 of 3 · Black 0 of 3"
 under the turn line.
 
-**Gambling Chess** is ours: ordinary chess, but each turn the side to move is
+**Gambling Madness** is ours: ordinary chess, but each turn the side to move is
 dealt a piece type at random and may move only a piece of that type (castling
 is a king move, a promotion a pawn's). The deal is drawn from the types with
 a legal move (`movableTypes`), each as likely as the others, so a type with
@@ -238,6 +238,18 @@ is dealt, and with none it is mate. Every ending is ordinary chess's.
   deal isn't known; it is played if it uses the type dealt when its turn
   comes and dropped if not, by the usual legality test. The replay needs no
   deal of its own: each move's piece is the type it was dealt.
+- *The wheel* (`public/js/dealWheel.js`) spins over the board for each new
+  deal, both sides' turns: one equal slice per movable type, so it shows the
+  real odds, stopping on the type already dealt. It is only a show: the deal
+  is made first, the board stays usable, a click on the board takes the wheel
+  away (a capture-phase `pointerdown`, which redraws only the badge so the
+  click still reaches its square), and the clock runs as usual; it spins for
+  900 ms, under LorFish's quickest reply, so LorFish's wheel stops before its
+  move lands. The badge appears once the wheel has gone. It doesn't spin for
+  a premove played at once, for a deal restored by a reload (except White's
+  first in a game between people, the server's own deal), after an undo, or
+  with the system's "reduce motion"; a switch on the Customize page turns it
+  off in that browser (`localStorage`, `lorchess.dealWheel`).
 - Casual, from the standard setup, a handicap allowed; no review (Stockfish
   plays ordinary chess); material and move badges as in standard chess; its
   win badge is `gambling_wins`, "High Roller". Being a two-player variant, it

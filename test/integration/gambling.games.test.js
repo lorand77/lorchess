@@ -1,6 +1,6 @@
 "use strict";
 
-// Gambling Chess over the socket: always casual, from the standard setup. The
+// Gambling Madness over the socket: always casual, from the standard setup. The
 // server deals every turn — White's first as the game starts — from the types
 // the side to move can move, sends the deal with the game state and each
 // move, and stores it with the position. A move with any other type is
@@ -43,7 +43,7 @@ async function gamblingGame() {
 // Deal `t` on the server's board, as its random deal might have.
 const rig = (gameId, t) => assert.equal(rooms.getRoom(gameId).chess.deal(t), true, `deal ${t}`);
 
-describe("a Gambling Chess game", () => {
+describe("a Gambling Madness game", () => {
   let game;
   before(async () => { game = await gamblingGame(); });
   after(() => { game.white.close(); game.black.close(); });
@@ -51,7 +51,7 @@ describe("a Gambling Chess game", () => {
   test("starts casual, from the standard setup, White's first turn dealt and stored", () => {
     assert.equal(game.state.variant, "gambling");
     assert.equal(game.state.rated, false);
-    assert.equal(gameRow(game.gameId).rated, 0, "asked for rated; Gambling Chess is casual only");
+    assert.equal(gameRow(game.gameId).rated, 0, "asked for rated; Gambling Madness is casual only");
     assert.ok(["p", "n"].includes(game.state.dealt), game.state.dealt);
     assert.equal(game.state.fen, `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ${game.state.dealt}`);
     assert.equal(Chess.dealtIn(gameRow(game.gameId).current_fen), game.state.dealt);

@@ -28,7 +28,7 @@ const { FourPlayer } = require("../shared/fourPlayer");
 
 const rooms = new Map(); // gameId -> room
 
-// Gambling Chess: deal the side to move its piece type, at random from the
+// Gambling Madness: deal the side to move its piece type, at random from the
 // types it can move (Chess.dealRandom), with crypto's numbers: the server
 // deals in a game between people, so neither player's page can. Nothing once
 // the game is over. The deal is in the FEN, so writing the position stores it.
@@ -293,7 +293,7 @@ function loadRoomFromDb(gameId) {
   room.status = game.status;
   room.result = game.result;
   room.termination = game.termination;
-  // Gambling Chess: the turn keeps the type it was dealt, as stored with the
+  // Gambling Madness: the turn keeps the type it was dealt, as stored with the
   // position, so a restart is no second deal; dealt afresh only if there is
   // none (or it can't move here).
   if (room.chess.isGambling && room.status === "active") {

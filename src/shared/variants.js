@@ -70,7 +70,7 @@ const VARIANTS = [
   // The server deals in a game between people, the page against LorFish.
   // Opens from the standard setup; a handicap leaves the rule alone. Casual:
   // luck decides too much to move anyone's rating.
-  { key: 'gambling', label: 'Gambling Chess', standardSetup: true, reviewable: false, rateable: false,
+  { key: 'gambling', label: 'Gambling Madness', standardSetup: true, reviewable: false, rateable: false,
     materialBadges: true, moveBadges: true, bot: true },
   // Two boards, two teams of two: a capture goes to the partner on the other
   // board (src/shared/bughouse.js, src/game/matches.js). `teams` keeps it out

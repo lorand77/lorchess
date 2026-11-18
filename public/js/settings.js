@@ -2,7 +2,8 @@
 
 // The customization panel. Colour edits are applied to the page immediately
 // (via Theme.apply) as a live preview and persisted with Save; image uploads
-// go straight to the server and then the theme is reloaded from it.
+// go straight to the server and then the theme is reloaded from it. The Games
+// panel's switch is this browser's own and is saved as soon as it changes.
 
 (function () {
   const PIECES = [
@@ -66,6 +67,15 @@
     if (!res.ok) throw new Error(data.error || (res.status === 413 ? "File too large." : "Request failed."));
     return data;
   }
+
+  // Gambling Madness's wheel: a choice for this browser (dealWheel.js), saved
+  // as it is ticked, apart from the colours' Save.
+  const wheelToggle = $("dealWheelToggle");
+  wheelToggle.checked = DealWheel.wanted();
+  wheelToggle.addEventListener("change", () => {
+    DealWheel.setWanted(wheelToggle.checked);
+    say(wheelToggle.checked ? "The wheel will spin." : "The wheel is off.", true);
+  });
 
   const pick = (s) => ({ scheme: s.scheme, light: s.light, dark: s.dark, bgColor: s.bgColor });
   const dirty = () => !!saved && Object.keys(draft).some((k) => draft[k] !== saved[k]);
