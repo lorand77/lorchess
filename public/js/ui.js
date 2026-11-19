@@ -227,6 +227,7 @@ function recordApplied(san, move, premove) {
     });
     playOutcomeSound(chess.result());
     showReviewLink(gameStore.currentId());
+    showStar(gameStore.currentId());
   }
 }
 
@@ -1997,6 +1998,7 @@ function initPvp(gameId) {
     clockRunning = false;
     playOutcomeSound(info.result);
     showReviewLink(gameId);
+    showStar(gameId);
     if (info.clocks) setClocks(info.clocks, false);
     if (resignBtn) resignBtn.disabled = true;
     hideOffer();
@@ -2166,6 +2168,8 @@ function applyPvpState(socket, state) {
     ? createSpectatorMoveSource(env)
     : createRemoteMoveSource(env, { socket, gameId: state.gameId, yourColor: state.yourColor });
   render();
+  if (over) showStar(state.gameId);
+  else hideStar();
   // Gambling Madness: White's first deal, spun as the game opens (again on a
   // reload before the first move: the same deal, the server's).
   if (!over && state.sans.length === 0) spinDeal();
@@ -2197,6 +2201,34 @@ function showRatingChange(ratings) {
 function hideReviewLink() {
   const wrap = document.getElementById('reviewLinkWrap');
   if (wrap) wrap.style.display = 'none';
+  hideStar();
+}
+
+// The finished game's star (starButton.js), for finding it again under
+// "Starred only" on the Games tab. Asks the server whether it is starred
+// already: a game rejoined or watched after it ended may be.
+let starFor = null;   // the game the star line is showing, or is being fetched for
+async function showStar(id) {
+  if (!id || starFor === id) return;
+  starFor = id;
+  let starred = false;
+  try {
+    const res = await fetch('/api/games/' + id + '/star', { credentials: 'same-origin' });
+    if (res.ok) starred = !!(await res.json()).starred;
+  } catch (e) { /* shown unstarred; a click still sets it */ }
+  if (starFor !== id) return;   // a new game began meanwhile
+  const msg = document.getElementById('starMsg');
+  msg.textContent = '';
+  StarButton.attach(document.getElementById('starBtn'), id, starred, {
+    label: true,
+    onError: (e) => { msg.textContent = e; },
+    onChange: () => { msg.textContent = ''; },
+  });
+  document.getElementById('starLine').hidden = false;
+}
+function hideStar() {
+  starFor = null;
+  document.getElementById('starLine').hidden = true;
 }
 
 function showReviewLink(id) {

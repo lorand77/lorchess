@@ -56,6 +56,9 @@ async function populated() {
     queries.awardAchievement.run({ userId, key: "first_win", tier: 1, at: null, gameId, puzzleId: null });
   }
   queries.insertRatingHistory.run(a, pvp, 1200, 1190);
+  queries.starGame.run(a, pvp);
+  queries.starGame.run(b, ai);   // bob's star on her game against LorFish
+  queries.starGame.run(b, pvp);
   queries.insertRatingHistory.run(b, pvp, 1200, 1210);
   queries.insertPromoCode.run("987654321");
   db.prepare("UPDATE promo_codes SET redeemed_by = ?, redeemed_at = datetime('now') WHERE code = '987654321'").run(a);
@@ -74,6 +77,7 @@ describe("after confirmation", () => {
     assert.equal(run.code, 0, run.out);
     assert.match(run.out, /kept, without the name: 1 PvP game\(s\)/);
     assert.match(run.out, /deleted: 1 game\(s\) against LorFish, 2 chat message\(s\), 1 friendship/);
+    assert.match(run.out, /, 1 starred game\(s\), and every session/);
     assert.match(run.out, new RegExp(`now deleted-${f.a} .*; 1 session\\(s\\) ended`));
   });
 
@@ -102,6 +106,7 @@ describe("after confirmation", () => {
     assert.equal(count("chat_messages WHERE user_id = ?", f.b), 1);
     assert.equal(count("rating_history WHERE user_id = ?", f.b), 1);
     assert.equal(count("user_achievements WHERE user_id = ? AND game_id = ?", f.b, f.pvp), 1);
+    assert.equal(count("game_stars WHERE user_id = ? AND game_id = ?", f.b, f.pvp), 1);
     // Cleared, the code would be redeemable again.
     assert.equal(queries.getPromoCode.get("987654321").redeemed_by, f.a);
   });
@@ -109,7 +114,8 @@ describe("after confirmation", () => {
   test("deletes everything else about her, games against LorFish included", () => {
     assert.equal(count("games WHERE id = ?", f.ai), 0);
     assert.equal(count("moves WHERE game_id = ?", f.ai), 0);
-    for (const table of ["chat_messages", "user_assets", "puzzle_attempts", "puzzle_skips", "puzzle_misses", "user_achievements", "rating_history"]) {
+    assert.equal(count("game_stars WHERE game_id = ?", f.ai), 0, "bob's star went with the game");
+    for (const table of ["chat_messages", "user_assets", "puzzle_attempts", "puzzle_skips", "puzzle_misses", "user_achievements", "rating_history", "game_stars"]) {
       assert.equal(count(`${table} WHERE user_id = ?`, f.a), 0, table);
     }
     assert.equal(count("friendships WHERE requester_id = ? OR addressee_id = ?", f.a, f.a), 0);

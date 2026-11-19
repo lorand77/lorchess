@@ -367,12 +367,33 @@ function ffaOutcome() {
   return text;
 }
 
+// The finished game's star (starButton.js), shown once: asks the server
+// whether it is starred already, as a game watched after it ended may be.
+let starShown = false;
+async function showStar() {
+  if (starShown) return;
+  starShown = true;
+  let starred = false;
+  try {
+    const res = await fetch('/api/games/' + gameId + '/star', { credentials: 'same-origin' });
+    if (res.ok) starred = !!(await res.json()).starred;
+  } catch (e) { /* shown unstarred; a click still sets it */ }
+  const msg = document.getElementById('starMsg');
+  StarButton.attach(document.getElementById('starBtn'), gameId, starred, {
+    label: true,
+    onError: (e) => { msg.textContent = e; },
+    onChange: () => { msg.textContent = ''; },
+  });
+  document.getElementById('starLine').hidden = false;
+}
+
 function renderStatus() {
   document.getElementById('controls').style.display = playing() ? '' : 'none';
   document.getElementById('claimBtn').style.display = ffa && playing() && game.canClaimWin(me) ? '' : 'none';
   // Once it is over, the game can be stepped through on its replay page.
   document.getElementById('replayLine').style.display = result && result.result !== '*' ? '' : 'none';
   document.getElementById('replayLink').href = '/fourReplay.html?id=' + gameId;
+  if (result) showStar();
   if (result && ffa) {
     turnEl.textContent = '';
     statusEl.textContent = ffaOutcome();

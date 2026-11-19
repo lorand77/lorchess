@@ -10,8 +10,9 @@
 // and lets the server's deactivation sweep close its open sockets (see
 // deactivate.js). Everything else about the person is deleted: chat they wrote
 // anywhere, friendships, uploaded images, puzzle attempts and skips,
-// achievements, rating history, sessions, and their games against LorFish,
-// which are in nobody else's history. The old username can be registered again.
+// achievements, rating history, starred games, sessions, and their games
+// against LorFish, which are in nobody else's history (with anyone's stars on
+// them). The old username can be registered again.
 //
 // There is no undo, so it shows what it will remove and asks for the username
 // to be typed back. A player in a live PvP game is refused: run
@@ -70,7 +71,7 @@ async function main() {
   console.log(`  deleted: ${n.aiGames} game(s) against ${config.AI_USERNAME}, ${n.chat} chat message(s), ` +
     `${n.friendships} friendship(s) and request(s), ${n.images} uploaded image(s), ` +
     `${n.puzzles} puzzle attempt(s) and skip(s), ${n.achievements} achievement(s), ` +
-    `${n.ratingChanges} rating change(s), and every session`);
+    `${n.ratingChanges} rating change(s), ${n.stars} starred game(s), and every session`);
   console.log(`The account becomes deleted-${user.id} and the name ${user.username} is freed. There is no undo.`);
 
   const answer = await ask(`Type ${user.username} to delete it: `);

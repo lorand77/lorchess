@@ -7,7 +7,7 @@
 // replayed with its match (game.match): its pockets fill from the other board,
 // so both are played in the order the moves were made, and the other board is
 // shown beside it as it stood at the move shown. A four-player game goes to
-// its own replay, fourReplay.html.
+// its own replay, fourReplay.html. A game that is over can be starred.
 
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const CAPTURE_ORDER = ["p", "n", "b", "r", "q"];
@@ -122,6 +122,7 @@ async function init() {
     `White: ${game.white_username}  ·  Black: ${game.black_username}  ·  ${fmtDate(game.created_at)}`;
   statusEl.textContent = outcomeText(game) + (match ? matchText(match) : "");
   statusEl.className = "game-over";
+  showStar(game);
 
   buildMoveList();
   wireControls();
@@ -138,6 +139,19 @@ function lorfishStrength(game) {
   }
   if (game.ai_depth) return { full: `depth ${game.ai_depth}`, short: `depth ${game.ai_depth}` };
   return null;
+}
+
+// The game's star (starButton.js), once it is over: yours alone, for "Starred
+// only" on your Games tab.
+function showStar(game) {
+  if (game.status === "active") return;
+  const msg = document.getElementById("starMsg");
+  StarButton.attach(document.getElementById("starBtn"), game.id, game.starred, {
+    label: true,
+    onError: (e) => { msg.textContent = e; },
+    onChange: () => { msg.textContent = ""; },
+  });
+  document.getElementById("starLine").hidden = false;
 }
 
 // Came from someone else's profile: the back link returns to their games.

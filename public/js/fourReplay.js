@@ -11,7 +11,7 @@
 // material, the Stockfish review), and replay.html sends a four-player game
 // here. The board view and the corner plates are the game page's; there are
 // no clocks (only the last time each player had is stored) and no review
-// (Stockfish plays two-player chess).
+// (Stockfish plays two-player chess). A game that is over can be starred.
 //
 // The board is seen from your seat if you played, else from the seat of the
 // player whose profile you came from (`as`), else from Red's.
@@ -113,6 +113,19 @@ async function init() {
   goto(moves.length);   // open at the final position
   statusEl.textContent = outcomeText(record);
   statusEl.className = record.status === 'active' ? '' : 'game-over';
+  showStar(record);
+}
+
+// The game's star (starButton.js), once it is over, as on replay.html.
+function showStar(record) {
+  if (record.status === 'active') return;
+  const msg = document.getElementById('starMsg');
+  StarButton.attach(document.getElementById('starBtn'), record.id, record.starred, {
+    label: true,
+    onError: (e) => { msg.textContent = e; },
+    onChange: () => { msg.textContent = ''; },
+  });
+  document.getElementById('starLine').hidden = false;
 }
 
 function fail(msg) {

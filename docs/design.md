@@ -1360,6 +1360,23 @@ Design notes:
   and arrange a rematch afterwards. `src/db/retention.js` sweeps them
   `CHAT_RETENTION_DAYS` after the game ends (−1 keeps everything); only the
   per-user tally survives, for the "Chatty" achievement.
+- **Stars are private bookmarks.** `game_stars` (user, game, `starred_at`)
+  holds the games a user starred to find again: any game that is over, theirs
+  or anyone's, since anyone may replay a finished game; one still being
+  played can be starred once it ends (`POST /api/games/:id/star` answers 409
+  until then), and a user holds at most `STAR_LIMIT` (500,
+  `src/game/routes.js`). Only the user ever sees them: `starred` in
+  `GET /api/games`, `/api/games/user/:id` and `/api/games/:id` is the
+  viewer's own star, whoever's list or game it is, and
+  `GET /api/games/starred` is the viewer's list. The star
+  (`public/js/starButton.js`) is on both replay pages, on the game pages once
+  the game is over (`GET /api/games/:id/star`, since a game rejoined or
+  watched after it ended may be starred already), and in each finished row
+  of your own Games tab, whose "Starred only" box swaps the list for the
+  starred one; a game you didn't play shows there with its players and its
+  result from no one's side. Stars never keep anything alive: chat is swept
+  as usual. Account deletion removes the user's stars, and anyone's on their
+  games against LorFish, which go; stars on the PvP games that stay are kept.
 - **Puzzles can be re-imported.** `npm run puzzles:import -- --wipe` clears
   only puzzles nothing refers to; rows behind attempts, skips, daily picks or
   badges stay and are refreshed in place.

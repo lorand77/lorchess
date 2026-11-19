@@ -18,8 +18,8 @@ time.
   games for four with LorFish in any empty seat, playing on the server:
   Bughouse (two boards, two teams) and Four-Player Chess on chess.com's rules,
   as Teams or Free-for-All (everyone for themselves, for points)
-- Puzzles, achievements, friends, a leaderboard, spectating, in-game chat and
-  game replays
+- Puzzles, achievements, friends, a leaderboard, spectating, in-game chat,
+  game replays, and stars to find games again
 
 ## Stack
 

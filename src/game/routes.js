@@ -5,6 +5,9 @@
 // the client reports — there's no move validation here. That trust is why the
 // write routes accept AI games only: a PvP game is validated and recorded by
 // the socket handlers, and its record must not be editable from here.
+// Also the game lists, a game for the replay, and stars: a user may star any
+// game that is over (anyone may replay it), up to STAR_LIMIT, and only they
+// ever see their stars.
 
 const express = require("express");
 const queries = require("../db/queries");
@@ -23,6 +26,9 @@ const router = express.Router();
 // The reserved AI account id (seeded in db/index.js). Games store it as the
 // white_id/black_id of the AI side; individual AI moves record by_user = NULL.
 const AI_ID = queries.getUserByUsername.get(config.AI_USERNAME).id;
+
+// How many games one user may have starred.
+const STAR_LIMIT = 500;
 
 const VALID_RESULTS = new Set(["1-0", "0-1", "1/2-1/2"]);
 // The ways the client's rules engine can end a game (terminationReason in
@@ -131,15 +137,23 @@ router.post("/", (req, res) => {
 
 // A user's games, newest first. A four-player game's row has no White or
 // Black, so it carries its `seats` instead, and `seat`, the user's colour.
-function gamesOf(userId) {
-  return queries.listGamesForUser.all({ me: userId }).map((g) =>
-    isFourPlayer(g.variant) ? { ...g, seats: seatsOf(g) } : g
-  );
+// `starred` is the viewer's own star, whoever's list it is.
+function gamesOf(userId, viewerId) {
+  return withSeats(queries.listGamesForUser.all({ me: userId, viewer: viewerId }));
+}
+function withSeats(games) {
+  return games.map((g) => ({ ...g, starred: !!g.starred, ...(isFourPlayer(g.variant) ? { seats: seatsOf(g) } : {}) }));
 }
 
 // GET /api/games — the user's games, newest first.
 router.get("/", (req, res) => {
-  res.json(gamesOf(req.session.userId));
+  res.json(gamesOf(req.session.userId, req.session.userId));
+});
+
+// GET /api/games/starred — the games the user has starred, theirs or anyone's,
+// newest game first. `seat` is null in a four-player game they didn't play.
+router.get("/starred", (req, res) => {
+  res.json(withSeats(queries.listStarredGames.all({ me: req.session.userId })));
 });
 
 // GET /api/games/user/:id — someone else's games, for the Games tab of their
@@ -150,7 +164,7 @@ router.get("/user/:id", (req, res) => {
   if (id === AI_ID || !queries.getActiveUserById.get(id)) {
     return res.status(404).json({ error: "No such player." });
   }
-  res.json(gamesOf(id));
+  res.json(gamesOf(id, req.session.userId));
 });
 
 // GET /api/games/:id — a single game with both player names and its full
@@ -176,7 +190,40 @@ router.get("/:id", (req, res) => {
     moves: queries.getMovesForGame.all(game.id),
     match: game.match_id ? matchOf(game.match_id) : null,
     seats: four ? seatsOf(game) : null,
+    starred: !!queries.isGameStarred.get(uid, game.id),
   });
+});
+
+// GET /api/games/:id/star — whether the user has starred the game, for a page
+// that has the game without it (the game page, once the game is over).
+router.get("/:id/star", (req, res) => {
+  const game = queries.getGameById.get(Number(req.params.id));
+  if (!game) return res.status(404).json({ error: "No such game." });
+  res.json({ starred: !!queries.isGameStarred.get(req.session.userId, game.id) });
+});
+
+// POST /api/games/:id/star — star the game ({ starred: true }) or take the star
+// off ({ starred: false }). Any game that is over, since anyone may replay it;
+// one still being played can be starred once it ends. Starring twice, or
+// unstarring a game not starred, changes nothing.
+router.post("/:id/star", (req, res) => {
+  const game = queries.getGameById.get(Number(req.params.id));
+  if (!game) return res.status(404).json({ error: "No such game." });
+  const starred = req.body && req.body.starred;
+  if (typeof starred !== "boolean") return res.status(400).json({ error: "Say starred: true or false." });
+  const uid = req.session.userId;
+  if (!starred) {
+    queries.unstarGame.run(uid, game.id);
+    return res.json({ ok: true, starred: false });
+  }
+  if (game.status === "active") {
+    return res.status(409).json({ error: "A game can be starred once it is over." });
+  }
+  if (!queries.isGameStarred.get(uid, game.id) && queries.countStars.get(uid).n >= STAR_LIMIT) {
+    return res.status(409).json({ error: `You can star up to ${STAR_LIMIT} games. Take the star off one first.` });
+  }
+  queries.starGame.run(uid, game.id);
+  res.json({ ok: true, starred: true });
 });
 
 // A four-player game's seats for the pages: each colour's { id, username,
@@ -305,3 +352,4 @@ router.post("/:id/abandon", (req, res) => {
 });
 
 module.exports = router;
+module.exports.STAR_LIMIT = STAR_LIMIT;

@@ -109,7 +109,8 @@ module.exports = {
         + (SELECT COUNT(*) FROM puzzle_skips WHERE user_id = @id)
         + (SELECT COUNT(*) FROM puzzle_misses WHERE user_id = @id) AS puzzles,
       (SELECT COUNT(*) FROM user_achievements WHERE user_id = @id) AS achievements,
-      (SELECT COUNT(*) FROM rating_history WHERE user_id = @id) AS ratingChanges
+      (SELECT COUNT(*) FROM rating_history WHERE user_id = @id) AS ratingChanges,
+      (SELECT COUNT(*) FROM game_stars WHERE user_id = @id) AS stars
   `),
   // Run in this order, in one transaction, each with { id }. Rows that belong to
   // the user go first; then their games against LorFish, which are in nobody
@@ -122,11 +123,13 @@ module.exports = {
     "DELETE FROM puzzle_attempts WHERE user_id = @id",
     "DELETE FROM puzzle_skips WHERE user_id = @id",
     "DELETE FROM puzzle_misses WHERE user_id = @id",
+    "DELETE FROM game_stars WHERE user_id = @id",
     "DELETE FROM user_achievements WHERE user_id = @id",
     "DELETE FROM rating_history WHERE user_id = @id",
     ...[
       "DELETE FROM chat_messages WHERE game_id IN",
       "DELETE FROM moves WHERE game_id IN",
+      "DELETE FROM game_stars WHERE game_id IN",
       "UPDATE user_achievements SET game_id = NULL WHERE game_id IN",
       "UPDATE rating_history SET game_id = NULL WHERE game_id IN",
       "DELETE FROM games WHERE id IN",
@@ -192,7 +195,8 @@ module.exports = {
            wu.username AS white_username,
            bu.username AS black_username,
            (SELECT COUNT(*) FROM moves m WHERE m.game_id = g.id) AS move_count,
-           s.color AS seat
+           s.color AS seat,
+           EXISTS (SELECT 1 FROM game_stars st WHERE st.user_id = @viewer AND st.game_id = g.id) AS starred
     FROM games g
     LEFT JOIN users wu ON wu.id = g.white_id
     LEFT JOIN users bu ON bu.id = g.black_id
@@ -200,6 +204,29 @@ module.exports = {
     WHERE g.white_id = @me OR g.black_id = @me OR s.user_id = @me
     ORDER BY g.id DESC
   `),
+  // --- starred games (src/game/routes.js) ---
+  // The games @me has starred, newest game first, laid out as listGamesForUser
+  // lays out @me's own: `seat` is @me's colour in a four-player game, or null
+  // in one @me didn't play.
+  listStarredGames: db.prepare(`
+    SELECT g.*,
+           wu.username AS white_username,
+           bu.username AS black_username,
+           (SELECT COUNT(*) FROM moves m WHERE m.game_id = g.id) AS move_count,
+           s.color AS seat,
+           1 AS starred
+    FROM game_stars st
+    JOIN games g ON g.id = st.game_id
+    LEFT JOIN users wu ON wu.id = g.white_id
+    LEFT JOIN users bu ON bu.id = g.black_id
+    LEFT JOIN game_seats s ON s.game_id = g.id AND s.user_id = @me
+    WHERE st.user_id = @me
+    ORDER BY g.id DESC
+  `),
+  isGameStarred: db.prepare("SELECT 1 FROM game_stars WHERE user_id = ? AND game_id = ?"),
+  countStars: db.prepare("SELECT COUNT(*) AS n FROM game_stars WHERE user_id = ?"),
+  starGame: db.prepare("INSERT OR IGNORE INTO game_stars (user_id, game_id) VALUES (?, ?)"),
+  unstarGame: db.prepare("DELETE FROM game_stars WHERE user_id = ? AND game_id = ?"),
   updateGamePosition: db.prepare(
     "UPDATE games SET current_fen = ?, turn = ? WHERE id = ?"
   ),
