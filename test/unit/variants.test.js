@@ -43,7 +43,7 @@ describe("variant catalogue", () => {
         continue;
       }
       const rules = new Chess().setVariant(v.key).variant;
-      const expected = ["atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "threecheck", "gambling", "bughouse"].includes(v.key) ? v.key : "standard";
+      const expected = ["atomic", "pawnwars", "crazyhouse", "antichess", "kingofthehill", "threecheck", "gambling", "fog", "bughouse"].includes(v.key) ? v.key : "standard";
       assert.equal(rules, expected, v.key);
     }
   });
@@ -119,7 +119,7 @@ describe("variant catalogue", () => {
   });
 
   test("only the variants still new are casual-only", () => {
-    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "gambling", "bughouse", "fourplayer", "fourplayer_ffa", "infinite"];
+    const casual = ["crazyhouse", "antichess", "kingofthehill", "threecheck", "gambling", "fog", "bughouse", "fourplayer", "fourplayer_ffa", "infinite"];
     for (const v of VARIANTS) assert.equal(isRateable(v.key), !casual.includes(v.key), v.key);
     assert.equal(isRateable("nope"), true, "unknown means standard");
   });
@@ -132,10 +132,15 @@ describe("variant catalogue", () => {
   });
 
   test("LorFish plays every two-player variant as an AI game; Bughouse seats are the server's", () => {
-    for (const v of VARIANTS) assert.equal(hasBot(v.key), !v.teams, v.key);
+    // Fog of War: not yet.
+    for (const v of VARIANTS) assert.equal(hasBot(v.key), !v.teams && v.key !== "fog", v.key);
     assert.equal(hasBot("nope"), true, "unknown means standard");
     for (const v of VARIANTS) assert.equal(hasSeatBots(v.key), !!v.teams, v.key);
     assert.equal(hasSeatBots("nope"), false);
+  });
+
+  test("only a variant still being built is kept out of the lobby: Fog of War, for now", () => {
+    assert.deepEqual(VARIANTS.filter((v) => v.lobby === false).map((v) => v.key), ["fog"]);
   });
 
   test("move badges replay a game on one 8x8 board: not Infinite Chess, a Bughouse board alone or four-player chess", () => {

@@ -72,6 +72,15 @@ const VARIANTS = [
   // luck decides too much to move anyone's rating.
   { key: 'gambling', label: 'Gambling Madness', standardSetup: true, reviewable: false, rateable: false,
     materialBadges: true, moveBadges: true, bot: true },
+  // Each side sees only its own pieces and the squares they can move to, and
+  // taking the king wins (chess.js isFog, chess.com's rules). The server sends
+  // each player, and each spectator, only the side they see (socket.js). Opens
+  // from the standard setup; a handicap leaves the rule alone. No review
+  // (Stockfish plays ordinary chess). Casual while it is new. `lobby: false`
+  // keeps a variant out of the lobby's pickers and out of "Jack of All
+  // Trades" while it is being built: here, until the game page draws the fog.
+  { key: 'fog', label: 'Fog of War', standardSetup: true, reviewable: false, rateable: false,
+    materialBadges: true, moveBadges: true, bot: false, lobby: false },
   // Two boards, two teams of two: a capture goes to the partner on the other
   // board (src/shared/bughouse.js, src/game/matches.js). `teams` keeps it out
   // of everything that seats two players — the lobby's pickers, quick match,

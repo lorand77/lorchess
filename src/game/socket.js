@@ -2,7 +2,8 @@
 
 // Socket.IO infrastructure and the authoritative PvP handlers: joining,
 // moving, clocks and flags, draws, resignation, rematches, chat, spectating,
-// disconnects and Elo.
+// disconnects and Elo. In Fog of War each player, and each spectator, is sent
+// only one side's view of the board while the game is on (fogRoom, below).
 //
 // The handshake reuses the SAME Express session (io.engine.use). The server
 // holds the authoritative Chess state AND the authoritative clocks per game
@@ -53,6 +54,13 @@ const other = (c) => (c === "w" ? "b" : "w");
 // so a spectator can never pass a move to a player mid-game.
 const chatRoom = (gameId, audience) => `chat:${gameId}:${audience}`;
 const audienceOf = (role) => (role === "s" ? "spectators" : "players");
+
+// Fog of War: while the game is on, nothing that shows the position goes to
+// `game:<id>`. Each side's view goes to that side's room instead: a player's
+// sockets join their own colour's, a spectator's the colour they chose to
+// watch through. What carries no position (clocks, offers, the spectator
+// count) still goes to everyone.
+const fogRoom = (gameId, side) => `game:${gameId}:sees:${side}`;
 
 // Pending rematch offers for FINISHED games, keyed by the old gameId. The room
 // is gone by then (concludeGame drops it), so this holds the offering sockets
@@ -339,6 +347,8 @@ function concludeGame(io, room, result, termination) {
     clocks,
     // Free-for-all: each colour's { color, points, place, out }.
     ...(room.ffa && result !== "*" ? { standings: room.chess.standings() } : {}),
+    // Fog of War: the whole game, now that it may be seen.
+    ...(room.chess.isFog ? { final: fogReveal(room) } : {}),
   });
   if (result !== "*") notifyAchievements(room, { resignReactionMs: room.resignReactionMs });
   rooms.deleteRoom(room.gameId);
@@ -499,6 +509,7 @@ function handleGameJoin(io, socket, payload, ack) {
 
   socket.join(`game:${gameId}`);
   socket.join(chatRoom(gameId, "players"));
+  if (room.chess.isFog) socket.join(fogRoom(gameId, color));
   socket.gameId = gameId;
   socket.gameColor = color;
 
@@ -554,10 +565,11 @@ function handleGameJoin(io, socket, payload, ack) {
 }
 
 // The full board state a client needs to (re)draw a game. `color` is the
-// receiving player's colour, or null for a spectator.
-function stateOf(room, color) {
+// receiving player's colour, or null for a spectator, who in Fog of War
+// watches through `watchSide`'s eyes.
+function stateOf(room, color, watchSide) {
   const members = new Set(queries.listMemberIds.all().map((r) => r.id));
-  return {
+  const state = {
     gameId: room.gameId,
     fen: room.chess.fen(),
     sans: room.sans.slice(),
@@ -619,6 +631,48 @@ function stateOf(room, color) {
       ? queries.listPlayerChat.all(room.gameId, CHAT_HISTORY)
       : queries.listSpectatorChat.all(room.gameId, CHAT_HISTORY),
   };
+  if (room.chess.isFog && room.status === "active") return fogState(state, room, color || watchSide || "w");
+  return state;
+}
+
+// A Fog of War game still being played, as `side` sees it: its view for the
+// position (`view`, and `fen` the view's), its own moves' SAN and null for the
+// other side's, and no move list to replay (the moves are the whole board).
+// Once the game is over, stateOf shows everything.
+function fogState(state, room, side) {
+  const view = room.chess.fogView(side);
+  return { ...state, fen: view.fen, view, sees: side, sans: fogSans(room, side), moves: null };
+}
+
+function fogSans(room, side) {
+  return room.sans.map((san, i) => (room.chess.history[i].turn === side ? san : null));
+}
+
+// A Fog of War move as `side` sees it. The mover's own in full, as in any
+// game. The other side's only as far as `side` can see: the square it left
+// if `side` saw a piece there, the square it went to if `side` sees that now,
+// no promotion and no SAN. The position is `side`'s view, never the real FEN.
+function fogMoveFor(room, side, mover, move, san, seenBefore, sent) {
+  const view = room.chess.fogView(side);
+  const mine = side === mover;
+  return {
+    from: mine ? (sent.from === undefined ? move.from : sent.from) : seenBefore.has(move.from) ? move.from : null,
+    to: mine ? (sent.to === undefined ? move.to : sent.to) : view.visible.includes(move.to) ? move.to : null,
+    promo: mine ? move.promo || null : null,
+    drop: null,
+    san: mine ? san : null,
+    fen: view.fen,
+    view,
+    turn: room.chess.turn,
+    ply: sent.ply,
+    clocks: rooms.clockSnapshot(room),
+  };
+}
+
+// The whole of a Fog of War game, for everyone once it is over: the final
+// position and every move, as stateOf would give them for a finished game.
+function fogReveal(room) {
+  return { fen: room.chess.fen(), sans: room.sans.slice(), moves: room.chess.history.map((h) => formatUci(h.move)) };
 }
 
 // ---- chat ----
@@ -710,15 +764,20 @@ function handleWatch(io, socket, payload, ack) {
   }
 
   // Switching to a different game on the same socket: drop the old rooms so
-  // its broadcasts and chat don't bleed into the new one.
-  if (socket.watching != null && socket.watching !== gameId) leaveWatching(io, socket);
+  // its broadcasts and chat don't bleed into the new one. In Fog of War
+  // watching the same game through the other side's eyes is a switch too.
+  const fog = room.chess.isFog;
+  if (socket.watching != null && (socket.watching !== gameId || fog)) leaveWatching(io, socket);
 
+  // Fog of War: the side to watch through, White's unless Black's is asked for.
+  const side = payload && payload.side === "b" ? "b" : "w";
   socket.join(`game:${gameId}`);
   socket.join(chatRoom(gameId, "spectators"));
+  if (fog) socket.join(fogRoom(gameId, side));
   socket.watching = gameId;
   room.spectators.add(socket.id);
   broadcastSpectators(io, room);
-  reply(ack, { ok: true, state: stateOf(room, null) });
+  reply(ack, { ok: true, state: stateOf(room, null, side) });
 }
 
 function broadcastSpectators(io, room) {
@@ -732,6 +791,7 @@ function leaveWatching(io, socket) {
   socket.watching = null;
   socket.leave(`game:${gameId}`);
   socket.leave(chatRoom(gameId, "spectators"));
+  for (const side of ["w", "b"]) socket.leave(fogRoom(gameId, side));
   if (!room || !room.spectators.delete(socket.id)) return;
   broadcastSpectators(io, room);
 }
@@ -797,6 +857,12 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     room.turnStartedAt = now;
   }
 
+  // Fog of War: what each side saw before the move, so each is told only the
+  // part of the other's move it could see.
+  const seenBefore = room.chess.isFog
+    ? { w: room.chess.visibleSquares("w"), b: room.chess.visibleSquares("b") }
+    : null;
+
   // (4) Apply on the authoritative board. Gambling Madness: the next turn is
   // dealt here, so the position written below carries it.
   const san = room.chess.moveToSan(move);
@@ -859,7 +925,11 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
   // and a four-player square is the engine's number even if sent as a name.
   const coords = typeof move.from === "object" && move.from !== null;
   const own = room.four || from === undefined;
-  io.to(`game:${gameId}`).emit("move:made", {
+  if (seenBefore) {
+    for (const side of ["w", "b"]) {
+      io.to(fogRoom(gameId, side)).emit("move:made", fogMoveFor(room, side, color, move, san, seenBefore[side], { from, to, ply }));
+    }
+  } else io.to(`game:${gameId}`).emit("move:made", {
     from: move.drop ? null : coords ? { x: move.from.x, y: move.from.y } : own ? move.from : from,
     to: coords ? { x: move.to.x, y: move.to.y } : own ? move.to : to,
     promo: move.promo || null,

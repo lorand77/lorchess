@@ -141,8 +141,16 @@ router.post("/", (req, res) => {
 function gamesOf(userId, viewerId) {
   return withSeats(queries.listGamesForUser.all({ me: userId, viewer: viewerId }));
 }
+// A Fog of War game between people, still being played, lists without its
+// position, which would show the whole board. (Against LorFish the page
+// holds the whole game anyway.)
 function withSeats(games) {
-  return games.map((g) => ({ ...g, starred: !!g.starred, ...(isFourPlayer(g.variant) ? { seats: seatsOf(g) } : {}) }));
+  return games.map((g) => ({
+    ...g,
+    starred: !!g.starred,
+    ...(isFourPlayer(g.variant) ? { seats: seatsOf(g) } : {}),
+    ...(g.variant === "fog" && g.mode === "pvp" && g.status === "active" ? { current_fen: null } : {}),
+  }));
 }
 
 // GET /api/games — the user's games, newest first.
@@ -183,6 +191,25 @@ router.get("/:id", (req, res) => {
   }
   const white = queries.getUserById.get(game.white_id);
   const black = queries.getUserById.get(game.black_id);
+  // Fog of War between people, still being played (so asked by one of its
+  // players): the position as they see it, and no moves, each of which holds
+  // the whole board. Against LorFish the page holds the whole game anyway.
+  if (game.variant === "fog" && game.mode === "pvp" && game.status === "active") {
+    const view = createEngine("fog");
+    view.loadFen(game.current_fen);
+    const fog = view.fogView(game.white_id === uid ? "w" : "b");
+    return res.json({
+      ...game,
+      current_fen: fog.fen,
+      fog_view: fog,
+      white_username: white ? white.username : "?",
+      black_username: black ? black.username : "?",
+      moves: [],
+      match: null,
+      seats: null,
+      starred: !!queries.isGameStarred.get(uid, game.id),
+    });
+  }
   res.json({
     ...game,
     white_username: white ? white.username : "?",

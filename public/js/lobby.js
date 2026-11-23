@@ -116,7 +116,7 @@ for (const level of AI_LEVELS) {
 // which the server starts and plays (bughouse:bots, fourplayer:bots, with the
 // variant) instead of the game page's own worker.
 const aiVariantSelect = document.getElementById("aiVariantSelect");
-for (const v of VARIANTS.filter((v) => v.bot || hasSeatBots(v.key))) {
+for (const v of VARIANTS.filter((v) => v.lobby !== false && (v.bot || hasSeatBots(v.key)))) {
   aiVariantSelect.add(new Option(v.label, v.key, v.key === "standard", v.key === "standard"));
 }
 const aiClockSelect = document.getElementById("aiClockSelect");
@@ -173,8 +173,8 @@ function restoreAiLevel(games) {
 // A handicap is defined as removals from the standard setup, so the two can't
 // be combined. Whichever you pick second disables the other.
 // The picker comes from the shared catalogue, so a new variant appears here the
-// moment it is added to src/shared/variants.js.
-for (const v of VARIANTS) {
+// moment it is added to src/shared/variants.js (unless it says `lobby: false`).
+for (const v of VARIANTS.filter((v) => v.lobby !== false)) {
   const opt = document.createElement("option");
   opt.value = v.key;
   opt.textContent = v.label;

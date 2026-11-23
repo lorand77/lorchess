@@ -224,11 +224,12 @@ function snapshot() {
       board: r.matchId ? r.board : null,
       spectators: r.spectators.size,
       // For the lobby's board previews. Kept fresh by nudge() below rather
-      // than by a broadcast on every single move.
-      fen: r.chess.fen(),
+      // than by a broadcast on every single move. A Fog of War game has none:
+      // its board is for each player to see only their side of.
+      fen: r.chess.isFog ? null : r.chess.fen(),
       handicap: r.handicap,
       ply: r.sans.length,
-      last: lastMoveOf(r),
+      last: r.chess.isFog ? null : lastMoveOf(r),
     }))
     .sort((a, b) => b.gameId - a.gameId);
 

@@ -286,13 +286,43 @@ bare king can still take a king that blunders into it.
   rules catch. So the game page never needs the real board to offer moves,
   hints or SAN, and the server never sends it. A view never ends the game
   (`isGameOver` is false on one): the server's real board does.
+- *On the server* the real board never leaves it while a game between people
+  is on. Everything that shows the position goes by side, never to
+  `game:<id>`: each player's sockets join `game:<id>:sees:<colour>` (their
+  own), each spectator's the side they chose with `game:watch` (`side`,
+  White's unless Black's is asked for; asking again switches). `move:made`
+  goes to each side as it sees the move (`fogMoveFor`): the mover's own in
+  full; the other side's with the square it left only if that side saw a
+  piece there, the square it went to only if that side sees it now, and no
+  promotion or SAN; the position as `view` (and `fen`, the view's), never the
+  real FEN. The game state on join or watch (`fogState`) is the side's view,
+  its own moves' SAN with null for the other side's, and no move list to
+  replay (each move is a whole board). `game:over` carries `final`, the whole
+  game (FEN, SAN, moves), and a finished game's state is whole like any
+  other's. What carries no position (clocks, draw offers, the spectator
+  count, chat) goes to the game room as ever. A rebuilt room after a restart
+  is the same real board, so nothing changes there.
+- *Around the board*: `GET /api/games/:id` for a live game (asked by one of
+  its players: no one else may read it) returns that player's view as
+  `current_fen` and `fog_view`, and no moves, each of which holds the whole
+  board; the game lists null a live game's `current_fen`; the lobby lists it
+  without a preview (`fen` and `last` null). Against LorFish none of this
+  applies: the page holds the whole game anyway.
+- Casual, from the standard setup, a handicap allowed, no review; its win
+  badge is `fog_wins`, "Into the Fog". Until the game page can draw the fog,
+  the catalogue's `lobby: false` keeps it out of the lobby's pickers and out
+  of "Jack of All Trades"; the server plays it already, for the tests.
 - Tested in `test/unit/fog.test.js`: the rules, what each side sees, and in
   forty seeded random games that the moves and SAN from the side to move's
-  view are the real ones and that the view holds nothing it can't see.
-- Still to come: the server sending each player and spectator their own view
-  (the moves, the game state, the end), the game page drawing the fog, and
-  LorFish, the replay and the rules page. Until then `fog` is no variant in
-  the catalogue, so nothing can start a game of it.
+  view are the real ones and that the view holds nothing it can't see. Over
+  the socket (`test/integration/fog.games.test.js`): seeded random games to
+  the end between two players and two spectators, one through each side's
+  eyes, every `move:made` checked field by field against a replay and every
+  board in every message before the end checked to be one its side could
+  see; then rejoining, switching sides, the API, the lists, the lobby, a
+  restart and a resignation.
+- Still to come: the game page drawing the fog (and the lobby offering the
+  variant), then LorFish and the replay.
 
 **Bughouse** is a variant in the lobby like any other, picked from the same
 Variant lists. Picked in "Play the computer" it starts a match at once, you
