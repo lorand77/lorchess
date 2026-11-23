@@ -30,7 +30,8 @@ class Chess {
     // 'crazyhouse' keeps what you capture in a pocket; 'antichess' makes you
     // try to lose everything; 'kingofthehill' adds a win in the centre;
     // 'threecheck' a win by giving check three times; 'gambling' deals each
-    // turn the piece type to move; 'bughouse' is one board
+    // turn the piece type to move; 'fog' hides what your pieces can't reach
+    // and is won by taking the king; 'bughouse' is one board
     // of a two-board team game, its captures passed to a partner. Set it with
     // setVariant(), then reset() or loadFen(): those two deliberately leave the
     // rules alone, so loading a position never silently changes them, and they
@@ -40,7 +41,7 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'gambling', 'bughouse'].includes(name) ? name : 'standard';
+    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'gambling', 'fog', 'bughouse'].includes(name) ? name : 'standard';
     return this;
   }
 
@@ -137,6 +138,90 @@ class Chess {
 
   // Once the third check is given the move list is empty, like any finished
   // game's; whether it was also mate asks for the moves there would be.
+  // Fog of War (chess.com's rules): each side sees only its own pieces and the
+  // squares they can move to. There is no check or mate: a king may step onto
+  // an attacked square, and castle out of, through or into attack, and taking
+  // it wins. Nor is there stalemate: whatever the moves are, one is played; a
+  // side with no move at all (every piece blocked) draws. Threefold
+  // repetition and the fifty-move rule draw as usual, but material never runs
+  // out: a bare king can still take a king that blunders into it.
+  //
+  // The server holds the real board and sends each player fogView(colour),
+  // what that colour sees; a page loads it with loadFogView, after which
+  // `fogVisible` is the squares seen, the moves go only there, and the view
+  // never decides the end of the game: the real board does.
+  get isFog() { return this.variant === 'fog'; }
+
+  // The squares `c` sees on the real board: its own pieces' and every square
+  // they could move to, a pawn's diagonal only when it could capture there.
+  // When `c` can take en passant, the pawn it would take is seen too. Once a
+  // king has been taken the game is over and the whole board is seen.
+  visibleSquares(c) {
+    const seen = new Set();
+    if (this.kingMissing(W) || this.kingMissing(B)) {
+      for (let sq = 0; sq < 64; sq++) seen.add(sq);
+      return seen;
+    }
+    // En passant is the side to move's alone: the square left by our own
+    // double step is no capture for us.
+    const ep = this.ep;
+    if (c !== this.turn) this.ep = null;
+    try {
+      for (let sq = 0; sq < 64; sq++) {
+        const p = this.squares[sq];
+        if (!p || p.c !== c) continue;
+        seen.add(sq);
+        for (const m of this.pseudoMovesFrom(sq, c)) {
+          seen.add(m.to);
+          if (m.enpassant) seen.add(sqIdx(fileOf(m.to), rankOf(m.from)));
+        }
+      }
+    } finally {
+      this.ep = ep;
+    }
+    return seen;
+  }
+
+  // What `c` is shown of the real position: { fen, visible }. The FEN has
+  // every square `c` can't see empty, `c`'s castling rights alone, an en
+  // passant square only if `c` can take there, and the fifty-move count at
+  // nought (it would say when the other side last moved a pawn or captured).
+  // `visible` is the squares seen, ascending.
+  fogView(c) {
+    const seen = this.visibleSquares(c);
+    let board = '';
+    for (let r = 7; r >= 0; r--) {
+      let empty = 0;
+      for (let f = 0; f < 8; f++) {
+        const sq = sqIdx(f, r);
+        const p = seen.has(sq) ? this.squares[sq] : null;
+        if (!p) { empty++; continue; }
+        if (empty) { board += empty; empty = 0; }
+        board += p.c === W ? p.t.toUpperCase() : p.t;
+      }
+      if (empty) board += empty;
+      if (r > 0) board += '/';
+    }
+    const rights = c === W ? ['K', 'Q'] : ['k', 'q'];
+    const cr = rights.filter((x) => this.castling[x]).join('') || '-';
+    const canTakeEp = this.ep != null && c === this.turn && seen.has(this.ep)
+      && this.legalMoves(c).some((m) => m.enpassant);
+    const ep = canTakeEp ? algOf(this.ep) : '-';
+    return {
+      fen: `${board} ${this.turn === W ? 'w' : 'b'} ${cr} ${ep} 0 ${this.fullmove}`,
+      visible: [...seen].sort((a, b) => a - b),
+    };
+  }
+
+  // Load a fogView: the position as one side sees it. Moves go only to the
+  // squares it sees, since one it can't may hide a piece in the way (a pawn
+  // can't step onto a square that is taken, seen or not).
+  loadFogView(view) {
+    this.loadFen(view.fen);
+    this.fogVisible = new Set(view.visible);
+    return this;
+  }
+
   movesPastTheEnd() {
     this.ignoreCheckLimit = true;
     try { return this.legalMoves(); } finally { this.ignoreCheckLimit = false; }
@@ -257,6 +342,7 @@ class Chess {
     this.pockets = this.hasPockets ? emptyPockets() : null;
     this.checks = this.isThreeCheck ? { [W]: 0, [B]: 0 } : null;
     this.dealt = null;
+    this.fogVisible = null;
     this.turn = W;
     // Nothing to castle with in Pawn Wars, and claiming rights would put a
     // meaningless "KQkq" in every FEN it produces. Antichess forbids it.
@@ -336,7 +422,11 @@ class Chess {
     // Pawn Wars has no kings at all, and in Antichess a king is a piece like
     // any other — none, or several after promotions. Every other variant must
     // have exactly one per side, the check that catches most malformed FENs.
-    const kingsWrong = this.isPawnWars ? (wKings || bKings) : (wKings !== 1 || bKings !== 1);
+    // In Fog of War a king may be gone (taken: the game is over) or out of
+    // sight (a fogView), so at most one.
+    const kingsWrong = this.isPawnWars ? (wKings || bKings)
+      : this.isFog ? (wKings > 1 || bKings > 1)
+        : (wKings !== 1 || bKings !== 1);
     if (!this.isAntichess && kingsWrong) {
       throw new Error(this.isPawnWars
         ? 'Pawn Wars positions have no kings'
@@ -410,6 +500,7 @@ class Chess {
     this.halfmove = counters[0] ? parseInt(counters[0], 10) || 0 : 0;
     this.fullmove = counters[1] ? parseInt(counters[1], 10) || 1 : 1;
     this.dealt = null;
+    this.fogVisible = null;
     this.history = [];
     this.positionCounts = new Map();
     this.positionCounts.set(this.positionKey(), 1);
@@ -760,6 +851,7 @@ class Chess {
 
   inCheck(c) {
     if (this.isAntichess) return false; // no king to keep safe
+    if (this.isFog) return false;       // no check: a king may be taken
     if (c === undefined) c = this.turn;
     const king = this.findKing(c);
     if (king === -1) return false;
@@ -793,6 +885,7 @@ class Chess {
       const t = this.dealt;
       return this.movesIgnoringDeal(forColor).filter((m) => this.squares[m.from].t === t);
     }
+    if (this.isFog) return this.fogMoves(c);
     // With a king already gone the game is over; offering moves would let a
     // search play on past the end.
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return [];
@@ -837,6 +930,27 @@ class Chess {
       }
     }
     if (this.pockets) this.addDrops(moves, c);
+    return moves;
+  }
+
+  // Fog of War: nothing to keep safe, so every pseudo-legal move is legal,
+  // castling included whatever attacks it. None once a king is taken, unless
+  // this is a fogView, where the other king is likely only out of sight; there
+  // only the moves to squares seen, and a pawn's double step only over a
+  // square seen. That is enough: a square a piece passes over is one it could
+  // stop on, so seen if empty, and the first piece in its way is one it could
+  // take, so seen too.
+  fogMoves(c) {
+    const seen = this.fogVisible;
+    if (!seen && (this.kingMissing(W) || this.kingMissing(B))) return [];
+    const moves = [];
+    for (let sq = 0; sq < 64; sq++) {
+      const p = this.squares[sq];
+      if (!p || p.c !== c) continue;
+      for (const m of this.pseudoMovesFrom(sq, c)) {
+        if (!seen || (seen.has(m.to) && (m.ep_set == null || seen.has(m.ep_set)))) moves.push(m);
+      }
+    }
     return moves;
   }
 
@@ -1087,7 +1201,8 @@ class Chess {
   }
 
   isInsufficientMaterial() {
-    if (this.isPawnWars || this.isKingOfTheHill || this.isBughouse) return false;
+    // Fog of War: a bare king can still take a king that blunders into it.
+    if (this.isPawnWars || this.isKingOfTheHill || this.isBughouse || this.isFog) return false;
     // Three-check: any piece but a king can give check, so only bare kings.
     if (this.isThreeCheck) return this.squares.every((p) => !p || p.t === 'k');
     if (this.pockets) return this.crazyhouseMaterialDead();
@@ -1146,7 +1261,8 @@ class Chess {
   hasMatingMaterial(c) {
     // A king can always win King of the Hill by walking to the centre.
     // Nor can a Bughouse side ever run out: its partner can send it anything.
-    if (this.isAtomic || this.isPawnWars || this.isKingOfTheHill || this.isBughouse) return true;
+    // So can a Fog of War king, by taking one that blunders into it.
+    if (this.isAtomic || this.isPawnWars || this.isKingOfTheHill || this.isBughouse || this.isFog) return true;
     // Three-check: a side that can still give check can still win.
     if (this.isThreeCheck) return this.squares.some((p) => p && p.c === c && p.t !== 'k');
     // Antichess has no mate: a flag loses unless the game could no longer be
@@ -1230,8 +1346,10 @@ class Chess {
     return this.inCheck() && this.legalMoves().length === 0;
   }
   // In Antichess having no move is a win, not a stalemate: see result().
+  // Fog of War has none: a side with no move at all draws, as termination()
+  // names it.
   isStalemate() {
-    if (this.isAntichess || this.isBughouse) return false;
+    if (this.isAntichess || this.isBughouse || this.isFog) return false;
     if (this.isKingOfTheHill && this.kingOnHill()) return false;
     if (this.isThreeCheck && this.threeCheckWinner()) return false;
     if (this.isPawnWars) {
@@ -1248,6 +1366,15 @@ class Chess {
     return (this.positionCounts.get(this.positionKey()) || 0) >= 5;
   }
   isGameOver() {
+    // Fog of War: a king taken, no move at all, or the usual two draws. A
+    // fogView never ends a game: the real board does.
+    if (this.isFog) {
+      if (this.fogVisible) return false;
+      return this.kingMissing(W) || this.kingMissing(B)
+          || this.legalMoves().length === 0
+          || this.halfmove >= 100
+          || this.isThreefoldRepetition();
+    }
     if (this.isPawnWars) {
       return this.pawnCount(W) === 0 || this.pawnCount(B) === 0
           || this.legalMoves().length === 0
@@ -1270,6 +1397,13 @@ class Chess {
   // AI games with it, so the two can't name the same ending differently.
   termination() {
     if (this.isBughouse) return this.isCheckmate() ? 'checkmate' : null;
+    if (this.isFog) {
+      if (!this.isGameOver()) return null;
+      if (this.kingMissing(W) || this.kingMissing(B)) return 'king captured';
+      if (this.legalMoves().length === 0) return 'no moves';
+      if (this.isThreefoldRepetition()) return 'threefold';
+      return 'fifty-move';
+    }
     // In Atomic a game usually ends with a king blown off the board rather
     // than mated, and "checkmate" would be a misleading thing to record.
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return 'explosion';
@@ -1294,6 +1428,14 @@ class Chess {
   }
 
   result() {
+    // Fog of War: whoever still has a king has won; anything else that ends
+    // the game is a draw.
+    if (this.isFog) {
+      if (!this.isGameOver()) return '*';
+      if (this.kingMissing(W)) return '0-1';
+      if (this.kingMissing(B)) return '1-0';
+      return '1/2-1/2';
+    }
     if (this.isAntichess) {
       // The side to move wins with no piece or no move left — before any draw.
       if (this.legalMoves().length === 0) return this.turn === W ? '1-0' : '0-1';

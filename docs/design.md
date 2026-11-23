@@ -259,6 +259,41 @@ is dealt, and with none it is mate. Every ending is ordinary chess's.
   (`test/browser/gambling.test.cjs`) a game against LorFish and one between
   two people, premoves played and dropped.
 
+**Fog of War** (chess.com's rules) hides from each side whatever its pieces
+can't reach: it sees its own pieces and the squares they can move to, a
+pawn's diagonal only when it could take there. There is no check or mate: a
+king may step into attack and castle out of, through or into it, and taking
+the king wins (`king captured`). Nor is there stalemate: chess.com's rule is
+that a king with only attacked squares must step onto one. chess.com's page
+leaves some things unsaid, and these are ours: en passant is played as usual,
+the side that can take seeing both the square and the pawn; a side with no
+move at all (every piece blocked) draws (`no moves`); threefold repetition
+and the fifty-move rule draw as usual; and material never runs out, since a
+bare king can still take a king that blunders into it.
+- *In the engine* (`isFog`): `legalMoves` is every pseudo-legal move, none
+  once a king is gone. `visibleSquares(c)` is what `c` sees on the real
+  board, everything once a king is taken. `fogView(c)` is the position as `c`
+  sees it, `{ fen, visible }`: unseen squares empty, `c`'s castling rights
+  alone, an en passant square only if `c` can take there, the fifty-move
+  count at nought (it would say when the other side last moved a pawn or
+  captured). A FEN may lack a king, taken or out of sight.
+- *The view is enough to move from.* `loadFogView` loads a view and sets
+  `fogVisible`; the moves then go only to squares seen, and a pawn's double
+  step only over a square seen. Those are exactly the real moves, with the
+  same SAN: a square a piece passes over is one it could stop on, so seen if
+  empty, and the first piece in its way is one it could take, so seen too.
+  A hidden piece is only ever in the way of a pawn's step, which the two
+  rules catch. So the game page never needs the real board to offer moves,
+  hints or SAN, and the server never sends it. A view never ends the game
+  (`isGameOver` is false on one): the server's real board does.
+- Tested in `test/unit/fog.test.js`: the rules, what each side sees, and in
+  forty seeded random games that the moves and SAN from the side to move's
+  view are the real ones and that the view holds nothing it can't see.
+- Still to come: the server sending each player and spectator their own view
+  (the moves, the game state, the end), the game page drawing the fog, and
+  LorFish, the replay and the rules page. Until then `fog` is no variant in
+  the catalogue, so nothing can start a game of it.
+
 **Bughouse** is a variant in the lobby like any other, picked from the same
 Variant lists. Picked in "Play the computer" it starts a match at once, you
 and LorFish against two more, with a clock instead of a colour. Picked in the
