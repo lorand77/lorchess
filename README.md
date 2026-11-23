@@ -14,7 +14,8 @@ time.
 - Games against LorFish, which runs in the browser in a Web Worker
 - Variants: standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess,
   King of the Hill, Three-check, Gambling Madness (a wheel spins for
-  the piece type to move each turn) and Infinite Chess (a board with no edges), and
+  the piece type to move each turn), Fog of War (you see only what your
+  pieces reach) and Infinite Chess (a board with no edges), and
   games for four with LorFish in any empty seat, playing on the server:
   Bughouse (two boards, two teams) and Four-Player Chess on chess.com's rules,
   as Teams or Free-for-All (everyone for themselves, for points)

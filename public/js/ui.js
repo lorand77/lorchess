@@ -123,6 +123,7 @@ const env = {
 // confirmed moves, and the opponent's moves. `record` persists client-side
 // (AI mode only); in PvP the server already persisted it.
 function applyMove(rmove, record, opts) {
+  if (opts && opts.view) return applyFogMove(rmove, opts);
   const move = rmove.drop
     ? chess.findDrop(rmove.drop, rmove.to)
     : chess.findMove(rmove.from, rmove.to, rmove.promo);
@@ -150,6 +151,44 @@ function applyMove(rmove, record, opts) {
   if (record) recordApplied(san, move, !!(opts && opts.premove));
   // A premove played at once leaves no turn to spin the wheel for.
   if (!(queued && playPremove(queued))) spinDeal();
+}
+
+// Fog of War between people: the server sends each move with the position as
+// this side now sees it (`opts.view`), and that view becomes the board; the
+// page never holds the real one. Our own move comes whole, with its SAN; the
+// other side's only as far as we could see it, `from` and `to` null where we
+// couldn't, and no SAN ("?" in the move list until the game ends).
+function applyFogMove(rmove, opts) {
+  const mine = opts.san != null;
+  const ownBefore = chess.squares.filter((p) => p && p.c === humanColor).length;
+  // Our own move slides as any move does. Theirs slides only if we saw both
+  // ends of it; seen at one end, the piece just appears or goes.
+  const move = mine ? chess.findMove(rmove.from, rmove.to, rmove.promo) : null;
+  if (move) planMoveAnimation(move);
+  else if (rmove.from != null && rmove.to != null && chess.squares[rmove.from]) planMoveAnimation({ from: rmove.from, to: rmove.to });
+  else moveAnim = null;
+  chess.loadFogView(opts.view);
+  lastMove = rmove.from != null || rmove.to != null ? { from: rmove.from, to: rmove.to } : null;
+  moveHistory.push(opts.san);
+  // A capture sounds as one: ours, or one of our pieces gone.
+  const ownAfter = chess.squares.filter((p) => p && p.c === humanColor).length;
+  play(mine && /x/.test(opts.san) || ownAfter < ownBefore ? sounds.capture : sounds.move);
+  selected = null;
+  captureHint = false;
+  legalFromSelected = [];
+  premoveSelecting = false;
+  const queued = chess.turn === humanColor ? premove : null;
+  if (queued) premove = null;
+  render();
+  if (queued) playPremove(queued);
+}
+
+// Fog of War: the whole game, once it is over (game:over's `final`): the
+// board, every move and every SAN, in place of the view.
+function revealFog(final) {
+  if (!final) return;
+  rebuildFromRecord({ moves: final.moves, startFen, fen: final.fen, variant: gameVariant });
+  moveHistory = final.sans.slice();
 }
 
 // Gambling Madness: deal the side now to move its piece type. Against LorFish
@@ -247,6 +286,13 @@ const CAPTURE_ORDER = ['p', 'n', 'b', 'r', 'q'];
 
 function renderCaptured() {
   if (chess.pockets) return renderPockets();
+  // Fog of War: a view has no history to count captures from, and its
+  // material is only what is in sight, so no strips until the game is shown.
+  if (chess.fogVisible) {
+    capturedTopEl.innerHTML = '';
+    capturedBottomEl.innerHTML = '';
+    return;
+  }
   const byWhite = [];
   const byBlack = [];
   for (const h of chess.history) {
@@ -591,6 +637,8 @@ function render() {
     mustCapture: captureHint ? new Set(chess.legalMoves().map(m => m.from)) : null,
     // King of the Hill: the four squares a king wins on.
     hill: !infinite && chess.isKingOfTheHill ? new Set(HILL_SQUARES) : null,
+    // Fog of War: the squares this side sees.
+    fog: infinite ? null : chess.fogVisible || null,
     hints: infinite ? infiniteHints() : selectionHints(),
     animation: moveAnim,
   });
@@ -637,6 +685,11 @@ function render() {
       // Antichess is won by running out: the side to move has won.
       const how = chess.pieceCount(chess.turn) === 0 ? 'no pieces' : 'no moves';
       s += ` — ${chess.turn === W ? 'White' : 'Black'} wins with ${how} left!`;
+    } else if (chess.isFog && (chess.kingMissing(W) || chess.kingMissing(B))) {
+      // Fog of War is won by taking the king.
+      s += ` — ${chess.kingMissing(B) ? 'White' : 'Black'} wins: king captured!`;
+    } else if (chess.isFog && chess.legalMoves().length === 0) {
+      s += ' — no moves left';
     } else if (chess.isCheckmate()) {
       s += ` — ${chess.turn === W ? 'Black' : 'White'} wins!`;
     } else if (chess.isStalemate()) {
@@ -724,11 +777,13 @@ function buildPgn() {
   let fm = startFullmove;
   let turn = startTurn;
   for (let i = 0; i < moveHistory.length; i++) {
+    // Fog of War: the other side's moves are unknown ("?") until the end.
+    const san = moveHistory[i] || '?';
     if (turn === W) {
-      body += fm + '. ' + moveHistory[i] + ' ';
+      body += fm + '. ' + san + ' ';
     } else {
-      if (i === 0) body += fm + '... ' + moveHistory[i] + ' ';
-      else        body += moveHistory[i] + ' ';
+      if (i === 0) body += fm + '... ' + san + ' ';
+      else        body += san + ' ';
       fm++;
     }
     turn = turn === W ? B : W;
@@ -1761,6 +1816,27 @@ function initChat(socket, gameId) {
 // ---- spectator mode ----
 // Read-only view of a live PvP game. Shares applyPvpState and the board with
 // the player view; differences are gated on `spectating`.
+// Fog of War: the side a spectator watches through, White's to begin with.
+let watchSide = 'w';
+
+// Fog of War: the spectator's choice of whose eyes to watch through, shown
+// while a game is on (`state` null, or a game that is over: hidden). `pick`
+// is called with 'w' or 'b'; given once, it is kept for later calls.
+let fogSidePick = null;
+function showFogSides(state, pick) {
+  const box = document.getElementById('fogSides');
+  if (!box) return;
+  if (pick) fogSidePick = pick;
+  const on = !!state && state.variant === 'fog' && state.status === 'active';
+  box.hidden = !on;
+  if (!on) return;
+  for (const b of box.querySelectorAll('button[data-side]')) {
+    b.classList.toggle('primary', b.dataset.side === state.sees);
+    b.setAttribute('aria-pressed', b.dataset.side === state.sees ? 'true' : 'false');
+    b.onclick = () => { if (b.dataset.side !== state.sees && fogSidePick) fogSidePick(b.dataset.side); };
+  }
+}
+
 function initSpectate(gameId) {
   pvpMode = true;
   spectating = true;
@@ -1781,9 +1857,10 @@ function initSpectate(gameId) {
   });
 
   // (Re)subscribe whenever the socket (re)connects; the ack carries the board.
+  // Fog of War: through the eyes of `watchSide`, which the buttons switch.
   socket.on('connect', () => {
     pvpNotice('');
-    socket.emit('game:watch', { gameId }, (resp) => {
+    socket.emit('game:watch', { gameId, side: watchSide }, (resp) => {
       if (!resp || !resp.ok) {
         // A player who opened the watch link gets sent to the real game.
         if (resp && resp.player) { location.replace('/game.html?id=' + gameId); return; }
@@ -1796,6 +1873,14 @@ function initSpectate(gameId) {
       initChat(socket, gameId);
       showSpectators({ count: resp.state.spectators });
       pvpNotice('You are watching this game.', 'info');
+      showFogSides(resp.state, (side) => {
+        watchSide = side;
+        socket.emit('game:watch', { gameId, side }, (r) => {
+          if (!r || !r.ok) return pvpNotice((r && r.error) || 'Cannot switch sides.');
+          applyPvpState(socket, r.state);
+          showFogSides(r.state);
+        });
+      });
     });
   });
 
@@ -1807,6 +1892,8 @@ function initSpectate(gameId) {
   socket.on('game:over', (info) => {
     pvpResult = info;
     clockRunning = false;
+    revealFog(info.final);
+    showFogSides(null);
     playOutcomeSound(info.result);
     if (info.clocks) setClocks(info.clocks, false);
     showRatingChange(info.ratings);
@@ -1996,6 +2083,8 @@ function initPvp(gameId) {
     pvpResult = info;
     cancelPromotion(); // nothing left to promote into
     clockRunning = false;
+    revealFog(info.final);
+    premove = null;
     playOutcomeSound(info.result);
     showReviewLink(gameId);
     showStar(gameId);
@@ -2070,6 +2159,8 @@ function renderFriendRow() {
 // side of the king that names the wrong one. The FEN stays as the fallback.
 function rebuildFromRecord(state) {
   lastMove = null;
+  // Fog of War, still being played: the position as this side sees it.
+  if (state.view) { chess.loadFogView(state.view); return; }
   // A Bughouse board can't be replayed alone: its pockets fill from the other
   // board. The position as sent carries them (and the board has no
   // repetition rule for a replay to keep).
@@ -2089,8 +2180,9 @@ function rebuildFromRecord(state) {
 }
 
 function applyPvpState(socket, state) {
-  // Spectators watch from White's side of the board.
-  humanColor = !spectating && state.yourColor === 'b' ? B : W;
+  // Spectators watch from White's side of the board; in Fog of War, from the
+  // side whose eyes they watch through (`sees`).
+  humanColor = spectating ? (state.sees === 'b' ? B : W) : state.yourColor === 'b' ? B : W;
   whiteName = state.white;
   blackName = state.black;
   whiteMember = !!state.whiteMember;
@@ -2155,12 +2247,13 @@ function applyPvpState(socket, state) {
   }
 
   // Clock labels (top = opponent, bottom = you; for a spectator top = Black,
-  // bottom = White) + initial snapshot.
+  // bottom = White, or the other way up watching Fog of War through Black's
+  // eyes) + initial snapshot.
   const oppName = humanColor === W ? blackName : whiteName;
   const topWho = document.getElementById('clockTopWho');
   const botWho = document.getElementById('clockBottomWho');
   if (topWho) topWho.textContent = oppName;
-  if (botWho) botWho.textContent = spectating ? whiteName : 'You';
+  if (botWho) botWho.textContent = spectating ? (humanColor === W ? whiteName : blackName) : 'You';
   setClocks(state.clocks, state.running);
 
   // Build (or rebuild, on reconnect) the source bound to this socket.

@@ -9,7 +9,7 @@ repo are in `docs/CLAUDE.md`.
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
 standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of
-the Hill, Three-check, Gambling Madness or infinite chess, on a board with no edges. Around the games: puzzles, an
+the Hill, Three-check, Gambling Madness, Fog of War (between people) or infinite chess, on a board with no edges. Around the games: puzzles, an
 analysis board, achievements, friends, a leaderboard, spectating, in-game chat
 and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
 browser, no build step.
@@ -30,7 +30,7 @@ browser, no build step.
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
 squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill,
-Three-check, Gambling Madness and Bughouse rule sets.
+Three-check, Gambling Madness, Fog of War and Bughouse rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
 its variant needs. Four-player chess has a third, `src/shared/fourPlayer.js`. `src/shared/lorfish.js` is **LorFish**, a synchronous search
@@ -308,10 +308,25 @@ bare king can still take a king that blunders into it.
   board; the game lists null a live game's `current_fen`; the lobby lists it
   without a preview (`fen` and `last` null). Against LorFish none of this
   applies: the page holds the whole game anyway.
+- *The game page* (`ui.js`) never holds the real board of a game between
+  people: the board is the last view the server sent (`loadFogView`), so
+  the hints, premoves and SAN of your own moves come from it. Each
+  `move:made` loads the new view (`applyFogMove`): your own move slides as
+  any move does; the other side's slides only if both ends were seen, else
+  its piece just appears or goes, and its square is marked where seen. The
+  board view (`gridBoardView.js`, `fog`) greys every square not seen. The
+  other side's moves are "?" in the PGN; no captured-pieces strip, which a
+  view has no history to count from; a capture sounds when you take or lose
+  a piece. A spectator watches through White's eyes, the board that way up,
+  and "Watching through White's / Black's eyes" switches (a fresh
+  `game:watch`). `game:over`'s `final` replaces the view with the whole game
+  (`revealFog`), on every page.
 - Casual, from the standard setup, a handicap allowed, no review; its win
-  badge is `fog_wins`, "Into the Fog". Until the game page can draw the fog,
-  the catalogue's `lobby: false` keeps it out of the lobby's pickers and out
-  of "Jack of All Trades"; the server plays it already, for the tests.
+  badge is `fog_wins`, "Into the Fog", which "Jack of All Trades" now asks
+  for too. Between people only, until LorFish plays it. While a variant is
+  being built the catalogue's `lobby: false` can keep it out of the lobby's
+  pickers and out of "Jack of All Trades"; this one was, until the game page
+  drew the fog.
 - Tested in `test/unit/fog.test.js`: the rules, what each side sees, and in
   forty seeded random games that the moves and SAN from the side to move's
   view are the real ones and that the view holds nothing it can't see. Over
@@ -320,9 +335,12 @@ bare king can still take a king that blunders into it.
   eyes, every `move:made` checked field by field against a replay and every
   board in every message before the end checked to be one its side could
   see; then rejoining, switching sides, the API, the lists, the lobby, a
-  restart and a resignation.
-- Still to come: the game page drawing the fog (and the lobby offering the
-  variant), then LorFish and the replay.
+  restart and a resignation. In Chromium (`test/browser/fog.test.cjs`): two
+  players and a spectator, each board fogged as its side sees it, "?" for the
+  other side's moves, the spectator switching sides, and the whole game on
+  every page once it ends; the lobby offering it between people only.
+- Still to come: LorFish, and the replay (which already shows a finished
+  game whole, but not as either side saw it).
 
 **Bughouse** is a variant in the lobby like any other, picked from the same
 Variant lists. Picked in "Play the computer" it starts a match at once, you

@@ -335,6 +335,8 @@ describe("aggregate achievements", () => {
     assert.ok(has(keys, "threecheck_wins") && lacks(keys, "every_variant"), keys);
     keys = win("gambling");
     assert.ok(has(keys, "gambling_wins") && lacks(keys, "every_variant"), keys);
+    keys = win("fog");
+    assert.ok(has(keys, "fog_wins") && lacks(keys, "every_variant"), keys);
     // A win against LorFish is a standard win too.
     const ai = recordGame({
       white: me.id, black: lorfishId(), mode: "ai", aiColor: "b", aiLevel: "beginner",
@@ -342,10 +344,9 @@ describe("aggregate achievements", () => {
     });
     // Earned with no Bughouse or four-player win: a team game needs three
     // other people (or LorFish in their seats), so "Jack of All Trades"
-    // doesn't wait for one. Nor for Fog of War, not yet in the lobby.
+    // doesn't wait for one.
     assert.ok(has(keysOf(achievements.onGameFinished(ai), me.id), "every_variant"));
     assert.ok(has(win("bughouse"), "bughouse_wins"));
-    assert.ok(has(win("fog"), "fog_wins"));
     for (let i = 0; i < 9; i++) win("atomic");
     assert.equal(tiersOf(me.id).atomic_wins, 2, "10 Atomic wins: Silver");
     assert.equal(tiersOf(me.id).chess960_wins, 1);

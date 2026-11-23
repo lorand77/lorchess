@@ -139,8 +139,8 @@ describe("variant catalogue", () => {
     assert.equal(hasSeatBots("nope"), false);
   });
 
-  test("only a variant still being built is kept out of the lobby: Fog of War, for now", () => {
-    assert.deepEqual(VARIANTS.filter((v) => v.lobby === false).map((v) => v.key), ["fog"]);
+  test("no variant is being kept out of the lobby", () => {
+    assert.deepEqual(VARIANTS.filter((v) => v.lobby === false).map((v) => v.key), []);
   });
 
   test("move badges replay a game on one 8x8 board: not Infinite Chess, a Bughouse board alone or four-player chess", () => {

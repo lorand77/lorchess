@@ -16,7 +16,9 @@
 //                    dealt: Gambling Madness, the type the side to move was dealt)
 //   applyMove(move, record, opts) setThinking(bool)     onReject(msg?)
 //   onEngineError(msg)  the engine could not move; the page offers a retry
-//   opts.premove marks a move the human queued before the opponent replied.
+//   opts.premove marks a move the human queued before the opponent replied;
+//   opts.view (Fog of War) is the position as this side sees it after a move
+//   between people, with opts.san the move's SAN or null for the other side's.
 
 // ---- AI: LorFish in a Web Worker ----
 // LorFish answers a shallow search in a few milliseconds, which reads as a
@@ -175,13 +177,20 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
     // mover — so BOTH players apply moves only here. Single source of truth.
     onServerMove(m) {
       busy = false;
-      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false, { dealt: m.dealt });
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false, fromServer(m));
     },
     kickIfEngineTurn() {}, // no engine in PvP
     cancel() {
       busy = false;
     },
   };
+}
+
+// What a server move carries besides the move: Gambling Madness's next deal,
+// and in Fog of War the position as this side now sees it and the SAN (null
+// for a move of the other side's).
+function fromServer(m) {
+  return m.view ? { view: m.view, san: m.san } : { dealt: m.dealt };
 }
 
 // ---- Spectator: a read-only board fed by the server's broadcasts ----
@@ -195,7 +204,7 @@ function createSpectatorMoveSource(env) {
     },
     submitMove() {},
     onServerMove(m) {
-      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false, { dealt: m.dealt });
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false, fromServer(m));
     },
     kickIfEngineTurn() {},
     cancel() {},
