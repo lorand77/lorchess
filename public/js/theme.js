@@ -44,6 +44,8 @@ window.Theme = (function () {
     // the small boards; Flat and Shaded keep the player's.
     const style = BOARD_STYLES_BY_KEY.get(resolveBoardStyle(current.boardStyle));
     document.documentElement.dataset.boardStyle = style.key;
+    // styles.css sizes the pieces by their set: see "LorChess Staunton" there.
+    document.documentElement.dataset.pieceSet = resolvePieceSet(current.pieceSet);
     st.setProperty("--sq-light", style.ownColours ? current.light : style.light);
     st.setProperty("--sq-dark", style.ownColours ? current.dark : style.dark);
     st.setProperty("--page-bg", current.bgColor);

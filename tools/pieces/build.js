@@ -88,18 +88,26 @@ const PIECES = {
   ],
 };
 
+// A piece drawn larger than its shapes, from the middle of its foot, with its
+// lines kept the same weight as every other piece's. The pawn is drawn a bit
+// bigger than its shapes, to stand up among the others.
+const SCALE = { p: 1.06 };
+
 function svg(colour, type) {
   const p = PALETTES[colour];
   const id = `g${colour}${type}`;
+  const k = SCALE[type] || 1;
+  const w = (n) => +(n / k).toFixed(2);
   const shapes = PIECES[type].map((s) => (s.line
-    ? `<path d="${s.line}" fill="none" stroke="${p.line}" stroke-width="1.8" stroke-linecap="round"/>`
+    ? `<path d="${s.line}" fill="none" stroke="${p.line}" stroke-width="${w(1.8)}" stroke-linecap="round"/>`
     : s.dot
       ? `<path d="${s.dot}" fill="${p.line}"/>`
-      : `<path d="${s.d}" fill="url(#${id})" stroke="${p.stroke}" stroke-width="2.6" stroke-linejoin="round"/>`));
+      : `<path d="${s.d}" fill="url(#${id})" stroke="${p.stroke}" stroke-width="${w(2.6)}" stroke-linejoin="round"/>`));
+  const body = k === 1 ? shapes.join("") : `<g transform="translate(50 92) scale(${k}) translate(-50 -92)">${shapes.join("")}</g>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">` +
     `<defs><linearGradient id="${id}" x1="0.2" y1="0" x2="0.8" y2="1">` +
     `<stop offset="0" stop-color="${p.top}"/><stop offset="1" stop-color="${p.bottom}"/></linearGradient></defs>` +
-    shapes.join("") + `</svg>\n`;
+    body + `</svg>\n`;
 }
 
 fs.mkdirSync(OUT, { recursive: true });

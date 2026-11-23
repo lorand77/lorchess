@@ -391,6 +391,13 @@ html[data-board-style="slate"] :is(.square, .mini-square).dark   { background: v
   pointer-events: none;
 }
 .square img.pawn { width: calc(var(--sq) * 0.6); }
+/* LorChess Staunton (looks.js): each SVG draws its piece in its own box with
+   a margin, and its pawn already smaller than the rest, so its pieces take
+   most of the square, pawns as much as any. (The sizes above are for the
+   Classic set, whose images are drawn edge to edge.) */
+html[data-piece-set="lorchess"] .square img,
+html[data-piece-set="lorchess"] .square img.pawn { width: calc(var(--sq) * 0.94); height: calc(var(--sq) * 0.94); }
+html[data-piece-set="lorchess"] .mini-square img { width: 100%; height: 100%; }
 /* A piece sliding in from another square paints above the squares it crosses. */
 .square.animating { z-index: 1; }
 /* Fading copy of a captured piece, shown under the arriving capturer. */

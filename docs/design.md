@@ -1130,6 +1130,11 @@ page paints in the right colours before the fetch returns.
   key found there. Pieces: "Classic" (Cburnett, the default, CC BY-SA) and
   "LorChess Staunton", our own SVGs drawn by `tools/pieces/build.js` from one
   set of shapes for both colours (ivory and near-black, both outlined dark).
+  The board draws pieces at 75% of a square and pawns at 60% wide, sizes
+  for the Classic images, which are drawn edge to edge; LorChess Staunton
+  draws its own margin and its pawn already smaller, so under
+  `<html data-piece-set="lorchess">` its pieces take 94% of the square,
+  pawns as much as any.
   `Theme.pieceSrc` gives an uploaded piece first, then the chosen set's, and
   everything that draws a piece asks it (the boards, the mini boards, the
   position editor; the four-player board tints the white set).
