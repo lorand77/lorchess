@@ -1,8 +1,9 @@
 "use strict";
 
-// The customization panel. Colour edits are applied to the page immediately
-// (via Theme.apply) as a live preview and persisted with Save; image uploads
-// go straight to the server and then the theme is reloaded from it. The Games
+// The customization panel. Colour, board style and piece set edits are
+// applied to the page immediately (via Theme.apply) as a live preview and
+// persisted with Save; image uploads go straight to the server and then the
+// theme is reloaded from it. The styles and sets are looks.js's. The Games
 // panel's switch is this browser's own and is saved as soon as it changes.
 
 (function () {
@@ -77,7 +78,9 @@
     say(wheelToggle.checked ? "The wheel will spin." : "The wheel is off.", true);
   });
 
-  const pick = (s) => ({ scheme: s.scheme, light: s.light, dark: s.dark, bgColor: s.bgColor });
+  const pick = (s) => ({
+    scheme: s.scheme, light: s.light, dark: s.dark, bgColor: s.bgColor, pieceSet: s.pieceSet, boardStyle: s.boardStyle,
+  });
   const dirty = () => !!saved && Object.keys(draft).some((k) => draft[k] !== saved[k]);
 
   // ---- preview board ----
@@ -113,13 +116,54 @@
       hexes[k].textContent = colors[k];
     }
     for (const r of schemeInputs) r.checked = r.value === colors.scheme;
+    for (const r of document.querySelectorAll('input[name="boardStyle"]')) r.checked = r.value === colors.boardStyle;
+    for (const r of document.querySelectorAll('input[name="pieceSet"]')) r.checked = r.value === colors.pieceSet;
+    // Flat and Shaded are drawn in the colours being tried.
+    for (const sw of document.querySelectorAll('.style-swatch.own')) {
+      sw.querySelector(".light").style.background = colors.light;
+      sw.querySelector(".dark").style.background = colors.dark;
+    }
   }
 
   function previewDraft() {
     Theme.apply({ ...saved, ...draft });
     setInputs(draft);
     saveBtn.disabled = revertBtn.disabled = !dirty();
+    // The preview board and the piece slots show the set being tried.
+    if (saved) { renderPreview(); renderPieces(); }
   }
+
+  // ---- board style and piece set: one radio each, from looks.js ----
+  function choices(host, name, list, sample) {
+    for (const item of list) {
+      const label = el("label", "scheme-opt");
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = name;
+      input.value = item.key;
+      input.addEventListener("change", () => {
+        if (!input.checked) return;
+        draft[name] = item.key;
+        previewDraft();
+      });
+      label.append(input, sample(item), document.createTextNode(" " + item.label));
+      host.appendChild(label);
+    }
+  }
+  // A style's swatch: a light and a dark square, as that style draws them.
+  choices($("boardStyles"), "boardStyle", BOARD_STYLES, (item) => {
+    const sw = el("span", "style-swatch" + (item.ownColours ? " own" : ""));
+    sw.dataset.style = item.key;
+    sw.append(el("span", "light"), el("span", "dark"));
+    return sw;
+  });
+  choices($("pieceSets"), "pieceSet", PIECE_SETS, (item) => {
+    const img = document.createElement("img");
+    img.className = "set-sample";
+    img.src = pieceUrl(item.key, "w", "n");
+    img.alt = "";
+    return img;
+  });
 
   for (const k of Object.keys(inputs)) {
     inputs[k].addEventListener("input", () => {

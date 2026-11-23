@@ -12,7 +12,7 @@
   <div class="userbar" id="userbar"></div>
   <p class="toplink"><a href="/lobby.html">← Lobby</a></p>
   <h1>Customize</h1>
-  <p class="muted small">Changes preview live on this page. Colours are saved when you press Save; images are saved as soon as they upload.</p>
+  <p class="muted small">Changes preview live on this page. Colours, the board style and the piece set are saved when you press Save; images are saved as soon as they upload.</p>
 
   <div class="settings-cols">
     <div class="settings-preview">
@@ -36,6 +36,8 @@
 
       <section class="panel">
         <h2>Board</h2>
+        <div class="scheme-choice" id="boardStyles" role="radiogroup" aria-label="Board style"></div>
+        <p class="muted small">Every style but Flat gives each square its own shade. Flat and Shaded use the colours below; the others bring their own.</p>
         <div class="color-row">
           <label for="lightColor">Light squares</label>
           <input type="color" id="lightColor">
@@ -81,6 +83,7 @@
 
       <section class="panel">
         <h2>Pieces</h2>
+        <div class="scheme-choice" id="pieceSets" role="radiogroup" aria-label="Piece set"></div>
         <p class="muted small">Click a piece to replace it with your own image (PNG, WebP, or SVG with a transparent background works best, up to 512 KB each). Slots you leave alone keep the default set.</p>
         <div class="piece-grid" id="pieceGrid"></div>
         <div class="settings-actions">
@@ -95,7 +98,7 @@
       </section>
 
       <div class="settings-actions">
-        <button type="button" id="saveBtn" class="primary" disabled>Save colours</button>
+        <button type="button" id="saveBtn" class="primary" disabled>Save</button>
         <button type="button" id="revertBtn" disabled>Discard changes</button>
         <button type="button" id="resetAllBtn" class="danger">Reset everything</button>
       </div>
@@ -106,6 +109,7 @@
 
 <script src="/js/shell.js"></script>
 <script src="/js/authGuard.js"></script>
+<script src="/js/looks.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/dealWheel.js"></script>
 <script src="/js/settings.js"></script>

@@ -4,9 +4,11 @@
 // uploaded images (page background, light and dark squares, individual piece
 // slots) are BLOBs in user_assets and served back only to their owner.
 //
-//   GET    /api/settings                 -> { scheme, light, dark, bgColor, assets: { kind: version } }
-//   PUT    /api/settings                 { scheme?, light?, dark?, bgColor? }
-//                                        (scheme is "dark" or "light"; the rest are hex colours)
+//   GET    /api/settings                 -> { scheme, light, dark, bgColor, pieceSet, boardStyle,
+//                                             assets: { kind: version } }
+//   PUT    /api/settings                 { scheme?, light?, dark?, bgColor?, pieceSet?, boardStyle? }
+//                                        (scheme is "dark" or "light"; pieceSet and boardStyle
+//                                        keys of src/shared/looks.js; the rest hex colours)
 //   POST   /api/settings/reset           back to defaults, drop all uploads
 //   PUT    /api/settings/assets/:kind    raw image body (png/jpeg/gif/webp/svg)
 //   DELETE /api/settings/assets/:kind
@@ -15,11 +17,17 @@
 const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
+const { PIECE_SETS_BY_KEY, BOARD_STYLES_BY_KEY, DEFAULT_PIECE_SET, DEFAULT_BOARD_STYLE } = require("../shared/looks");
 
 const router = express.Router();
 router.use(requireAuth);
 
-const DEFAULTS = { scheme: "dark", light: "#f0d9b5", dark: "#b58863", bgColor: "#323232" };
+const DEFAULTS = {
+  scheme: "dark", light: "#f0d9b5", dark: "#b58863", bgColor: "#323232",
+  pieceSet: DEFAULT_PIECE_SET, boardStyle: DEFAULT_BOARD_STYLE,
+};
+// The choices that are keys of a catalogue in looks.js.
+const CHOICES = { pieceSet: PIECE_SETS_BY_KEY, boardStyle: BOARD_STYLES_BY_KEY };
 const COLOR_KEYS = ["light", "dark", "bgColor"];
 const SCHEMES = new Set(["dark", "light"]);
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -44,6 +52,7 @@ function readPrefs(userId) {
   const prefs = { ...DEFAULTS };
   if (SCHEMES.has(stored.scheme)) prefs.scheme = stored.scheme;
   for (const k of COLOR_KEYS) if (HEX.test(stored[k] || "")) prefs[k] = stored[k].toLowerCase();
+  for (const [k, allowed] of Object.entries(CHOICES)) if (allowed.has(stored[k])) prefs[k] = stored[k];
   return prefs;
 }
 
@@ -71,6 +80,13 @@ router.put("/", (req, res) => {
       return res.status(400).json({ error: `${k} must be a hex colour like #b58863.` });
     }
     prefs[k] = body[k].toLowerCase();
+  }
+  for (const [k, allowed] of Object.entries(CHOICES)) {
+    if (body[k] === undefined) continue;
+    if (typeof body[k] !== "string" || !allowed.has(body[k])) {
+      return res.status(400).json({ error: `${k} must be one of ${[...allowed.keys()].join(", ")}.` });
+    }
+    prefs[k] = body[k];
   }
   queries.setUserPrefs.run(JSON.stringify(prefs), uid);
   res.json(settingsFor(uid));

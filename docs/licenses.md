@@ -16,4 +16,9 @@ LorChess itself is MIT, see [LICENSE](../LICENSE). These parts are not:
   L. Burnett, from
   [OpenGameArt](https://opengameart.org/content/chess-pieces-and-board-squares),
   licensed [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
-  They are used unmodified; edited versions must stay CC BY-SA.
+  They are used unmodified; edited versions must stay CC BY-SA. They are the
+  "Classic" piece set under Customize.
+
+The "LorChess Staunton" pieces (`public/assets/pieces/lorchess/`) and the
+board textures (`public/assets/boards/`) are LorChess's own, MIT like the
+rest: drawn by `tools/pieces/build.js` and `tools/boards/build.js`.

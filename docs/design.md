@@ -1116,6 +1116,36 @@ they can't contradict the lobby. A tab opens from the hash
 in the catalogue's order. The prose itself isn't tied to the engines by any
 test: a rule change means editing the page by hand.
 
+## Look and feel
+
+Customize (`settings.html`, `settings.js`) previews every change live through
+`Theme.apply` and saves colours, the board style and the piece set together
+with Save; uploaded images save as they upload. All of it is the player's
+`users.prefs` JSON and `user_assets` rows (`src/settings/routes.js`), and
+`theme.js` applies it on every page, from a localStorage copy first so the
+page paints in the right colours before the fetch returns.
+
+- *Piece sets and board styles* are an allowlist in `src/shared/looks.js`,
+  which every themed page loads before `theme.js`; the server stores only a
+  key found there. Pieces: "Classic" (Cburnett, the default, CC BY-SA) and
+  "LorChess Staunton", our own SVGs drawn by `tools/pieces/build.js` from one
+  set of shapes for both colours (ivory and near-black, both outlined dark).
+  `Theme.pieceSrc` gives an uploaded piece first, then the chosen set's, and
+  everything that draws a piece asks it (the boards, the mini boards, the
+  position editor; the four-player board tints the white set).
+- *Board styles*: Flat (the player's colours, as ever), Shaded (the same
+  colours, each square its own shade), and Walnut, Marble and Slate, which
+  bring textures of their own (`public/assets/boards/`, SVG noise filters
+  drawn by `tools/boards/build.js`) and colours for the coordinates.
+  `theme.js` sets `<html data-board-style>`, and styles.css does the rest
+  with no help from the board code: each square's place among its board's
+  squares, by `nth-child` modulo 3, 5 and 7, picks its patch of the texture
+  (a fifth of it, across and down) and its shade, and those three repeat
+  together only after 105 squares, so no two of a board's 64 match. It works
+  on any board drawn as a row of squares, the mini boards included, and an
+  uploaded square image still lies on top. The textures are sized by width
+  alone (`500% auto`): a square stretched by a layout can't letterbox them.
+
 ## Authentication
 
 - `POST /api/register`, `POST /api/login`, `POST /api/logout`, `GET /api/me`.
