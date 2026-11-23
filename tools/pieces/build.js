@@ -78,20 +78,18 @@ const PIECES = {
     ...base(70),
     {
       // Facing left: the chest, the throat, the jaw forward to the chin, the
-      // open mouth, the nose, the face and forehead up to two ears, then the
-      // mane's tufts down the arched back of the neck.
-      d: "M28.5 78.5 C30 70.5 36 64.5 43 60 C45 58.5 46 57 45 55.5 C40 57 33 61 27 61" +
-        " C23 61 21 59 22 57 L27 55.5 L21 54.5 C17 54 15 51 16 48" +
-        " C18 42 26 32 36 23 C41 18 46 15 51 14 C51.5 10 52.5 6.5 54.5 3.5 C57.5 7 59 10.5 58.5 14.5" +
-        " C60 11 62 7.5 64.5 5.5 C65.5 10 65.5 15 63.5 18.5 C70 24 74 30 75 36 L79 38 L76 42 L80 46" +
-        " L77 50 L80 55 L77 59 C78 66 77 73 76 78.5 Z",
+      // nose, the face and forehead up to the ear, then the arched back of
+      // the neck.
+      d: "M25.5 78.5 C25.5 69 29.5 62 37 58.5 C40.5 56.5 41.5 54 39.5 52 C34 54.5 27 57.5 22 57" +
+        " C18 56.5 16 54 17 51 C15 49 13 46 15 43 C18 36 26 27 35 19 C38 16 41 13 44 11" +
+        " C44.5 7.5 45.5 5 47.5 2.5 C50 5.5 51.5 9 51.5 12.5 C60 12 68 17 73 25 C80 36 82 56 77 78.5 Z",
     },
-    { dot: "M33.5 30 C35 27.5 39 27 41 29.5 C39 32 35.5 32.5 33.5 30 Z" },
-    { dot: circle(20, 49.5, 1.6).d },
-    { line: "M32.5 25.5 C35.5 23 40 22.5 43.5 25.5" },
-    { line: "M47 37 C51.5 43 51 50.5 45.5 55" },
-    { line: "M63 20 C68.5 30 71.5 45 70.5 70" },
-    { line: "M55 8.5 L55.8 13.5" },
+    { dot: "M30 31 C31.5 28.5 35 28 37 30.5 C35 33 31.5 33.5 30 31 Z" },
+    { line: "M29.5 26.5 C32 24.3 36 24.3 39 27" },
+    { dot: circle(18.6, 46.6, 1.6).d },
+    { line: "M17.8 52 L22.5 51" },
+    { line: "M52 13 C63 18 71 30 73 52" },
+    { line: "M40 30 C44 37 44 46 39 52.5" },
   ],
 };
 
@@ -100,21 +98,27 @@ const PIECES = {
 // bigger than its shapes, to stand up among the others.
 const SCALE = { p: 1.06 };
 
-function svg(colour, type) {
+// A list of shapes in a colour's palette: the gradient they fill with (`defs`,
+// its id `id`) and the paths (`body`), scaled by `k` from the middle of the
+// foot with the lines kept at every piece's weight.
+function draw(shapes, colour, id, k = 1) {
   const p = PALETTES[colour];
-  const id = `g${colour}${type}`;
-  const k = SCALE[type] || 1;
   const w = (n) => +(n / k).toFixed(2);
-  const shapes = PIECES[type].map((s) => (s.line
+  const paths = shapes.map((s) => (s.line
     ? `<path d="${s.line}" fill="none" stroke="${p.line}" stroke-width="${w(1.8)}" stroke-linecap="round"/>`
     : s.dot
       ? `<path d="${s.dot}" fill="${p.line}"/>`
       : `<path d="${s.d}" fill="url(#${id})" stroke="${p.stroke}" stroke-width="${w(2.6)}" stroke-linejoin="round"/>`));
-  const body = k === 1 ? shapes.join("") : `<g transform="translate(50 92) scale(${k}) translate(-50 -92)">${shapes.join("")}</g>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">` +
-    `<defs><linearGradient id="${id}" x1="0.2" y1="0" x2="0.8" y2="1">` +
-    `<stop offset="0" stop-color="${p.top}"/><stop offset="1" stop-color="${p.bottom}"/></linearGradient></defs>` +
-    body + `</svg>\n`;
+  return {
+    defs: `<linearGradient id="${id}" x1="0.2" y1="0" x2="0.8" y2="1">` +
+      `<stop offset="0" stop-color="${p.top}"/><stop offset="1" stop-color="${p.bottom}"/></linearGradient>`,
+    body: k === 1 ? paths.join("") : `<g transform="translate(50 92) scale(${k}) translate(-50 -92)">${paths.join("")}</g>`,
+  };
+}
+
+function svg(colour, type) {
+  const { defs, body } = draw(PIECES[type], colour, `g${colour}${type}`, SCALE[type] || 1);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>${defs}</defs>${body}</svg>\n`;
 }
 
 fs.mkdirSync(OUT, { recursive: true });
