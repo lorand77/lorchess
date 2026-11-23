@@ -7,7 +7,8 @@
 // replayed with its match (game.match): its pockets fill from the other board,
 // so both are played in the order the moves were made, and the other board is
 // shown beside it as it stood at the move shown. A four-player game goes to
-// its own replay, fourReplay.html. A game that is over can be starred.
+// its own replay, fourReplay.html. A game that is over can be starred. A Fog
+// of War game shows everything, or the board as White or Black saw it.
 
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const CAPTURE_ORDER = ["p", "n", "b", "r", "q"];
@@ -43,6 +44,8 @@ let lastMove = null;
 let whiteName = "White";
 let blackName = "Black";
 let variant = "standard";
+// Fog of War: whose view the board shows, 'w' or 'b', or null for everything.
+let fogSide = null;
 let isMember = false; // game review is a membership perk
 let review = null;   // GameReview summary once the analysis finishes
 let reviewJob = null; // the running job, so it can be cancelled
@@ -127,7 +130,32 @@ async function init() {
   buildMoveList();
   wireControls();
   wireReview();
+  if (variant === "fog") wireFogView();
   goto(uciList.length); // open at the final position
+}
+
+// Fog of War: "Show everything / White's view / Black's view". A side's view
+// is the board as that side saw it at each move, that side at the bottom.
+function wireFogView() {
+  const box = document.getElementById("fogView");
+  const ownFlip = flip;
+  box.hidden = false;
+  const paint = () => {
+    for (const b of box.querySelectorAll("button[data-view]")) {
+      const on = (b.dataset.view || null) === fogSide;
+      b.classList.toggle("primary", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  };
+  for (const b of box.querySelectorAll("button[data-view]")) {
+    b.addEventListener("click", () => {
+      fogSide = b.dataset.view || null;
+      flip = fogSide ? fogSide === "b" : ownFlip;
+      paint();
+      goto(idx);
+    });
+  }
+  paint();
 }
 
 // The level an AI game was played at (src/shared/aiLevels.js), long and short:
@@ -280,6 +308,8 @@ function renderBoard() {
   }
   boardEl.innerHTML = "";
   const inCheck = chess.inCheck();
+  // Fog of War, as one side saw it: what that side sees, the rest fogged.
+  const seen = fogSide && chess.isFog ? chess.visibleSquares(fogSide) : null;
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
       const r = flip ? row : 7 - row;
@@ -288,8 +318,9 @@ function renderBoard() {
       const div = document.createElement("div");
       div.className = "square " + ((r + f) % 2 === 0 ? "dark" : "light");
       div.dataset.sq = sq; // boardArrows.js finds squares by this
-      if (lastMove && (lastMove.from === sq || lastMove.to === sq)) div.classList.add("last-move");
-      const piece = chess.squares[sq];
+      if (lastMove && (lastMove.from === sq || lastMove.to === sq) && (!seen || seen.has(sq))) div.classList.add("last-move");
+      if (seen && !seen.has(sq)) div.classList.add("fog");
+      const piece = seen && !seen.has(sq) ? null : chess.squares[sq];
       if (inCheck && piece && piece.t === "k" && piece.c === chess.turn) div.classList.add("check");
 
       if (col === 0) {
@@ -309,6 +340,7 @@ function renderBoard() {
         img.src = pieceImgSrc(piece);
         if (piece.t === "p") img.classList.add("pawn");
         img.draggable = false;
+        img.alt = piece.c + piece.t;
         div.appendChild(img);
       }
       boardEl.appendChild(div);

@@ -243,6 +243,8 @@ const LorFish = {
         s -= (this.pieceValues[attacker.t] || 0) / 100 | 0;
       }
       if (m.promo) s += 8000;
+      // Fog of War: taking the king wins, so it is tried before anything.
+      if (chess.isFog && victim && victim.t === 'k') s += this.MATE;
       scored[i] = { m, s };
     }
     scored.sort((a, b) => b.s - a.s);

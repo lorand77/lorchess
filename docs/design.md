@@ -9,7 +9,7 @@ repo are in `docs/CLAUDE.md`.
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
 standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of
-the Hill, Three-check, Gambling Madness, Fog of War (between people) or infinite chess, on a board with no edges. Around the games: puzzles, an
+the Hill, Three-check, Gambling Madness, Fog of War or infinite chess, on a board with no edges. Around the games: puzzles, an
 analysis board, achievements, friends, a leaderboard, spectating, in-game chat
 and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
 browser, no build step.
@@ -323,10 +323,24 @@ bare king can still take a king that blunders into it.
   (`revealFog`), on every page.
 - Casual, from the standard setup, a handicap allowed, no review; its win
   badge is `fog_wins`, "Into the Fog", which "Jack of All Trades" now asks
-  for too. Between people only, until LorFish plays it. While a variant is
-  being built the catalogue's `lobby: false` can keep it out of the lobby's
-  pickers and out of "Jack of All Trades"; this one was, until the game page
-  drew the fog.
+  for too. While a variant is being built the catalogue's `lobby: false` can
+  keep it out of the lobby's pickers and out of "Jack of All Trades"; this
+  one was, until the game page drew the fog.
+- *LorFish sees the whole board.* Against it the page holds the whole game
+  anyway (the AI game is the browser's, and its record is whole), so a fog
+  that LorFish respected would hide nothing from anyone who opened the
+  developer tools; playing from its own fog would be a problem of imperfect
+  information, a different engine. Its search needs almost nothing: once a
+  king is taken the rules engine has no moves and a result, which `endScore`
+  scores as a mate; a king capture is ordered first (`orderMoves`); and
+  `legalCaptures` takes fog's pseudo-legal moves, as it does Atomic's. The
+  page (`aiFogOn` in `ui.js`) draws only what the player's side sees until
+  the game is over: the pieces in sight, the squares fogged, LorFish's moves
+  as "?" in the PGN, its move unanimated and its last-move marks hidden where
+  unseen, no material count (it would tell of a promotion out of sight).
+- *The replay* (`replay.js`) shows a finished game whole, or with "White's
+  view" / "Black's view" as that side saw it at each move (`visibleSquares`
+  on the replayed position), that side at the bottom.
 - Tested in `test/unit/fog.test.js`: the rules, what each side sees, and in
   forty seeded random games that the moves and SAN from the side to move's
   view are the real ones and that the view holds nothing it can't see. Over
@@ -335,12 +349,14 @@ bare king can still take a king that blunders into it.
   eyes, every `move:made` checked field by field against a replay and every
   board in every message before the end checked to be one its side could
   see; then rejoining, switching sides, the API, the lists, the lobby, a
-  restart and a resignation. In Chromium (`test/browser/fog.test.cjs`): two
-  players and a spectator, each board fogged as its side sees it, "?" for the
-  other side's moves, the spectator switching sides, and the whole game on
-  every page once it ends; the lobby offering it between people only.
-- Still to come: LorFish, and the replay (which already shows a finished
-  game whole, but not as either side saw it).
+  restart and a resignation; a game against LorFish created, recorded whole
+  and ended by taking the king. LorFish taking a king, and not leaving its
+  own to be taken, in `test/unit/fog.test.js`. In Chromium
+  (`test/browser/fog.test.cjs`): two players and a spectator, each board
+  fogged as its side sees it, "?" for the other side's moves, the spectator
+  switching sides, and the whole game on every page once it ends; a game
+  against LorFish drawn as your side sees it; the replay whole and as each
+  side saw it; the lobby offering it in both pickers.
 
 **Bughouse** is a variant in the lobby like any other, picked from the same
 Variant lists. Picked in "Play the computer" it starts a match at once, you

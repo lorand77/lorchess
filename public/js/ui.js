@@ -133,7 +133,11 @@ function applyMove(rmove, record, opts) {
   }
   const san = chess.moveToSan(move);
   planMoveAnimation(move);
+  // Fog of War against LorFish: its move slides only if both ends are seen.
+  const hidden = aiFogOn() && chess.turn !== humanColor;
+  const seenBefore = hidden ? chess.visibleSquares(humanColor) : null;
   chess.makeMove(move);
+  if (hidden && !(seenBefore.has(move.from) && aiFogOn() && chess.visibleSquares(humanColor).has(move.to))) moveAnim = null;
   dealTurn(opts && opts.dealt);
   lastMove = move;
   moveHistory.push(san);
@@ -181,6 +185,15 @@ function applyFogMove(rmove, opts) {
   if (queued) premove = null;
   render();
   if (queued) playPremove(queued);
+}
+
+// Fog of War against LorFish: the page holds the whole game (LorFish sees
+// it all), so while the game is on it draws only what the player's side sees:
+// the pieces and squares in sight, LorFish's moves as "?" and unanimated
+// unless seen at both ends. Between people the board is already the server's
+// view (fogVisible), and once the game is over everything shows.
+function aiFogOn() {
+  return !pvpMode && !!chess.isFog && !chess.fogVisible && !gameIsOver();
 }
 
 // Fog of War: the whole game, once it is over (game:over's `final`): the
@@ -310,8 +323,9 @@ function renderCaptured() {
     else           blackMat += PIECE_VAL[p.t];
   }
   // In Antichess the side with less material is the one doing well, so a
-  // "+4" would mislead: show what was taken, but no count.
-  const whiteAdv = chess.isAntichess ? 0 : whiteMat - blackMat;
+  // "+4" would mislead: show what was taken, but no count. In Fog of War the
+  // count would tell of a promotion out of sight.
+  const whiteAdv = chess.isAntichess || aiFogOn() ? 0 : whiteMat - blackMat;
 
   const topColor    = humanColor === W ? B : W;
   const bottomColor = humanColor;
@@ -626,10 +640,14 @@ function render() {
   // says whether the move it was asked to animate is still moving.
   const infinite = chess instanceof InfiniteChess;
   const king = inCheckNow && (infinite ? chess.kingOf(chess.turn) : chess.findKing(chess.turn));
+  // Fog of War against LorFish: only what the player's side sees.
+  const seen = !infinite && aiFogOn() ? chess.visibleSquares(humanColor) : null;
   const animating = boardView.render({
-    pieces: infinite ? chess.board : chess.squares,
+    pieces: infinite ? chess.board : seen ? chess.squares.map((p, sq) => (seen.has(sq) ? p : null)) : chess.squares,
     flip: humanColor === B,
-    lastMove,
+    lastMove: seen && lastMove
+      ? { from: seen.has(lastMove.from) ? lastMove.from : null, to: seen.has(lastMove.to) ? lastMove.to : null }
+      : lastMove,
     premove,
     selected,
     check: !inCheckNow ? null : infinite ? king.x + ',' + king.y : king,
@@ -638,7 +656,7 @@ function render() {
     // King of the Hill: the four squares a king wins on.
     hill: !infinite && chess.isKingOfTheHill ? new Set(HILL_SQUARES) : null,
     // Fog of War: the squares this side sees.
-    fog: infinite ? null : chess.fogVisible || null,
+    fog: infinite ? null : seen || chess.fogVisible || null,
     hints: infinite ? infiniteHints() : selectionHints(),
     animation: moveAnim,
   });
@@ -776,9 +794,10 @@ function buildPgn() {
   let body = '';
   let fm = startFullmove;
   let turn = startTurn;
+  const masked = aiFogOn();
   for (let i = 0; i < moveHistory.length; i++) {
     // Fog of War: the other side's moves are unknown ("?") until the end.
-    const san = moveHistory[i] || '?';
+    const san = (masked && turn !== humanColor) ? '?' : moveHistory[i] || '?';
     if (turn === W) {
       body += fm + '. ' + san + ' ';
     } else {
@@ -1207,6 +1226,7 @@ function undo() {
     moveHistory.splice(-1);
   }
   planUndoAnimation(undone);
+  if (aiFogOn()) moveAnim = null;   // Fog of War: LorFish's piece would slide back into sight
   if (typeof DealWheel !== 'undefined') DealWheel.skip(); // the deal undone back to was spun already
   if (chess.history.length < before) {
     play(sounds.move);

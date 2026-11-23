@@ -973,7 +973,7 @@ class Chess {
   // legalMoves' own list, filtered.
   legalCaptures() {
     const c = this.turn;
-    if (this.isAtomic || this.isAntichess || this.isPawnWars) {
+    if (this.isAtomic || this.isAntichess || this.isPawnWars || this.isFog) {
       return this.legalMoves(c).filter((m) => m.capture || m.enpassant);
     }
     const out = [];

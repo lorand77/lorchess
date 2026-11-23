@@ -11,6 +11,7 @@
 const { describe, test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Chess, W, B } = require("../../src/shared/chess");
+const { LorFish } = require("../../src/shared/lorfish");
 
 const fog = (fen) => {
   const c = new Chess().setVariant("fog");
@@ -215,5 +216,24 @@ describe("Fog of War: the view is enough to move from", () => {
       }
     }
     assert.ok(positions > 1000, `${positions} positions`);
+  });
+});
+
+describe("LorFish in Fog of War", () => {
+  const best = (c, depth = 2) => c.moveToSan(LorFish.getBestMove(c, depth, { rng: () => 0.5 }));
+
+  test("takes a king left where it can be taken, rather than anything else", () => {
+    // Black's king stepped next to White's rook and king; a queen hangs on
+    // a5 too. Either piece takes the king.
+    const c = fog("8/8/8/q7/8/8/3k4/3RK3 w - - 0 1");
+    assert.match(best(c), /^[RK]xd2$/);
+  });
+
+  test("doesn't leave its own king to be taken, though the rules allow it", () => {
+    // Black's rook on e8 faces White's king down the e-file; White's knight on
+    // e4 blocks it and could take the pawn on d6, opening the file.
+    const c = fog("4r1k1/8/3p4/8/4N3/8/8/4K3 w - - 0 1");
+    for (let i = 0; i < 3; i++) assert.notEqual(best(c), "Nxd6");
+    assert.deepEqual(c.legalCaptures().map((m) => c.moveToSan(m)), ["Nxd6"]);
   });
 });

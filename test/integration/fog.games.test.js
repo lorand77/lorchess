@@ -247,3 +247,24 @@ describe("a Fog of War game in progress, from outside the board", () => {
     assert.match(o.final.fen, /^rnbqkbnr\/ppp1pppp\/8\/3p4\/4P3\/5N2\/PPPP1PPP\/RNBQKB1R b /);
   });
 });
+
+describe("a Fog of War game against LorFish", () => {
+  test("is created, records its moves whole (the page holds the game) and ends by taking the king", async () => {
+    const created = await alice.c.post("/api/games", { humanColor: "w", level: "beginner", variant: "fog" });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const id = created.body.gameId;
+    const shadow = new Chess().setVariant("fog");
+    shadow.reset();
+    const m = shadow.findMove(12, 28);
+    const san = shadow.moveToSan(m);
+    shadow.makeMove(m);
+    const rec = await alice.c.post(`/api/games/${id}/moves`, { ply: 1, san, uci: "e2e4", fenAfter: shadow.fen(), byColor: "w" });
+    assert.equal(rec.status, 201);
+    const game = (await alice.c.get(`/api/games/${id}`)).body;
+    assert.equal(game.current_fen, shadow.fen(), "no view: against LorFish nothing is hidden from the page");
+    assert.equal(game.moves.length, 1);
+    const end = await alice.c.post(`/api/games/${id}/end`, { result: "1-0", termination: "king captured" });
+    assert.equal(end.status, 200, JSON.stringify(end.body));
+    assert.equal(db().prepare("SELECT termination FROM games WHERE id = ?").get(id).termination, "king captured");
+  });
+});
