@@ -19,8 +19,6 @@ LorChess itself is MIT, see [LICENSE](../LICENSE). These parts are not:
   They are used unmodified; edited versions must stay CC BY-SA. They are the
   "Classic" piece set under Customize.
 
-The "LorChess Staunton", "LorChess Modern" and "LorChess Simple" pieces
-(`public/assets/pieces/lorchess/`, `modern/` and `simple/`) and the
+The "LorChess Staunton" pieces (`public/assets/pieces/lorchess/`) and the
 board textures (`public/assets/boards/`) are LorChess's own, MIT like the
-rest: drawn by `tools/pieces/build.js` and `tools/boards/build.js`, not
-traced from any other set.
+rest: drawn by `tools/pieces/build.js` and `tools/boards/build.js`.
