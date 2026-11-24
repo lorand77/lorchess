@@ -9,7 +9,8 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 const {
-  PIECE_SETS, BOARD_STYLES, DEFAULT_PIECE_SET, DEFAULT_BOARD_STYLE, resolvePieceSet, resolveBoardStyle, pieceUrl,
+  PIECE_SETS, BOARD_STYLES, FOG_STYLES, DEFAULT_PIECE_SET, DEFAULT_BOARD_STYLE, DEFAULT_FOG_STYLE,
+  resolvePieceSet, resolveBoardStyle, resolveFogStyle, pieceUrl,
 } = require("../../src/shared/looks");
 
 const PUBLIC = path.join(__dirname, "../../public");
@@ -40,12 +41,21 @@ test("every textured board style has its light and dark textures, and its colour
   }
 });
 
+test("the fog styles: Simple, and Clouds with its texture", () => {
+  assert.deepEqual(FOG_STYLES.map((s) => s.key), ["simple", "clouds"]);
+  assert.equal(DEFAULT_FOG_STYLE, "simple");
+  assert.ok(fs.existsSync(path.join(PUBLIC, "assets/boards/fog-clouds.svg")));
+  const css = fs.readFileSync(path.join(PUBLIC, "css/styles.css"), "utf8");
+  assert.ok(css.includes('html[data-fog-style="clouds"] .square.fog::before'));
+});
+
 test("anything unknown is the default", () => {
   assert.equal(DEFAULT_PIECE_SET, "cburnett");
   assert.equal(DEFAULT_BOARD_STYLE, "flat");
   for (const junk of [undefined, null, "", "Walnut", "__proto__", "toString", 7]) {
     assert.equal(resolvePieceSet(junk), "cburnett", String(junk));
     assert.equal(resolveBoardStyle(junk), "flat", String(junk));
+    assert.equal(resolveFogStyle(junk), "simple", String(junk));
   }
   assert.equal(pieceUrl("nope", "w", "k"), "/assets/w_king_1x_ns.png");
 });

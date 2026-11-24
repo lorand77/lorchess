@@ -1122,8 +1122,8 @@ test: a rule change means editing the page by hand.
 ## Look and feel
 
 Customize (`settings.html`, `settings.js`) previews every change live through
-`Theme.apply` and saves colours, the board style and the piece set together
-with Save; uploaded images save as they upload. All of it is the player's
+`Theme.apply` and saves colours, the board style, the piece set and the fog
+style together with Save; uploaded images save as they upload. All of it is the player's
 `users.prefs` JSON and `user_assets` rows (`src/settings/routes.js`), and
 `theme.js` applies it on every page, from a localStorage copy first so the
 page paints in the right colours before the fetch returns.
@@ -1153,6 +1153,13 @@ page paints in the right colours before the fetch returns.
   on any board drawn as a row of squares, the mini boards included, and an
   uploaded square image still lies on top. The textures are sized by width
   alone (`500% auto`): a square stretched by a layout can't letterbox them.
+- *Fog styles* (`<html data-fog-style>`) draw Fog of War's fogged squares:
+  Simple, the flat grey (the default), or Clouds, one bank of cloud
+  (`fog-clouds.svg`, drawn with the board textures) laid across the whole
+  board at eight squares wide, each fogged square showing its own part of it
+  from its column and row (`nth-child`, as above), so fogged neighbours join
+  with no seam; softened and spilling two pixels over its edge, so the fog
+  meets the squares in sight gently.
 
 ## Authentication
 

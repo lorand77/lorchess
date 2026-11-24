@@ -1,6 +1,6 @@
 'use strict';
 
-// The piece sets and board styles a player can pick under Customize. Shared
+// The piece sets, board styles and fog styles a player can pick under Customize. Shared
 // by the server, which only stores a key it finds here (settings/routes.js),
 // and the browser, where theme.js turns the keys into image URLs and the
 // `data-board-style` that styles.css draws the squares by.
@@ -30,15 +30,28 @@ const BOARD_STYLES = [
 ];
 const DEFAULT_BOARD_STYLE = 'flat';
 
+// How Fog of War draws a square its player can't see: flat grey, or a bank
+// of cloud laid across the board (/assets/boards/fog-clouds.svg) with soft
+// edges where it meets what is seen.
+const FOG_STYLES = [
+  { key: 'simple', label: 'Simple' },
+  { key: 'clouds', label: 'Clouds' },
+];
+const DEFAULT_FOG_STYLE = 'simple';
+
 // Maps, not plain objects: these keys come off the wire (see variants.js).
 const PIECE_SETS_BY_KEY = new Map(PIECE_SETS.map((s) => [s.key, s]));
 const BOARD_STYLES_BY_KEY = new Map(BOARD_STYLES.map((s) => [s.key, s]));
+const FOG_STYLES_BY_KEY = new Map(FOG_STYLES.map((s) => [s.key, s]));
 
 function resolvePieceSet(key) {
   return PIECE_SETS_BY_KEY.has(key) ? key : DEFAULT_PIECE_SET;
 }
 function resolveBoardStyle(key) {
   return BOARD_STYLES_BY_KEY.has(key) ? key : DEFAULT_BOARD_STYLE;
+}
+function resolveFogStyle(key) {
+  return FOG_STYLES_BY_KEY.has(key) ? key : DEFAULT_FOG_STYLE;
 }
 
 // The image for a piece of colour 'w' or 'b' and type 'k'...'p' in a set.
@@ -49,7 +62,8 @@ function pieceUrl(setKey, c, t) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    PIECE_SETS, BOARD_STYLES, DEFAULT_PIECE_SET, DEFAULT_BOARD_STYLE,
-    PIECE_SETS_BY_KEY, BOARD_STYLES_BY_KEY, resolvePieceSet, resolveBoardStyle, pieceUrl,
+    PIECE_SETS, BOARD_STYLES, FOG_STYLES, DEFAULT_PIECE_SET, DEFAULT_BOARD_STYLE, DEFAULT_FOG_STYLE,
+    PIECE_SETS_BY_KEY, BOARD_STYLES_BY_KEY, FOG_STYLES_BY_KEY,
+    resolvePieceSet, resolveBoardStyle, resolveFogStyle, pieceUrl,
   };
 }

@@ -15,7 +15,7 @@ window.Theme = (function () {
   const CACHE_KEY = "lorchess.theme";
   const DEFAULTS = {
     scheme: "dark", light: "#f0d9b5", dark: "#b58863", bgColor: "#323232",
-    pieceSet: DEFAULT_PIECE_SET, boardStyle: DEFAULT_BOARD_STYLE, assets: {},
+    pieceSet: DEFAULT_PIECE_SET, boardStyle: DEFAULT_BOARD_STYLE, fogStyle: DEFAULT_FOG_STYLE, assets: {},
   };
   // Each scheme's own default page colour. The Customize page swaps between
   // them when the scheme changes, unless the user picked a colour of their own.
@@ -46,6 +46,8 @@ window.Theme = (function () {
     document.documentElement.dataset.boardStyle = style.key;
     // styles.css sizes the pieces by their set: see "LorChess Staunton" there.
     document.documentElement.dataset.pieceSet = resolvePieceSet(current.pieceSet);
+    // Fog of War's fogged squares, Simple or Clouds (styles.css).
+    document.documentElement.dataset.fogStyle = resolveFogStyle(current.fogStyle);
     st.setProperty("--sq-light", style.ownColours ? current.light : style.light);
     st.setProperty("--sq-dark", style.ownColours ? current.dark : style.dark);
     st.setProperty("--page-bg", current.bgColor);

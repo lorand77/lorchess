@@ -1,7 +1,8 @@
 "use strict";
 
 // Draws the board styles' square textures into public/assets/boards/ as SVGs
-// (walnut-light.svg, walnut-dark.svg, ...). Run by hand after changing one:
+// (walnut-light.svg, walnut-dark.svg, ...), and the Clouds fog of Fog of War
+// (fog-clouds.svg). Run by hand after changing one:
 //
 //   node tools/boards/build.js
 //
@@ -23,6 +24,7 @@ const PATTERNS = {
   grain: { type: "fractalNoise", freq: "0.006 0.11", octaves: 3, alpha: "2.2 -0.85" },
   veins: { type: "turbulence", freq: "0.009", octaves: 4, alpha: "-5 1.25" },
   mottle: { type: "fractalNoise", freq: "0.035", octaves: 4, alpha: "1.6 -0.55" },
+  clouds: { type: "fractalNoise", freq: "0.009", octaves: 5, alpha: "2.1 -0.62" },
 };
 
 const TEXTURES = {
@@ -32,6 +34,8 @@ const TEXTURES = {
   "marble-dark": { base: "#71857c", ink: "#d3dbd5", pattern: "veins", seed: 11 },
   "slate-light": { base: "#c3c9cf", ink: "#7c8791", pattern: "mottle", seed: 2 },
   "slate-dark": { base: "#56626e", ink: "#2c343c", pattern: "mottle", seed: 7 },
+  // Laid across a whole board, not a square at a time (styles.css).
+  "fog-clouds": { base: "#4a5260", ink: "#dde2e9", pattern: "clouds", seed: 4 },
 };
 
 function rgb(hex) {

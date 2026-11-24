@@ -1,6 +1,6 @@
 "use strict";
 
-// The customization panel. Colour, board style and piece set edits are
+// The customization panel. Colour, board style, piece set and fog edits are
 // applied to the page immediately (via Theme.apply) as a live preview and
 // persisted with Save; image uploads go straight to the server and then the
 // theme is reloaded from it. The styles and sets are looks.js's. The Games
@@ -79,7 +79,8 @@
   });
 
   const pick = (s) => ({
-    scheme: s.scheme, light: s.light, dark: s.dark, bgColor: s.bgColor, pieceSet: s.pieceSet, boardStyle: s.boardStyle,
+    scheme: s.scheme, light: s.light, dark: s.dark, bgColor: s.bgColor,
+    pieceSet: s.pieceSet, boardStyle: s.boardStyle, fogStyle: s.fogStyle,
   });
   const dirty = () => !!saved && Object.keys(draft).some((k) => draft[k] !== saved[k]);
 
@@ -118,6 +119,7 @@
     for (const r of schemeInputs) r.checked = r.value === colors.scheme;
     for (const r of document.querySelectorAll('input[name="boardStyle"]')) r.checked = r.value === colors.boardStyle;
     for (const r of document.querySelectorAll('input[name="pieceSet"]')) r.checked = r.value === colors.pieceSet;
+    for (const r of document.querySelectorAll('input[name="fogStyle"]')) r.checked = r.value === colors.fogStyle;
     // Flat and Shaded are drawn in the colours being tried.
     for (const sw of document.querySelectorAll('.style-swatch.own')) {
       sw.querySelector(".light").style.background = colors.light;
@@ -155,6 +157,11 @@
     const sw = el("span", "style-swatch" + (item.ownColours ? " own" : ""));
     sw.dataset.style = item.key;
     sw.append(el("span", "light"), el("span", "dark"));
+    return sw;
+  });
+  choices($("fogStyles"), "fogStyle", FOG_STYLES, (item) => {
+    const sw = el("span", "fog-sample");
+    sw.dataset.fog = item.key;
     return sw;
   });
   choices($("pieceSets"), "pieceSet", PIECE_SETS, (item) => {

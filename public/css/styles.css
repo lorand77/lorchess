@@ -382,6 +382,35 @@ html[data-board-style="slate"] :is(.square, .mini-square).dark   { background: v
   background: rgba(80, 84, 92, 0.82);
   pointer-events: none;
 }
+/* Fog of War, Clouds (Customize; looks.js, <html data-fog-style>): one bank
+   of cloud laid across the board, each fogged square showing its own part of
+   it, from its column and row among the board's 64 squares (counted the same
+   way as the board styles' tiles), so neighbouring fogged squares join with no
+   seam. Softened and spilling two pixels over its edge, so the fog meets the
+   squares in sight gently instead of on a hard line. */
+.board > .square { --col: 0; --row: 0; }
+.board > .square:nth-child(8n+2) { --col: 1; }
+.board > .square:nth-child(8n+3) { --col: 2; }
+.board > .square:nth-child(8n+4) { --col: 3; }
+.board > .square:nth-child(8n+5) { --col: 4; }
+.board > .square:nth-child(8n+6) { --col: 5; }
+.board > .square:nth-child(8n+7) { --col: 6; }
+.board > .square:nth-child(8n+8) { --col: 7; }
+.board > .square:nth-child(n+9) { --row: 1; }
+.board > .square:nth-child(n+17) { --row: 2; }
+.board > .square:nth-child(n+25) { --row: 3; }
+.board > .square:nth-child(n+33) { --row: 4; }
+.board > .square:nth-child(n+41) { --row: 5; }
+.board > .square:nth-child(n+49) { --row: 6; }
+.board > .square:nth-child(n+57) { --row: 7; }
+html[data-fog-style="clouds"] .square.fog::before {
+  inset: -2px;
+  background: url("/assets/boards/fog-clouds.svg") calc(var(--col) * 100% / 7) calc(var(--row) * 100% / 7) / 800% 800%;
+  filter: blur(1.2px);
+}
+/* Customize: a fog style's sample, beside its radio button. */
+.fog-sample { display: inline-block; width: 30px; height: 15px; border: 1px solid var(--border); background: rgba(80, 84, 92, 0.82); }
+.fog-sample[data-fog="clouds"] { background: url("/assets/boards/fog-clouds.svg") center / 400%; }
 .square.check {
   background: #eb6150 !important;
   box-shadow: inset 0 0 0 5px #dc3232, inset 0 0 0 7px #ff9696;

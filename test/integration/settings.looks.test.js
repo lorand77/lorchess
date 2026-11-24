@@ -1,6 +1,6 @@
 "use strict";
 
-// The piece set and board style on /api/settings: stored with the colours,
+// The piece set, board style and fog style on /api/settings: stored with the colours,
 // only keys of src/shared/looks.js accepted, and back to the defaults on reset.
 
 const { test, before, after } = require("node:test");
@@ -18,6 +18,14 @@ test("the defaults: the classic pieces on a flat board", async () => {
   const res = await me.get("/api/settings");
   assert.equal(res.body.pieceSet, "cburnett");
   assert.equal(res.body.boardStyle, "flat");
+  assert.equal(res.body.fogStyle, "simple");
+});
+
+test("the fog is kept like the rest", async () => {
+  const res = await me.put("/api/settings", { fogStyle: "clouds" });
+  assert.equal(res.body.fogStyle, "clouds");
+  assert.equal((await me.put("/api/settings", { fogStyle: "smoke" })).status, 400);
+  assert.equal((await me.get("/api/settings")).body.fogStyle, "clouds");
 });
 
 test("a set and a style are kept, alongside the colours", async () => {
@@ -46,4 +54,5 @@ test("reset puts both back", async () => {
   const res = await me.post("/api/settings/reset");
   assert.equal(res.body.pieceSet, "cburnett");
   assert.equal(res.body.boardStyle, "flat");
+  assert.equal(res.body.fogStyle, "simple");
 });

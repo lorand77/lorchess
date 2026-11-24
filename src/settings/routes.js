@@ -5,10 +5,11 @@
 // slots) are BLOBs in user_assets and served back only to their owner.
 //
 //   GET    /api/settings                 -> { scheme, light, dark, bgColor, pieceSet, boardStyle,
-//                                             assets: { kind: version } }
-//   PUT    /api/settings                 { scheme?, light?, dark?, bgColor?, pieceSet?, boardStyle? }
-//                                        (scheme is "dark" or "light"; pieceSet and boardStyle
-//                                        keys of src/shared/looks.js; the rest hex colours)
+//                                             fogStyle, assets: { kind: version } }
+//   PUT    /api/settings                 { scheme?, light?, dark?, bgColor?, pieceSet?, boardStyle?,
+//                                          fogStyle? }
+//                                        (scheme is "dark" or "light"; pieceSet, boardStyle and
+//                                        fogStyle keys of src/shared/looks.js; the rest hex colours)
 //   POST   /api/settings/reset           back to defaults, drop all uploads
 //   PUT    /api/settings/assets/:kind    raw image body (png/jpeg/gif/webp/svg)
 //   DELETE /api/settings/assets/:kind
@@ -17,17 +18,19 @@
 const express = require("express");
 const queries = require("../db/queries");
 const { requireAuth } = require("../auth/middleware");
-const { PIECE_SETS_BY_KEY, BOARD_STYLES_BY_KEY, DEFAULT_PIECE_SET, DEFAULT_BOARD_STYLE } = require("../shared/looks");
+const {
+  PIECE_SETS_BY_KEY, BOARD_STYLES_BY_KEY, FOG_STYLES_BY_KEY, DEFAULT_PIECE_SET, DEFAULT_BOARD_STYLE, DEFAULT_FOG_STYLE,
+} = require("../shared/looks");
 
 const router = express.Router();
 router.use(requireAuth);
 
 const DEFAULTS = {
   scheme: "dark", light: "#f0d9b5", dark: "#b58863", bgColor: "#323232",
-  pieceSet: DEFAULT_PIECE_SET, boardStyle: DEFAULT_BOARD_STYLE,
+  pieceSet: DEFAULT_PIECE_SET, boardStyle: DEFAULT_BOARD_STYLE, fogStyle: DEFAULT_FOG_STYLE,
 };
 // The choices that are keys of a catalogue in looks.js.
-const CHOICES = { pieceSet: PIECE_SETS_BY_KEY, boardStyle: BOARD_STYLES_BY_KEY };
+const CHOICES = { pieceSet: PIECE_SETS_BY_KEY, boardStyle: BOARD_STYLES_BY_KEY, fogStyle: FOG_STYLES_BY_KEY };
 const COLOR_KEYS = ["light", "dark", "bgColor"];
 const SCHEMES = new Set(["dark", "light"]);
 const HEX = /^#[0-9a-f]{6}$/i;
