@@ -15,10 +15,12 @@
 const PIECE_SETS = [
   // Cburnett (JohnPablok's improved set, CC BY-SA 3.0: docs/licenses.md).
   { key: 'cburnett', label: 'Classic', dir: '/assets/', files: (c, t) => `${c}_${CBURNETT_FILES[t]}_1x_ns.png` },
-  // Ours, drawn by tools/pieces/build.js: carved pieces on stepped bases, and
-  // bold one-piece silhouettes in the manner of the big sites' sets.
+  // Ours, drawn by tools/pieces/build.js: carved pieces on stepped bases,
+  // bold one-piece silhouettes in the manner of the big sites' sets, and the
+  // plainest shapes, flat, with almost no lines.
   { key: 'lorchess', label: 'LorChess Staunton', dir: '/assets/pieces/lorchess/', files: (c, t) => `${c}${t.toUpperCase()}.svg` },
   { key: 'modern', label: 'LorChess Modern', dir: '/assets/pieces/modern/', files: (c, t) => `${c}${t.toUpperCase()}.svg` },
+  { key: 'simple', label: 'LorChess Simple', dir: '/assets/pieces/simple/', files: (c, t) => `${c}${t.toUpperCase()}.svg` },
 ];
 const CBURNETT_FILES = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
 const DEFAULT_PIECE_SET = 'cburnett';

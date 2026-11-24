@@ -62,7 +62,7 @@ test("anything unknown is the default", () => {
 
 test("the drawn files are what their generators write", () => {
   // The SVGs come from tools/; one edited by hand would be overwritten.
-  for (const set of ["lorchess", "modern"]) {
+  for (const set of ["lorchess", "modern", "simple"]) {
     for (const f of fs.readdirSync(path.join(PUBLIC, "assets/pieces", set))) {
       assert.match(fs.readFileSync(path.join(PUBLIC, "assets/pieces", set, f), "utf8"), /^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 100 100">/, `${set}/${f}`);
     }

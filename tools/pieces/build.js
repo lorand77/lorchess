@@ -2,8 +2,10 @@
 
 // Draws LorChess's own piece sets into public/assets/pieces/<set>/ as twelve
 // SVGs each (wK.svg ... bP.svg): "LorChess Staunton" (lorchess), carved
-// pieces on stepped bases, and "LorChess Modern" (modern), bold one-piece
-// silhouettes in the manner of the big sites' sets, drawn here, not traced.
+// pieces on stepped bases, "LorChess Modern" (modern), bold one-piece
+// silhouettes in the manner of the big sites' sets, and "LorChess Simple"
+// (simple), the plainest shapes, flat, with almost no lines; all drawn here,
+// none traced.
 // Run by hand after changing a shape or a colour:
 //
 //   node tools/pieces/build.js
@@ -169,9 +171,57 @@ const MODERN = {
   ],
 };
 
+// "LorChess Simple": flat white and near-black, a bold outline, the plainest
+// silhouettes, and only the lines a piece can't be told without (the
+// bishop's slit, the knight's eye).
+const SIMPLE_PALETTES = {
+  w: { top: "#ffffff", bottom: "#ffffff", stroke: "#111111", line: "#111111" },
+  b: { top: "#222222", bottom: "#222222", stroke: "#000000", line: "#ffffff" },
+};
+const SIMPLE = {
+  p: [
+    { d: "M26 91 C26 79 34 71 43 66 L45.5 49 H54.5 L57 66 C66 71 74 79 74 91 Z" },
+    circle(50, 36, 14),
+  ],
+  r: [
+    {
+      d: "M22 91 V83 C22 81.5 23 80.5 24.5 80.5 H30 L32 49 H28 C26.5 49 25.5 48 25.5 46.5 V21 H36 V28.5" +
+        " H45 V21 H55 V28.5 H64 V21 H74.5 V46.5 C74.5 48 73.5 49 72 49 H68 L70 80.5 H75.5" +
+        " C77 80.5 78 81.5 78 83 V91 Z",
+    },
+  ],
+  b: [
+    circle(50, 12.5, 6),
+    {
+      d: "M23 91 C23 84 29 80.5 37 80 C37 72 39.5 64 43.5 58 C34 53 31 43 36 34 C40 27 45 22 50 18" +
+        " C55 22 60 27 64 34 C69 43 66 53 56.5 58 C60.5 64 63 72 63 80 C71 80.5 77 84 77 91 Z",
+    },
+    { line: "M57 32 L49 43" },
+  ],
+  q: [
+    circle(24, 26.5, 4.3), circle(38.5, 18, 4.3), circle(50, 13, 4.6), circle(61.5, 18, 4.3), circle(76, 26.5, 4.3),
+    {
+      d: "M22 91 C22 84 28 80.5 35 80 L38 66 L24 30 L37 44 L38.5 22 L46 41 L50 17 L54 41 L61.5 22 L63 44" +
+        " L76 30 L62 66 L65 80 C72 80.5 78 84 78 91 Z",
+    },
+  ],
+  k: [
+    { d: "M47 4 H53 V11 H60 V17 H53 V31 H47 V17 H40 V11 H47 Z" },
+    {
+      d: "M22 91 C22 84 28 80.5 35 80 L38 66 C30 60 24 52 26 42 C28 33 38 28.5 50 30 C62 28.5 72 33 74 42" +
+        " C76 52 70 60 62 66 L65 80 C72 80.5 78 84 78 91 Z",
+    },
+  ],
+  n: [
+    { d: FOOT },
+    { group: { k: 1.06, from: 78.5, at: 84 }, shapes: [knightHead()[0], knightHead()[1]] },
+  ],
+};
+
 const SETS = [
   { dir: "lorchess", palettes: PALETTES, pieces: PIECES, scale: SCALE, outline: 2.6, detail: 1.8 },
   { dir: "modern", palettes: MODERN_PALETTES, pieces: MODERN, scale: {}, outline: 3.4, detail: 2.4 },
+  { dir: "simple", palettes: SIMPLE_PALETTES, pieces: SIMPLE, scale: {}, outline: 3.6, detail: 2.8 },
 ];
 
 // A list of shapes in a colour's palette: the gradient they fill with (`defs`,

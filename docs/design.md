@@ -1131,17 +1131,20 @@ page paints in the right colours before the fetch returns.
 - *Piece sets and board styles* are an allowlist in `src/shared/looks.js`,
   which every themed page loads before `theme.js`; the server stores only a
   key found there. Pieces: "Classic" (Cburnett, the default, CC BY-SA),
-  and our own two, SVGs drawn by `tools/pieces/build.js` from one set of
+  and our own three, SVGs drawn by `tools/pieces/build.js` from one set of
   shapes per set for both colours: "LorChess Staunton", carved pieces on
   stepped bases (ivory and near-black, both outlined dark), and "LorChess
   Modern", bold one-piece silhouettes on a broad rounded foot with a soft
   white or charcoal fill and a heavier outline, in the manner of the big
-  sites' sets but drawn here (its knight is Staunton's head on a foot).
+  sites' sets but drawn here (its knight is Staunton's head on a foot), and
+  "LorChess Simple", the plainest silhouettes in flat white and near-black
+  with a bold outline and no lines but the bishop's slit and the knight's
+  eye.
   The board draws pieces at 75% of a square and pawns at 60% wide, sizes
   for the Classic images, which are drawn edge to edge; ours draw their own
   margin and their pawns already smaller, so under `<html data-piece-set>`
-  `lorchess` or `modern` their pieces take 94% of the square, pawns as much
-  as any.
+  `lorchess`, `modern` or `simple` their pieces take 94% of the square, pawns
+  as much as any.
   `Theme.pieceSrc` gives an uploaded piece first, then the chosen set's, and
   everything that draws a piece asks it (the boards, the mini boards, the
   position editor; the four-player board tints the white set).

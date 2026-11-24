@@ -420,13 +420,13 @@ html[data-fog-style="clouds"] .square.fog::before {
   pointer-events: none;
 }
 .square img.pawn { width: calc(var(--sq) * 0.6); }
-/* LorChess Staunton and Modern (looks.js): each SVG draws its piece in its
+/* LorChess Staunton, Modern and Simple (looks.js): each SVG draws its piece in its
    own box with a margin, and its pawn already smaller than the rest, so their
    pieces take most of the square, pawns as much as any. (The sizes above are
    for the Classic set, whose images are drawn edge to edge.) */
-html:is([data-piece-set="lorchess"], [data-piece-set="modern"]) .square img,
-html:is([data-piece-set="lorchess"], [data-piece-set="modern"]) .square img.pawn { width: calc(var(--sq) * 0.94); height: calc(var(--sq) * 0.94); }
-html:is([data-piece-set="lorchess"], [data-piece-set="modern"]) .mini-square img { width: 100%; height: 100%; }
+html:is([data-piece-set="lorchess"], [data-piece-set="modern"], [data-piece-set="simple"]) .square img,
+html:is([data-piece-set="lorchess"], [data-piece-set="modern"], [data-piece-set="simple"]) .square img.pawn { width: calc(var(--sq) * 0.94); height: calc(var(--sq) * 0.94); }
+html:is([data-piece-set="lorchess"], [data-piece-set="modern"], [data-piece-set="simple"]) .mini-square img { width: 100%; height: 100%; }
 /* A piece sliding in from another square paints above the squares it crosses. */
 .square.animating { z-index: 1; }
 /* Fading copy of a captured piece, shown under the arriving capturer. */
