@@ -153,9 +153,11 @@ class Chess {
   get isFog() { return this.variant === 'fog'; }
 
   // The squares `c` sees on the real board: its own pieces' and every square
-  // they could move to, a pawn's diagonal only when it could capture there.
-  // When `c` can take en passant, the pawn it would take is seen too. Once a
-  // king has been taken the game is over and the whole board is seen.
+  // they could move to, and both squares each pawn attacks, empty or not: a
+  // pawn takes where it doesn't move, and its player should see what it
+  // guards and whether it can take. When `c` can take en passant, the pawn it
+  // would take is seen too. Once a king has been taken the game is over and
+  // the whole board is seen.
   visibleSquares(c) {
     const seen = new Set();
     if (this.kingMissing(W) || this.kingMissing(B)) {
@@ -174,6 +176,10 @@ class Chess {
         for (const m of this.pseudoMovesFrom(sq, c)) {
           seen.add(m.to);
           if (m.enpassant) seen.add(sqIdx(fileOf(m.to), rankOf(m.from)));
+        }
+        if (p.t === 'p') {
+          const r = rankOf(sq) + (c === W ? 1 : -1);
+          for (const f of [fileOf(sq) - 1, fileOf(sq) + 1]) if (inBoard(f, r)) seen.add(sqIdx(f, r));
         }
       }
     } finally {
@@ -939,7 +945,8 @@ class Chess {
   // only the moves to squares seen, and a pawn's double step only over a
   // square seen. That is enough: a square a piece passes over is one it could
   // stop on, so seen if empty, and the first piece in its way is one it could
-  // take, so seen too.
+  // take, so seen too. (Seeing more, as the squares pawns attack, never lets
+  // a move through: whatever is in its way is still seen.)
   fogMoves(c) {
     const seen = this.fogVisible;
     if (!seen && (this.kingMissing(W) || this.kingMissing(B))) return [];

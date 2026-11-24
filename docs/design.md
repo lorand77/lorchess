@@ -260,8 +260,11 @@ is dealt, and with none it is mate. Every ending is ordinary chess's.
   two people, premoves played and dropped.
 
 **Fog of War** (chess.com's rules) hides from each side whatever its pieces
-can't reach: it sees its own pieces and the squares they can move to, a
-pawn's diagonal only when it could take there. There is no check or mate: a
+can't reach: it sees its own pieces and the squares they can move to, and
+both squares each pawn attacks (chess.com's page says only "where their
+pieces can legally move"; ours adds a pawn's diagonals, empty or not, since a
+pawn takes where it doesn't move and its player should see what it guards
+and whether it can take). There is no check or mate: a
 king may step into attack and castle out of, through or into it, and taking
 the king wins (`king captured`). Nor is there stalemate: chess.com's rule is
 that a king with only attacked squares must step onto one. chess.com's page

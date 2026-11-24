@@ -151,9 +151,10 @@ test("the replay shows a finished game whole, or as either side saw it", async (
   assert.equal(await shown(page, "b"), 16);
 
   await page.locator('#fogView button[data-view="w"]').click();
-  // White sees its own two ranks, rank 3 but e3, all of rank 4, d5 and e5
-  // by its pawn, b5 and a6 by its bishop, h5 by its queen: 36 squares.
-  assert.equal(await fogged(page), 28);
+  // White sees its own two ranks, all of rank 3 (e3 guarded by the pawns on
+  // d2 and f2), all of rank 4, d5, e5 and f5 by its pawn, b5 and a6 by its
+  // bishop, h5 by its queen: 38 squares.
+  assert.equal(await fogged(page), 26);
   assert.equal(await shown(page, "b"), 1, "the pawn on d5");
   await page.locator('#fogView button[data-view="b"]').click();
   assert.equal(await shown(page, "w"), 1, "the pawn on e4");

@@ -115,12 +115,18 @@ describe("Fog of War: what each side sees", () => {
     assert.equal(c.fogView(B).fen, "rnbqkbnr/pppppppp/8/8/8/8/8/8 w kq - 0 1");
   });
 
-  test("a pawn sees its diagonal only when it could take there, and not past a piece in its way", () => {
+  test("a pawn sees both squares it attacks, to take or to guard, but not past a piece in its way", () => {
     const c = play(fog(), "e2e4", "d7d5");
     const view = c.fogView(W);
     assert.ok(view.visible.includes(sqOf("d5")), "exd5 is possible");
     assert.match(view.fen, /^8\/8\/8\/3p4\//, "the pawn on d5 shows");
-    assert.ok(!view.visible.includes(sqOf("f5")), "nothing to take on f5");
+    assert.ok(view.visible.includes(sqOf("f5")), "f5 too, empty: nothing to take there");
+    // Seen, an empty diagonal is no move.
+    const mine = new Chess().setVariant("fog").loadFogView(view);
+    assert.equal(mine.findMove(sqOf("e4"), sqOf("f5")), null);
+    assert.ok(mine.findMove(sqOf("e4"), sqOf("d5")));
+    // And e3, which only the pawns on d2 and f2 guard.
+    assert.ok(view.visible.includes(sqOf("e3")));
     // A pawn blocked head-on doesn't see what blocks it.
     const blocked = play(fog(), "e2e4", "e7e5", "a2a3");
     assert.ok(!blocked.visibleSquares(W).has(sqOf("e5")));
