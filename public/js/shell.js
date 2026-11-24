@@ -56,8 +56,14 @@
 
   // --- top bar ---
   const topbar = el("header", "topbar");
-  const brand = el("a", "brand", "♟ LorChess");
+  // The logo (public/assets/logo.svg), then the name.
+  const brand = el("a", "brand");
   brand.href = "/lobby.html";
+  const logo = document.createElement("img");
+  logo.className = "brand-logo";
+  logo.src = "/assets/logo.svg";
+  logo.alt = "";
+  brand.append(logo, document.createTextNode("LorChess"));
   const right = el("div", "topbar-right");
 
   // Pages with a live socket fill this in; it stays hidden while empty, so

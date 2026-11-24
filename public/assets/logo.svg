@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>LorChess – light</title>
+
+  <rect x="8" y="8" width="240" height="240" rx="44" fill="#F7EBD3"/>
+  <rect x="18" y="18" width="220" height="220" rx="36" fill="none" stroke="#B58863" stroke-width="2.5"/>
+  <g transform="translate(128 123) scale(1.0) translate(-128 -123)" fill="#2B1D14" stroke="#F7EBD3" stroke-width="3" stroke-linejoin="round"><path d="M 117 58 L 139 58 L 141 67 L 115 67 Z"/><path d="M 86 70 Q 128 60 170 70 L 154 106 L 102 106 Z"/><path d="M 96 104 L 160 104 Q 164 104 164 108 L 164 112 Q 164 116 160 116 L 96 116 Q 92 116 92 112 L 92 108 Q 92 104 96 104 Z"/><path d="M 108 115 C 108 142 100 166 88 183 L 168 183 C 156 166 148 142 148 115 Z"/><path d="M 86 180 L 170 180 Q 175 180 175 185 L 175 187 Q 175 192 170 192 L 86 192 Q 81 192 81 187 L 81 185 Q 81 180 86 180 Z"/><path d="M 72 210 C 72 199 82 191 94 191 L 162 191 C 174 191 184 199 184 210 Z"/><path d="M 72 208 L 184 208 Q 190 208 190 214 L 190 216 Q 190 222 184 222 L 72 222 Q 66 222 66 216 L 66 214 Q 66 208 72 208 Z"/><path d="M 120 24 L 133 24 L 133 47 L 147 47 L 147 59 L 120 59 Z" fill="#E0A93B"/><path d="M 114 118 C 114 142 108 162 98 178 L 106 178 C 114 162 119 142 119 118 Z" fill="#5A4334" stroke="none"/><path d="M 96 76 L 106 102 L 112 102 L 104 74 Z" fill="#5A4334" stroke="none"/></g>
+</svg>

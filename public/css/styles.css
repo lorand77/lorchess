@@ -1302,7 +1302,13 @@ img.drag-piece {
   font-weight: bold;
   text-decoration: none;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
+.topbar .brand-logo { width: 28px; height: 28px; }
+/* The sign-in page's logo, above the name. */
+.auth-logo { display: block; width: 88px; height: 88px; margin: 0 auto 8px; }
 .topbar-right { display: flex; align-items: center; gap: 14px; }
 .topbar .conn-dot { font-size: 12px; font-weight: normal; }
 

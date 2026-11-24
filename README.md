@@ -1,3 +1,5 @@
+<img src="public/assets/logo.svg" alt="LorChess logo" width="96">
+
 # LorChess
 
 A chess web app: play **LorFish**, the built-in engine, or other people in real
