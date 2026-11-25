@@ -33,7 +33,7 @@ describe("the puzzle of the day", () => {
     const puzzle = insert({ ...ONE, id: "daily_seen", rating: 1500 });
     queries.insertDaily.run(today, puzzle.id);
     // Yesterday, say, it came up in the rated stream and was solved.
-    queries.insertAttempt.run(user.id, puzzle.id, 1, 1200, 1216, 1, 0);
+    queries.insertAttempt.run(user.id, puzzle.id, 1, 1200, 1216, 1, 0, 0);
 
     // A retry (giving up here) is unrated and does not touch the streak.
     const retry = await me.post(`/api/puzzles/${puzzle.id}/giveup`);
@@ -73,7 +73,7 @@ describe("daily puzzles are unrated", () => {
     assert.equal(res.body.daily, true);
     assert.equal(res.body.streak, 1);
     assert.equal(ratingOf(u.id), before);
-    assert.deepEqual(queries.attemptStats.get(u.id), { attempts: 1, solved: 1, rated: 0 });
+    assert.deepEqual(queries.attemptStats.get(u.id), { attempts: 1, solved: 1, rated: 0, unaided: 1 });
 
     const again = await c.get("/api/puzzles/daily");
     assert.equal(again.body.done, true);

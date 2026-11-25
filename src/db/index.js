@@ -85,6 +85,8 @@ addColumnIfMissing("users", "puzzle_current", "TEXT");
 // 0 on a first attempt at a daily puzzle: recorded (done, streak, badges) but
 // unrated. Older rows were all rated.
 addColumnIfMissing("puzzle_attempts", "rated", "INTEGER NOT NULL DEFAULT 1");
+// The hint used before the attempt (0 none, 1 the piece, 2 its square too).
+addColumnIfMissing("puzzle_attempts", "hints", "INTEGER NOT NULL DEFAULT 0");
 // Time the mover spent on a PvP move, in ms (NULL for AI games and for moves
 // recorded before this column existed). Achievements read it.
 addColumnIfMissing("moves", "think_ms", "INTEGER");

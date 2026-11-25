@@ -189,6 +189,7 @@ CREATE TABLE IF NOT EXISTS puzzle_attempts (
   rating_after  INTEGER NOT NULL,         -- = rating_before when unrated
   rated         INTEGER NOT NULL DEFAULT 1, -- 0: a daily puzzle, rating untouched
   misses        INTEGER NOT NULL DEFAULT 0, -- wrong moves first (daily puzzles allow some)
+  hints         INTEGER NOT NULL DEFAULT 0, -- 0 none, 1 the piece shown, 2 its square too
   created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE (user_id, puzzle_id)
 );
@@ -213,6 +214,21 @@ CREATE TABLE IF NOT EXISTS puzzle_skips (
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_puzzle_skips_user ON puzzle_skips (user_id, created_at);
+
+-- Hints (a member perk, src/puzzles/service.js): one per user and puzzle, for
+-- the move (`move`, the index among the solver's own moves) the solver was on
+-- when they asked; `step` 1 showed the piece to move, 2 its square as well.
+-- Kept after the attempt, like skips, so they count against the day's
+-- allowance; the step is copied to puzzle_attempts.hints when it is recorded.
+CREATE TABLE IF NOT EXISTS puzzle_hints (
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  puzzle_id  TEXT    NOT NULL REFERENCES puzzles(id),
+  move       INTEGER NOT NULL,
+  step       INTEGER NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, puzzle_id)
+);
+CREATE INDEX IF NOT EXISTS idx_puzzle_hints_user ON puzzle_hints (user_id, created_at);
 
 -- The puzzle of the day, one row per UTC date, chosen on first request.
 -- A puzzle that has ever been a daily is unrated everywhere (see

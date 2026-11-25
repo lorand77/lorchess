@@ -49,7 +49,7 @@ async function populated() {
   queries.insertChat.run(ai, a, "w", "talking to LorFish");
   queries.createFriendRequest.run(b, a);
   db.prepare("INSERT INTO user_assets (user_id, kind, mime, data, updated_at) VALUES (?, 'bg', 'image/png', x'00', datetime('now'))").run(a);
-  queries.insertAttempt.run(a, "del01", 1, 1500, 1510, 1, 0);
+  queries.insertAttempt.run(a, "del01", 1, 1500, 1510, 1, 0, 0);
   queries.insertPuzzleSkip.run(a, "del01");
   queries.addPuzzleMiss.run(a, "del01");
   for (const [userId, gameId] of [[a, ai], [b, pvp]]) {

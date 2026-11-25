@@ -1548,6 +1548,23 @@ Design notes:
   The rated stream never hands out a daily, and lets go of a held puzzle that
   has since been picked as one. "Ever a daily" rather than "today's" also
   keeps a daily finished just after midnight UTC unrated.
+- **Hints are a member perk, one per puzzle.** `POST /api/puzzles/:id/hint`
+  with the moves played so far and step 1 or 2: the server checks the moves
+  are on the solution and shows the piece to move (its square), then where it
+  goes, on the move the solver is on. One hint a puzzle, on one move; a
+  one-move puzzle shows the piece only, since its square would be the whole
+  answer. None on a daily puzzle (the shared challenge, which has its tries)
+  or once a puzzle has its attempt. `puzzle_hints` remembers the hint, so a
+  reload shows it again and costs nothing, and counts the day's allowance
+  (`HINTS_PER_DAY`, 10 puzzles a UTC day, the second step free with the
+  first), apart from the skips. A hinted solve earns half its rating gain
+  after the piece, a quarter after the square (`HINT_GAIN`); a failure
+  costs what any failure does, so a hint never makes failing cheaper. The
+  step is copied to `puzzle_attempts.hints`, and a hinted solve counts for no
+  puzzle badge: not "Puzzle Solver" (`attemptStats.unaided`), not
+  "Sharpshooter" (it ends the run), and its rating doesn't reach a new
+  "Puzzle Climber" tier on its own. Non-members see a locked "💡 Hint 💎"
+  that links to the membership page.
 - **Themes are a hint, shown before solving.** `publicView` carries a puzzle's
   Lichess themes and the page lists them under the task line; only the
   solution stays on the server until the attempt is over.

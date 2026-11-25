@@ -125,7 +125,7 @@ test("a day credited under the old rule keeps its streak", async () => {
   const { c, user } = await registerUser(srv.baseUrl, "oldrule");
   const id = user.id;
   // Failed today's daily before only solves counted, and was credited for it.
-  queries.insertAttempt.run(id, daily.id, 0, 1200, 1200, 0, 0);
+  queries.insertAttempt.run(id, daily.id, 0, 1200, 1200, 0, 0, 0);
   queries.setDailyStreak.run(6, today, id);
   assert.equal(svc.currentStreak(id, today), 6);
   assert.equal((await c.get("/api/puzzles/daily")).body.streak, 6);

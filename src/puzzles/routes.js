@@ -16,9 +16,16 @@
 // Only a solved daily extends the streak.
 //   POST /api/puzzles/:id/skip        members: drop the held puzzle unrated and get the
 //                                     next one; SKIPS_PER_DAY per UTC day
+//   POST /api/puzzles/:id/hint        members: { moves, step: 1 | 2 } -> { hint, hints }:
+//                                     the piece to move (step 1), then its square
+//                                     (step 2), on the move the solver is on; one
+//                                     per puzzle, HINTS_PER_DAY puzzles a UTC day,
+//                                     none on a daily; a hinted solve earns less
 //
 // /next, /:id and /:id/skip also carry `held` (this is the puzzle you're held
-// to) and `skip: { member, left, perDay }` for the page's Skip button. /:id and
+// to), `skip: { member, left, perDay }` for the page's Skip button, and
+// `hints: { member, left, perDay, available, single, shown }` for its Hint
+// button (`shown`: the hint already taken on this puzzle, to show again). /:id and
 // the finishing replies say `daily: true` for a puzzle that has been a daily,
 // which is why their `rating` is null.
 
@@ -47,6 +54,20 @@ function skipView(uid) {
   return { member, left: member ? svc.skipsLeft(uid) : 0, perDay: svc.SKIPS_PER_DAY };
 }
 
+// The Hint button's state for a puzzle: whether hints apply to it at all (not
+// a daily, not attempted yet), whether it is a single move, and the hint taken.
+function hintsView(uid, puzzle) {
+  const member = isMember(uid);
+  return {
+    member,
+    left: member ? svc.hintsLeft(uid) : 0,
+    perDay: svc.HINTS_PER_DAY,
+    available: !svc.isDaily(puzzle.id) && !queries.getAttempt.get(uid, puzzle.id),
+    single: svc.solverMoves(puzzle) === 1,
+    shown: member ? svc.hintShown(uid, puzzle) : null,
+  };
+}
+
 // A puzzle from the rated stream, as /next and /:id/skip send it.
 function streamView(uid, pick, rating) {
   return {
@@ -56,6 +77,7 @@ function streamView(uid, pick, rating) {
     held: !pick.repeat,
     rating,
     skip: skipView(uid),
+    hints: hintsView(uid, pick.puzzle),
   };
 }
 
@@ -113,6 +135,7 @@ router.get("/:id", (req, res) => {
     rating: user.puzzle_rating,
     held: svc.isHeld(uid, puzzle.id),
     skip: skipView(uid),
+    hints: hintsView(uid, puzzle),
   };
   if (attempt) out.solved = !!attempt.solved;
   res.json(out);
@@ -194,6 +217,34 @@ router.post("/:id/skip", (req, res) => {
   }
   if (!out.next) return noPuzzles(res);
   res.json(streamView(uid, out.next, user.puzzle_rating));
+});
+
+const HINT_ERRORS = {
+  daily: [409, "No hints on the daily puzzle."],
+  done: [409, "Hints are for a puzzle you haven't finished."],
+  off: [409, "Those moves aren't on the solution."],
+  used: [409, "You've used this puzzle's hint."],
+  first: [409, "Ask for the piece first."],
+  single: [409, "A one-move puzzle's hint shows the piece only."],
+  limit: [429, `You've used all ${svc.HINTS_PER_DAY} hints for today.`],
+};
+
+router.post("/:id/hint", (req, res) => {
+  const puzzle = loadPuzzle(req, res);
+  if (!puzzle) return;
+  const uid = req.session.userId;
+  if (!isMember(uid)) return res.status(403).json({ error: "Puzzle hints are a member perk." });
+  const moves = req.body && req.body.moves;
+  const step = req.body && req.body.step;
+  if (!Array.isArray(moves) || moves.some((m) => typeof m !== "string") || (step !== 1 && step !== 2)) {
+    return res.status(400).json({ error: "Send the moves so far and step 1 or 2." });
+  }
+  const out = svc.takeHint(uid, puzzle, moves, step);
+  if (out.error) {
+    const [status, error] = HINT_ERRORS[out.error];
+    return res.status(status).json({ error, hints: hintsView(uid, puzzle) });
+  }
+  res.json({ hint: out.hint, hints: hintsView(uid, puzzle) });
 });
 
 module.exports = router;

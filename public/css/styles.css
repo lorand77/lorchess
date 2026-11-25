@@ -1040,6 +1040,9 @@ button.primary, button.danger { color: #fff; }
 .puzzle-themes { display: flex; gap: 4px; flex-wrap: wrap; margin: -2px 0 8px; }
 .puzzle-themes:empty { display: none; }
 .square.wrong { background: #e06a6a !important; }
+/* Puzzle hints (members): the piece to move, ringed, then its square. */
+.square.hint-from { box-shadow: inset 0 0 0 4px #3d8bfd; }
+.square.hint-to { box-shadow: inset 0 0 0 4px #3d8bfd, inset 0 0 0 999px rgba(61, 139, 253, 0.25); }
 .streak { color: var(--warn); font-weight: bold; }
 .puzzle-nav { margin-top: 14px; font-size: 13px; }
 .puzzle-nav a { color: var(--link); text-decoration: none; }

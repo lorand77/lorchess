@@ -107,7 +107,8 @@ module.exports = {
       (SELECT COUNT(*) FROM user_assets WHERE user_id = @id) AS images,
       (SELECT COUNT(*) FROM puzzle_attempts WHERE user_id = @id)
         + (SELECT COUNT(*) FROM puzzle_skips WHERE user_id = @id)
-        + (SELECT COUNT(*) FROM puzzle_misses WHERE user_id = @id) AS puzzles,
+        + (SELECT COUNT(*) FROM puzzle_misses WHERE user_id = @id)
+        + (SELECT COUNT(*) FROM puzzle_hints WHERE user_id = @id) AS puzzles,
       (SELECT COUNT(*) FROM user_achievements WHERE user_id = @id) AS achievements,
       (SELECT COUNT(*) FROM rating_history WHERE user_id = @id) AS ratingChanges,
       (SELECT COUNT(*) FROM game_stars WHERE user_id = @id) AS stars
@@ -123,6 +124,7 @@ module.exports = {
     "DELETE FROM puzzle_attempts WHERE user_id = @id",
     "DELETE FROM puzzle_skips WHERE user_id = @id",
     "DELETE FROM puzzle_misses WHERE user_id = @id",
+    "DELETE FROM puzzle_hints WHERE user_id = @id",
     "DELETE FROM game_stars WHERE user_id = @id",
     "DELETE FROM user_achievements WHERE user_id = @id",
     "DELETE FROM rating_history WHERE user_id = @id",
@@ -391,9 +393,17 @@ module.exports = {
     "SELECT * FROM puzzle_attempts WHERE user_id = ? AND puzzle_id = ?"
   ),
   insertAttempt: db.prepare(`
-    INSERT INTO puzzle_attempts (user_id, puzzle_id, solved, rating_before, rating_after, rated, misses)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO puzzle_attempts (user_id, puzzle_id, solved, rating_before, rating_after, rated, misses, hints)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `),
+  // --- puzzle hints (src/puzzles/service.js) ---
+  getPuzzleHint: db.prepare("SELECT move, step FROM puzzle_hints WHERE user_id = ? AND puzzle_id = ?"),
+  insertPuzzleHint: db.prepare("INSERT INTO puzzle_hints (user_id, puzzle_id, move, step) VALUES (?, ?, ?, 1)"),
+  setPuzzleHintStep: db.prepare("UPDATE puzzle_hints SET step = ? WHERE user_id = ? AND puzzle_id = ?"),
+  // Hinted puzzles since a UTC date ("YYYY-MM-DD"), for the day's allowance.
+  countPuzzleHintsSince: db.prepare(
+    "SELECT COUNT(*) AS n FROM puzzle_hints WHERE user_id = ? AND created_at >= ?"
+  ),
   getPuzzleMisses: db.prepare(
     "SELECT misses FROM puzzle_misses WHERE user_id = ? AND puzzle_id = ?"
   ),
@@ -402,9 +412,11 @@ module.exports = {
     ON CONFLICT (user_id, puzzle_id) DO UPDATE SET misses = misses + 1
   `),
   deletePuzzleMisses: db.prepare("DELETE FROM puzzle_misses WHERE user_id = ? AND puzzle_id = ?"),
+  // `unaided`: solved without a hint, what the puzzle achievements count.
   attemptStats: db.prepare(`
     SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved,
-           COALESCE(SUM(rated), 0) AS rated
+           COALESCE(SUM(rated), 0) AS rated,
+           COALESCE(SUM(solved = 1 AND hints = 0), 0) AS unaided
     FROM puzzle_attempts WHERE user_id = ?
   `),
   getDaily: db.prepare("SELECT puzzle_id FROM daily_puzzles WHERE date = ?"),
@@ -626,8 +638,9 @@ module.exports = {
     WHERE (white_id = ? OR black_id = ?) AND status = 'finished'
     ORDER BY id DESC LIMIT 10
   `),
+  // A solve with a hint is no first-try solve: it ends the run.
   achievementRecentAttempts: db.prepare(
-    "SELECT solved FROM puzzle_attempts WHERE user_id = ? ORDER BY id DESC LIMIT 60"
+    "SELECT solved = 1 AND hints = 0 AS solved FROM puzzle_attempts WHERE user_id = ? ORDER BY id DESC LIMIT 60"
   ),
   // The stored tally, not COUNT(*): messages are swept after a while, the
   // count is for ever.

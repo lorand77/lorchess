@@ -9,7 +9,7 @@
 // refuses logins, hides it from the leaderboard, friends lists and profiles,
 // and lets the server's deactivation sweep close its open sockets (see
 // deactivate.js). Everything else about the person is deleted: chat they wrote
-// anywhere, friendships, uploaded images, puzzle attempts and skips,
+// anywhere, friendships, uploaded images, puzzle attempts, skips and hints,
 // achievements, rating history, starred games, sessions, and their games
 // against LorFish, which are in nobody else's history (with anyone's stars on
 // them). The old username can be registered again.

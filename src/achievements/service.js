@@ -467,7 +467,7 @@ function evaluateStats(userId, ref) {
   const attempts = queries.achievementRecentAttempts.all(userId);
   let firstTry = 0;
   for (const a of attempts) { if (a.solved) firstTry++; else break; }
-  const solved = queries.attemptStats.get(userId).solved;
+  const solved = queries.attemptStats.get(userId).unaided;
   const chat = queries.achievementChatCount.get(userId).n;
 
   const today = new Date().toISOString().slice(0, 10);
@@ -480,7 +480,7 @@ function evaluateStats(userId, ref) {
     ["checkmates", tierFor("checkmates", g.checkmates)],
     ["moves", tierFor("moves", mv.moves)],
     ["puzzles_solved", tierFor("puzzles_solved", solved)],
-    ["puzzle_rating", tierFor("puzzle_rating", user.puzzle_rating)],
+    ["puzzle_rating", ref && ref.hinted ? 0 : tierFor("puzzle_rating", user.puzzle_rating)],
     ["rating", tierFor("rating", user.rating)],
     ["daily_streak", tierFor("daily_streak", streak)],
     ["sharpshooter", tierFor("sharpshooter", firstTry)],
@@ -599,8 +599,12 @@ function isHuman(userId) {
 }
 
 // A rated first attempt at a puzzle just ended.
+// A solve with a hint counts for none of the puzzle badges: not the solves,
+// not the first-try run (both read attempts' `hints`), and its rating, part
+// earned with help, doesn't reach a new "Puzzle Climber" tier on its own.
 function onPuzzleFinished(userId, puzzle) {
-  return evaluateStats(userId, { puzzleId: puzzle.id });
+  const attempt = queries.getAttempt.get(userId, puzzle.id);
+  return evaluateStats(userId, { puzzleId: puzzle.id, hinted: !!(attempt && attempt.hints) });
 }
 
 function onChat(userId) {

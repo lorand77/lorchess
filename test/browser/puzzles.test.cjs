@@ -68,3 +68,38 @@ test("give up shows the solution one step at a time", async (t) => {
   await page.locator("#retryBtn").click();
   await page.locator("#stepper").waitFor({ state: "hidden" });
 });
+
+// Hints (members): the piece ringed, then its square, on the move you're on;
+// for others, a locked button to the membership page.
+test("a member's hint rings the piece, then its square; others see it locked", async (t) => {
+  const { page, user } = await signedInPage(browser, srv.baseUrl, t);
+  const p = fixtures.twoMove[0];   // two moves: the square can be shown too
+  queries.insertPuzzle.run(p.id, p.fen, p.moves, p.rating, 70, 90, 100, p.themes, null, null);
+  const sq = (name) => (Number(name[1]) - 1) * 8 + name.charCodeAt(0) - 97;
+  const first = p.moves.split(" ")[1];
+
+  await page.goto(srv.baseUrl + "/puzzles.html?id=" + p.id);
+  await page.locator("#giveUpBtn").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#hintLocked").isVisible(), true);
+  assert.equal(await page.locator("#hintLocked").getAttribute("href"), "/membership.html");
+
+  db().prepare("UPDATE users SET member_since = datetime('now') WHERE id = ?").run(user.user.id);
+  await page.reload();
+  await page.locator("#hintBtn").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#hintBtn").textContent(), "💡 Hint (10 left today)");
+  await page.locator("#hintBtn").click();
+  await page.locator(`#board [data-sq="${sq(first.slice(0, 2))}"].hint-from`).waitFor();
+  assert.match(await page.locator("#statusLine").textContent(), /^Hint: move your \w+\.$/);
+  assert.equal(await page.locator("#hintBtn").textContent(), "💡 Show the square");
+  await page.locator("#hintBtn").click();
+  await page.locator(`#board [data-sq="${sq(first.slice(2, 4))}"].hint-to`).waitFor();
+  assert.match(await page.locator("#statusLine").textContent(), new RegExp(`to ${first.slice(2, 4)}\\.$`));
+  assert.equal(await page.locator("#hintBtn").isVisible(), false, "nothing more on this puzzle");
+
+  // A reload shows the hint again; the move played, the marks go.
+  await page.reload();
+  await page.locator(`#board [data-sq="${sq(first.slice(2, 4))}"].hint-to`).waitFor();
+  await page.locator(`#board [data-sq="${sq(first.slice(0, 2))}"]`).click();
+  await page.locator(`#board [data-sq="${sq(first.slice(2, 4))}"]`).click();
+  await page.waitForFunction(() => !document.querySelector("#board .hint-from, #board .hint-to"));
+});

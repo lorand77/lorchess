@@ -8,6 +8,8 @@
 //   - verifying a player's moves against the stored solution, and the few
 //     wrong moves a daily puzzle allows before it counts as failed
 //   - the puzzle Elo update and the daily streak, which only a solve extends
+//   - hints, for members: the piece to move, then its square, on one move of
+//     a puzzle, which cut what solving it earns
 
 const db = require("../db/index");
 const queries = require("../db/queries");
@@ -127,14 +129,18 @@ function recordAttempt(userId, puzzle, solved) {
     const user = queries.getPuzzleUser.get(userId);
     const rated = !isDaily(puzzle.id);
     const before = user.puzzle_rating;
-    const after = rated
+    const hints = hintStep(userId, puzzle.id);
+    let after = rated
       ? eloAfter(before, puzzle.rating, solved, queries.attemptStats.get(userId).rated)
       : before;
+    // A hinted solve earns less (HINT_GAIN); a hinted failure costs as much as
+    // any, so a hint never makes failing cheaper.
+    if (solved && after > before) after = before + Math.round((after - before) * HINT_GAIN[hints]);
     const misses = missesOf(userId, puzzle.id);
-    queries.insertAttempt.run(userId, puzzle.id, solved ? 1 : 0, before, after, rated ? 1 : 0, misses);
+    queries.insertAttempt.run(userId, puzzle.id, solved ? 1 : 0, before, after, rated ? 1 : 0, misses, hints);
     queries.deletePuzzleMisses.run(userId, puzzle.id);
     if (rated) queries.setPuzzleRating.run(after, userId);
-    return { rated, before, after, delta: after - before };
+    return { rated, before, after, delta: after - before, hints };
   })();
 }
 
@@ -241,6 +247,77 @@ function skip(userId, puzzleId, rating) {
   })();
 }
 
+// ---- hints (a member perk; the route checks membership) ----
+// A puzzle allows one hint, on the move the solver is on when they ask: the
+// first step shows the piece to move, the second where it goes, unless the
+// puzzle is a single move, where that would be the whole answer. Not on a
+// daily puzzle (the shared challenge, which has its tries) nor once a puzzle
+// has its attempt. HINTS_PER_DAY puzzles a UTC day; the second step on a
+// puzzle comes free with the first. A solve earns HINT_GAIN[step] of its
+// rating gain. The server checks the moves played so far and remembers the
+// hint, so neither a reload nor a crafted request gets another.
+
+const HINTS_PER_DAY = 10;
+const HINT_GAIN = [1, 0.5, 0.25];
+
+function hintsLeft(userId, today = todayUtc()) {
+  return Math.max(0, HINTS_PER_DAY - queries.countPuzzleHintsSince.get(userId, today).n);
+}
+
+// The step taken on a puzzle: 0 none, 1 the piece, 2 its square too.
+function hintStep(userId, puzzleId) {
+  const row = queries.getPuzzleHint.get(userId, puzzleId);
+  return row ? row.step : 0;
+}
+
+// How many of their own moves a puzzle asks of the solver.
+const solverMoves = (puzzle) => Math.ceil(setup(puzzle).solution.length / 2);
+
+// What a hint shows, from the stored solution: the square the piece leaves,
+// and at step 2 the square it goes to.
+function hintView(puzzle, move, step) {
+  const p = parseUci(setup(puzzle).solution[2 * move]);
+  return step >= 2 ? { move, step, from: p.from, to: p.to } : { move, step, from: p.from };
+}
+
+// The hint as it stands on a puzzle, for a page coming back to it (null if
+// none was taken).
+function hintShown(userId, puzzle) {
+  const row = queries.getPuzzleHint.get(userId, puzzle.id);
+  return row ? hintView(puzzle, row.move, row.step) : null;
+}
+
+// Take step `step` (1 or 2) of the hint, with the solver's moves so far.
+// Returns { hint, left } or { error }:
+//   "daily" | "done"   no hints on a daily puzzle or after the attempt
+//   "off"              the moves are not on the solution
+//   "used"             this puzzle's hint went on an earlier move
+//   "first"            step 2 before step 1
+//   "single"           step 2 on a one-move puzzle
+//   "limit"            no hints left today
+// Asking again for a step already taken shows it again and costs nothing.
+function takeHint(userId, puzzle, moves, step) {
+  return db.transaction(() => {
+    if (isDaily(puzzle.id)) return { error: "daily" };
+    if (queries.getAttempt.get(userId, puzzle.id)) return { error: "done" };
+    if (check(puzzle, moves).status !== "ok" || moves.length >= solverMoves(puzzle)) return { error: "off" };
+    const move = moves.length;
+    const row = queries.getPuzzleHint.get(userId, puzzle.id);
+    if (row && row.move !== move) return { error: "used" };
+    if (step === 2) {
+      if (!row) return { error: "first" };
+      if (solverMoves(puzzle) === 1) return { error: "single" };
+      if (row.step < 2) queries.setPuzzleHintStep.run(2, userId, puzzle.id);
+      return { hint: hintView(puzzle, move, 2), left: hintsLeft(userId) };
+    }
+    if (!row) {
+      if (hintsLeft(userId) <= 0) return { error: "limit" };
+      queries.insertPuzzleHint.run(userId, puzzle.id, move);
+    }
+    return { hint: hintView(puzzle, move, row ? row.step : 1), left: hintsLeft(userId) };
+  })();
+}
+
 // ---- daily ----
 
 const todayUtc = () => new Date().toISOString().slice(0, 10);
@@ -313,5 +390,6 @@ module.exports = {
   setup, check, publicView, revealView, eloAfter, recordAttempt,
   DAILY_TRIES, missesOf, triesLeft, miss,
   pickForUser, nextForUser, SKIPS_PER_DAY, skipsLeft, isHeld, skip, isDaily, dailyFor, todayUtc, addDays,
+  HINTS_PER_DAY, HINT_GAIN, hintsLeft, hintStep, hintShown, takeHint, solverMoves,
   streakOf, currentStreak, bumpStreak,
 };

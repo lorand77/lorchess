@@ -9,6 +9,9 @@
 // tries left, and the move is taken back. Only solving it extends the streak.
 // Once the puzzle is over, its solution is stepped through by hand (buttons or
 // arrow keys) rather than played out on a timer, so each move can be studied.
+// Members may take one hint on a rated puzzle: the piece to move, then (unless
+// the puzzle is a single move) its square, on the move they are on; the
+// server keeps count and a hinted solve earns less.
 
 (function () {
   const params = new URLSearchParams(location.search);
@@ -23,6 +26,7 @@
   const resultEl = $("result"), navEl = $("modeNav"), stepperEl = $("stepper");
   const btn = {
     giveUp: $("giveUpBtn"), skip: $("skipBtn"), skipLocked: $("skipLocked"),
+    hint: $("hintBtn"), hintLocked: $("hintLocked"),
     retry: $("retryBtn"), solution: $("solutionBtn"), next: $("nextBtn"),
   };
   const stepBtn = { first: $("stepFirst"), prev: $("stepPrev"), next: $("stepNext"), last: $("stepLast") };
@@ -33,6 +37,8 @@
   let me = { rating: null, streak: 0 };
   let held = false;       // this is the rated puzzle the server holds you to
   let skipInfo = null;    // { member, left, perDay } from the server
+  let hintInfo = null;    // { member, left, perDay, available, single, shown } from the server
+  let hint = null;        // the hint taken: { move, step, from, to? }
   let triesLeft = null;   // daily puzzles: wrong moves left; null: one is fatal
   let moves = [];         // player's moves so far (UCI)
   let phase = "idle";     // idle | intro | playing | waiting | solved | failed | replay
@@ -95,6 +101,8 @@
         div.dataset.sq = sq; // boardDrag.js finds squares by this
 
         if (lastMove && (lastMove.from === sq || lastMove.to === sq)) div.classList.add("last-move");
+        if (hintNow() && hint.from === sq) div.classList.add("hint-from");
+        if (hintNow() && hint.to === sq) div.classList.add("hint-to");
         if (selected === sq) div.classList.add("selected");
         if (wrongSq === sq) div.classList.add("wrong");
         const piece = chess.squares[sq];
@@ -247,8 +255,9 @@
       play(puzzle.firstMove);
       phase = "playing";
       setStatus("Your move.", "");
-      showButtons(["giveUp", ...skipButtons()]);
+      showButtons(playingButtons());
       render();
+      if (hintNow()) sayHint();
     }, 700);
   }
 
@@ -273,6 +282,7 @@
         if (resp.reply) play(resp.reply);
         phase = "playing";
         setStatus("Your move.", "");
+        showButtons(playingButtons());
         render();
       }, 450);
     } else if (resp.status === "miss") {
@@ -329,6 +339,10 @@
       line.appendChild(document.createTextNode("Your rating " + resp.rating.before + " → " + resp.rating.after + " ("));
       line.appendChild(el("span", "delta " + (d >= 0 ? "up" : "down"), (d >= 0 ? "+" : "") + d));
       line.appendChild(document.createTextNode(")"));
+      if (solved && resp.rating.hints) {
+        line.appendChild(el("span", "muted", " — with a hint, " +
+          (resp.rating.hints === 1 ? "half" : "a quarter") + " of the usual gain."));
+      }
     } else {
       line.appendChild(el("span", "muted", resp.daily
         ? "Not rated: daily puzzles never are."
@@ -414,6 +428,51 @@
     return ["skip"];
   }
 
+  // ---- hints (members) ----
+  // One per puzzle, on the move the solver is on: the piece, then its square.
+  const hintNow = () => !!hint && phase === "playing" && hint.move === moves.length;
+
+  function hintButtons() {
+    if (daily || !hintInfo || !hintInfo.available) return [];
+    if (!hintInfo.member) return ["hintLocked"];
+    if (!hint) {
+      btn.hint.disabled = hintInfo.left <= 0;
+      btn.hint.textContent = hintInfo.left > 0
+        ? "💡 Hint (" + hintInfo.left + " left today)"
+        : "No hints left today";
+      return ["hint"];
+    }
+    // Taken: its square, once, on the same move, unless it's a one-mover.
+    if (hint.step === 1 && hintNow() && !hintInfo.single) {
+      btn.hint.disabled = false;
+      btn.hint.textContent = "💡 Show the square";
+      return ["hint"];
+    }
+    return [];
+  }
+  const playingButtons = () => ["giveUp", ...skipButtons(), ...hintButtons()];
+
+  function sayHint() {
+    const piece = chess.squares[hint.from];
+    const name = piece ? (piece.t === "k" ? "your king" : "your " + PIECE_NAMES[piece.t]) : "the marked piece";
+    setStatus(hint.step >= 2 ? "Hint: move " + name + " to " + alg(hint.to) + "."
+      : "Hint: move " + name + ".", "info");
+  }
+
+  btn.hint.addEventListener("click", async () => {
+    if (phase !== "playing" || btn.hint.disabled) return;
+    const step = hint && hint.move === moves.length ? 2 : 1;
+    btn.hint.disabled = true;
+    let data;
+    try { data = await api("POST", "/" + puzzle.id + "/hint", { moves, step }); }
+    catch (err) { btn.hint.disabled = false; return setStatus(err.message, "bad"); }
+    hint = data.hint;
+    hintInfo = data.hints;
+    showButtons(playingButtons());
+    sayHint();
+    render();
+  });
+
   btn.skip.addEventListener("click", async () => {
     if (phase !== "playing" || btn.skip.disabled) return;
     phase = "waiting";
@@ -437,6 +496,8 @@
     me.rating = data.rating;
     held = !!data.held;
     skipInfo = data.skip || null;
+    hintInfo = data.hints || null;
+    hint = hintInfo && hintInfo.shown;
     triesLeft = data.triesLeft ?? null;
     renderHead();
     begin();
