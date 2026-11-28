@@ -310,6 +310,8 @@ function renderBoard() {
   const inCheck = chess.inCheck();
   // Fog of War, as one side saw it: what that side sees, the rest fogged.
   const seen = fogSide && chess.isFog ? chess.visibleSquares(fogSide) : null;
+  // Shadow Chess: the shadows at the move shown, drawn as on the game page.
+  const shadowOn = new Map((chess.shadowList ? chess.shadowList() : []).map((s) => [s.sq, s]));
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
       const r = flip ? row : 7 - row;
@@ -334,6 +336,18 @@ function renderBoard() {
         c.className = "coord file";
         c.textContent = String.fromCharCode(97 + f);
         div.appendChild(c);
+      }
+      const shade = shadowOn.get(sq);
+      if (shade) {
+        const ghost = document.createElement("img");
+        ghost.src = pieceImgSrc(shade.piece);
+        ghost.className = "shadow-piece" + (shade.piece.t === "p" ? " pawn" : "");
+        ghost.draggable = false;
+        ghost.alt = "";
+        const n = document.createElement("span");
+        n.className = "shadow-left";
+        n.textContent = String(shade.left);
+        div.append(ghost, n);
       }
       if (piece) {
         const img = document.createElement("img");

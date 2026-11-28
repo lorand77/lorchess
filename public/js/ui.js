@@ -657,6 +657,8 @@ function render() {
     hill: !infinite && chess.isKingOfTheHill ? new Set(HILL_SQUARES) : null,
     // Fog of War: the squares this side sees.
     fog: infinite ? null : seen || chess.fogVisible || null,
+    // Shadow Chess: the squares no piece may land on, for now.
+    shadows: infinite ? null : chess.shadowList ? chess.shadowList() : null,
     hints: infinite ? infiniteHints() : selectionHints(),
     animation: moveAnim,
   });

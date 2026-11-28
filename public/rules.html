@@ -209,6 +209,20 @@
     </ul>
   </section>
 
+  <section class="rules-section" id="rules-shadow" data-key="shadow" role="tabpanel" hidden>
+    <h2>Shadow Chess</h2>
+    <p class="rules-glance"></p>
+    <p>Standard chess, but every piece that moves leaves a shadow behind it. A LorChess variant.</p>
+    <ul>
+      <li><strong>Shadows:</strong> when you move a piece, the square it left holds a shadow of it. Castling leaves two: one where the king stood and one where the rook stood.</li>
+      <li><strong>No piece can land on a shadow</strong>, yours or your opponent's. Rooks, bishops and queens may slide through one, and a knight may jump over one; they just can't stop there.</li>
+      <li><strong>A shadow lasts two moves:</strong> your opponent's reply and your own next move. Once you have made that move it fades, and the square you just left becomes your new shadow. The number on a shadow shows how many moves it still blocks.</li>
+      <li><strong>Check and checkmate work as usual</strong>, with shadows counted: a king can't escape onto a shadow, and a piece can't block a check by landing on one. A king with nowhere to go because of shadows can be checkmated.</li>
+      <li>Stalemate (no legal move, shadows included), threefold repetition, the fifty-move rule and insufficient material are draws as usual. The shadows are part of the position: the same pieces with different shadows are not a repetition.</li>
+      <li><strong>Out of time:</strong> a loss, unless your opponent could never mate: then a draw.</li>
+    </ul>
+  </section>
+
   <section class="rules-section" id="rules-bughouse" data-key="bughouse" role="tabpanel" hidden>
     <h2>Bughouse</h2>
     <p class="rules-glance"></p>

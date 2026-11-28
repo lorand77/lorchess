@@ -85,6 +85,11 @@ const VARIANTS = [
   // plays it (for the tests).
   { key: 'fog', label: 'Fog of War', standardSetup: true, reviewable: false, rateable: false,
     materialBadges: true, moveBadges: true, bot: true },
+  // Ours: a piece leaves a shadow on the square it left, which no piece may
+  // land on until its owner has moved again (chess.js isShadow). Opens from
+  // the standard setup; a handicap leaves the rule alone. Casual while new.
+  { key: 'shadow', label: 'Shadow Chess', standardSetup: true, reviewable: false, rateable: false,
+    materialBadges: true, moveBadges: true, bot: true },
   // Two boards, two teams of two: a capture goes to the partner on the other
   // board (src/shared/bughouse.js, src/game/matches.js). `teams` keeps it out
   // of everything that seats two players — the lobby's pickers, quick match,

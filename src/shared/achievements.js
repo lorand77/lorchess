@@ -73,6 +73,8 @@ const ACHIEVEMENTS = [
     desc: "Win {n} Gambling Madness games.", tiers: [1, 10, 50] },
   { key: "fog_wins", name: "Into the Fog", icon: "🌫️", group: "formats",
     desc: "Win {n} Fog of War games.", tiers: [1, 10, 50] },
+  { key: "shadow_wins", name: "Shadow Walker", icon: "🌑", group: "formats",
+    desc: "Win {n} Shadow Chess games.", tiers: [1, 10, 50] },
   { key: "bughouse_wins", name: "Tag Team", icon: "🤝", group: "formats",
     desc: "Win {n} Bughouse games.", tiers: [1, 10, 50] },
   { key: "fourplayer_wins", name: "Four Corners", icon: "🧭", group: "formats",

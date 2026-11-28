@@ -31,7 +31,8 @@ class Chess {
     // try to lose everything; 'kingofthehill' adds a win in the centre;
     // 'threecheck' a win by giving check three times; 'gambling' deals each
     // turn the piece type to move; 'fog' hides what your pieces can't reach
-    // and is won by taking the king; 'bughouse' is one board
+    // and is won by taking the king; 'shadow' leaves a shadow where a piece
+    // stood, which nothing may land on for a while; 'bughouse' is one board
     // of a two-board team game, its captures passed to a partner. Set it with
     // setVariant(), then reset() or loadFen(): those two deliberately leave the
     // rules alone, so loading a position never silently changes them, and they
@@ -41,7 +42,7 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'gambling', 'fog', 'bughouse'].includes(name) ? name : 'standard';
+    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'gambling', 'fog', 'shadow', 'bughouse'].includes(name) ? name : 'standard';
     return this;
   }
 
@@ -228,6 +229,36 @@ class Chess {
     return this;
   }
 
+  // Shadow Chess (ours): a piece that moves leaves a shadow on the square it
+  // left (castling, one for the king and one for the rook), and no piece may
+  // land on a shadow, though sliders pass through and knights over it. A
+  // shadow lasts through the other side's reply and its owner's next move,
+  // and lifts once that move is made. Check, mate, stalemate and the draws
+  // are ordinary chess's, shadows counted: a king can't step onto one, nor a
+  // piece block a check there. `shadows` holds each side's from its last
+  // move, { w: [{ sq, t }], b: [...] }; a shadow's square is always empty,
+  // since nothing lands on it. Shadows are part of the position (repetition);
+  // a FEN has none, so a game is always replayed from its moves.
+  get isShadow() { return this.variant === 'shadow'; }
+
+  // The shadow on `sq`, or null.
+  shadowAt(sq) {
+    if (!this.shadows) return null;
+    for (const c of [W, B]) for (const s of this.shadows[c]) if (s.sq === sq) return s;
+    return null;
+  }
+
+  // Every shadow, for drawing: { sq, piece: { t, c }, left }, `left` the moves
+  // it still blocks (2 on the other side's turn, 1 on its owner's).
+  shadowList() {
+    if (!this.shadows) return [];
+    const out = [];
+    for (const c of [W, B]) {
+      for (const s of this.shadows[c]) out.push({ sq: s.sq, piece: { t: s.t, c }, left: c === this.turn ? 1 : 2 });
+    }
+    return out;
+  }
+
   movesPastTheEnd() {
     this.ignoreCheckLimit = true;
     try { return this.legalMoves(); } finally { this.ignoreCheckLimit = false; }
@@ -349,6 +380,7 @@ class Chess {
     this.checks = this.isThreeCheck ? { [W]: 0, [B]: 0 } : null;
     this.dealt = null;
     this.fogVisible = null;
+    this.shadows = this.isShadow ? { [W]: [], [B]: [] } : null;
     this.turn = W;
     // Nothing to castle with in Pawn Wars, and claiming rights would put a
     // meaningless "KQkq" in every FEN it produces. Antichess forbids it.
@@ -507,6 +539,7 @@ class Chess {
     this.fullmove = counters[1] ? parseInt(counters[1], 10) || 1 : 1;
     this.dealt = null;
     this.fogVisible = null;
+    this.shadows = this.isShadow ? { [W]: [], [B]: [] } : null;
     this.history = [];
     this.positionCounts = new Map();
     this.positionCounts.set(this.positionKey(), 1);
@@ -640,6 +673,8 @@ class Chess {
     // In Three-check the checks given are too: one check from winning is not
     // the same position as three.
     if (this.checks) s += '|' + this.checks[W] + this.checks[B];
+    // In Shadow Chess the shadows are too: they decide where pieces may go.
+    if (this.shadows) s += '|' + [W, B].map((c) => this.shadows[c].map((x) => x.sq).join(',')).join('/');
     s += '|' + this.turn;
     s += '|' + (this.castling.K ? 'K' : '') + (this.castling.Q ? 'Q' : '')
             + (this.castling.k ? 'k' : '') + (this.castling.q ? 'q' : '');
@@ -885,6 +920,17 @@ class Chess {
   }
 
   legalMoves(forColor) {
+    // Shadow Chess: the ordinary moves, less any that land on a shadow (a
+    // castling king's square and its rook's both count).
+    if (this.shadows && !this.ignoreShadows) {
+      this.ignoreShadows = true;
+      try {
+        return this.legalMoves(forColor).filter((m) => !this.shadowAt(m.to) &&
+          !(m.castle && this.shadowAt(sqIdx(m.castle === 'K' ? 5 : 3, rankOf(m.from)))));
+      } finally {
+        this.ignoreShadows = false;
+      }
+    }
     const c = forColor || this.turn;
     // Gambling Madness: only the dealt type may move.
     if (this.dealt && c === this.turn) {
@@ -1049,6 +1095,17 @@ class Chess {
     this.history.push(histEntry);
     // Gambling Madness: the next turn is dealt afresh.
     this.dealt = null;
+    // Shadow Chess: the mover's old shadows lift and the squares it leaves
+    // take their place; undoMove puts the old ones back.
+    if (this.shadows && !m.drop) {
+      // Kept with the piece's colour: legalMoves also tries the moves of the
+      // side not on move, whose undo must put back that side's shadows.
+      histEntry.shadows = { c: piece.c, list: this.shadows[piece.c] };
+      const left = m.castle
+        ? [{ sq: m.from, t: 'k' }, { sq: m.rookFrom != null ? m.rookFrom : sqIdx(m.castle === 'K' ? 7 : 0, rankOf(m.from)), t: 'r' }]
+        : [{ sq: m.from, t: piece.t }];
+      this.shadows = { ...this.shadows, [piece.c]: left };
+    }
 
     if (m.drop) {
       this.pockets[piece.c][m.drop]--;
@@ -1168,6 +1225,7 @@ class Chess {
 
     if (h.pocketed) this.pockets[h.turn][h.pocketed]--;
     if (h.checks) this.checks = h.checks;
+    if (h.shadows) this.shadows = { ...this.shadows, [h.shadows.c]: h.shadows.list };
     this.dealt = h.dealt || null;
     this.castling = h.castling;
     this.ep = h.ep;

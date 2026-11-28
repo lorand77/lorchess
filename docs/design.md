@@ -9,7 +9,7 @@ repo are in `docs/CLAUDE.md`.
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
 standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of
-the Hill, Three-check, Gambling Madness, Fog of War or infinite chess, on a board with no edges. Around the games: puzzles, an
+the Hill, Three-check, Gambling Madness, Fog of War, Shadow Chess or infinite chess, on a board with no edges. Around the games: puzzles, an
 analysis board, achievements, friends, a leaderboard, spectating, in-game chat
 and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
 browser, no build step.
@@ -30,7 +30,7 @@ browser, no build step.
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
 squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill,
-Three-check, Gambling Madness, Fog of War and Bughouse rule sets.
+Three-check, Gambling Madness, Fog of War, Shadow Chess and Bughouse rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
 its variant needs. Four-player chess has a third, `src/shared/fourPlayer.js`. `src/shared/lorfish.js` is **LorFish**, a synchronous search
@@ -360,6 +360,35 @@ bare king can still take a king that blunders into it.
   switching sides, and the whole game on every page once it ends; a game
   against LorFish drawn as your side sees it; the replay whole and as each
   side saw it; the lobby offering it in both pickers.
+
+**Shadow Chess** is ours: a piece that moves leaves a shadow on the square it
+left (castling leaves two, the king's and the rook's), and no piece may land
+on a shadow, though sliders pass through and knights over it. A shadow lasts
+through the other side's reply and its owner's next move, then lifts. Check,
+mate, stalemate and the draws are ordinary chess's with shadows counted, so
+a king can't escape onto one, nor a piece block a check there, and a shadow
+can help mate.
+- *In the engine* (`isShadow`): `shadows` holds each side's from its last
+  move, `{ w: [{ sq, t }], b: [...] }` (the type, to draw it). `legalMoves`
+  is the ordinary list less the moves that land on one, a castling rook's
+  square included. `makeMove` replaces the mover's shadows with the squares it
+  leaves and keeps the old ones, with their colour, for `undoMove`: the side
+  not on move has its moves tried too, and its undo must restore its own. A
+  shadow's square is always empty, since nothing lands there. The shadows are
+  part of `positionKey`, so the same pieces with other shadows are no
+  repetition. A FEN carries none: every game, the server's rooms, the page,
+  the worker and the replay, is replayed from its moves, which rebuild them.
+  `shadowList()` gives `{ sq, piece, left }` for drawing, `left` the moves a
+  shadow still blocks (2 on the other side's turn, 1 on its owner's).
+- *The boards* (`gridBoardView.js`, `replay.js`) draw a shadow as a faded,
+  greyed copy of the piece that left, with `left` in its corner. LorFish
+  needs nothing: it searches `legalMoves`.
+- Casual, from the standard setup, a handicap allowed, no review; its badge
+  is `shadow_wins`, "Shadow Walker", and "Jack of All Trades" asks for it.
+  Tested in `test/unit/shadow.test.js` (lifetime, sliding through, castling,
+  a mate a shadow makes, undo, repetition, LorFish),
+  `test/integration/shadow.games.test.js` (the server refusing a move onto a
+  shadow until it lifts) and `test/browser/shadow.test.cjs`.
 
 **Bughouse** is a variant in the lobby like any other, picked from the same
 Variant lists. Picked in "Play the computer" it starts a match at once, you

@@ -24,6 +24,8 @@
 //     hill         the centre squares to mark (King of the Hill), or null
 //     fog          the squares seen (Fog of War): every other one is fogged,
 //                  or null for none
+//     shadows      Shadow Chess's shadows, [{ sq, piece, left }]: a faded copy
+//                  of the piece that left, with the moves it still blocks
 //     hints        Map of square -> 'move' | 'capture' | 'premove'
 //     animation    the move to animate, as ui.js planned it, or null
 //   and returns whether that animation is still running.
@@ -58,7 +60,8 @@ window.GridBoardView = (function () {
 
     function render(state) {
       boardEl.innerHTML = '';
-      const { pieces, flip, lastMove, premove, selected, check, mustCapture, hill, fog, hints } = state;
+      const { pieces, flip, lastMove, premove, selected, check, mustCapture, hill, fog, shadows, hints } = state;
+      const shadowOn = new Map((shadows || []).map((s) => [s.sq, s]));
       for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
           // row/col are visual indices (0=top/left). Translate to board r/f.
@@ -89,6 +92,22 @@ window.GridBoardView = (function () {
             c.className = 'coord file';
             c.textContent = String.fromCharCode(97 + f);
             div.appendChild(c);
+          }
+
+          const shade = shadowOn.get(sq);
+          if (shade) {
+            div.classList.add('shadow');
+            const ghost = document.createElement('img');
+            ghost.src = handlers.pieceSrc(shade.piece);
+            ghost.className = 'shadow-piece' + (shade.piece.t === 'p' ? ' pawn' : '');
+            ghost.draggable = false;
+            ghost.alt = '';
+            div.appendChild(ghost);
+            const n = document.createElement('span');
+            n.className = 'shadow-left';
+            n.textContent = String(shade.left);
+            n.title = shade.left === 1 ? 'Blocks one more move' : 'Blocks two more moves';
+            div.appendChild(n);
           }
 
           const piece = pieces[sq];
