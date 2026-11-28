@@ -9,7 +9,7 @@ repo are in `docs/CLAUDE.md`.
 LorChess is a chess web app. Signed-in users play **LorFish** (the built-in
 engine) or **each other in real time**, with server-side clocks and Elo, in
 standard chess, Chess960, Atomic, Pawn Wars, Crazyhouse, Antichess, King of
-the Hill, Three-check, Gambling Madness, Fog of War, Shadow Chess or infinite chess, on a board with no edges. Around the games: puzzles, an
+the Hill, Three-check, Gambling Madness, Fog of War, Shadow Chess, Duck Chess or infinite chess, on a board with no edges. Around the games: puzzles, an
 analysis board, achievements, friends, a leaderboard, spectating, in-game chat
 and a promo-code membership. Node.js + SQLite on the server, vanilla JS in the
 browser, no build step.
@@ -30,7 +30,7 @@ browser, no build step.
 `src/shared/chess.js` is a framework-agnostic `Chess` class: move generation,
 legality, FEN, SAN, draw/mate detection, Chess960 castling from arbitrary
 squares, and the Atomic, Pawn Wars, Crazyhouse, Antichess, King of the Hill,
-Three-check, Gambling Madness, Fog of War, Shadow Chess and Bughouse rule sets.
+Three-check, Gambling Madness, Fog of War, Shadow Chess, Duck Chess and Bughouse rule sets.
 Infinite chess, whose board has no edges, has an engine of its own,
 `src/shared/infiniteChess.js`; `src/shared/engines.js` gives each game the one
 its variant needs. Four-player chess has a third, `src/shared/fourPlayer.js`. `src/shared/lorfish.js` is **LorFish**, a synchronous search
@@ -389,6 +389,61 @@ can help mate.
   a mate a shadow makes, undo, repetition, LorFish),
   `test/integration/shadow.games.test.js` (the server refusing a move onto a
   shadow until it lifts) and `test/browser/shadow.test.cjs`.
+
+**Duck Chess** (chess.com's rules): a turn is a move and then the duck, which
+must go to an empty square other than the one it is on (the first turn puts
+it on the board). The duck blocks every piece: none may land on it or slide
+through it, nor take it, though a knight may jump it. There is no check or
+mate: a king may step into attack and castle through it, and taking the king
+wins (`king captured`, and that turn needs no duck). A side with no legal
+move wins (`no moves`). Threefold and the fifty-move rule draw; material
+never runs out.
+- *In the engine* (`isDuck`): `duck` is its square, null before the first
+  turn. `legalMoves` is the piece moves alone, generated with the duck on its
+  square as a frozen piece of no side (`DUCK`), so the ordinary rules stop a
+  slider there, keep everything off it and never take it; the castling path
+  check sees it too. A move carries the duck's new square as `duck`:
+  `duckSquares(m)` is where it may go after piece move `m`, and `withDuck(m,
+  sq)` the whole turn or null. `makeMove` moves the duck if the move says
+  where (a search's move without one leaves it) and `undoMove` puts it back.
+  The duck is in `positionKey`. FEN writes it as `*` on the board; UCI as `@`
+  and its square after the move (`g1f3@d5`), which `moveFromUci` checks
+  through `withDuck` (any other variant refuses a duck); SAN likewise
+  (`Nf3@d5`).
+- *LorFish* searches with the duck still: a duck move a ply would multiply
+  the tree some sixtyfold. Once it has its move, `placeDuck` tries every
+  square the duck may go to and keeps the one that leaves the other side's
+  best answer worst by the capture search, so it blocks a threat to its king
+  or a piece first. No duck after taking the king.
+- Tested in `test/unit/duck.test.js`: the duck blocking, placed and moved,
+  the rules without check, the notation, twenty random games keeping the
+  duck's rules with undo exact, and LorFish blocking a threat and taking a
+  king.
+- *On the server* a turn comes as one `move:make`, the move and `duck`
+  together, and `withDuck` checks it whole: a missing duck (but after taking
+  the king), one left where it was, or one on a piece is refused ("Put the
+  duck on an empty square other than the one it is on."). `move:made` carries
+  `duck`; the moves are stored as `g1f3@d5`, so a rebuilt room replays the
+  duck with them, and the position's FEN has it as `*`.
+- *The game page* (`ui.js`): a move chosen by click or drag (a promotion
+  after its piece is picked, a premove when it plays) doesn't go yet unless it
+  takes the king: `startDuckPick` shows it on the board from a copy of the
+  squares, the game itself untouched so the turn and the clocks stay put, and
+  marks the squares the duck may go to (`hints` 'duck'). A click on one sends
+  the move and the duck as one turn (`doHumanMove` with `withDuck`; the move
+  is not slid in again when it comes back); any other click, a right-click or
+  Escape takes it back, and so does Undo. The duck (`/assets/duck.svg`, drawn
+  by `tools/pieces/build.js`) is drawn by the board view (`duck`), the
+  replay, and the lobby's previews (`*` in the FEN). A move from the server
+  or from LorFish's worker carries its `duck`, and `applyMove` checks it with
+  `withDuck`.
+- Casual, from the standard setup, a handicap allowed, no review; its badge is
+  `duck_wins`, "Odd Duck", and "Jack of All Trades" asks for it. Tested over
+  the socket in `test/integration/duck.games.test.js` (refusals, the
+  broadcast and the record, a restart, a king taken) and in Chromium in
+  `test/browser/duck.test.cjs` (against LorFish: the duck marked, placed and
+  moved, a move taken back; between people: the duck seen and blocking; the
+  replay).
 
 **Bughouse** is a variant in the lobby like any other, picked from the same
 Variant lists. Picked in "Play the computer" it starts a match at once, you

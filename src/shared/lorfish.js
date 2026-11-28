@@ -640,7 +640,34 @@ const LorFish = {
     console.log(`LorFish evals (${side} to move, ${depthStr}${hotStr}):`);
     for (const e of sorted) console.log(`  ${e.san.padEnd(8)} ${e.v}  [raw=${e.raw}]`);
     console.log(`played=${best ? best.san : '-'} nodes=${this.nodes} time=${dt}s maxQ=${this.maxQ}`);
-    return best ? best.move : null;
+    if (!best) return null;
+    // Duck Chess: the move, then the duck (none after taking the king).
+    if (chess.isDuck) {
+      const target = chess.squares[best.move.to];
+      if (!(target && target.t === 'k')) return { ...best.move, duck: this.placeDuck(chess, best.move) };
+    }
+    return best.move;
+  },
+
+  // Duck Chess: where to put the duck after `move`. The search keeps the duck
+  // where it is (a duck move a ply would multiply the tree sixtyfold), so it
+  // is placed here, on the square that leaves the other side's best answer
+  // worst, judged by the capture search: it blocks a threat to the king or a
+  // piece first. Ties go to the first square, a1 onwards.
+  placeDuck(chess, move) {
+    const squares = chess.duckSquares(move);
+    chess.makeMove(move, false);
+    let best = squares[0], bestScore = Infinity;
+    try {
+      for (const sq of squares) {
+        chess.duck = sq;
+        const score = this.quiescence(chess, -Infinity, Infinity, 0);   // the other side's view
+        if (score < bestScore) { bestScore = score; best = sq; }
+      }
+    } finally {
+      chess.undoMove();   // the duck goes back with the move
+    }
+    return best;
   },
 
   // Deterministic assessment of one position, used by the test suite and its

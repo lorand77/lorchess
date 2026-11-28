@@ -51,13 +51,16 @@ self.onmessage = (e) => {
       // destination alone can also be a plain king step (see Chess.findMove).
       // A Crazyhouse drop names its piece and has no square it leaves. An
       // infinite-chess castling is the king's two-square step, which its
-      // findMove reads as castling (it has no rookFrom).
+      // findMove reads as castling (it has no rookFrom). Duck Chess moves
+      // replay with their ducks ("g1f3@d5").
       move: move
         ? {
             from: move.from,
             to: move.castle && move.rookFrom != null ? move.rookFrom : move.to,
             promo: move.promo || null,
             drop: move.drop || null,
+            // Duck Chess: where LorFish puts the duck (none after taking the king).
+            ...(move.duck != null ? { duck: move.duck } : {}),
           }
         : null,
     });

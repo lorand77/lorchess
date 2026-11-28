@@ -337,6 +337,14 @@ function renderBoard() {
         c.textContent = String.fromCharCode(97 + f);
         div.appendChild(c);
       }
+      if (chess.isDuck && chess.duck === sq) {
+        const d = document.createElement("img");
+        d.src = "/assets/duck.svg";
+        d.className = "duck-piece";
+        d.draggable = false;
+        d.alt = "duck";
+        div.appendChild(d);
+      }
       const shade = shadowOn.get(sq);
       if (shade) {
         const ghost = document.createElement("img");

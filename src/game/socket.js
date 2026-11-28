@@ -823,8 +823,13 @@ function handleMove(io, socket, payload, ack) {
     return reply(ack, { ok: false, error: "Illegal move." });
   }
   if (room.four && !isFourMove(payload)) return reply(ack, { ok: false, error: "Illegal move." });
-  const move = drop ? room.chess.findDrop(drop, to) : room.chess.findMove(from, to, promo);
+  let move = drop ? room.chess.findDrop(drop, to) : room.chess.findMove(from, to, promo);
   if (!move) return reply(ack, { ok: false, error: wrongPiece(room, from) || "Illegal move." });
+  // Duck Chess: the turn is the move and the duck together, checked whole.
+  if (room.chess.isDuck) {
+    move = room.chess.withDuck(move, payload.duck);
+    if (!move) return reply(ack, { ok: false, error: "Put the duck on an empty square other than the one it is on." });
+  }
 
   playMove(io, room, color, move, {
     byUser: socket.userId, premove: !!(payload && payload.premove), from, to, ack,
@@ -943,6 +948,8 @@ function playMove(io, room, color, move, { byUser, premove: claimed, from, to, a
     passed,
     // Gambling Madness: the type the side now to move must move.
     dealt: room.chess.dealt || null,
+    // Duck Chess: where the duck went (none after taking the king).
+    duck: move.duck != null ? move.duck : null,
   });
 
   lobby.nudge(io); // keep the lobby's board previews roughly current

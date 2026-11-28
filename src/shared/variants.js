@@ -90,6 +90,11 @@ const VARIANTS = [
   // the standard setup; a handicap leaves the rule alone. Casual while new.
   { key: 'shadow', label: 'Shadow Chess', standardSetup: true, reviewable: false, rateable: false,
     materialBadges: true, moveBadges: true, bot: true },
+  // A move, then the duck to an empty square; the duck blocks every piece, and
+  // taking the king wins (chess.js isDuck, chess.com's rules). Opens from the
+  // standard setup; a handicap leaves the rule alone. Casual while new.
+  { key: 'duck', label: 'Duck Chess', standardSetup: true, reviewable: false, rateable: false,
+    materialBadges: true, moveBadges: true, bot: true },
   // Two boards, two teams of two: a capture goes to the partner on the other
   // board (src/shared/bughouse.js, src/game/matches.js). `teams` keeps it out
   // of everything that seats two players — the lobby's pickers, quick match,

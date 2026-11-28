@@ -26,6 +26,8 @@
 //                  or null for none
 //     shadows      Shadow Chess's shadows, [{ sq, piece, left }]: a faded copy
 //                  of the piece that left, with the moves it still blocks
+//     duck         Duck Chess's duck: its square, or null
+//   hints may also mark 'duck': a square the duck may be put on.
 //     hints        Map of square -> 'move' | 'capture' | 'premove'
 //     animation    the move to animate, as ui.js planned it, or null
 //   and returns whether that animation is still running.
@@ -60,7 +62,7 @@ window.GridBoardView = (function () {
 
     function render(state) {
       boardEl.innerHTML = '';
-      const { pieces, flip, lastMove, premove, selected, check, mustCapture, hill, fog, shadows, hints } = state;
+      const { pieces, flip, lastMove, premove, selected, check, mustCapture, hill, fog, shadows, duck, hints } = state;
       const shadowOn = new Map((shadows || []).map((s) => [s.sq, s]));
       for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
@@ -108,6 +110,15 @@ window.GridBoardView = (function () {
             n.textContent = String(shade.left);
             n.title = shade.left === 1 ? 'Blocks one more move' : 'Blocks two more moves';
             div.appendChild(n);
+          }
+
+          if (duck === sq) {
+            const d = document.createElement('img');
+            d.src = '/assets/duck.svg';
+            d.className = 'duck-piece';
+            d.draggable = false;
+            d.alt = 'duck';
+            div.appendChild(d);
           }
 
           const piece = pieces[sq];

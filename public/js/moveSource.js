@@ -163,6 +163,8 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
             // king's destination on its own can be ambiguous with a quiet move.
             to: move.castle && move.rookFrom != null ? move.rookFrom : move.to,
             promo: move.promo || null,
+            // Duck Chess: where the duck goes, sent with the move as one turn.
+            ...(move.duck != null ? { duck: move.duck } : {}),
             premove,
           },
         (resp) => {
@@ -177,7 +179,7 @@ function createRemoteMoveSource(env, { socket, gameId, yourColor }) {
     // mover — so BOTH players apply moves only here. Single source of truth.
     onServerMove(m) {
       busy = false;
-      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false, fromServer(m));
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop, duck: m.duck }, false, fromServer(m));
     },
     kickIfEngineTurn() {}, // no engine in PvP
     cancel() {
@@ -204,7 +206,7 @@ function createSpectatorMoveSource(env) {
     },
     submitMove() {},
     onServerMove(m) {
-      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop }, false, fromServer(m));
+      env.applyMove({ from: m.from, to: m.to, promo: m.promo, drop: m.drop, duck: m.duck }, false, fromServer(m));
     },
     kickIfEngineTurn() {},
     cancel() {},

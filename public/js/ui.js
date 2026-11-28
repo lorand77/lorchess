@@ -124,9 +124,12 @@ const env = {
 // (AI mode only); in PvP the server already persisted it.
 function applyMove(rmove, record, opts) {
   if (opts && opts.view) return applyFogMove(rmove, opts);
-  const move = rmove.drop
+  let move = rmove.drop
     ? chess.findDrop(rmove.drop, rmove.to)
     : chess.findMove(rmove.from, rmove.to, rmove.promo);
+  // Duck Chess: the duck's square goes with the move (none after taking the
+  // king); withDuck checks it.
+  if (chess.isDuck) move = chess.withDuck(move, rmove.duck == null ? null : rmove.duck);
   if (!move) {
     console.error('Move is not legal here:', rmove);
     return;
@@ -635,6 +638,9 @@ function infiniteHints() {
 }
 
 function render() {
+  // Duck Chess: a move waiting for its duck lapses once the game is over (a
+  // flag, a resignation) or a new board is up.
+  if (duckPick && (gameIsOver() || chess.turn !== humanColor)) duckPick = null;
   const inCheckNow = chess.inCheck();
   // The board shows what this describes (gridBoardView.js draws it), and
   // says whether the move it was asked to animate is still moving.
@@ -643,9 +649,10 @@ function render() {
   // Fog of War against LorFish: only what the player's side sees.
   const seen = !infinite && aiFogOn() ? chess.visibleSquares(humanColor) : null;
   const animating = boardView.render({
-    pieces: infinite ? chess.board : seen ? chess.squares.map((p, sq) => (seen.has(sq) ? p : null)) : chess.squares,
+    pieces: infinite ? chess.board : duckPick ? duckPick.preview
+      : seen ? chess.squares.map((p, sq) => (seen.has(sq) ? p : null)) : chess.squares,
     flip: humanColor === B,
-    lastMove: seen && lastMove
+    lastMove: duckPick ? duckPick.move : seen && lastMove
       ? { from: seen.has(lastMove.from) ? lastMove.from : null, to: seen.has(lastMove.to) ? lastMove.to : null }
       : lastMove,
     premove,
@@ -659,7 +666,9 @@ function render() {
     fog: infinite ? null : seen || chess.fogVisible || null,
     // Shadow Chess: the squares no piece may land on, for now.
     shadows: infinite ? null : chess.shadowList ? chess.shadowList() : null,
-    hints: infinite ? infiniteHints() : selectionHints(),
+    hints: infinite ? infiniteHints() : duckPick ? new Map([...duckPick.squares].map((sq) => [sq, 'duck'])) : selectionHints(),
+    // Duck Chess: the duck, where it stands until this turn moves it.
+    duck: !infinite && chess.isDuck ? chess.duck : null,
     animation: moveAnim,
   });
   if (!animating) moveAnim = null;
@@ -672,6 +681,9 @@ function render() {
   } else if (gameIsOver()) {
     turnEl.textContent = '';
     turnEl.className = '';
+  } else if (duckPick) {
+    turnEl.textContent = '🦆 Now put the duck on a marked square — or click elsewhere to take the move back';
+    turnEl.className = 'duck-turn';
   } else {
     let t = 'Turn: ' + (chess.turn === W ? 'White' : 'Black');
     if (pvpMode && !spectating) t += chess.turn === humanColor ? ' — your move' : ' — waiting…';
@@ -842,7 +854,7 @@ function useVariant(variant) {
 // May the user pick up whatever is standing on this square right now? Shared by
 // click-to-move and drag-and-drop, so the two can never disagree.
 function canPickUp(sq) {
-  if (promotionPending || gameIsOver()) return false;
+  if (promotionPending || duckPick || gameIsOver()) return false;
   if (!canMoveNow() && !canPremove()) return false;
   const piece = pieceOn(sq);
   if (!piece || piece.c !== humanColor) return false;
@@ -1093,6 +1105,7 @@ const boardHandlers = {
   onSquareClick: (sq) => onSquareClick(sq),
   // Right-click: drop the selection and any queued premove (chess.com habit).
   onContextMenu(e) {
+    if (duckPick) { e.preventDefault(); cancelDuckPick(); return; }
     if (selected === null && !dropSelected && !premove && !promotionPending) return;
     e.preventDefault();
     cancelPromotion();
@@ -1134,6 +1147,12 @@ capturedBottomEl.addEventListener('click', (e) => {
 });
 
 function onSquareClick(sq) {
+  // Duck Chess: putting the duck down, or taking the move back.
+  if (duckPick) {
+    if (duckPick.squares.has(sq)) finishDuckPick(sq);
+    else cancelDuckPick();
+    return;
+  }
   if (promotionPending || gameIsOver()) return;
   if (!canMoveNow() && !canPremove()) return;
 
@@ -1165,7 +1184,46 @@ function onSquareClick(sq) {
 // Hand the human's chosen move to the active source. The source owns what
 // happens next (AI: apply + engine reply; PvP: emit and await server echo).
 function doHumanMove(move, opts) {
+  // Duck Chess: a move that doesn't take the king waits for its duck.
+  if (chess.isDuck && move.duck == null && !takesKing(move)) return startDuckPick(move, opts);
   if (moveSource) moveSource.submitMove(move, opts || {});
+}
+
+// ---- Duck Chess: putting the duck down ----
+// A chosen move is shown on the board, the game itself untouched (so the turn
+// and the clocks stay put), and the squares the duck may go to are marked. A
+// click on one sends the move and the duck as one turn; any other click, a
+// right-click or Escape takes the move back. A premove waits here too: the
+// duck is always placed by hand.
+let duckPick = null;   // { move, opts, squares: Set, preview: the 64 squares after the move }
+
+const takesKing = (move) => !!(chess.squares[move.to] && chess.squares[move.to].t === 'k');
+
+function startDuckPick(move, opts) {
+  chess.makeMove(move, false);
+  const preview = chess.squares.slice();
+  chess.undoMove();
+  planMoveAnimation(move);
+  duckPick = { move, opts: opts || {}, squares: new Set(chess.duckSquares(move)), preview };
+  clearSelection();
+  render();
+}
+
+function finishDuckPick(sq) {
+  const { move, opts } = duckPick;
+  duckPick = null;
+  // It has slid into place already: don't slide it again when it comes back.
+  noAnimMove = { from: move.from, to: move.to };
+  doHumanMove(chess.withDuck(move, sq), opts);
+  render();
+}
+
+function cancelDuckPick() {
+  if (!duckPick) return false;
+  duckPick = null;
+  moveAnim = null;
+  render();
+  return true;
 }
 
 function showPromotionDialog() {
@@ -1211,6 +1269,7 @@ function undo() {
   // result has been recorded (and achievements handed out), and the record
   // must not be rewritten from the board. A new game starts afresh.
   if (thinking || pvpMode || chess.isGameOver()) return;
+  if (cancelDuckPick()) return;   // Duck Chess: first, the move waiting for its duck
   hideEngineError(); // the failure was about a position that is being taken back
   promotionPending = null;
   promoEl.classList.remove('show');
@@ -1349,6 +1408,7 @@ document.addEventListener('keydown', e => {
   const tag = e.target && e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return; // typing in chat / FEN box
   if (e.key === 'Escape' && promotionPending) { cancelPromotion(); return; }
+  if (e.key === 'Escape' && duckPick) { cancelDuckPick(); return; }
   if (fenPanel.classList.contains('show')) {
     if (e.key === 'Escape') fenPanel.classList.remove('show');
     return;

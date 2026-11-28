@@ -17,6 +17,8 @@ window.MiniBoard = (function () {
   function pieceSrc(ch) {
     const color = ch === ch.toUpperCase() ? "w" : "b";
     const type = ch.toLowerCase();
+    // Duck Chess's duck, written "*" in its FEN.
+    if (ch === "*") return "/assets/duck.svg";
     if (!PIECE_FILES[type]) return null;
     if (window.Theme && Theme.pieceSrc) return Theme.pieceSrc(color, type);
     return "/assets/" + color + "_" + PIECE_FILES[type] + "_1x_ns.png";
@@ -39,7 +41,7 @@ window.MiniBoard = (function () {
           file += Number(ch);
           continue;
         }
-        if (file > 7 || !PIECE_FILES[ch.toLowerCase()]) return null;
+        if (file > 7 || (ch !== "*" && !PIECE_FILES[ch.toLowerCase()])) return null;
         squares[rank * 8 + file] = ch;
         file++;
       }

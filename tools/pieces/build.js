@@ -1,8 +1,9 @@
 "use strict";
 
 // Draws LorChess's own piece set, "LorChess Staunton", into
-// public/assets/pieces/lorchess/ as twelve SVGs (wK.svg ... bP.svg). Run by
-// hand after changing a shape or a colour:
+// public/assets/pieces/lorchess/ as twelve SVGs (wK.svg ... bP.svg), and Duck
+// Chess's duck (public/assets/duck.svg). Run by hand after changing a shape or
+// a colour:
 //
 //   node tools/pieces/build.js
 //
@@ -128,3 +129,20 @@ for (const c of ["w", "b"]) {
   }
 }
 console.log("wrote 12 pieces to", path.relative(process.cwd(), OUT));
+
+// Duck Chess's duck, the same in every set: a yellow duck facing left, outlined
+// like the pieces so it reads on light and dark squares.
+const DUCK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">` +
+  `<defs><linearGradient id="duck" x1="0.2" y1="0" x2="0.8" y2="1">` +
+  `<stop offset="0" stop-color="#ffe36b"/><stop offset="1" stop-color="#f0b419"/></linearGradient></defs>` +
+  // Body and tail, then the head, the beak, the wing and the eye.
+  `<path d="M24 66 C24 54 36 48 50 50 C60 51 66 48 72 42 C76 52 82 52 86 46 C88 62 80 82 56 84 C36 85 24 78 24 66 Z"` +
+  ` fill="url(#duck)" stroke="#2a241c" stroke-width="3" stroke-linejoin="round"/>` +
+  `<path d="M32 34 m-15 0 a15 15 0 1 0 30 0 a15 15 0 1 0 -30 0 Z" transform="translate(6 2)"` +
+  ` fill="url(#duck)" stroke="#2a241c" stroke-width="3"/>` +
+  `<path d="M24 37 C17 36 11 38 8 41 C12 44 18 45 24 43 Z" fill="#f28a1e" stroke="#2a241c" stroke-width="2.6" stroke-linejoin="round"/>` +
+  `<path d="M48 62 C56 58 66 59 72 64 C66 71 56 72 48 68 Z" fill="#e9a812" stroke="#2a241c" stroke-width="2.4" stroke-linejoin="round"/>` +
+  `<circle cx="35" cy="31" r="3.2" fill="#2a241c"/>` +
+  `</svg>\n`;
+fs.writeFileSync(path.join(OUT, "../../duck.svg"), DUCK_SVG);
+console.log("wrote the duck to", path.relative(process.cwd(), path.join(OUT, "../../duck.svg")));

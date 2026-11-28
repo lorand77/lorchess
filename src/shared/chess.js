@@ -14,6 +14,8 @@ const inBoard = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
 const squaresTouch = (a, b) =>
   Math.abs(fileOf(a) - fileOf(b)) <= 1 && Math.abs(rankOf(a) - rankOf(b)) <= 1;
 const PIECE_NAMES = { p:'pawn', n:'knight', b:'bishop', r:'rook', q:'queen', k:'king' };
+// Duck Chess: the duck as move generation sees it, a piece of no side.
+const DUCK = Object.freeze({ t: 'x', c: 'x' });
 // What a Crazyhouse pocket can hold, in the order FEN writes it. Never a king.
 const POCKET_TYPES = ['q', 'r', 'b', 'n', 'p'];
 // King of the Hill's centre: d4, e4, d5, e5.
@@ -32,7 +34,8 @@ class Chess {
     // 'threecheck' a win by giving check three times; 'gambling' deals each
     // turn the piece type to move; 'fog' hides what your pieces can't reach
     // and is won by taking the king; 'shadow' leaves a shadow where a piece
-    // stood, which nothing may land on for a while; 'bughouse' is one board
+    // stood, which nothing may land on for a while; 'duck' adds a duck each
+    // side must move after its move, blocking every piece; 'bughouse' is one board
     // of a two-board team game, its captures passed to a partner. Set it with
     // setVariant(), then reset() or loadFen(): those two deliberately leave the
     // rules alone, so loading a position never silently changes them, and they
@@ -42,7 +45,7 @@ class Chess {
   }
 
   setVariant(name) {
-    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'gambling', 'fog', 'shadow', 'bughouse'].includes(name) ? name : 'standard';
+    this.variant = ['atomic', 'pawnwars', 'crazyhouse', 'antichess', 'kingofthehill', 'threecheck', 'gambling', 'fog', 'shadow', 'duck', 'bughouse'].includes(name) ? name : 'standard';
     return this;
   }
 
@@ -259,6 +262,62 @@ class Chess {
     return out;
   }
 
+  // Duck Chess (chess.com's rules): a turn is a move and then the duck, which
+  // must go to an empty square other than the one it is on (the first turn
+  // puts it on the board). The duck blocks every piece: none may land on it
+  // or slide through it, nor take it, though a knight may jump it. There is
+  // no check or mate: a king may step into attack and castle out of, through
+  // or into it, and taking the king wins. A side with no legal move wins.
+  // Threefold and the fifty-move rule draw; material never runs out.
+  //
+  // `duck` is its square, or null before the first turn. A move carries the
+  // duck's new square as `duck` (withDuck checks it); `legalMoves` gives the
+  // piece moves alone, and `duckSquares(m)` where the duck may go after one.
+  // A move taking the king needs no duck: the game is over. FEN writes the
+  // duck as "*" on the board; UCI as "@" and its square after the move,
+  // "g1f3@d5".
+  get isDuck() { return this.variant === 'duck'; }
+
+  // The piece moves of `c`, the duck in the way. While they are generated the
+  // duck stands on its square as a piece of no side, so the ordinary rules
+  // stop a slider at it, keep everything off it and never take it.
+  duckMoves(c) {
+    if (this.kingMissing(W) || this.kingMissing(B)) return [];
+    const duck = this.duck;
+    if (duck != null) this.squares[duck] = DUCK;
+    try {
+      const moves = [];
+      for (let sq = 0; sq < 64; sq++) {
+        const p = this.squares[sq];
+        if (p && p.c === c) moves.push(...this.pseudoMovesFrom(sq, c));
+      }
+      return moves;
+    } finally {
+      if (duck != null) this.squares[duck] = null;
+    }
+  }
+
+  // Where the duck may go after piece move `m`: any square then empty but the
+  // one it is on (the square the piece left included).
+  duckSquares(m) {
+    this.makeMove(m, false);
+    const out = [];
+    for (let sq = 0; sq < 64; sq++) if (!this.squares[sq] && sq !== this.duck) out.push(sq);
+    this.undoMove();
+    return out;
+  }
+
+  // Piece move `m` with the duck to `duck`: the whole turn, or null if the
+  // duck can't go there. Taking the king ends the game, so it needs no duck.
+  // In any other variant only a move without a duck stands.
+  withDuck(m, duck) {
+    if (!m) return null;
+    if (!this.isDuck) return duck == null ? m : null;
+    const target = this.squares[m.to];
+    if (duck == null) return target && target.t === 'k' ? m : null;
+    return Number.isInteger(duck) && this.duckSquares(m).includes(duck) ? { ...m, duck } : null;
+  }
+
   movesPastTheEnd() {
     this.ignoreCheckLimit = true;
     try { return this.legalMoves(); } finally { this.ignoreCheckLimit = false; }
@@ -381,6 +440,7 @@ class Chess {
     this.dealt = null;
     this.fogVisible = null;
     this.shadows = this.isShadow ? { [W]: [], [B]: [] } : null;
+    this.duck = null;
     this.turn = W;
     // Nothing to castle with in Pawn Wars, and claiming rights would put a
     // meaningless "KQkq" in every FEN it produces. Antichess forbids it.
@@ -422,6 +482,7 @@ class Chess {
     }
 
     const newSquares = new Array(64).fill(null);
+    let duckAt = null;
     const ranks = boardField.split('/');
     if (ranks.length !== 8) throw new Error('FEN must have 8 ranks separated by "/"');
 
@@ -438,6 +499,13 @@ class Chess {
           const c = ch === ch.toUpperCase() ? W : B;
           last = { t: ch.toLowerCase(), c };
           newSquares[sqIdx(f, r)] = last;
+          f++;
+        } else if (ch === '*' && this.isDuck) {
+          // Duck Chess: the duck, one at most.
+          if (f >= 8) throw new Error(`FEN rank ${8 - i} overflows 8 files`);
+          if (duckAt != null) throw new Error('FEN: one duck at most');
+          duckAt = sqIdx(f, r);
+          last = null;
           f++;
         } else if (ch === '~' && this.hasPockets) {
           // Only a piece a pawn could have become can be marked, and only once.
@@ -463,7 +531,7 @@ class Chess {
     // In Fog of War a king may be gone (taken: the game is over) or out of
     // sight (a fogView), so at most one.
     const kingsWrong = this.isPawnWars ? (wKings || bKings)
-      : this.isFog ? (wKings > 1 || bKings > 1)
+      : this.isFog || this.isDuck ? (wKings > 1 || bKings > 1)
         : (wKings !== 1 || bKings !== 1);
     if (!this.isAntichess && kingsWrong) {
       throw new Error(this.isPawnWars
@@ -540,6 +608,7 @@ class Chess {
     this.dealt = null;
     this.fogVisible = null;
     this.shadows = this.isShadow ? { [W]: [], [B]: [] } : null;
+    this.duck = duckAt;
     this.history = [];
     this.positionCounts = new Map();
     this.positionCounts.set(this.positionKey(), 1);
@@ -675,6 +744,8 @@ class Chess {
     if (this.checks) s += '|' + this.checks[W] + this.checks[B];
     // In Shadow Chess the shadows are too: they decide where pieces may go.
     if (this.shadows) s += '|' + [W, B].map((c) => this.shadows[c].map((x) => x.sq).join(',')).join('/');
+    // In Duck Chess the duck is.
+    if (this.isDuck) s += '|' + this.duck;
     s += '|' + this.turn;
     s += '|' + (this.castling.K ? 'K' : '') + (this.castling.Q ? 'Q' : '')
             + (this.castling.k ? 'k' : '') + (this.castling.q ? 'q' : '');
@@ -692,6 +763,11 @@ class Chess {
       let empty = 0;
       for (let f = 0; f < 8; f++) {
         const p = this.squares[sqIdx(f, r)];
+        if (this.duck === sqIdx(f, r)) {
+          if (empty) { board += empty; empty = 0; }
+          board += '*';
+          continue;
+        }
         if (!p) { empty++; continue; }
         if (empty) { board += empty; empty = 0; }
         board += p.c === W ? p.t.toUpperCase() : p.t;
@@ -892,7 +968,7 @@ class Chess {
 
   inCheck(c) {
     if (this.isAntichess) return false; // no king to keep safe
-    if (this.isFog) return false;       // no check: a king may be taken
+    if (this.isFog || this.isDuck) return false; // no check: a king may be taken
     if (c === undefined) c = this.turn;
     const king = this.findKing(c);
     if (king === -1) return false;
@@ -938,6 +1014,7 @@ class Chess {
       return this.movesIgnoringDeal(forColor).filter((m) => this.squares[m.from].t === t);
     }
     if (this.isFog) return this.fogMoves(c);
+    if (this.isDuck) return this.duckMoves(c);
     // With a king already gone the game is over; offering moves would let a
     // search play on past the end.
     if (this.isAtomic && (this.kingMissing(W) || this.kingMissing(B))) return [];
@@ -1095,6 +1172,12 @@ class Chess {
     this.history.push(histEntry);
     // Gambling Madness: the next turn is dealt afresh.
     this.dealt = null;
+    // Duck Chess: the duck goes where the move says (a move with none, as a
+    // search may try, leaves it where it is).
+    if (this.isDuck) {
+      histEntry.duck = this.duck;
+      if (m.duck != null) this.duck = m.duck;
+    }
     // Shadow Chess: the mover's old shadows lift and the squares it leaves
     // take their place; undoMove puts the old ones back.
     if (this.shadows && !m.drop) {
@@ -1226,6 +1309,7 @@ class Chess {
     if (h.pocketed) this.pockets[h.turn][h.pocketed]--;
     if (h.checks) this.checks = h.checks;
     if (h.shadows) this.shadows = { ...this.shadows, [h.shadows.c]: h.shadows.list };
+    if (h.duck !== undefined) this.duck = h.duck;
     this.dealt = h.dealt || null;
     this.castling = h.castling;
     this.ep = h.ep;
@@ -1267,7 +1351,7 @@ class Chess {
 
   isInsufficientMaterial() {
     // Fog of War: a bare king can still take a king that blunders into it.
-    if (this.isPawnWars || this.isKingOfTheHill || this.isBughouse || this.isFog) return false;
+    if (this.isPawnWars || this.isKingOfTheHill || this.isBughouse || this.isFog || this.isDuck) return false;
     // Three-check: any piece but a king can give check, so only bare kings.
     if (this.isThreeCheck) return this.squares.every((p) => !p || p.t === 'k');
     if (this.pockets) return this.crazyhouseMaterialDead();
@@ -1327,7 +1411,7 @@ class Chess {
     // A king can always win King of the Hill by walking to the centre.
     // Nor can a Bughouse side ever run out: its partner can send it anything.
     // So can a Fog of War king, by taking one that blunders into it.
-    if (this.isAtomic || this.isPawnWars || this.isKingOfTheHill || this.isBughouse || this.isFog) return true;
+    if (this.isAtomic || this.isPawnWars || this.isKingOfTheHill || this.isBughouse || this.isFog || this.isDuck) return true;
     // Three-check: a side that can still give check can still win.
     if (this.isThreeCheck) return this.squares.some((p) => p && p.c === c && p.t !== 'k');
     // Antichess has no mate: a flag loses unless the game could no longer be
@@ -1414,7 +1498,7 @@ class Chess {
   // Fog of War has none: a side with no move at all draws, as termination()
   // names it.
   isStalemate() {
-    if (this.isAntichess || this.isBughouse || this.isFog) return false;
+    if (this.isAntichess || this.isBughouse || this.isFog || this.isDuck) return false;
     if (this.isKingOfTheHill && this.kingOnHill()) return false;
     if (this.isThreeCheck && this.threeCheckWinner()) return false;
     if (this.isPawnWars) {
@@ -1431,6 +1515,14 @@ class Chess {
     return (this.positionCounts.get(this.positionKey()) || 0) >= 5;
   }
   isGameOver() {
+    // Duck Chess: a king taken, no move at all (a win for the side without
+    // one), or the usual two draws.
+    if (this.isDuck) {
+      return this.kingMissing(W) || this.kingMissing(B)
+          || this.legalMoves().length === 0
+          || this.halfmove >= 100
+          || this.isThreefoldRepetition();
+    }
     // Fog of War: a king taken, no move at all, or the usual two draws. A
     // fogView never ends a game: the real board does.
     if (this.isFog) {
@@ -1462,7 +1554,7 @@ class Chess {
   // AI games with it, so the two can't name the same ending differently.
   termination() {
     if (this.isBughouse) return this.isCheckmate() ? 'checkmate' : null;
-    if (this.isFog) {
+    if (this.isFog || this.isDuck) {
       if (!this.isGameOver()) return null;
       if (this.kingMissing(W) || this.kingMissing(B)) return 'king captured';
       if (this.legalMoves().length === 0) return 'no moves';
@@ -1493,6 +1585,15 @@ class Chess {
   }
 
   result() {
+    // Duck Chess: whoever still has a king has won, and a side with no move
+    // has won too; the draws are draws.
+    if (this.isDuck) {
+      if (!this.isGameOver()) return '*';
+      if (this.kingMissing(W)) return '0-1';
+      if (this.kingMissing(B)) return '1-0';
+      if (this.legalMoves().length === 0) return this.turn === W ? '1-0' : '0-1';
+      return '1/2-1/2';
+    }
     // Fog of War: whoever still has a king has won; anything else that ends
     // the game is a draw.
     if (this.isFog) {
@@ -1570,6 +1671,8 @@ class Chess {
     const over = (this.isKingOfTheHill && this.kingOnHill()) || (this.isThreeCheck && this.threeCheckWinner());
     if (this.inCheck()) san += (over || this.isBughouse ? this.isCheckmate() : this.legalMoves().length === 0) ? '#' : '+';
     this.undoMove();
+    // Duck Chess: where the duck went, "Nf3@d5".
+    if (m.duck != null) san += '@' + algOf(m.duck);
     return san;
   }
 }
